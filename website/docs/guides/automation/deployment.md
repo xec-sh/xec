@@ -12,9 +12,9 @@ Deployment automation with Xec's execution engine: deploy applications reliably 
 
 Xec transforms deployment automation by providing:
 - **Unified deployment API** across all environments
-- **Built-in rollback** capabilities
+- **Deployment hooks** for application-specific rollback
 - **Health checking** and verification
-- **Zero-downtime** deployment strategies
+- **Staged deployment** strategies with application health checks
 - **Multi-environment** orchestration
 
 ## Basic Deployment Patterns
@@ -24,13 +24,13 @@ Xec transforms deployment automation by providing:
 ```typescript
 // deploy/simple-deploy.ts
 import { $ } from '@xec-sh/core';
-import { confirm } from '@clack/prompts';
+import { confirm } from '@xec-sh/kit';
 
 async function simpleDeploy() {
   const server = $.ssh({
     host: 'app.example.com',
     username: 'deploy',
-    privateKey: '~/.ssh/deploy_key'
+    privateKeyPath: '~/.ssh/deploy_key'
   });
   
   console.log('📦 Starting deployment...');
@@ -108,7 +108,7 @@ async function gitDeploy(config: GitDeployConfig) {
   // Run post-deploy script if provided
   if (config.postDeploy) {
     console.log('🔧 Running post-deploy script...');
-    await server`cd ${config.deployPath} && ${config.postDeploy}`;
+    await server.cd(config.deployPath)`sh -c ${config.postDeploy}`;
   }
   
   console.log('✅ Git deployment completed!');
@@ -130,6 +130,7 @@ await gitDeploy({
 ```typescript
 // deploy/blue-green.ts
 import { $ } from '@xec-sh/core';
+import { confirm } from '@xec-sh/kit';
 
 class BlueGreenDeployment {
   private currentColor: 'blue' | 'green' = 'blue';
@@ -173,7 +174,7 @@ class BlueGreenDeployment {
       message: 'Remove old deployment?'
     });
     
-    if (cleanup) {
+    if (cleanup === true) {
       await this.cleanupEnvironment(this.currentColor);
     }
   }
@@ -541,6 +542,7 @@ import { $ } from '@xec-sh/core';
 
 class KubernetesDeployment {
   constructor(
+    private context: string,
     private namespace: string,
     private deployment: string
   ) {}
@@ -566,16 +568,15 @@ class KubernetesDeployment {
   private async updateImage(image: string) {
     console.log('📦 Updating deployment image...');
     
-    await $`kubectl set image deployment/${this.deployment} \
+    await $`kubectl --context ${this.context} set image deployment/${this.deployment} \
       ${this.deployment}=${image} \
-      -n ${this.namespace} \
-      --record`;
+      -n ${this.namespace}`;
   }
   
   private async monitorRollout() {
     console.log('⏳ Monitoring rollout...');
     
-    const result = await $`kubectl rollout status \
+    const result = await $`kubectl --context ${this.context} rollout status \
       deployment/${this.deployment} \
       -n ${this.namespace} \
       --timeout=10m`.nothrow();
@@ -588,11 +589,11 @@ class KubernetesDeployment {
   }
   
   private async rollback() {
-    await $`kubectl rollout undo \
+    await $`kubectl --context ${this.context} rollout undo \
       deployment/${this.deployment} \
       -n ${this.namespace}`;
     
-    await $`kubectl rollout status \
+    await $`kubectl --context ${this.context} rollout status \
       deployment/${this.deployment} \
       -n ${this.namespace} \
       --timeout=5m`;
@@ -602,16 +603,16 @@ class KubernetesDeployment {
     console.log('🔍 Verifying deployment...');
     
     // Check pod status
-    const podData = await $`kubectl get pods \
+    const podData = await $`kubectl --context ${this.context} get pods \
       -n ${this.namespace} \
       -l app=${this.deployment} \
-      -o json`.json();
+      -o json`.json<{ items: { metadata: { name: string }; status: { conditions?: { type: string; status: string }[] } }[] }>();
     const runningPods = podData.items.filter(
-      pod => pod.status.phase === 'Running'
+      pod => pod.status.conditions?.some(condition => condition.type === 'Ready' && condition.status === 'True')
     );
     
-    if (runningPods.length === 0) {
-      throw new Error('No running pods found');
+    if (!podData.items.length || runningPods.length !== podData.items.length) {
+      throw new Error('Pod readiness is incomplete');
     }
     
     console.log(`✅ ${runningPods.length} pods running`);
@@ -620,7 +621,8 @@ class KubernetesDeployment {
     const testPod = runningPods[0].metadata.name;
     const k8s = $.k8s({
       pod: testPod,
-      namespace: this.namespace
+      namespace: this.namespace,
+      context: this.context
     });
     
     await k8s`curl -f http://localhost:3000/health`;
@@ -629,7 +631,7 @@ class KubernetesDeployment {
 }
 
 // Usage
-const deployment = new KubernetesDeployment('production', 'myapp');
+const deployment = new KubernetesDeployment('production', 'myapp', 'myapp');
 await deployment.deploy('myapp:v1.2.3');
 ```
 
@@ -641,8 +643,7 @@ await deployment.deploy('myapp:v1.2.3');
 // deploy/aws-ecs.ts
 import { $ } from '@xec-sh/core';
 
-async function ecsD
-eploy() {
+async function ecsDeploy() {
   const cluster = 'prod-cluster';
   const service = 'myapp-service';
   const taskDefinition = 'myapp-task';
@@ -1176,8 +1177,8 @@ const server = $.ssh({
   username: 'deploy'
 });
 
-await $`${config.buildCommand}`;
-await server`cd ${config.deployPath} && ${config.startCommand}`;
+await $.exec(config.buildCommand);
+await server.cd(config.deployPath)`sh -c ${config.startCommand}`;
 ```
 
 ## Best Practices
@@ -1257,22 +1258,35 @@ class DeploymentLogger {
 ### Common Issues
 
 1. **Permission Denied**
+
    ```typescript
-   // Ensure deploy user has necessary permissions
-   await server`sudo -n true 2>/dev/null || echo "Need sudo access"`;
+   import { $ } from '@xec-sh/core';
+   const server = $.ssh('deploy@app.example.com');
+   await server`id`;
+   await server`ls -ld /app /app/releases`;
    ```
 
 2. **Port Already in Use**
+
    ```typescript
-   // Kill process using port
-   await server`fuser -k 3000/tcp || true`;
+   import { $ } from '@xec-sh/core';
+   const server = $.ssh('deploy@app.example.com');
+   await server`ss -ltnp 'sport = :3000'`;
    ```
 
+   Identify the owning service before scheduling its replacement.
+
 3. **Disk Space Issues**
+
    ```typescript
-   // Clean up old deployments
-   await server`find /app/releases -maxdepth 1 -mtime +30 -exec rm -rf {} \\;`;
+   import { $ } from '@xec-sh/core';
+   const server = $.ssh('deploy@app.example.com');
+   await server`df -h /app`;
+   await server`du -sh /app/releases/*`;
    ```
+
+   Apply the project's retention policy while preserving the active release and
+   the verified rollback release.
 
 ## Next Steps
 

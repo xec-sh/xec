@@ -29,7 +29,7 @@ async function manageServer() {
   const server = $.ssh({
     host: 'server.example.com',
     username: 'admin',
-    privateKey: '~/.ssh/id_rsa'
+    privateKeyPath: '~/.ssh/id_rsa'
   });
   
   console.log('📊 Checking server status...');
@@ -73,7 +73,7 @@ class ServerFleet {
       this.servers.set(host, $.ssh({
         host,
         username: 'admin',
-        privateKey: '~/.ssh/id_rsa'
+        privateKeyPath: '~/.ssh/id_rsa'
       }));
     }
   }
@@ -83,7 +83,7 @@ class ServerFleet {
     
     const results = await Promise.allSettled(
       Array.from(this.servers.entries()).map(async ([host, server]) => {
-        const output = await server`${command}`.text();
+        const output = await server`sh -c ${command}`.text();
         return { host, output };
       })
     );
@@ -215,7 +215,7 @@ async function performOperations() {
   const config = {
     host: 'server.example.com',
     username: 'admin',
-    privateKey: '~/.ssh/id_rsa'
+    privateKeyPath: '~/.ssh/id_rsa'
   };
   
   // First operation - creates connection
@@ -305,7 +305,6 @@ await tunnelManager.accessThroughTunnel();
 ```typescript
 // server/provision.ts
 import { $ } from '@xec-sh/core';
-import { confirm, select } from '@clack/prompts';
 
 class ServerProvisioner {
   constructor(private host: string) {}
@@ -316,7 +315,7 @@ class ServerProvisioner {
     const server = $.ssh({
       host: this.host,
       username: 'root',
-      privateKey: '~/.ssh/id_rsa'
+      privateKeyPath: '~/.ssh/id_rsa'
     });
     
     // Run provisioning steps
@@ -357,11 +356,12 @@ class ServerProvisioner {
     console.log('📦 Installing dependencies...');
     
     // Install Node.js
-    await server`curl -fsSL https://deb.nodesource.com/setup_18.x | bash -`;
-    await server`apt install -y nodejs`;
+    // Configure an approved repository providing Node.js 20+ before provisioning.
+    await server`apt install -y nodejs npm`;
+    await server`node -e 'if (Number(process.versions.node.split(".")[0]) < 20) process.exit(1)'`;
     
     // Install Docker
-    await server`curl -fsSL https://get.docker.com | sh`;
+    await server`apt install -y docker.io`;
     await server`systemctl enable docker`;
     await server`systemctl start docker`;
     
@@ -391,7 +391,7 @@ class ServerProvisioner {
     
     // Create deploy user
     await server`useradd -m -s /bin/bash deploy`;
-    await server`usermod -aG sudo,docker deploy`;
+    // Assign service-specific privileges separately after reviewing the deployment commands.
     
     // Setup SSH for deploy user
     await server`mkdir -p /home/deploy/.ssh`;
@@ -400,8 +400,7 @@ class ServerProvisioner {
     await server`chmod 700 /home/deploy/.ssh`;
     await server`chmod 600 /home/deploy/.ssh/authorized_keys`;
     
-    // Configure sudoers
-    await server`echo "deploy ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/deploy`;
+    // Install a reviewed, service-specific sudoers policy when required.
   }
   
   private async installApplications(server: any) {
@@ -500,7 +499,7 @@ class HealthMonitor {
     const server = $.ssh({
       host,
       username: 'monitor',
-      privateKey: '~/.ssh/monitor_key'
+      privateKeyPath: '~/.ssh/monitor_key'
     });
     
     const checks = {
@@ -653,7 +652,7 @@ class LogManager {
     const server = $.ssh({
       host,
       username: 'admin',
-      privateKey: '~/.ssh/id_rsa'
+      privateKeyPath: '~/.ssh/id_rsa'
     });
     
     // Get matching log files
@@ -682,7 +681,7 @@ class LogManager {
         const server = $.ssh({
           host,
           username: 'admin',
-          privateKey: '~/.ssh/id_rsa'
+          privateKeyPath: '~/.ssh/id_rsa'
         });
         
         const matches = await server`grep -r "${query}" /var/log 2>/dev/null | head -20`.lines();
@@ -710,7 +709,7 @@ class LogManager {
       const server = $.ssh({
         host,
         username: 'admin',
-        privateKey: '~/.ssh/id_rsa'
+        privateKeyPath: '~/.ssh/id_rsa'
       });
       
       const proc = server`journalctl -u ${service} -f`.start();
@@ -818,7 +817,7 @@ class BatchOperator {
           if (!options.continueOnError) {
             throw error;
           }
-          console.error(`❌ Failed: ${error.message}`);
+          console.error(`❌ Failed: ${(error instanceof Error ? error.message : String(error))}`);
         }
       }
     }
@@ -828,12 +827,12 @@ class BatchOperator {
     const server = $.ssh({
       host,
       username: 'admin',
-      privateKey: '~/.ssh/id_rsa'
+      privateKeyPath: '~/.ssh/id_rsa'
     });
     
     console.log(`  [${host}] $ ${command}`);
     
-    const result = await server`${command}`.timeout(options.timeout);
+    const result = await server`sh -c ${command}`.timeout(options.timeout);
     
     if (result.stdout) {
       console.log(`  [${host}] ${result.stdout.trim()}`);
@@ -910,7 +909,7 @@ class FileDistributor {
     const server = $.ssh({
       host,
       username: 'admin',
-      privateKey: '~/.ssh/id_rsa'
+      privateKeyPath: '~/.ssh/id_rsa'
     });
     
     // Create destination directory
@@ -983,7 +982,7 @@ class SecurityHardener {
     const server = $.ssh({
       host,
       username: 'root',
-      privateKey: '~/.ssh/id_rsa'
+      privateKeyPath: '~/.ssh/id_rsa'
     });
     
     await this.configureSSH(server);
@@ -1146,7 +1145,7 @@ class BackupManager {
     const server = $.ssh({
       host,
       username: 'admin',
-      privateKey: '~/.ssh/id_rsa'
+      privateKeyPath: '~/.ssh/id_rsa'
     });
     
     // Create backup on server
@@ -1175,7 +1174,7 @@ class BackupManager {
     const server = $.ssh({
       host,
       username: 'admin',
-      privateKey: '~/.ssh/id_rsa'
+      privateKeyPath: '~/.ssh/id_rsa'
     });
     
     // Transfer backup to server
@@ -1221,7 +1220,7 @@ function getServerConnection(host: string) {
     connectionCache.set(host, $.ssh({
       host,
       username: 'admin',
-      privateKey: '~/.ssh/id_rsa'
+      privateKeyPath: '~/.ssh/id_rsa'
     }));
   }
   return connectionCache.get(host);
@@ -1252,21 +1251,17 @@ async function safeServerOperation(host: string, operation: () => Promise<any>) 
 ### 3. Parallel Execution
 
 ```typescript
+import { $, parallel } from '@xec-sh/core';
+
 async function executeOnServers(servers: string[], command: string) {
-  // Limit concurrency to avoid overwhelming network
-  const concurrency = 5;
-  const results = [];
-  
-  for (let i = 0; i < servers.length; i += concurrency) {
-    const batch = servers.slice(i, i + concurrency);
-    const batchResults = await Promise.allSettled(
-      batch.map(host => executeCommand(host, command))
-    );
-    results.push(...batchResults);
-  }
-  
-  return results;
+  return parallel(
+    servers.map(host => $.ssh(`deploy@${host}`)`sh -c ${command}`.timeout('30s').nothrow()),
+    { maxConcurrent: 5 }
+  );
 }
+
+const observation = await executeOnServers(['web-1', 'web-2'], 'uptime');
+console.log(observation.succeeded.length, observation.failed.length);
 ```
 
 ## Troubleshooting
@@ -1275,12 +1270,12 @@ async function executeOnServers(servers: string[], command: string) {
 
 1. **Connection Timeout**
    ```typescript
-   // SSHAdapterOptions has no separate connect-timeout field; bound the
-   // whole command instead, generously enough to cover a slow handshake
+   // Bound both the SSH handshake and the command.
    const server = $.ssh({
      host: 'server.example.com',
      username: 'admin',
-     privateKey: '~/.ssh/id_rsa'
+     readyTimeout: 10_000,
+     privateKeyPath: '~/.ssh/id_rsa'
    });
    
    await server`uptime`.timeout('30s');
@@ -1295,8 +1290,13 @@ async function executeOnServers(servers: string[], command: string) {
 
 3. **Too Many Connections**
    ```typescript
-   // Implement connection limiting
-   const pool = new ConnectionPool({ maxConnections: 10 });
+   import { $, parallel } from '@xec-sh/core';
+   const hosts = ['web-1', 'web-2'];
+   const result = await parallel(
+     hosts.map(host => $.ssh(`deploy@${host}`)`uptime`),
+     { maxConcurrent: 2 }
+   );
+   console.log(result.failed.length);
    ```
 
 ## Next Steps

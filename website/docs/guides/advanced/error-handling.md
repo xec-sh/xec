@@ -1,858 +1,305 @@
 ---
 sidebar_position: 2
 title: Error Handling
-description: Robust error handling patterns for Xec automation scripts
+description: Classify command failures, preserve outcomes and verify recovery
 ---
 
 # Error Handling
 
 ## Problem
 
-Distributed automation scripts fail in complex ways across different environments. Traditional try-catch blocks don't provide enough context for debugging remote failures, and unhandled errors can leave systems in inconsistent states. Teams need comprehensive error handling strategies that work across local, SSH, Docker, and Kubernetes targets.
+A command can fail before starting, exit with an error, time out, or lose its
+connection after changing remote state. Record the observed outcome and let the
+application decide which operations can safely be repeated.
 
 ## Prerequisites
 
-- Xec CLI installed with @xec-sh/core
-- Understanding of JavaScript error handling
-- Basic knowledge of async/await patterns
-- Familiarity with Xec execution model
+- Xec CLI and its public packages
+- JavaScript promises and `async`/`await`
+- An application-specific health check and recovery procedure for deployments
 
 ## Solution
 
 ### Step 1: Basic Error Handling
 
-Implement fundamental error handling patterns:
+Xec rejects non-zero exits by default. `CommandError` exposes the result of the
+failed command. `ExecutionError.kind` also classifies transport and lifecycle
+failures.
 
-```javascript
-#!/usr/bin/env xec
+```typescript
+import { $, CommandError, ExecutionError } from '@xec-sh/core';
 
+try {
+  await $`npm run build`;
+} catch (error) {
+  if (error instanceof CommandError) {
+    console.error(error.exitCode, error.stderr);
+  } else if (error instanceof ExecutionError) {
+    console.error(error.kind, error.message);
+  }
+  throw error;
+}
+```
+
+For an expected non-zero exit, inspect a result explicitly. `.nothrow()` still
+allows transport failures to reject.
+
+```typescript
 import { $ } from '@xec-sh/core';
 
-// Basic try-catch with context
-async function safeExecute(command, context = {}) {
-  try {
-    const result = await $`${command}`;
-    return { success: true, result };
-  } catch (error) {
-    console.error(`Command failed in ${context.environment || 'unknown'}:`);
-    console.error(`  Command: ${error.command}`);
-    console.error(`  Exit code: ${error.exitCode}`);
-    console.error(`  Error: ${error.stderr || error.message}`);
-    
-    return {
-      success: false,
-      error: {
-        command: error.command,
-        exitCode: error.exitCode,
-        stdout: error.stdout,
-        stderr: error.stderr,
-        context
-      }
-    };
-  }
+const result = await $`git diff --quiet`.nothrow();
+if (result.exitCode === 1) {
+  console.log('Working tree contains changes');
+} else if (!result.ok) {
+  throw new Error(`Git inspection failed with exit ${result.exitCode}`);
 }
-
-// Usage with error recovery
-async function deployWithRecovery() {
-  const buildResult = await safeExecute('npm run build', { 
-    environment: 'build',
-    step: 'compilation' 
-  });
-  
-  if (!buildResult.success) {
-    console.log('Build failed, attempting recovery...');
-    
-    // Clean and retry
-    await $`rm -rf dist node_modules`.nothrow();
-    await $`npm install`;
-    
-    const retryResult = await safeExecute('npm run build', {
-      environment: 'build',
-      step: 'compilation-retry'
-    });
-    
-    if (!retryResult.success) {
-      throw new Error('Build failed after retry');
-    }
-  }
-  
-  // Continue with deployment
-  await $`npm run deploy`;
-}
-
-// Graceful degradation
-async function executeWithFallback(primary, fallback) {
-  try {
-    return await $`${primary}`;
-  } catch (primaryError) {
-    console.warn(`Primary command failed: ${primaryError.message}`);
-    console.log('Executing fallback...');
-    
-    try {
-      return await $`${fallback}`;
-    } catch (fallbackError) {
-      throw new Error(`Both primary and fallback failed: ${fallbackError.message}`);
-    }
-  }
-}
-
-// Example: Try fast method, fall back to safe method
-await executeWithFallback(
-  'rsync -az --delete source/ dest/',
-  'cp -r source/* dest/'
-);
 ```
 
 ### Step 2: Error Context and Enrichment
 
-Add detailed context to errors:
+Attach the original error as `cause`. Keep structured context limited to fields
+that the operator needs, such as an operation and target identifier.
 
-```javascript
-#!/usr/bin/env xec
-
+```typescript
 import { $ } from '@xec-sh/core';
 
-class ExecutionError extends Error {
-  constructor(message, details = {}) {
-    super(message);
-    this.name = 'ExecutionError';
-    this.timestamp = new Date().toISOString();
-    this.details = details;
-    this.environment = this.captureEnvironment();
-    
-    // Capture stack trace
-    Error.captureStackTrace(this, ExecutionError);
-  }
-  
-  captureEnvironment() {
-    return {
-      cwd: process.cwd(),
-      nodeVersion: process.version,
-      platform: process.platform,
-      arch: process.arch,
-      env: {
-        NODE_ENV: process.env.NODE_ENV,
-        DEBUG: process.env.DEBUG,
-        XEC_PROFILE: process.env.XEC_PROFILE
-      }
-    };
-  }
-  
-  toJSON() {
-    return {
-      name: this.name,
-      message: this.message,
-      timestamp: this.timestamp,
-      details: this.details,
-      environment: this.environment,
-      stack: this.stack
-    };
+async function buildApplication(projectDirectory: string): Promise<void> {
+  try {
+    await $.cd(projectDirectory)`npm run build`;
+  } catch (cause) {
+    throw new Error(`Build failed in ${projectDirectory}`, { cause });
   }
 }
 
-// Error wrapper with context
-class ErrorContext {
-  constructor(operation) {
-    this.operation = operation;
-    this.startTime = Date.now();
-    this.metadata = {};
-  }
-  
-  addMetadata(key, value) {
-    this.metadata[key] = value;
-    return this;
-  }
-  
-  async execute(fn) {
-    try {
-      const result = await fn();
-      return {
-        success: true,
-        result,
-        duration: Date.now() - this.startTime
-      };
-    } catch (error) {
-      const enrichedError = new ExecutionError(
-        `${this.operation} failed: ${error.message}`,
-        {
-          operation: this.operation,
-          duration: Date.now() - this.startTime,
-          metadata: this.metadata,
-          originalError: {
-            message: error.message,
-            code: error.code,
-            exitCode: error.exitCode,
-            stdout: error.stdout,
-            stderr: error.stderr
-          }
-        }
-      );
-      
-      throw enrichedError;
-    }
-  }
-}
-
-// Usage
-async function deployApplication(version) {
-  const context = new ErrorContext('Application Deployment')
-    .addMetadata('version', version)
-    .addMetadata('target', 'production')
-    .addMetadata('timestamp', new Date().toISOString());
-  
-  return await context.execute(async () => {
-    await $`git checkout ${version}`;
-    await $`npm install`;
-    await $`npm run build`;
-    await $`npm run deploy`;
-  });
-}
-
-try {
-  await deployApplication('v2.0.0');
-} catch (error) {
-  console.error('Deployment failed:', JSON.stringify(error, null, 2));
-  // Send to monitoring system
-  await sendErrorToMonitoring(error);
-}
+await buildApplication(process.cwd());
 ```
+
+The cause retains Xec's error type and classified outcome. Avoid serializing an
+entire configuration or environment, which can include credentials.
 
 ### Step 3: Remote Execution Error Handling
 
-Handle errors across different execution targets:
+Use the command's own timeout and the shared `parallel` helper. Results preserve
+input order, including errors returned before a command could complete.
 
-```javascript
-#!/usr/bin/env xec
+```typescript
+import { $, parallel, ExecutionError } from '@xec-sh/core';
 
-import { $, sleep } from '@xec-sh/core';
+const hosts = ['deploy@web-1', 'deploy@web-2'];
+const result = await parallel(
+  hosts.map(host => $.ssh(host)`systemctl is-active app`.timeout('10s').nothrow()),
+  { maxConcurrent: 2 }
+);
 
-class RemoteExecutor {
-  constructor(targets) {
-    this.targets = targets; // Array of SSH/Docker/K8s configs
-  }
-  
-  async executeAll(command, options = {}) {
-    const results = await Promise.allSettled(
-      this.targets.map(target => this.executeOn(target, command, options))
-    );
-    
-    return this.processResults(results);
-  }
-  
-  async executeOn(target, command, options) {
-    const { retries = 3, timeout = 30000 } = options;
-    let lastError;
-    
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      try {
-        const executor = this.getExecutor(target);
-        
-        // Add timeout
-        const result = await Promise.race([
-          executor`${command}`,
-          this.timeout(timeout, target)
-        ]);
-        
-        return {
-          target: target.name,
-          success: true,
-          result,
-          attempt
-        };
-      } catch (error) {
-        lastError = error;
-        console.warn(`Attempt ${attempt}/${retries} failed for ${target.name}: ${error.message}`);
-        
-        if (attempt < retries) {
-          // Exponential backoff
-          await sleep(Math.pow(2, attempt) * 1000);
-        }
-      }
-    }
-    
-    return {
-      target: target.name,
-      success: false,
-      error: this.enrichError(lastError, target),
-      attempts: retries
-    };
-  }
-  
-  getExecutor(target) {
-    switch (target.type) {
-      case 'ssh':
-        return $.ssh(target.config);
-      case 'docker':
-        return $.docker(target.config);
-      case 'k8s':
-        return $.k8s(target.config);
-      default:
-        return $;
-    }
-  }
-  
-  timeout(ms, target) {
-    return new Promise((_, reject) => {
-      setTimeout(() => {
-        reject(new Error(`Timeout after ${ms}ms on ${target.name}`));
-      }, ms);
-    });
-  }
-  
-  enrichError(error, target) {
-    return {
-      message: error.message,
-      target: target.name,
-      type: target.type,
-      config: this.sanitizeConfig(target.config),
-      timestamp: new Date().toISOString(),
-      ...error
-    };
-  }
-  
-  sanitizeConfig(config) {
-    // Remove sensitive data
-    const safe = { ...config };
-    delete safe.password;
-    delete safe.privateKey;
-    delete safe.token;
-    return safe;
-  }
-  
-  processResults(results) {
-    const successful = results.filter(r => r.status === 'fulfilled' && r.value.success);
-    const failed = results.filter(r => r.status === 'rejected' || !r.value?.success);
-    
-    return {
-      total: results.length,
-      successful: successful.length,
-      failed: failed.length,
-      results: results.map(r => r.value || { error: r.reason }),
-      allSucceeded: failed.length === 0
-    };
+for (const [index, observation] of result.results.entries()) {
+  if (observation instanceof ExecutionError) {
+    console.error(hosts[index], observation.kind, observation.message);
+  } else if (observation instanceof Error) {
+    console.error(hosts[index], observation.message);
+  } else {
+    console.log(hosts[index], observation.exitCode, observation.stdout.trim());
   }
 }
-
-// Usage
-const targets = [
-  { name: 'web-1', type: 'ssh', config: { host: 'web1.example.com', username: 'deploy' }},
-  { name: 'web-2', type: 'ssh', config: { host: 'web2.example.com', username: 'deploy' }},
-  { name: 'worker', type: 'docker', config: { container: 'worker-1' }}
-];
-
-const executor = new RemoteExecutor(targets);
-const results = await executor.executeAll('systemctl restart app', {
-  retries: 3,
-  timeout: 60000
-});
-
-if (!results.allSucceeded) {
-  console.error(`Failed on ${results.failed} targets:`);
-  results.results.filter(r => !r.success).forEach(r => {
-    console.error(`  - ${r.target}: ${r.error.message}`);
-  });
-}
+if (result.failed.length > 0) process.exitCode = 1;
 ```
+
+An `outcome-unknown` failure requires reading the remote application's durable
+state before retrying a mutation. A connection error alone cannot establish
+whether the remote operation took effect.
 
 ### Step 4: Transaction-Style Error Recovery
 
-Implement rollback mechanisms:
+Use the database's transaction mechanism for operations that support it. The
+following PostgreSQL migration files must contain transaction-compatible SQL.
+`ON_ERROR_STOP` makes a SQL error fail the command and `--single-transaction`
+keeps both files in one transaction.
 
-```javascript
-#!/usr/bin/env xec
-
+```typescript
 import { $ } from '@xec-sh/core';
 
-class Transaction {
-  constructor(name) {
-    this.name = name;
-    this.steps = [];
-    this.completedSteps = [];
-    this.state = {};
-  }
-  
-  addStep(name, execute, rollback = null) {
-    this.steps.push({ name, execute, rollback });
-    return this;
-  }
-  
-  async execute() {
-    console.log(`Starting transaction: ${this.name}`);
-    
+await $`psql --dbname app --set ON_ERROR_STOP=1 --single-transaction \
+  --file migrations/schema.sql --file migrations/data.sql`;
+```
+
+Cross-service operations need explicit recovery. Define the previous version,
+its restore procedure and a verification step in the application's deployment
+contract. Preserve failures from both the attempted operation and recovery.
+This wrapper accepts those procedures from the caller.
+
+```typescript
+export async function withRecovery(
+  apply: () => Promise<void>,
+  restore: () => Promise<void>,
+  verifyRestored: () => Promise<void>
+): Promise<void> {
+  try {
+    await apply();
+  } catch (failure) {
     try {
-      for (const step of this.steps) {
-        console.log(`Executing: ${step.name}`);
-        
-        const result = await step.execute(this.state);
-        this.state[step.name] = result;
-        this.completedSteps.push(step);
-        
-        console.log(`✓ Completed: ${step.name}`);
-      }
-      
-      console.log(`✅ Transaction completed: ${this.name}`);
-      return { success: true, state: this.state };
-      
-    } catch (error) {
-      console.error(`❌ Transaction failed at step: ${this.completedSteps.length + 1}`);
-      console.error(`Error: ${error.message}`);
-      
-      await this.rollback();
-      
-      throw new Error(`Transaction ${this.name} failed and was rolled back: ${error.message}`);
+      await restore();
+      await verifyRestored();
+    } catch (recoveryFailure) {
+      throw new AggregateError([failure, recoveryFailure], 'Operation and recovery failed');
     }
+    throw new Error('Operation failed and the previous state was verified', { cause: failure });
   }
-  
-  async rollback() {
-    console.log('Starting rollback...');
-    
-    // Rollback in reverse order
-    for (const step of this.completedSteps.reverse()) {
-      if (step.rollback) {
-        try {
-          console.log(`Rolling back: ${step.name}`);
-          await step.rollback(this.state);
-          console.log(`✓ Rolled back: ${step.name}`);
-        } catch (rollbackError) {
-          console.error(`Failed to rollback ${step.name}: ${rollbackError.message}`);
-          // Continue trying to rollback other steps
-        }
-      }
-    }
-    
-    console.log('Rollback completed');
-  }
-}
-
-// Usage example: Database migration with rollback
-const migration = new Transaction('Database Migration v2.0');
-
-migration
-  .addStep(
-    'backup',
-    async (state) => {
-      const timestamp = Date.now();
-      await $`pg_dump mydb > backup-${timestamp}.sql`;
-      return { backupFile: `backup-${timestamp}.sql` };
-    },
-    async (state) => {
-      // Rollback: restore from backup
-      if (state.backup?.backupFile) {
-        await $`psql mydb < ${state.backup.backupFile}`;
-      }
-    }
-  )
-  .addStep(
-    'migrate-schema',
-    async () => {
-      await $`psql mydb -f migrations/v2.0-schema.sql`;
-      return { version: 'v2.0-schema' };
-    },
-    async () => {
-      await $`psql mydb -f migrations/v2.0-schema-rollback.sql`;
-    }
-  )
-  .addStep(
-    'migrate-data',
-    async () => {
-      await $`psql mydb -f migrations/v2.0-data.sql`;
-      return { version: 'v2.0-data' };
-    },
-    async () => {
-      await $`psql mydb -f migrations/v2.0-data-rollback.sql`;
-    }
-  )
-  .addStep(
-    'verify',
-    async () => {
-      const version = await $`psql mydb -c "SELECT version FROM migrations ORDER BY id DESC LIMIT 1"`.text();
-      if (!version.includes('v2.0')) {
-        throw new Error('Migration verification failed');
-      }
-      return { verified: true };
-    }
-  );
-
-try {
-  await migration.execute();
-} catch (error) {
-  console.error('Migration failed:', error.message);
-  process.exit(1);
 }
 ```
 
+Use this wrapper only when the application can determine the failed operation's
+outcome and supports the declared recovery. Keep the durable deployment record
+and any backups required by that procedure. For multi-target strategies, use the
+shared deployment API. [Deployment operations](../../ops/deploy.md)
+
 ### Step 5: Error Aggregation and Reporting
 
-Collect and analyze errors:
+The engine already emits structured command events. Subscribe once and forward
+only the fields required by your logging backend.
 
-```javascript
-#!/usr/bin/env xec
+```typescript
+import { ExecutionEngine } from '@xec-sh/core';
 
-import { $ } from '@xec-sh/core';
-import fs from 'fs/promises';
-
-class ErrorCollector {
-  constructor(options = {}) {
-    this.errors = [];
-    this.logDir = options.logDir || '.xec/errors';
-    this.maxErrors = options.maxErrors || 100;
-    this.alertThreshold = options.alertThreshold || 5;
-  }
-  
-  async capture(error, context = {}) {
-    const errorRecord = {
-      id: this.generateId(),
-      timestamp: new Date().toISOString(),
-      error: this.serializeError(error),
-      context,
-      system: await this.getSystemInfo()
-    };
-    
-    this.errors.push(errorRecord);
-    
-    // Persist to disk
-    await this.save(errorRecord);
-    
-    // Check if we should alert
-    if (this.shouldAlert()) {
-      await this.sendAlert(errorRecord);
-    }
-    
-    // Trim old errors
-    if (this.errors.length > this.maxErrors) {
-      this.errors = this.errors.slice(-this.maxErrors);
-    }
-    
-    return errorRecord;
-  }
-  
-  serializeError(error) {
-    return {
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
-      code: error.code,
-      ...error
-    };
-  }
-  
-  async getSystemInfo() {
-    const info = {
-      platform: process.platform,
-      arch: process.arch,
-      nodeVersion: process.version,
-      memory: process.memoryUsage(),
-      uptime: process.uptime()
-    };
-    
-    // Add Git info if available
-    try {
-      const branch = await $`git branch --show-current`.nothrow().text();
-      const commit = await $`git rev-parse HEAD`.nothrow().text();
-      
-      if (branch) {
-        info.git = { branch, commit };
-      }
-    } catch {
-      // Ignore git errors
-    }
-    
-    return info;
-  }
-  
-  generateId() {
-    return `err_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  }
-  
-  async save(errorRecord) {
-    await fs.mkdir(this.logDir, { recursive: true });
-    
-    const filename = `${this.logDir}/${errorRecord.id}.json`;
-    await fs.writeFile(filename, JSON.stringify(errorRecord, null, 2));
-  }
-  
-  shouldAlert() {
-    const recentErrors = this.errors.filter(e => {
-      const errorTime = new Date(e.timestamp);
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-      return errorTime > fiveMinutesAgo;
-    });
-    
-    return recentErrors.length >= this.alertThreshold;
-  }
-  
-  async sendAlert(errorRecord) {
-    console.error('⚠️  ERROR THRESHOLD REACHED ⚠️');
-    console.error(`${this.errors.length} errors in the last 5 minutes`);
-    
-    // Send to monitoring service
-    if (process.env.SLACK_WEBHOOK) {
-      await $`curl -X POST ${process.env.SLACK_WEBHOOK} \
-        -H 'Content-Type: application/json' \
-        -d '{"text": "Error threshold reached: ${errorRecord.error.message}"}'`.nothrow();
-    }
-  }
-  
-  async generateReport() {
-    const report = {
-      summary: {
-        total: this.errors.length,
-        timeRange: {
-          start: this.errors[0]?.timestamp,
-          end: this.errors[this.errors.length - 1]?.timestamp
-        }
-      },
-      byType: {},
-      byContext: {},
-      topErrors: []
-    };
-    
-    // Group by error type
-    this.errors.forEach(e => {
-      const type = e.error.name || 'Unknown';
-      if (!report.byType[type]) {
-        report.byType[type] = { count: 0, errors: [] };
-      }
-      report.byType[type].count++;
-      report.byType[type].errors.push(e.id);
-    });
-    
-    // Group by context
-    this.errors.forEach(e => {
-      const ctx = e.context.operation || 'unknown';
-      if (!report.byContext[ctx]) {
-        report.byContext[ctx] = { count: 0, errors: [] };
-      }
-      report.byContext[ctx].count++;
-      report.byContext[ctx].errors.push(e.id);
-    });
-    
-    // Top errors
-    const errorCounts = {};
-    this.errors.forEach(e => {
-      const key = e.error.message;
-      errorCounts[key] = (errorCounts[key] || 0) + 1;
-    });
-    
-    report.topErrors = Object.entries(errorCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
-      .map(([message, count]) => ({ message, count }));
-    
-    return report;
-  }
-}
-
-// Global error collector
-const errorCollector = new ErrorCollector({
-  logDir: '.xec/errors',
-  alertThreshold: 5
+const engine = new ExecutionEngine({ defaultTimeout: '30s' });
+engine.on('command:error', event => {
+  console.error(JSON.stringify({
+    type: 'command:error',
+    at: event.timestamp,
+    adapter: event.adapter,
+    error: event.error,
+  }));
+});
+engine.on('command:complete', event => {
+  console.log(JSON.stringify({
+    type: 'command:complete',
+    at: event.timestamp,
+    duration: event.duration,
+    exitCode: event.exitCode,
+  }));
 });
 
-// Wrap execution with error collection
-async function monitored(operation, fn) {
-  try {
-    return await fn();
-  } catch (error) {
-    await errorCollector.capture(error, { operation });
-    throw error;
-  }
+try {
+  await engine.execute({ command: process.execPath, args: ['--version'], shell: false });
+} finally {
+  await engine.dispose();
 }
-
-// Usage
-await monitored('deployment', async () => {
-  await $`npm run deploy`;
-});
-
-// Generate report
-const report = await errorCollector.generateReport();
-console.log('Error Report:', JSON.stringify(report, null, 2));
 ```
 
 ## Best Practices
 
-1. **Fail Fast, Recover Gracefully**
-   - Detect errors early
-   - Provide clear error messages
-   - Implement recovery strategies
-   - Clean up resources on failure
-
-2. **Context is King**
-   - Include relevant metadata
-   - Capture system state
-   - Log command outputs
-   - Track error patterns
-
-3. **Defensive Programming**
-   - Validate inputs
-   - Check preconditions
-   - Handle edge cases
-   - Use safe defaults
-
-4. **Error Classification**
-   - Distinguish recoverable vs fatal
-   - Categorize by severity
-   - Track error frequencies
-   - Identify patterns
-
-5. **Testing Error Paths**
-   - Test failure scenarios
-   - Verify rollback procedures
-   - Check error messages
-   - Validate recovery logic
+- Await each operation and its cleanup before ending the script.
+- Use exit codes, signals and `FailureKind` when deciding how to recover.
+- Retry read-only or idempotent commands with a bounded policy.
+- Verify restored state before recording recovery as complete.
+- Keep secrets out of context fields and use the shared redaction boundary.
 
 ## Common Pitfalls
 
-1. **Swallowing Errors**
-   - ❌ Empty catch blocks
-   - ✅ Always log or re-throw errors
+A command string held in a variable belongs in `$.exec(command)`. A tagged
+interpolation represents an argument. Build dynamic commands from a trusted
+executable and separate arguments wherever possible.
 
-2. **Generic Error Messages**
-   - ❌ "Something went wrong"
-   - ✅ Include specific context and details
+```typescript
+import { $ } from '@xec-sh/core';
 
-3. **Missing Cleanup**
-   - ❌ Leaving resources allocated
-   - ✅ Use finally blocks for cleanup
-
-4. **Infinite Retry Loops**
-   - ❌ Retrying without limits
-   - ✅ Implement exponential backoff with max attempts
-
-5. **Ignoring Partial Failures**
-   - ❌ Assuming all-or-nothing
-   - ✅ Handle partial success scenarios
+const script = 'build';
+await $.exec('npm', { args: ['run', script], shell: false });
+```
 
 ## Troubleshooting
 
 ### Issue: Restating What the Error Already Says
-```javascript
-try {
-  await $`deploy.sh`;
-} catch (error) {
-  // error.message is already formatted: "Command failed with exit code
-  // N: <command>", followed by the first few lines of stderr and the
-  // call site of the command that failed. error.stderr holds the full
-  // text; error.message only carries a short head of it.
-  console.error(error.message);
 
-  // Reach for the individual fields when deciding what to do next,
-  // not when deciding what to print
-  if (error.exitCode > 1) {
-    // ...
-  }
+The error message includes the command failure and call site. Inspect individual
+fields for decisions and print the message for diagnostics.
+
+```typescript
+import { $, CommandError } from '@xec-sh/core';
+
+try {
+  await $`npm run build`;
+} catch (error) {
+  if (error instanceof CommandError) console.error(error.message);
+  throw error;
 }
 ```
 
 ### Issue: Hand-Rolled Concurrency for Simple Fan-Out
-```javascript
+
+`parallel()` bounds execution and collects success and failure results.
+
+```typescript
 import { parallel } from '@xec-sh/core';
 
-// For a straightforward "run these, tell me what succeeded" without
-// per-target retry or backoff, parallel() covers what RemoteExecutor
-// above builds by hand. succeeded/failed are decided by exit code, so a
-// .nothrow() command that exits non-zero still lands in failed.
-const { succeeded, failed } = await parallel(
-  ['systemctl restart app', 'systemctl status app'],
-  { maxConcurrent: 5 }
-);
-
-if (failed.length > 0) {
-  console.error(`${failed.length} command(s) failed`);
-}
+const result = await parallel(['npm run lint', 'npm test'], { maxConcurrent: 2 });
+if (result.failed.length > 0) throw new AggregateError(result.failed, 'Checks failed');
 ```
 
 ### Issue: Errors Without Context
-```javascript
-// Add global error handlers
-process.on('unhandledRejection', (error) => {
-  console.error('Unhandled rejection:', error);
-  errorCollector.capture(error, { type: 'unhandledRejection' });
-});
 
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught exception:', error);
-  errorCollector.capture(error, { type: 'uncaughtException' });
-  process.exit(1);
-});
+Catch errors at the awaited entry point. A rejected top-level operation should
+leave a failing exit status after awaited cleanup.
+
+```typescript
+import { $, dispose } from '@xec-sh/core';
+
+try {
+  await $`npm run build`;
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exitCode = 1;
+} finally {
+  await dispose();
+}
 ```
 
 ### Issue: Lost Error Details
-```javascript
-// Preserve original error
-class ChainedError extends Error {
-  constructor(message, cause) {
-    super(message);
-    this.cause = cause;
-    this.stack = `${this.stack}\nCaused by: ${cause.stack}`;
-  }
-}
 
-throw new ChainedError('High-level operation failed', originalError);
+Use the standard cause field when adding an operation-level message.
+
+```typescript
+import { $ } from '@xec-sh/core';
+
+try {
+  await $`npm test`;
+} catch (cause) {
+  throw new Error('Release qualification failed', { cause });
+}
 ```
 
 ### Issue: Timeout Handling
-```javascript
-// Proper timeout with cleanup
-async function withTimeout(promise, ms, cleanup) {
-  let timeoutId;
-  
-  try {
-    return await Promise.race([
-      promise,
-      new Promise((_, reject) => {
-        timeoutId = setTimeout(() => {
-          reject(new Error(`Timeout after ${ms}ms`));
-        }, ms);
-      })
-    ]);
-  } finally {
-    clearTimeout(timeoutId);
-    if (cleanup) await cleanup();
-  }
+
+Attach the deadline to the command so the adapter owns termination and its
+confirmation. A timeout in an unrelated promise leaves the process running.
+
+```typescript
+import { $, ExecutionError } from '@xec-sh/core';
+
+try {
+  await $`npm test`.timeout('5m');
+} catch (error) {
+  if (error instanceof ExecutionError) console.error(error.kind);
+  throw error;
 }
 ```
 
 ### Issue: Resource Leaks
-```javascript
-// Ensure cleanup with error handling
-class ResourceManager {
-  constructor() {
-    this.resources = [];
-  }
-  
-  async acquire(resource) {
-    this.resources.push(resource);
-    return resource;
-  }
-  
-  async cleanup() {
-    const errors = [];
-    
-    for (const resource of this.resources) {
-      try {
-        await resource.close();
-      } catch (error) {
-        errors.push(error);
-      }
-    }
-    
-    if (errors.length > 0) {
-      throw new AggregateError(errors, 'Cleanup failed');
-    }
-  }
-  
-  async withResources(fn) {
-    try {
-      return await fn(this);
-    } finally {
-      await this.cleanup();
-    }
-  }
+
+Dispose the owned engine in `finally`. Close resources obtained from its target
+API, such as tunnels, at the scope where they were created.
+
+```typescript
+import { ExecutionEngine } from '@xec-sh/core';
+
+const engine = new ExecutionEngine();
+try {
+  console.log((await engine.execute({ command: 'node', args: ['--version'], shell: false })).text());
+} finally {
+  await engine.dispose();
 }
 ```
 
 ## Related Guides
 
-- [Debugging](../development/debugging.md) - Debug error scenarios
-- [Testing](../automation/testing.md) - Test error handling
+- [Debugging](../development/debugging.md)
+- [Testing](../automation/testing.md)
+- [Security](./security.md)

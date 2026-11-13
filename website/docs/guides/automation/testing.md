@@ -45,7 +45,7 @@ async function runTests() {
     
     console.log('✅ All tests passed!');
   } catch (error) {
-    console.error('❌ Tests failed:', error.message);
+    console.error('❌ Tests failed:', (error instanceof Error ? error.message : String(error)));
     process.exit(1);
   }
 }
@@ -58,10 +58,10 @@ await runTests();
 ```typescript
 // test/test-manager.ts
 import { $ } from '@xec-sh/core';
-import { select, multiselect } from '@clack/prompts';
+import { select, multiselect, isCancel } from '@xec-sh/kit';
 
 class TestSuiteManager {
-  private suites = {
+  private suites: Record<string, string> = {
     unit: 'npm run test:unit',
     integration: 'npm run test:integration',
     e2e: 'npm run test:e2e',
@@ -79,6 +79,8 @@ class TestSuiteManager {
       }))
     });
     
+    if (isCancel(selected)) return;
+
     const parallel = await select({
       message: 'Run tests in parallel?',
       options: [
@@ -87,7 +89,8 @@ class TestSuiteManager {
       ]
     });
     
-    await this.executeSuites(selected as string[], parallel as boolean);
+    if (isCancel(parallel)) return;
+    await this.executeSuites(selected, parallel);
   }
   
   private async executeSuites(suites: string[], parallel: boolean) {
@@ -130,7 +133,7 @@ class TestSuiteManager {
     const command = this.suites[suite];
     
     try {
-      await $`${command}`;
+      await $.exec(command);
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
       console.log(`✅ ${suite} passed (${duration}s)`);
     } catch (error) {
@@ -384,19 +387,20 @@ await dbTests.run();
 
 ```typescript
 // test/e2e-playwright.ts
-import { $ } from '@xec-sh/core';
+import { $, type ProcessPromise } from '@xec-sh/core';
+import { confirm } from '@xec-sh/kit';
 
 class E2ETestRunner {
+  private application?: ProcessPromise;
+
   async run() {
     console.log('🌐 Running E2E tests with Playwright...');
     
     // Install browsers if needed
     await this.ensureBrowsers();
     
-    // Start application
-    await this.startApplication();
-    
     try {
+      await this.startApplication();
       // Run tests on multiple browsers
       await this.runTests();
       
@@ -418,7 +422,8 @@ class E2ETestRunner {
     console.log('🚀 Starting application...');
     
     // Start in test mode
-    $`npm run start:e2e`.start();
+    this.application = $`npm run start:e2e`.nothrow().timeout('10m').start();
+    await this.application.spawned;
     
     // Wait for app to be ready
     const maxAttempts = 30;
@@ -435,41 +440,31 @@ class E2ETestRunner {
   }
   
   private async runTests() {
-    const browsers = ['chromium', 'firefox', 'webkit'];
-    
-    console.log('🧪 Running tests on multiple browsers...');
-    
-    for (const browser of browsers) {
-      console.log(`\n  🌐 Testing on ${browser}...`);
-      
-      await $`npx playwright test \
-        --browser=${browser} \
-        --reporter=html,json \
-        --output=test-results/${browser}`;
-    }
+    // Browser projects are declared in playwright.config.ts.
+    await $`npx playwright test --reporter=html,json`;
   }
-  
+
   private async generateReports() {
     console.log('📊 Generating test reports...');
     
-    // Merge results
-    await $`npx playwright merge-reports \
-      --reporter=html \
-      test-results/*/report.json`;
+    // The completed Playwright run generated the HTML and JSON reports.
     
     // Open report in browser
     const openReport = await confirm({
       message: 'Open test report in browser?'
     });
     
-    if (openReport) {
+    if (openReport === true) {
       await $`npx playwright show-report`;
     }
   }
   
   private async cleanup() {
     console.log('🧹 Cleaning up...');
-    await $`pkill -f "npm run start:e2e"`.nothrow();
+    if (this.application) {
+      this.application.kill('SIGTERM');
+      await this.application;
+    }
   }
 }
 
@@ -1098,8 +1093,24 @@ await analyzer.analyze();
 // test/reporter.ts
 import { $ } from '@xec-sh/core';
 
+interface SuiteResult {
+  name: string;
+  passed: number;
+  failed: number;
+  skipped: number;
+  duration: number;
+}
+interface TestReport {
+  suites: SuiteResult[];
+  metrics: {
+    coverage?: { lines: number; branches: number; functions: number; statements: number };
+    performance?: { score: number; metrics: unknown };
+  };
+  timestamp: string;
+}
+
 class TestReporter {
-  private results: any = {
+  private results: TestReport = {
     suites: [],
     metrics: {},
     timestamp: new Date().toISOString()
@@ -1125,7 +1136,10 @@ class TestReporter {
   }
   
   private async collectJestResults() {
-    const data = await $`cat test-results/jest-results.json`.json();
+    const data = await $`cat test-results/jest-results.json`.json<{
+      numPassedTests: number; numFailedTests: number; numPendingTests: number;
+      testResults: { perfStats: { runtime: number } }[];
+    }>();
     
     this.results.suites.push({
       name: 'Jest Tests',
@@ -1197,11 +1211,11 @@ class TestReporter {
 </html>
 `;
     
-    await $`echo '${html}' > test-report.html`;
+    await $.writeFile('test-report.html', html);
   }
   
   private async generateJSONReport() {
-    await $`echo '${JSON.stringify(this.results, null, 2)}' > test-report.json`;
+    await $.writeFile('test-report.json', JSON.stringify(this.results, null, 2));
   }
   
   private async generateMarkdownReport() {
@@ -1229,7 +1243,7 @@ ${this.results.suites.map(s =>
 Score: ${this.results.metrics.performance?.score || 'N/A'}
 `;
     
-    await $`echo '${md}' > test-report.md`;
+    await $.writeFile('test-report.md', md);
   }
   
   private async sendNotifications() {
@@ -1287,7 +1301,7 @@ async function isolatedTest() {
 ```typescript
 async function retryFlakyTest(testCommand: string, maxRetries = 3) {
   for (let i = 0; i < maxRetries; i++) {
-    const result = await $`${testCommand}`.nothrow();
+    const result = await $.exec(testCommand).nothrow();
     
     if (result.ok) {
       return result;

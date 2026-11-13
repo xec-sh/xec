@@ -115,7 +115,7 @@ async function checkRequirements() {
 
   for (const check of checks) {
     try {
-      const version = await $`${check.cmd}`.text();
+      const version = await $.exec(check.cmd).text();
       console.log(`✓ ${check.name}: ${version}`);
     } catch (error) {
       console.error(`✗ ${check.name} not found`);
@@ -250,54 +250,21 @@ await compose.logs('app', true);
 
 ### Step 5: Hot Reload and File Watching
 
-Set up automatic reload on file changes:
+Use the CLI's watcher to run a command, task or script when sources change.
+The local watcher supports debouncing and an explicit polling mode.
 
-```javascript
-#!/usr/bin/env xec
-// .xec/scripts/watch.js
-
-import { $ } from '@xec-sh/core';
-import { watch } from 'node:fs/promises';
-
-// Xec has no built-in file watcher; node:fs/promises already provides one,
-// so filtering by extension and debouncing are the only things left to do.
-const watchers = [
-  {
-    path: './src',
-    extensions: ['.js', '.ts', '.jsx', '.tsx'],
-    command: 'npm run lint',
-    debounce: 1000
-  },
-  {
-    path: './tests',
-    extensions: ['.test.js', '.test.ts'],
-    command: 'npm test',
-    debounce: 2000
-  }
-];
-
-async function watchAndRun({ path, extensions, command, debounce }) {
-  let timer;
-
-  for await (const event of watch(path, { recursive: true })) {
-    if (!event.filename || !extensions.some(ext => event.filename.endsWith(ext))) {
-      continue;
-    }
-
-    clearTimeout(timer);
-    timer = setTimeout(async () => {
-      console.log(`File changed: ${event.filename}`);
-      await $`${command}`.nothrow();
-    }, debounce);
-  }
-}
-
-for (const watcher of watchers) {
-  watchAndRun(watcher);
-}
-
-console.log('Watching for changes... Press Ctrl+C to stop');
+```bash
+xec watch local src tests --pattern '*.ts' --command 'npm run check' --debounce 1000 --initial
 ```
+
+On a filesystem where native change notifications are unreliable, choose polling.
+
+```bash
+xec watch local src tests --pattern '*.ts' --command 'npm run check' --poll --interval 1000
+```
+
+Keep the check command responsible for its own build and test dependencies. For
+a named task, use `--task check` with the project's Xec task declaration.
 
 ## Best Practices
 

@@ -1,1025 +1,291 @@
 ---
 sidebar_position: 3
 title: Security Best Practices
-description: Security patterns and best practices for Xec automation scripts
+description: Use Xec credentials, command boundaries and verified remote targets
 ---
 
 # Security Best Practices
 
 ## Problem
 
-Automation scripts often handle sensitive data like passwords, API keys, and certificates while executing across multiple environments. Security vulnerabilities in scripts can expose credentials, allow command injection, or compromise entire infrastructure. Teams need comprehensive security practices that protect sensitive data while maintaining automation efficiency.
+Automation carries the authority of the account running it. Bind each command
+to an intended target, validate application inputs and limit credentials to the
+operation that needs them.
 
 ## Prerequisites
 
-- Xec CLI installed and configured
-- Understanding of basic security concepts
-- Access to secret management tools
-- Knowledge of environment variables and configuration
-- Familiarity with SSH key management
+- Xec CLI and its public packages
+- An account with the permissions required by the operation
+- Independently verified SSH host identities for remote targets
+- A credential provider configured for the environment
 
 ## Solution
 
 ### Command diagnostics
 
-Xec masks common credential forms consistently in command errors, captured
-output and events, including `--rpc-login`, password options, URL userinfo,
-and quoted Basic authentication inside container health checks. Execute
-infrastructure commands through Xec so failures pass through this boundary;
-raw `child_process.execFile` errors include the original argument list.
+Xec masks recognized credential forms in command errors, captured output and
+events. Register runtime secrets before they could appear in a command or its
+output. Use the existing secret manager to retrieve the value.
 
-Register values as soon as they are read from a secret store when they might
-appear without a recognizable credential label:
-
-```ts
+```typescript
 import { registerSecret } from '@xec-sh/core';
+import { SecretManager } from '@xec-sh/ops';
 
-const password = await secretStore.read('service-password');
-if (!registerSecret(password)) throw new Error('Secret is too short to mask safely');
+const secrets = new SecretManager({ type: 'env' });
+const password = await secrets.getRequired('service-password');
+if (!registerSecret(password)) throw new Error('Secret is too short to register');
 ```
 
-Pattern matching cannot reliably infer an unlabeled secret or reconstruct
-argument boundaries from arbitrary text. Registration protects the exact value;
-redaction does not replace private storage or operating-system process isolation.
+The default environment provider reads `SECRET_SERVICE_PASSWORD` for this key.
+Diagnostic redaction covers the registered value. Restrict access to process
+memory, environment variables and external programs separately.
 
 ### Step 1: Secure Credential Management
 
-Implement secure handling of sensitive data:
+`SecretManager` supplies the shared provider contract. The implemented provider
+types are `env`, `local` and `git`. Configure one explicitly and let a missing
+credential fail before starting an operation. The environment provider stores
+values for the current process. Its source can be a CI secret store or the
+operator's approved credential environment.
 
-```javascript
-#!/usr/bin/env xec
+```typescript
+import { $, registerSecret } from '@xec-sh/core';
+import { SecretManager } from '@xec-sh/ops';
 
-import { $ } from '@xec-sh/core';
-import crypto from 'crypto';
-import fs from 'node:fs/promises';
+const secrets = new SecretManager({ type: 'env' });
+const token = await secrets.getRequired('registry-token');
+if (!registerSecret(token)) throw new Error('Registry token is too short to register');
 
-class SecretManager {
-  constructor(options = {}) {
-    this.provider = options.provider || 'env';
-    this.cache = new Map();
-    this.keyring = options.keyring || '.xec/secrets';
-  }
-
-  async get(name) {
-    // Check cache first (with TTL)
-    if (this.cache.has(name)) {
-      const cached = this.cache.get(name);
-      if (cached.expires > Date.now()) {
-        return cached.value;
-      }
-      this.cache.delete(name);
-    }
-
-    // Retrieve from provider
-    const value = await this.retrieve(name);
-    
-    // Cache with expiration
-    this.cache.set(name, {
-      value,
-      expires: Date.now() + 300000 // 5 minutes
-    });
-
-    return value;
-  }
-
-  async retrieve(name) {
-    switch (this.provider) {
-      case 'env':
-        return this.getFromEnv(name);
-      case 'vault':
-        return this.getFromVault(name);
-      case 'aws-secrets':
-        return this.getFromAWS(name);
-      case 'keyring':
-        return this.getFromKeyring(name);
-      default:
-        throw new Error(`Unknown secret provider: ${this.provider}`);
-    }
-  }
-
-  getFromEnv(name) {
-    const value = process.env[name];
-    if (!value) {
-      throw new Error(`Secret ${name} not found in environment`);
-    }
-    return value;
-  }
-
-  async getFromVault(name) {
-    // HashiCorp Vault integration
-    const token = process.env.VAULT_TOKEN;
-    const vaultAddr = process.env.VAULT_ADDR || 'http://localhost:8200';
-    
-    const data = await $`curl -s -H "X-Vault-Token: ${token}" \
-      ${vaultAddr}/v1/secret/data/${name}`.json();
-    
-    return data.data.data.value;
-  }
-
-  async getFromAWS(name) {
-    // AWS Secrets Manager
-    return $`aws secretsmanager get-secret-value \
-      --secret-id ${name} \
-      --query SecretString \
-      --output text`.text();
-  }
-
-  async getFromKeyring(name) {
-    // Local encrypted keyring
-    const encryptedFile = `${this.keyring}/${name}.enc`;
-    
-    if (!await fs.access(encryptedFile).then(() => true).catch(() => false)) {
-      throw new Error(`Secret ${name} not found in keyring`);
-    }
-
-    // Decrypt using system key
-    const key = await this.getSystemKey();
-    const encrypted = await $.readFile(encryptedFile);
-    
-    return this.decrypt(encrypted, key);
-  }
-
-  async store(name, value) {
-    // Store in keyring (encrypted)
-    await fs.mkdir(this.keyring, { recursive: true });
-    
-    const key = await this.getSystemKey();
-    const encrypted = this.encrypt(value, key);
-    
-    await $.writeFile(`${this.keyring}/${name}.enc`, encrypted);
-    
-    // Set restrictive permissions
-    await $`chmod 600 ${this.keyring}/${name}.enc`;
-  }
-
-  encrypt(text, key) {
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-    
-    let encrypted = cipher.update(text, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
-    
-    return iv.toString('hex') + ':' + encrypted;
-  }
-
-  decrypt(encrypted, key) {
-    const parts = encrypted.split(':');
-    const iv = Buffer.from(parts[0], 'hex');
-    const encryptedText = parts[1];
-    
-    const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-    
-    let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    
-    return decrypted;
-  }
-
-  async getSystemKey() {
-    // Derive key from system properties
-    const hostname = await $`hostname`.text();
-    const machineId = await $.readFile('/etc/machine-id').catch(() => 'default');
-    
-    const combined = `${hostname}:${machineId}`;
-    return crypto.createHash('sha256').update(combined).digest();
-  }
-
-  clear() {
-    // Clear sensitive data from memory
-    this.cache.clear();
-  }
-}
-
-// Usage
-const secrets = new SecretManager({ provider: 'keyring' });
-
-// Store secret securely
-await secrets.store('api_key', 'secret-value-123');
-
-// Retrieve and use
-const apiKey = await secrets.get('api_key');
-await $`curl -H "Authorization: Bearer ${apiKey}" https://api.example.com`;
-
-// Clear when done
-secrets.clear();
+await $.exec('docker', {
+  args: ['login', 'registry.example.com', '--username', 'automation', '--password-stdin'],
+  shell: false,
+  stdin: token,
+  timeout: '30s',
+});
 ```
+
+Here the token reaches Docker through standard input. Limit the registry account
+to the repositories and operations it needs. Local and Git provider storage has
+its own key and access requirements. [Secret provider configuration](../../ops/secrets.md)
 
 ### Step 2: Input Validation and Sanitization
 
-Prevent command injection and validate inputs:
+Select commands from application-owned operations. Pass input as arguments and
+use the executable's option terminator where supported. `shell: false` preserves
+the local argument vector.
 
-```javascript
-#!/usr/bin/env xec
+```typescript
+import { $ } from '@xec-sh/core';
 
-import { $, quoteForShell, dialectFor } from '@xec-sh/core';
-
-class InputValidator {
-  // Validate and sanitize user input
-  static validatePath(path) {
-    // Check for path traversal attempts
-    if (path.includes('..') || path.includes('~')) {
-      throw new Error('Path traversal detected');
-    }
-    
-    // Only allow alphanumeric, dash, underscore, slash, dot
-    if (!/^[a-zA-Z0-9\-_\/\.]+$/.test(path)) {
-      throw new Error('Invalid characters in path');
-    }
-    
-    // Must be relative or absolute path
-    if (!path.startsWith('/') && !path.startsWith('./')) {
-      path = `./${path}`;
-    }
-    
-    return path;
-  }
-
-  static validateCommand(cmd) {
-    // Blocklist dangerous commands
-    const dangerous = [
-      'rm -rf /',
-      'mkfs',
-      'dd if=/dev/zero',
-      ':(){ :|:& };:',  // Fork bomb
-      'chmod -R 777',
-      'eval',
-      'exec'
-    ];
-    
-    const cmdLower = cmd.toLowerCase();
-    for (const danger of dangerous) {
-      if (cmdLower.includes(danger.toLowerCase())) {
-        throw new Error(`Dangerous command pattern detected: ${danger}`);
-      }
-    }
-    
-    return cmd;
-  }
-
-  static sanitizeShellArg(arg) {
-    // Use Xec's built-in escaping
-    return quoteForShell(arg, dialectFor(true));
-  }
-
-  static validateEmail(email) {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      throw new Error('Invalid email format');
-    }
-    return email;
-  }
-
-  static validatePort(port) {
-    const portNum = parseInt(port);
-    if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
-      throw new Error('Invalid port number');
-    }
-    return portNum;
-  }
-
-  static validateHost(host) {
-    // Allow IPv4, IPv6, and hostnames
-    const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
-    const ipv6Regex = /^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$/;
-    const hostnameRegex = /^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$/;
-    
-    if (!ipv4Regex.test(host) && !ipv6Regex.test(host) && !hostnameRegex.test(host)) {
-      throw new Error('Invalid host format');
-    }
-    
-    return host;
-  }
+const branch = process.argv[2];
+if (!branch || !/^[a-zA-Z0-9][a-zA-Z0-9._/-]*$/.test(branch)) {
+  throw new Error('Provide a branch name');
 }
-
-// Safe command execution wrapper
-class SafeExecutor {
-  async execute(command, args = [], options = {}) {
-    // Validate command
-    const safeCommand = InputValidator.validateCommand(command);
-    
-    // Sanitize all arguments
-    const safeArgs = args.map(arg => InputValidator.sanitizeShellArg(arg));
-    
-    // Build command with proper escaping
-    const fullCommand = [safeCommand, ...safeArgs].join(' ');
-    
-    // Execute with restrictions
-    const result = await this.restrictedExecute(fullCommand, options);
-    
-    return result;
-  }
-
-  async restrictedExecute(command, options = {}) {
-    const {
-      timeout = 30000,
-      maxOutput = 1024 * 1024, // 1MB
-      allowedPaths = [],
-      user = null
-    } = options;
-    
-    // Create restricted environment
-    const env = {
-      ...process.env,
-      PATH: '/usr/local/bin:/usr/bin:/bin', // Restricted PATH
-      SHELL: '/bin/sh'
-    };
-    
-    // Remove sensitive environment variables
-    delete env.AWS_SECRET_ACCESS_KEY;
-    delete env.GITHUB_TOKEN;
-    delete env.NPM_TOKEN;
-    
-    // Execute with restrictions
-    try {
-      const result = await $`timeout ${timeout}ms ${command}`.env(env);
-      
-      // Check output size
-      if (result.stdout.length > maxOutput) {
-        throw new Error('Output exceeds maximum allowed size');
-      }
-      
-      return result;
-    } catch (error) {
-      // Sanitize error messages
-      error.message = error.message.replace(/[^\x20-\x7E]/g, '');
-      throw error;
-    }
-  }
-}
-
-// Usage example
-async function processUserInput(userPath, userCommand) {
-  const validator = new InputValidator();
-  const executor = new SafeExecutor();
-  
-  try {
-    // Validate inputs
-    const safePath = InputValidator.validatePath(userPath);
-    
-    // Execute safely
-    const result = await executor.execute('ls', [safePath], {
-      timeout: 5000,
-      maxOutput: 10000
-    });
-    
-    return result;
-  } catch (error) {
-    console.error('Security validation failed:', error.message);
-    throw error;
-  }
-}
+await $.exec('git', { args: ['check-ref-format', '--branch', branch], shell: false });
+await $.exec('git', { args: ['show', '--stat', '--end-of-options', branch], shell: false });
 ```
+
+For shell commands, tagged interpolation escapes values for the target shell.
+The script owns the shell syntax and executable name.
+
+```typescript
+import { $ } from '@xec-sh/core';
+
+const fileName = process.argv[2];
+if (!fileName) throw new Error('Provide a file name');
+await $`ls -ld -- ${fileName}`;
+```
+
+For file access bounded to a directory, resolve the real path and verify
+containment. The following read requires the directory and its parents to be
+owned by a trusted account so another actor cannot replace paths after the
+check.
+
+```typescript
+import { realpath, readFile } from 'node:fs/promises';
+import { isAbsolute, relative, resolve, sep } from 'node:path';
+
+const root = await realpath('./reports');
+const requested = process.argv[2];
+if (!requested) throw new Error('Provide a report path');
+const file = await realpath(resolve(root, requested));
+const inside = relative(root, file);
+if (!inside || isAbsolute(inside) || inside === '..' || inside.startsWith(`..${sep}`)) {
+  throw new Error('Report must be inside the configured directory');
+}
+const content = await readFile(file, 'utf8');
+console.log(content);
+```
+
+Command timeouts and output limits bound resource use. They operate within the
+permissions of the process. Use an OS sandbox, container policy or dedicated
+account when executing untrusted programs.
 
 ### Step 3: Secure SSH and Remote Connections
 
-Manage SSH connections securely:
+Use a known-hosts file populated from an independently verified identity. Xec's
+strict mode rejects unknown or changed keys.
 
-```javascript
-#!/usr/bin/env xec
+```typescript
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { $, dispose } from '@xec-sh/core';
 
-import { $ } from '@xec-sh/core';
-import fs from 'fs/promises';
-
-class SecureSSH {
-  constructor(options = {}) {
-    this.keyPath = options.keyPath || '~/.ssh';
-    this.knownHosts = options.knownHosts || '~/.ssh/known_hosts';
-    this.configPath = options.configPath || '~/.ssh/config';
-  }
-
-  async connect(host, options = {}) {
-    // Validate host
-    InputValidator.validateHost(host);
-    
-    // Verify host key
-    await this.verifyHostKey(host);
-    
-    // Force secure defaults: refuse an unrecognized or changed host key,
-    // and authenticate with a key rather than a password
-    return $.ssh({
-      ...options,
-      host,
-      hostKeyChecking: 'strict',
-      privateKey: options.privateKey || `${this.keyPath}/id_ed25519`
-    });
-  }
-
-  async verifyHostKey(host) {
-    // Check known hosts
-    try {
-      const known = await $.readFile(this.knownHosts);
-      if (!known.includes(host)) {
-        // Fetch and verify host key
-        const key = await $`ssh-keyscan -t ed25519,rsa ${host}`.text();
-        
-        // Prompt for verification (in production, implement proper verification)
-        console.log(`New host key for ${host}:`);
-        console.log(key);
-        
-        // Add to known hosts
-        await $`echo "${key}" >> ${this.knownHosts}`;
-      }
-    } catch (error) {
-      throw new Error(`Failed to verify host key: ${error.message}`);
-    }
-  }
-
-  async generateKeyPair(name = 'id_ed25519') {
-    const privatePath = `${this.keyPath}/${name}`;
-    const publicPath = `${privatePath}.pub`;
-    
-    // Check if key exists
-    if (await fs.access(privatePath).then(() => true).catch(() => false)) {
-      throw new Error('Key already exists');
-    }
-    
-    // Generate Ed25519 key (more secure than RSA)
-    await $`ssh-keygen -t ed25519 -f ${privatePath} -N "" -C "xec-automation"`;
-    
-    // Set restrictive permissions
-    await $`chmod 600 ${privatePath}`;
-    await $`chmod 644 ${publicPath}`;
-    
-    return {
-      private: privatePath,
-      public: publicPath
-    };
-  }
-
-  async rotateKeys(host) {
-    // Generate new key pair
-    const timestamp = Date.now();
-    const newKey = await this.generateKeyPair(`id_ed25519_${timestamp}`);
-    
-    // Deploy new public key
-    const ssh = await this.connect(host);
-    const publicKey = await $.readFile(newKey.public);
-    
-    await ssh`echo "${publicKey}" >> ~/.ssh/authorized_keys`;
-    
-    // Test new key
-    const testSSH = await $.ssh({
-      host,
-      privateKey: newKey.private
-    });
-    
-    await testSSH`echo "Key rotation successful"`;
-    
-    // Remove old key from authorized_keys
-    await testSSH`sed -i.bak '/xec-automation/d' ~/.ssh/authorized_keys`;
-    await testSSH`echo "${publicKey}" >> ~/.ssh/authorized_keys`;
-    
-    // Archive old key
-    const oldKey = `${this.keyPath}/id_ed25519`;
-    await $`mv ${oldKey} ${oldKey}.old.${timestamp}`;
-    await $`mv ${newKey.private} ${oldKey}`;
-    
-    console.log('Key rotation completed successfully');
-  }
-
-  async auditConnections() {
-    // Check SSH configuration
-    const config = await $.readFile(this.configPath).catch(() => '');
-    
-    const issues = [];
-    
-    // Check for insecure options
-    if (config.includes('StrictHostKeyChecking no')) {
-      issues.push('StrictHostKeyChecking is disabled');
-    }
-    
-    if (config.includes('PasswordAuthentication yes')) {
-      issues.push('Password authentication is enabled');
-    }
-    
-    // Check key permissions
-    const keyFiles = await $`ls -la ${this.keyPath}/*.pub | grep -v ".pub"`.lines();
-    
-    for (const keyFile of keyFiles) {
-      const perms = keyFile.split(/\s+/)[0];
-      if (!perms.startsWith('-rw-------')) {
-        issues.push(`Insecure permissions on ${keyFile}`);
-      }
-    }
-    
-    return {
-      secure: issues.length === 0,
-      issues
-    };
-  }
-}
-
-// Usage
-const ssh = new SecureSSH();
-
-// Generate secure keys
-await ssh.generateKeyPair();
-
-// Connect securely
-const connection = await ssh.connect('server.example.com', {
+const server = $.ssh({
+  host: 'deploy.example.com',
   username: 'deploy',
-  port: 22
+  privateKeyPath: join(homedir(), '.ssh', 'deploy_ed25519'),
+  knownHostsPath: join(homedir(), '.ssh', 'known_hosts'),
+  hostKeyChecking: 'strict',
 });
 
-// Rotate keys periodically
-await ssh.rotateKeys('server.example.com');
-
-// Audit security
-const audit = await ssh.auditConnections();
-if (!audit.secure) {
-  console.error('Security issues found:', audit.issues);
+try {
+  console.log(await server`id -un`.timeout('10s').text());
+} finally {
+  await dispose();
 }
 ```
+
+A host-key change requires verification through the server's trusted management
+channel. `ssh-keyscan` can collect a candidate key, but accepting its output
+without independent verification would trust the network path being tested.
+Use a dedicated deployment key and restrict the remote account's privileges.
 
 ### Step 4: Secure File Operations
 
-Handle files securely:
+Create temporary credentials inside a private directory, use exclusive creation
+and await cleanup. This example writes a synthetic credential only to its own
+new directory.
 
-```javascript
-#!/usr/bin/env xec
+```typescript
+import { chmod, mkdtemp, open, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
-import { $ } from '@xec-sh/core';
-import crypto from 'crypto';
-import path from 'path';
-import fs from 'node:fs/promises';
-
-class SecureFileHandler {
-  constructor(options = {}) {
-    this.tempDir = options.tempDir || '/tmp/xec-secure';
-    this.shredPasses = options.shredPasses || 3;
-  }
-
-  async readSensitive(filePath) {
-    // Validate path
-    const safePath = InputValidator.validatePath(filePath);
-    
-    // Check permissions
-    const stats = await fs.stat(safePath);
-    if (stats.mode & 0o077) {
-      console.warn(`Warning: ${safePath} has permissive permissions`);
-    }
-    
-    // Read and immediately clear from memory after use
-    const content = await $.readFile(safePath);
-    
-    return {
-      data: content,
-      clear: () => {
-        // Overwrite string in memory (best effort)
-        content = crypto.randomBytes(content.length).toString();
-      }
-    };
-  }
-
-  async writeSensitive(filePath, content, options = {}) {
-    const safePath = InputValidator.validatePath(filePath);
-    
-    // Create with restrictive permissions
-    await $.writeFile(safePath, content);
-    await $`chmod 600 ${safePath}`;
-    
-    // Set ownership if specified
-    if (options.owner) {
-      await $`chown ${options.owner} ${safePath}`;
-    }
-    
-    // Verify write
-    const verification = await $.readFile(safePath);
-    if (verification !== content) {
-      throw new Error('File verification failed');
-    }
-  }
-
-  async secureDelete(filePath) {
-    const safePath = InputValidator.validatePath(filePath);
-    
-    // Overwrite file multiple times before deletion
-    const stats = await fs.stat(safePath);
-    const size = stats.size;
-    
-    for (let i = 0; i < this.shredPasses; i++) {
-      // Overwrite with random data ($.writeFile takes a string, not a Buffer)
-      const randomData = crypto.randomBytes(size).toString('hex');
-      await $.writeFile(safePath, randomData);
-      
-      // Sync to disk
-      await $`sync`;
-    }
-    
-    // Finally remove
-    await $`rm -f ${safePath}`;
-  }
-
-  async createSecureTemp(prefix = 'xec') {
-    // Create temp directory with restrictive permissions
-    await $`mkdir -p ${this.tempDir}`;
-    await $`chmod 700 ${this.tempDir}`;
-    
-    // Generate unique filename
-    const random = crypto.randomBytes(16).toString('hex');
-    const tempFile = path.join(this.tempDir, `${prefix}-${random}`);
-    
-    // Create file with restrictive permissions
-    await $`touch ${tempFile}`;
-    await $`chmod 600 ${tempFile}`;
-    
-    // Return path and cleanup function
-    return {
-      path: tempFile,
-      cleanup: async () => {
-        await this.secureDelete(tempFile);
-      }
-    };
-  }
-
-  async encryptFile(inputPath, outputPath, password) {
-    const safeinput = InputValidator.validatePath(inputPath);
-    const safeOutput = InputValidator.validatePath(outputPath);
-    
-    // Use GPG for encryption
-    await $`gpg --batch --yes --passphrase "${password}" \
-      --cipher-algo AES256 \
-      --symmetric \
-      --output ${safeOutput} \
-      ${safeinput}`;
-    
-    // Set restrictive permissions
-    await $`chmod 600 ${safeOutput}`;
-  }
-
-  async decryptFile(inputPath, outputPath, password) {
-    const safeInput = InputValidator.validatePath(inputPath);
-    const safeOutput = InputValidator.validatePath(outputPath);
-    
-    // Decrypt with GPG
-    await $`gpg --batch --yes --passphrase "${password}" \
-      --decrypt \
-      --output ${safeOutput} \
-      ${safeInput}`;
-    
-    // Set restrictive permissions
-    await $`chmod 600 ${safeOutput}`;
-  }
-
-  async verifyIntegrity(filePath, expectedHash) {
-    const safePath = InputValidator.validatePath(filePath);
-    
-    // Calculate hash
-    const actualHash = (await $`sha256sum ${safePath}`.text()).split(' ')[0];
-    
-    if (actualHash !== expectedHash) {
-      throw new Error('File integrity check failed');
-    }
-    
-    return true;
-  }
-}
-
-// Usage
-const fileHandler = new SecureFileHandler();
-
-// Handle sensitive files
-const temp = await fileHandler.createSecureTemp('secret');
+const directory = await mkdtemp(join(tmpdir(), 'xec-private-'));
 try {
-  await fileHandler.writeSensitive(temp.path, 'sensitive data');
-  
-  // Encrypt for storage
-  await fileHandler.encryptFile(temp.path, 'data.enc', 'strongpassword');
-  
-  // Verify integrity
-  const hash = await $`sha256sum data.enc`.text();
-  await fileHandler.verifyIntegrity('data.enc', hash.split(' ')[0]);
-  
+  await chmod(directory, 0o700);
+  const file = await open(join(directory, 'credential.txt'), 'wx', 0o600);
+  try {
+    await file.writeFile('synthetic-example-credential', 'utf8');
+    await file.sync();
+  } finally {
+    await file.close();
+  }
 } finally {
-  await temp.cleanup();
+  await rm(directory, { recursive: true });
 }
 ```
+
+The permissions shown apply to POSIX filesystems. Configure equivalent ACLs on
+Windows. Deleting a file releases its directory entry. Encryption at rest and
+key lifecycle policies provide protection for copies retained by snapshots,
+backups and storage devices.
 
 ### Step 5: Audit Logging and Monitoring
 
-Track security events:
+Subscribe to engine events and record a small explicit schema. The core masks
+command events. Application-added context should contain identifiers and
+outcomes rather than credentials or whole environments.
 
-```javascript
-#!/usr/bin/env xec
+```typescript
+import { ExecutionEngine } from '@xec-sh/core';
 
-import { $ } from '@xec-sh/core';
+const engine = new ExecutionEngine({ defaultTimeout: '10s' });
+engine.on('command:start', event => {
+  console.log(JSON.stringify({
+    event: 'command:start',
+    at: event.timestamp,
+    adapter: event.adapter,
+    command: event.command,
+  }));
+});
+engine.on('command:complete', event => {
+  console.log(JSON.stringify({
+    event: 'command:complete',
+    at: event.timestamp,
+    duration: event.duration,
+    exitCode: event.exitCode,
+  }));
+});
+engine.on('command:error', event => {
+  console.error(JSON.stringify({ event: 'command:error', at: event.timestamp, error: event.error }));
+});
 
-class SecurityAuditor {
-  constructor(options = {}) {
-    this.logFile = options.logFile || '.xec/security-audit.log';
-    this.alertThreshold = options.alertThreshold || 5;
-    this.events = [];
-  }
-
-  async log(event) {
-    const entry = {
-      timestamp: new Date().toISOString(),
-      type: event.type,
-      severity: event.severity || 'info',
-      user: process.env.USER,
-      pid: process.pid,
-      ...event
-    };
-    
-    // Add to memory
-    this.events.push(entry);
-    
-    // Write to file
-    await this.writeLog(entry);
-    
-    // Check for alerts
-    if (entry.severity === 'critical') {
-      await this.sendAlert(entry);
-    }
-    
-    // Check for patterns
-    await this.detectAnomalies();
-  }
-
-  async writeLog(entry) {
-    const line = JSON.stringify(entry) + '\n';
-    
-    // Append to log file
-    await $`echo '${line}' >> ${this.logFile}`;
-    
-    // Rotate if needed
-    const stats = await fs.stat(this.logFile).catch(() => null);
-    if (stats && stats.size > 10 * 1024 * 1024) { // 10MB
-      await this.rotateLog();
-    }
-  }
-
-  async rotateLog() {
-    const timestamp = Date.now();
-    await $`mv ${this.logFile} ${this.logFile}.${timestamp}`;
-    await $`gzip ${this.logFile}.${timestamp}`;
-  }
-
-  async detectAnomalies() {
-    // Check for suspicious patterns
-    const recentEvents = this.events.slice(-100);
-    
-    // Multiple failed authentications
-    const failedAuth = recentEvents.filter(e => 
-      e.type === 'auth_failed'
-    );
-    
-    if (failedAuth.length > this.alertThreshold) {
-      await this.sendAlert({
-        type: 'anomaly',
-        message: `${failedAuth.length} failed authentication attempts`,
-        severity: 'warning'
-      });
-    }
-    
-    // Rapid command execution
-    const commands = recentEvents.filter(e => 
-      e.type === 'command_executed'
-    );
-    
-    const timeWindow = 60000; // 1 minute
-    const now = Date.now();
-    const recentCommands = commands.filter(e => 
-      new Date(e.timestamp).getTime() > now - timeWindow
-    );
-    
-    if (recentCommands.length > 50) {
-      await this.sendAlert({
-        type: 'anomaly',
-        message: 'Unusual command execution rate detected',
-        severity: 'warning'
-      });
-    }
-  }
-
-  async sendAlert(event) {
-    console.error(`SECURITY ALERT: ${event.message || event.type}`);
-    
-    // Send to monitoring system
-    if (process.env.SECURITY_WEBHOOK) {
-      await $`curl -X POST ${process.env.SECURITY_WEBHOOK} \
-        -H 'Content-Type: application/json' \
-        -d '${JSON.stringify(event)}'`.nothrow();
-    }
-  }
-
-  async generateReport() {
-    const report = {
-      period: {
-        start: this.events[0]?.timestamp,
-        end: this.events[this.events.length - 1]?.timestamp
-      },
-      summary: {
-        total: this.events.length,
-        bySeverity: {},
-        byType: {}
-      },
-      criticalEvents: [],
-      recommendations: []
-    };
-    
-    // Analyze events
-    this.events.forEach(event => {
-      // By severity
-      report.summary.bySeverity[event.severity] = 
-        (report.summary.bySeverity[event.severity] || 0) + 1;
-      
-      // By type
-      report.summary.byType[event.type] = 
-        (report.summary.byType[event.type] || 0) + 1;
-      
-      // Critical events
-      if (event.severity === 'critical') {
-        report.criticalEvents.push(event);
-      }
-    });
-    
-    // Generate recommendations
-    if (report.summary.byType.auth_failed > 10) {
-      report.recommendations.push('Review authentication mechanisms');
-    }
-    
-    if (report.summary.byType.permission_denied > 5) {
-      report.recommendations.push('Audit file permissions');
-    }
-    
-    return report;
-  }
-}
-
-// Global auditor
-const auditor = new SecurityAuditor();
-
-// Wrap command execution with auditing
-async function auditedExecute(command, context = {}) {
-  await auditor.log({
-    type: 'command_executed',
-    command: command.substring(0, 100), // Don't log full commands
-    context
-  });
-  
-  try {
-    return await $`${command}`;
-  } catch (error) {
-    await auditor.log({
-      type: 'command_failed',
-      severity: 'warning',
-      error: error.message,
-      context
-    });
-    throw error;
-  }
-}
-
-// Monitor authentication
-async function authenticatedAction(action, credentials) {
-  try {
-    // Verify credentials
-    const valid = await verifyCredentials(credentials);
-    
-    if (!valid) {
-      await auditor.log({
-        type: 'auth_failed',
-        severity: 'warning',
-        action
-      });
-      throw new Error('Authentication failed');
-    }
-    
-    await auditor.log({
-      type: 'auth_success',
-      action
-    });
-    
-    return await action();
-    
-  } catch (error) {
-    await auditor.log({
-      type: 'auth_error',
-      severity: 'critical',
-      error: error.message
-    });
-    throw error;
-  }
+try {
+  await engine.execute({ command: process.execPath, args: ['--version'], shell: false });
+} finally {
+  await engine.dispose();
 }
 ```
 
+Forward these records to the environment's logging service and configure its
+retention, access controls and delivery monitoring.
+
 ## Best Practices
 
-1. **Defense in Depth**
-   - Multiple security layers
-   - Validate at every level
-   - Assume breach possibility
-   - Regular security audits
-
-2. **Least Privilege**
-   - Minimal permissions
-   - Separate service accounts
-   - Time-limited access
-   - Role-based controls
-
-3. **Secure by Default**
-   - Restrictive defaults
-   - Explicit permission grants
-   - Fail securely
-   - No hardcoded secrets
-
-4. **Continuous Monitoring**
-   - Log security events
-   - Detect anomalies
-   - Alert on violations
-   - Regular reviews
-
-5. **Incident Response**
-   - Prepared runbooks
-   - Clear escalation
-   - Post-mortem analysis
-   - Continuous improvement
+- Pin the remote target, host identity and deployment artifact.
+- Keep secret values in the shared provider and redaction flow.
+- Give automation dedicated credentials with the required scope.
+- Use standard input for credentials when the target program supports it.
+- Validate paths and operation names before a command can mutate state.
+- Await process termination and verify the application's resulting state.
 
 ## Common Pitfalls
 
-1. **Hardcoded Secrets**
-   - ❌ Passwords in code
-   - ✅ Use secret management systems
+A command blocklist leaves alternative syntax and executables available.
+Define the permitted operation and validate its arguments. For arbitrary code,
+enforce isolation at the OS or container boundary.
 
-2. **Overly Permissive Access**
-   - ❌ chmod 777
-   - ✅ Use minimal required permissions
-
-3. **Unvalidated Input**
-   - ❌ Direct user input in commands
-   - ✅ Always validate and sanitize
-
-4. **Unencrypted Transmission**
-   - ❌ Plain HTTP/FTP
-   - ✅ Use HTTPS/SFTP/SSH
-
-5. **Missing Audit Logs**
-   - ❌ No security logging
-   - ✅ Comprehensive audit trail
+A transport timeout can leave a remote mutation's outcome unknown. Inspect the
+application's durable state before deciding on a retry. [Error handling](./error-handling.md)
 
 ## Troubleshooting
 
 ### Issue: Permission Denied Errors
+
+Inspect the intended account and file permissions before changing them.
+
 ```bash
-# Check file permissions
-ls -la file.txt
-
-# Fix permissions (restrictive)
-chmod 600 sensitive-file
-chmod 700 script.sh
-
-# Check effective user
 id
-whoami
+ls -ld ~/.ssh
+ls -l ~/.ssh/deploy_ed25519
 ```
 
+For an owned POSIX deployment key, the usual permissions are `0700` on `.ssh`
+and `0600` on the private key. Adjust only the intended files.
+
 ### Issue: SSH Key Authentication Failing
+
+Check the key path, remote username and verified host entry. Use the same
+account and key in the server's access policy.
+
 ```bash
-# Check key permissions
-ls -la ~/.ssh/
-
-# Fix permissions
-chmod 700 ~/.ssh
-chmod 600 ~/.ssh/id_*
-chmod 644 ~/.ssh/*.pub
-
-# Test connection
-ssh -vvv user@host
+ssh-keygen -F deploy.example.com -f ~/.ssh/known_hosts
+ssh -o StrictHostKeyChecking=yes -i ~/.ssh/deploy_ed25519 deploy@deploy.example.com id -un
 ```
 
 ### Issue: Secret Not Found
-```javascript
-// Debug secret retrieval
-const secrets = new SecretManager({ provider: 'env' });
 
-// Check available secrets
-console.log('Environment:', Object.keys(process.env).filter(k => k.startsWith('SECRET_')));
+Test presence without printing the value.
 
-// Test retrieval
-try {
-  const value = await secrets.get('MY_SECRET');
-} catch (error) {
-  console.error('Secret error:', error);
-  // Check provider configuration
-}
+```typescript
+import { SecretManager } from '@xec-sh/ops';
+
+const secrets = new SecretManager({ type: 'env' });
+console.log(await secrets.has('registry-token') ? 'Credential configured' : 'Credential missing');
 ```
+
+This provider uses `SECRET_REGISTRY_TOKEN`. Inspect provider configuration when
+the credential was stored under another prefix or provider.
 
 ### Issue: Audit Log Growing Too Large
-```bash
-# Rotate logs
-logrotate -f /etc/logrotate.d/xec-security
 
-# Compress old logs
-gzip .xec/security-audit.log.*
-
-# Archive to backup
-tar -czf security-logs-$(date +%Y%m%d).tar.gz .xec/security-audit.log.*
-```
+Configure rotation and retention in the log collector. Verify delivery before
+retiring local records and preserve records required for deployment recovery.
 
 ## Related Guides
 
-- [Error Handling](./error-handling.md) - Security error handling
-- [SSH Management](../infrastructure/server-management.md) - SSH security
-- [Container Security](../infrastructure/container-orchestration.md) - Docker/K8s security
-- [CI/CD Security](../automation/ci-cd-pipelines.md) - Pipeline security
+- [Secret providers](../../ops/secrets.md)
+- [Error handling](./error-handling.md)
+- [Server management](../infrastructure/server-management.md)

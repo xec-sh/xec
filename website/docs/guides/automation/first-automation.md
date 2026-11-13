@@ -11,7 +11,7 @@ Welcome to Xec! This guide will walk you through creating your first automation 
 ## Prerequisites
 
 Before you begin, ensure you have:
-- Node.js 18+ installed
+- Node.js 20+ installed
 - Xec installed globally: `npm install -g @xec-sh/cli`
 - Basic knowledge of JavaScript/TypeScript
 
@@ -63,7 +63,7 @@ async function buildAndTest() {
     
     console.log('✅ All tasks completed successfully!');
   } catch (error) {
-    console.error('❌ Automation failed:', error.message);
+    console.error('❌ Automation failed:', (error instanceof Error ? error.message : String(error)));
     process.exit(1);
   }
 }
@@ -78,7 +78,7 @@ Add user interaction to your automation:
 ```typescript
 // interactive-build.ts
 import { $ } from '@xec-sh/core';
-import { confirm, select } from '@clack/prompts';
+import { confirm, select, isCancel } from '@xec-sh/kit';
 
 async function interactiveBuild() {
   // Ask for build type
@@ -91,12 +91,14 @@ async function interactiveBuild() {
     ]
   });
 
+  if (isCancel(buildType)) return;
+
   // Confirm before proceeding
   const shouldProceed = await confirm({
     message: `Build for ${buildType}?`
   });
 
-  if (!shouldProceed) {
+  if (shouldProceed !== true) {
     console.log('Build cancelled');
     return;
   }
@@ -111,7 +113,7 @@ async function interactiveBuild() {
       message: 'Run tests?'
     });
     
-    if (runTests) {
+    if (runTests === true) {
       await $`npm test`;
     }
   }
@@ -143,7 +145,7 @@ async function deployToStaging() {
   const staging = $.ssh({
     host: 'staging.example.com',
     username: 'deploy',
-    privateKey: '~/.ssh/id_rsa'
+    privateKeyPath: '~/.ssh/id_rsa'
   });
   
   // Upload build
@@ -318,7 +320,7 @@ import { $ } from '@xec-sh/core';
 try {
   await $`risky-command`;
 } catch (error) {
-  console.error('Command failed:', error.message);
+  console.error('Command failed:', (error instanceof Error ? error.message : String(error)));
   // Implement cleanup or recovery logic
 }
 
@@ -342,15 +344,14 @@ if (!apiKey) {
 
 await $.env({ API_KEY: apiKey })`deploy-script`;
 
-// Never log sensitive data — .quiet() suppresses the echo of the command
-await $`echo "API_KEY=${apiKey}" > .env`.quiet();
+// Keep the credential in the configured provider instead of a generated .env file.
 ```
 
 ### 3. Provide Progress Feedback
 
 ```typescript
 import { $ } from '@xec-sh/core';
-import { spinner } from '@clack/prompts';
+import { spinner } from '@xec-sh/kit';
 
 async function longRunningTask() {
   const s = spinner();
@@ -506,7 +507,7 @@ await $`sudo systemctl restart nginx`;
 const server = $.ssh({
   host: 'server.example.com',
   username: 'admin',
-  privateKey: '~/.ssh/id_rsa'
+  privateKeyPath: '~/.ssh/id_rsa'
 });
 ```
 
@@ -515,8 +516,11 @@ const server = $.ssh({
 Enable verbose output for debugging:
 
 ```typescript
+import { $ } from '@xec-sh/core';
+
 // Set verbose mode
 $.verbose = true;
+const result = await $`node --version`;
 
 // Or use debug logging
 if (process.env.DEBUG) {

@@ -21,32 +21,21 @@ Debugging distributed scripts across multiple environments (local, SSH, Docker, 
 
 ### Step 1: Enable Debug Mode
 
-Configure Xec for debugging:
+Enable the CLI's verbose diagnostics for the script you are investigating.
 
 ```bash
-# Set debug environment variables
-export XEC_DEBUG=true
-export XEC_LOG_LEVEL=debug
-export NODE_OPTIONS="--trace-warnings"
-
-# Or use config
-xec config set debug true
-xec config set logLevel debug
+xec --verbose run scripts/check.ts
 ```
 
-Add debug configuration to `.xec/config.yaml`:
+For command-level output inside a script, set `$.verbose = true`. To debug the
+Node process running Xec, use Node's inspector on the installed CLI entry.
 
-```yaml
-debug:
-  enabled: true
-  logLevel: debug
-  traceCommands: true
-  captureOutput: true
-  dumpOnError: true
-  breakpoints:
-    - file: scripts/deploy.js
-      line: 42
+```bash
+node --inspect-brk=127.0.0.1:9229 "$(command -v xec)" run scripts/check.ts
 ```
+
+Attach the debugger to the loopback inspector endpoint and set breakpoints in
+the script. Use an SSH tunnel when accessing a remote inspector.
 
 ### Step 2: Command-Level Debugging
 
@@ -79,7 +68,7 @@ const cmd = 'git';
 const args = ['status', '--short'];
 const dialect = dialectFor(true);
 console.log('Executing:', [cmd, ...args].map(part => quoteForShell(part, dialect)).join(' '));
-await $`${cmd} ${args}`;
+await $.exec(cmd, { args, shell: false });
 
 // Build a command pipeline
 const pipeline = $`cat file.txt`
@@ -95,7 +84,7 @@ console.log('Line count:', lineCount);
 Debug scripts running on remote targets:
 
 ```javascript
-#!/usr/bin/env xec --inspect
+#!/usr/bin/env xec
 
 import { $ } from '@xec-sh/core';
 
@@ -109,25 +98,19 @@ const ssh = $.ssh({
 
 // Add debugging commands
 await ssh`echo "Current directory: $(pwd)"`;
-await ssh`echo "Environment: $(env | grep NODE)"`;
+await ssh`node --version`;
 await ssh`echo "User: $(whoami)"`;
 
 // Debug with breakpoints
 debugger;  // Breakpoint for Node inspector
 const result = await ssh`./deploy.sh`;
 
-// Capture detailed error information
+// Preserve the original error and report its standard message.
 try {
   await ssh`./might-fail.sh`;
 } catch (error) {
-  console.log('Error details:', {
-    command: error.command,
-    exitCode: error.exitCode,
-    stdout: error.stdout,
-    stderr: error.stderr,
-    duration: error.duration,
-    callSite: error.callSite
-  });
+  console.error(error instanceof Error ? error.message : String(error));
+  throw error;
 }
 
 // Debug Docker execution
@@ -143,7 +126,9 @@ await docker`cat /proc/meminfo`;
 
 ### Step 4: Interactive Debugging
 
-Use the Node.js inspector for interactive debugging:
+For a project with `tsx` installed as a development dependency, VS Code can
+launch a standalone script that imports the public Xec packages. Use the CLI
+inspector command above for scripts that also need injected CLI globals.
 
 ```json
 // .vscode/launch.json
@@ -155,12 +140,10 @@ Use the Node.js inspector for interactive debugging:
       "request": "launch",
       "name": "Debug Xec Script",
       "program": "${workspaceFolder}/.xec/scripts/debug-me.js",
-      "runtimeExecutable": "xec",
-      "runtimeArgs": ["--inspect-brk"],
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["--import", "tsx"],
       "console": "integratedTerminal",
-      "env": {
-        "XEC_DEBUG": "true"
-      }
+      "skipFiles": ["<node_internals>/**"]
     }
   ]
 }
@@ -174,11 +157,12 @@ Debug script with breakpoints:
 
 import { $ } from '@xec-sh/core';
 
+/** @param {string} env */
 async function deployStep(env) {
   debugger;  // VS Code will break here
   
   const config = await loadConfig(env);
-  console.log('Config loaded:', config);
+  console.log('Configuration loaded for', env);
   
   debugger;  // Another breakpoint
   
@@ -188,6 +172,7 @@ async function deployStep(env) {
   return config;
 }
 
+/** @param {string} env */
 async function loadConfig(env) {
   // Set conditional breakpoints
   if (env === 'production') {
@@ -200,187 +185,56 @@ async function loadConfig(env) {
 }
 
 // Main execution
-const env = args[0] || 'development';
+const env = process.argv[2] || 'development';
 await deployStep(env);
 ```
 
 ### Step 5: Logging and Tracing
 
-Implement comprehensive logging:
+Subscribe to the engine's structured events. This preserves the callable and
+chainable API and uses its existing diagnostic redaction.
 
-```javascript
-// .xec/lib/logger.js
-import { $ } from '@xec-sh/core';
-import winston from 'winston';
+```typescript
+import { $, dispose } from '@xec-sh/core';
 
-const logger = winston.createLogger({
-  level: process.env.XEC_LOG_LEVEL || 'info',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.errors({ stack: true }),
-    winston.format.json()
-  ),
-  transports: [
-    new winston.transports.File({ 
-      filename: '.xec/logs/error.log', 
-      level: 'error' 
-    }),
-    new winston.transports.File({ 
-      filename: '.xec/logs/combined.log' 
-    }),
-    new winston.transports.Console({
-      format: winston.format.simple()
-    })
-  ]
+$.on('command:start', event => {
+  console.log(JSON.stringify({ type: 'start', command: event.command, adapter: event.adapter }));
+});
+$.on('command:complete', event => {
+  console.log(JSON.stringify({ type: 'complete', exitCode: event.exitCode, duration: event.duration }));
+});
+$.on('command:error', event => {
+  console.error(JSON.stringify({ type: 'error', error: event.error, duration: event.duration }));
 });
 
-// Wrap Xec commands with logging
-export function logged($) {
-  return new Proxy($, {
-    get(target, prop) {
-      if (typeof target[prop] === 'function') {
-        return async (...args) => {
-          const start = Date.now();
-          logger.debug(`Executing: ${prop}`, { args });
-          
-          try {
-            const result = await target[prop](...args);
-            logger.info(`Success: ${prop}`, {
-              duration: Date.now() - start,
-              args
-            });
-            return result;
-          } catch (error) {
-            logger.error(`Failed: ${prop}`, {
-              duration: Date.now() - start,
-              args,
-              error: error.message,
-              stack: error.stack
-            });
-            throw error;
-          }
-        };
-      }
-      return target[prop];
-    }
-  });
+try {
+  await $`node --version`;
+} finally {
+  await dispose();
 }
-
-// Usage
-const $$ = logged($);
-await $$`ls -la`;  // Automatically logged
 ```
 
 ### Step 6: Error Analysis
 
-Create detailed error reports:
+Preserve a classified error and a small operation context. The top-level caller
+can forward this record to its existing logger and set the exit status.
 
-```javascript
-#!/usr/bin/env xec
-// .xec/lib/error-reporter.js
-
-import { $ } from '@xec-sh/core';
-import fs from 'fs/promises';
-
-class ErrorReporter {
-  constructor() {
-    this.errors = [];
-  }
-
-  async capture(error, context = {}) {
-    const report = {
-      timestamp: new Date().toISOString(),
-      error: {
-        message: error.message,
-        stack: error.stack,
-        code: error.code,
-        ...error
-      },
-      context: {
-        cwd: process.cwd(),
-        env: process.env.NODE_ENV,
-        target: context.target,
-        ...context
-      },
-      system: await this.getSystemInfo()
-    };
-
-    this.errors.push(report);
-    await this.save(report);
-    
-    return report;
-  }
-
-  async getSystemInfo() {
-    const info = {};
-    
-    try {
-      info.platform = process.platform;
-      info.arch = process.arch;
-      info.node = process.version;
-      info.memory = process.memoryUsage();
-      info.uptime = process.uptime();
-      
-      if (await $.isCommandAvailable('docker')) {
-        info.docker = (await $`docker version --format json`).stdout;
-      }
-      
-      if (await $.isCommandAvailable('kubectl')) {
-        info.kubectl = (await $`kubectl version --output json`).stdout;
-      }
-    } catch (e) {
-      // Ignore errors collecting system info
-    }
-    
-    return info;
-  }
-
-  async save(report) {
-    const filename = `.xec/errors/${Date.now()}-error.json`;
-    await fs.mkdir('.xec/errors', { recursive: true });
-    await fs.writeFile(filename, JSON.stringify(report, null, 2));
-    console.error(`Error report saved: ${filename}`);
-  }
-
-  async analyze() {
-    const files = await fs.readdir('.xec/errors');
-    const reports = await Promise.all(
-      files.map(f => fs.readFile(`.xec/errors/${f}`, 'utf8').then(JSON.parse))
-    );
-
-    // Group errors by type
-    const byType = {};
-    reports.forEach(r => {
-      const key = r.error.code || r.error.message;
-      if (!byType[key]) byType[key] = [];
-      byType[key].push(r);
-    });
-
-    // Find patterns
-    console.log('Error Analysis:');
-    console.log('===============');
-    Object.entries(byType).forEach(([type, errors]) => {
-      console.log(`\n${type}: ${errors.length} occurrences`);
-      if (errors.length > 1) {
-        console.log('  First seen:', errors[0].timestamp);
-        console.log('  Last seen:', errors[errors.length - 1].timestamp);
-      }
-    });
-  }
-}
-
-// Usage in scripts
-const reporter = new ErrorReporter();
+```typescript
+import { $, CommandError, ExecutionError, dispose } from '@xec-sh/core';
 
 try {
-  await $`risky-command`;
+  await $`npm run build`;
 } catch (error) {
-  await reporter.capture(error, {
-    script: 'deploy.js',
-    step: 'build',
-    target: 'production'
-  });
-  throw error;  // Re-throw after reporting
+  console.error(JSON.stringify({
+    operation: 'build',
+    target: 'local',
+    kind: error instanceof ExecutionError ? error.kind : 'application-error',
+    exitCode: error instanceof CommandError ? error.exitCode : undefined,
+    message: error instanceof Error ? error.message : String(error),
+  }));
+  process.exitCode = 1;
+} finally {
+  await dispose();
 }
 ```
 
@@ -437,7 +291,7 @@ try {
 lsof -i :9229
 
 # Use different port
-xec --inspect=0.0.0.0:9230 script.js
+node --inspect=127.0.0.1:9230 "$(command -v xec)" run script.js
 
 # For remote debugging
 ssh -L 9229:localhost:9229 user@server
@@ -453,41 +307,38 @@ process.env.NODE_OPTIONS = '--stack-trace-limit=1000';
 ```
 
 ### Issue: Async Errors Not Caught
-```javascript
-// Handle unhandled rejections
-process.on('unhandledRejection', (error, promise) => {
-  console.error('Unhandled rejection:', error);
-  reporter.capture(error, { type: 'unhandledRejection' });
-});
+Await the script's entry point so its failures reach one final handler.
 
-// Handle uncaught exceptions
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught exception:', error);
-  reporter.capture(error, { type: 'uncaughtException' });
-  process.exit(1);
-});
+```typescript
+import { $, dispose } from '@xec-sh/core';
+
+async function check(): Promise<void> {
+  await $`npm test`;
+}
+try {
+  await check();
+} catch (error) {
+  console.error(error);
+  process.exitCode = 1;
+} finally {
+  await dispose();
+}
 ```
 
 ### Issue: Hung or Runaway Commands
 
-A command with no output for a while might just be slow, or it might be stuck waiting on input it will never get. Two independent defenses:
+Set a deadline on the command and inspect the classified failure. A non-zero
+exit and a timeout are distinct outcomes.
 
-```javascript
-// Give it a deadline — duration strings and milliseconds both work,
-// whether set per-command or as shared config
-const result = await $`some-slow-tool`.timeout('30s').nothrow();
-if (!result.ok) {
-  console.log('Did not finish in time');
+```typescript
+import { $, ExecutionError } from '@xec-sh/core';
+
+try {
+  await $`npm test`.timeout('2m');
+} catch (error) {
+  if (error instanceof ExecutionError) console.error(error.kind, error.message);
+  throw error;
 }
-
-const patient = $.with({ timeout: '2m' });
-await patient`another-slow-tool`.nothrow();
-
-// Or kill it directly. This kills the whole process tree — a hung
-// command that spawned children of its own (a shell wrapper, a
-// language runtime) can't leave orphans behind.
-const proc = $`some-slow-tool`.start();
-setTimeout(() => proc.kill(), 30000);
 ```
 
 ### Issue: Remote Debug Connection Failed

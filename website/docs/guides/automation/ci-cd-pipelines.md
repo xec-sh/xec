@@ -53,7 +53,7 @@ export async function buildPipeline() {
     
     return { success: true, duration };
   } catch (error) {
-    console.error('❌ Pipeline failed:', error.message);
+    console.error('❌ Pipeline failed:', (error instanceof Error ? error.message : String(error)));
     throw error;
   }
 }
@@ -108,7 +108,7 @@ class Pipeline {
         
         console.log(`✅ ${stage.name} completed`);
       } catch (error) {
-        console.error(`❌ ${stage.name} failed:`, error.message);
+        console.error(`❌ ${stage.name} failed:`, (error instanceof Error ? error.message : String(error)));
         throw new Error(`Pipeline failed at stage: ${stage.name}`);
       }
     }
@@ -236,7 +236,7 @@ await ciPipeline();
 ```typescript
 // pipelines/deploy.ts
 import { $ } from '@xec-sh/core';
-import { confirm } from '@clack/prompts';
+import { confirm } from '@xec-sh/kit';
 
 interface Environment {
   name: string;
@@ -282,13 +282,13 @@ class DeploymentPipeline {
             message: `Continue to next environment?`
           });
           
-          if (!proceed) {
+          if (proceed !== true) {
             console.log('Deployment halted by user');
             break;
           }
         }
       } catch (error) {
-        console.error(`❌ Deployment to ${env.name} failed:`, error.message);
+        console.error(`❌ Deployment to ${env.name} failed:`, (error instanceof Error ? error.message : String(error)));
         
         if (env.rollback) {
           console.log(`⏪ Rolling back ${env.name}...`);
@@ -473,6 +473,8 @@ await dockerCI();
 import { $ } from '@xec-sh/core';
 
 async function k8sDeploy() {
+  const context = process.env.K8S_CONTEXT;
+  if (!context) throw new Error('K8S_CONTEXT is required');
   const namespace = process.env.K8S_NAMESPACE || 'default';
   const deployment = process.env.K8S_DEPLOYMENT || 'myapp';
   const image = process.env.DOCKER_IMAGE || 'myapp:latest';
@@ -484,40 +486,42 @@ async function k8sDeploy() {
   
   // Check cluster connection
   console.log('\n🔍 Checking cluster connection...');
-  await $`kubectl cluster-info`;
+  await $`kubectl --context ${context} cluster-info`;
   
   // Update deployment
   console.log('\n📦 Updating deployment...');
-  await $`kubectl set image deployment/${deployment} \
+  await $`kubectl --context ${context} set image deployment/${deployment} \
     ${deployment}=${image} \
-    -n ${namespace} \
-    --record`;
+    -n ${namespace}`;
   
   // Wait for rollout
   console.log('\n⏳ Waiting for rollout...');
-  const rolloutResult = await $`kubectl rollout status \
+  const rolloutResult = await $`kubectl --context ${context} rollout status \
     deployment/${deployment} \
     -n ${namespace} \
     --timeout=5m`.nothrow();
   
   if (!rolloutResult.ok) {
     console.error('❌ Rollout failed, initiating rollback...');
-    await $`kubectl rollout undo deployment/${deployment} -n ${namespace}`;
-    throw new Error('Deployment failed and was rolled back');
+    await $`kubectl --context ${context} rollout undo deployment/${deployment} -n ${namespace}`;
+    await $`kubectl --context ${context} rollout status deployment/${deployment} -n ${namespace} --timeout=5m`;
+    throw new Error('Deployment failed and the previous rollout was restored');
   }
   
   // Verify deployment
   console.log('\n✅ Verifying deployment...');
-  const podData = await $`kubectl get pods \
+  const podData = await $`kubectl --context ${context} get pods \
     -n ${namespace} \
     -l app=${deployment} \
-    -o json`.json();
+    -o json`.json<{ items: { metadata: { name: string }; status: { conditions?: { type: string; status: string }[] } }[] }>();
   const readyPods = podData.items.filter(
-    pod => pod.status.phase === 'Running'
+    pod => pod.status.conditions?.some(condition => condition.type === 'Ready' && condition.status === 'True')
   ).length;
   
   console.log(`✅ ${readyPods}/${podData.items.length} pods running`);
   
+  if (!podData.items.length || readyPods !== podData.items.length) throw new Error('Pod readiness is incomplete');
+
   // Run smoke tests
   console.log('\n🧪 Running smoke tests...');
   const testPod = podData.items[0]?.metadata?.name;
@@ -526,6 +530,7 @@ async function k8sDeploy() {
     const k8s = $.k8s({
       pod: testPod,
       namespace,
+      context,
       container: deployment
     });
     
@@ -572,9 +577,8 @@ async function conditionalPipeline() {
     }
   };
   
-  const config = branchName.startsWith('feature/')
-    ? pipelineConfig.feature
-    : pipelineConfig[branchName] || pipelineConfig.feature;
+  const config = branchName === 'main' ? pipelineConfig.main
+    : branchName === 'develop' ? pipelineConfig.develop : pipelineConfig.feature;
   
   console.log(`🎯 Running pipeline for branch: ${branchName}`);
   
@@ -591,8 +595,8 @@ async function conditionalPipeline() {
   // Conditional deployment
   if (config.deploy) {
     if (config.requireApproval) {
-      // In CI, this would check for approval
-      console.log('⏸️ Waiting for deployment approval...');
+      // Set this only in the CI environment's approved deployment job.
+      if (process.env.DEPLOY_APPROVED !== 'true') throw new Error('Deployment approval required');
     }
     
     await $`npm run deploy:${config.deploy}`;
@@ -698,7 +702,7 @@ class MonitoredPipeline {
       this.metrics.set(name, {
         status: 'failed',
         duration,
-        error: error.message,
+        error: (error instanceof Error ? error.message : String(error)),
         timestamp: new Date().toISOString()
       });
       
@@ -888,11 +892,17 @@ pipeline {
 Keep your pipeline definitions in version control:
 
 ```typescript
-// pipelines/index.ts
-export { buildPipeline } from './build';
-export { testPipeline } from './test';
-export { deployPipeline } from './deploy';
-export { releasePipeline } from './release';
+// pipelines/check.ts
+import { $, parallel } from '@xec-sh/core';
+
+export async function checkPipeline(): Promise<void> {
+  await $`npm ci`;
+  const result = await parallel(['npm run lint', 'npm test'], { maxConcurrent: 2 });
+  if (result.failed.length) throw new AggregateError(result.failed, 'Checks failed');
+  await $`npm run build`;
+}
+
+await checkPipeline();
 ```
 
 ### 2. Environment Configuration
@@ -924,7 +934,8 @@ export const config = {
 
 export function getConfig() {
   const env = process.env.ENVIRONMENT || 'development';
-  return config[env];
+  if (!Object.hasOwn(config, env)) throw new Error(`Unknown environment: ${env}`);
+  return config[env as keyof typeof config];
 }
 ```
 
@@ -1013,12 +1024,15 @@ async function manageArtifacts() {
 
 3. **Resource Cleanup**
    ```typescript
-   // Always cleanup resources
+   import { $ } from '@xec-sh/core';
+   import { randomUUID } from 'node:crypto';
+
+   const compose = $.docker().compose('compose.test.yaml').withProject(`ci-${randomUUID()}`);
    try {
-     await runPipeline();
+     await compose.up();
+     await compose.exec('tests', 'npm test');
    } finally {
-     await $`docker-compose down`.nothrow();
-     await $`rm -rf temp/*`.nothrow();
+     await compose.down();
    }
    ```
 
