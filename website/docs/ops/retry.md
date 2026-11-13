@@ -61,7 +61,7 @@ interface RetryConfig {
   multiplier: number;       // Default: 2
   jitter: number;           // Default: 0.1 (±10%)
   retryOn?: (error: Error) => boolean;
-  onRetry?: (attempt, error, delay) => void;
+  onRetry?: (attempt: number, error: Error, delay: number) => void;
   abortSignal?: AbortSignal;
 }
 ```

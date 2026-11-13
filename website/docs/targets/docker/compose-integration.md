@@ -99,12 +99,12 @@ const status = await compose.ps();   // docker compose ps output
 console.log(status);
 ```
 
-For live log following, use the CLI with a line-processor pipe:
+For live log following, iterate the command output:
 
 ```typescript
-await $`docker compose logs -f --tail 100 web`.pipe((line) => {
+for await (const line of $`docker compose logs -f --tail 100 web`) {
   console.log(`[web] ${line}`);
-});
+}
 ```
 
 ## Scaling

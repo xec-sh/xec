@@ -66,10 +66,13 @@ await web`sudo systemctl restart nginx`.nothrow(); // fails without NOPASSWD; se
 
 Each of these returns a new context, so they compose: `$.ssh(target).cd('/app').timeout('30s')`. A timeout takes milliseconds or a duration string.
 
-An SSH target carries the same surface as every other target, so anything you can do with `$` you can do with `$.ssh(host)` — `.with()`, `.which()`, `.readFile()`, `.batch()`, the event methods, and the rest. That is what lets a step written as a function of an engine run anywhere:
+Target contexts share tagged command execution and fluent command configuration. Accept the command function when a step only needs to execute a command:
 
 ```typescript
-const restart = (target, service) => target`systemctl restart ${service}`;
+import type { CallableExecutionEngine } from '@xec-sh/core';
+
+const restart = (target: CallableExecutionEngine['run'], service: string) =>
+  target`systemctl restart ${service}`;
 
 await restart($.ssh('deploy@web-1'), 'api');
 await restart($.docker('api'), 'nginx');
@@ -82,7 +85,7 @@ On top of that, an SSH context adds what only SSH can offer: `.tunnel()`, `.reve
 The object returned by calling the context is a normal `ProcessPromise`:
 
 ```typescript
-await $.ssh('deploy@web-1')`tail -f /var/log/app.log`.pipe(process.stdout);
+await $.ssh('deploy@web-1')`tail -f /var/log/app.log`.stdout(process.stdout);
 
 for await (const line of $.ssh('deploy@web-1')`cat large-file.txt`) {
   console.log(line);

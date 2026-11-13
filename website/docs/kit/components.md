@@ -70,6 +70,8 @@ import { spinner } from '@xec-sh/kit';
 const controller = new AbortController();
 spinner({
   signal: controller.signal,
+  enabled: !process.argv.includes('--json'),
+  output: process.stderr,
   style: 'circle',        // braille (default) | circle | dots | line | arrow | binary | moon
   indicator: 'timer',     // 'dots' (default) animates dots; 'timer' shows elapsed time
   cancelMessage: 'Stopped',
@@ -77,6 +79,8 @@ spinner({
   onCancel: () => controller.abort(),
 });
 ```
+
+`enabled: false` disables rendering, timers, input and process listeners while preserving the indicator methods. Use it for quiet and machine-output commands.
 
 Custom animations pass `frames: string[]` and `delay: number` directly. Pipe and CI output uses append-only progress with a periodic heartbeat. `accessible: true` also selects plain append-only text for a terminal. Pass `input`, `output` and `signal` to connect the indicator to its owning operation. `stop` reports success, `error` reports failure, and `cancel` reports cancellation. Each completion restores the terminal and removes its listeners.
 
