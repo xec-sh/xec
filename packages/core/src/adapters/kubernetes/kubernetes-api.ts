@@ -20,7 +20,29 @@ export interface K8sPortForward {
  * Kubernetes log stream handle
  */
 export interface K8sLogStream {
-  stop(): void;
+  /** Resolves after native exit and output delivery, rejects on failure. */
+  readonly completion: Promise<void>;
+  stop(): Promise<void>;
+}
+
+export interface K8sPortForwardOptions {
+  /** Readiness deadline in milliseconds. Zero disables it. */
+  timeout?: number;
+  signal?: AbortSignal;
+  maxBuffer?: number;
+}
+
+export interface K8sLogOptions {
+  container?: string;
+  follow?: boolean;
+  tail?: number;
+  previous?: boolean;
+  timestamps?: boolean;
+  /** Operation deadline in milliseconds. Follow streams default to no deadline. */
+  timeout?: number;
+  signal?: AbortSignal;
+  /** Maximum buffered line and captured stderr, in bytes. */
+  maxBuffer?: number;
 }
 
 /**
@@ -43,12 +65,12 @@ export interface K8sPod {
   /**
    * Port forward from local to pod
    */
-  portForward(localPort: number, remotePort: number): Promise<K8sPortForward>;
+  portForward(localPort: number, remotePort: number, options?: K8sPortForwardOptions): Promise<K8sPortForward>;
 
   /**
    * Port forward with dynamic local port
    */
-  portForwardDynamic(remotePort: number): Promise<K8sPortForward>;
+  portForwardDynamic(remotePort: number, options?: K8sPortForwardOptions): Promise<K8sPortForward>;
 
   /**
    * Get logs from the pod
@@ -65,13 +87,7 @@ export interface K8sPod {
    */
   streamLogs(
     onData: (data: string) => void,
-    options?: {
-      container?: string;
-      follow?: boolean;
-      tail?: number;
-      previous?: boolean;
-      timestamps?: boolean;
-    }
+    options?: K8sLogOptions
   ): Promise<K8sLogStream>;
 
   /**
@@ -79,11 +95,7 @@ export interface K8sPod {
    */
   follow(
     onData: (data: string) => void,
-    options?: {
-      container?: string;
-      tail?: number;
-      timestamps?: boolean;
-    }
+    options?: Omit<K8sLogOptions, 'follow' | 'previous'>
   ): Promise<K8sLogStream>;
 
   /**
@@ -145,6 +157,10 @@ function createK8sPod(
   namespace: string,
   baseOptions: Omit<KubernetesAdapterOptions, 'type' | 'pod'>
 ): K8sPod {
+  const target = {
+    ...(baseOptions.context === undefined ? {} : { context: baseOptions.context }),
+    ...(baseOptions.kubeconfig === undefined ? {} : { kubeconfig: baseOptions.kubeconfig }),
+  };
   const exec = (strings: TemplateStringsArray, ...values: any[]): ProcessPromise => {
     const k8sEngine = engine.with({
       adapter: 'kubernetes',
@@ -177,15 +193,17 @@ function createK8sPod(
     exec,
     raw,
 
-    async portForward(localPort: number, remotePort: number): Promise<K8sPortForward> {
-      const pf = await adapter.portForward(name, localPort, remotePort, { namespace });
+    async portForward(localPort: number, remotePort: number, options?: K8sPortForwardOptions): Promise<K8sPortForward> {
+      const pf = await adapter.portForward(name, localPort, remotePort, { namespace, ...target, ...options });
       await pf.open();
       return pf;
     },
 
-    async portForwardDynamic(remotePort: number): Promise<K8sPortForward> {
+    async portForwardDynamic(remotePort: number, options?: K8sPortForwardOptions): Promise<K8sPortForward> {
       const pf = await adapter.portForward(name, 0, remotePort, {
         namespace,
+        ...target,
+        ...options,
         dynamicLocalPort: true
       });
       await pf.open();
@@ -220,50 +238,43 @@ function createK8sPod(
       args.push(name);
 
       // Execute kubectl directly
-      const result = await adapter.executeKubectl(args, { throwOnNonZeroExit: true });
+      const result = await adapter.executeKubectl(args, { ...target, throwOnNonZeroExit: true });
       return result.stdout;
     },
 
     async streamLogs(
       onData: (data: string) => void,
-      options?: {
-        container?: string;
-        follow?: boolean;
-        tail?: number;
-        previous?: boolean;
-        timestamps?: boolean;
-      }
+      options?: K8sLogOptions
     ): Promise<K8sLogStream> {
       return adapter.streamLogs(name, onData, {
         namespace,
+        ...target,
         ...options
       });
     },
 
     async follow(
       onData: (data: string) => void,
-      options?: {
-        container?: string;
-        tail?: number;
-        timestamps?: boolean;
-      }
+      options?: Omit<K8sLogOptions, 'follow' | 'previous'>
     ): Promise<K8sLogStream> {
       return this.streamLogs(onData, { ...options, follow: true });
     },
 
     async copyTo(localPath: string, remotePath: string, container?: string): Promise<void> {
-      const podPath = container ? `${name}:${remotePath} -c ${container}` : `${name}:${remotePath}`;
+      const podPath = `${name}:${remotePath}`;
       await adapter.copyFiles(localPath, podPath, {
         namespace,
+        ...target,
         container,
         direction: 'to'
       });
     },
 
     async copyFrom(remotePath: string, localPath: string, container?: string): Promise<void> {
-      const podPath = container ? `${name}:${remotePath} -c ${container}` : `${name}:${remotePath}`;
+      const podPath = `${name}:${remotePath}`;
       await adapter.copyFiles(podPath, localPath, {
         namespace,
+        ...target,
         container,
         direction: 'from'
       });
@@ -301,7 +312,9 @@ export function createK8sExecutionContext(
         ...(k8sOptions.container && { container: k8sOptions.container }),
         ...(k8sOptions.execFlags && { execFlags: k8sOptions.execFlags }),
         ...(k8sOptions.tty !== undefined && { tty: k8sOptions.tty }),
-        ...(k8sOptions.stdin !== undefined && { stdin: k8sOptions.stdin })
+        ...(k8sOptions.stdin !== undefined && { stdin: k8sOptions.stdin }),
+        ...(k8sOptions.context !== undefined && { context: k8sOptions.context }),
+        ...(k8sOptions.kubeconfig !== undefined && { kubeconfig: k8sOptions.kubeconfig })
       },
       ...(commandConfig.env && { env: commandConfig.env }),
       ...(commandConfig.cwd && { cwd: commandConfig.cwd }),

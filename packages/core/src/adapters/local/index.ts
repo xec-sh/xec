@@ -1,5 +1,6 @@
 import { platform } from 'node:os';
 import { Readable } from 'node:stream';
+import { finished } from 'node:stream/promises';
 import { constants, accessSync } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
 
@@ -10,7 +11,7 @@ import { ExecutionResult } from '../../core/result.js';
 import { resolveExitCode } from '../../core/failure-kind.js';
 import { killProcessTree } from '../../utils/process-tree.js';
 import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
-import { CommandError, AdapterError, MaxBufferExceededError } from '../../core/error.js';
+import { CommandError, AdapterError, TimeoutError, MaxBufferExceededError } from '../../core/error.js';
 
 export interface LocalAdapterConfig extends BaseAdapterConfig {
   preferBun?: boolean;
@@ -18,6 +19,8 @@ export interface LocalAdapterConfig extends BaseAdapterConfig {
   uid?: number;
   gid?: number;
   killSignal?: string;
+  /** Grace period before forcing a command that ignores termination (ms). */
+  forceKillAfterDelay?: number;
 }
 
 interface ProcessResult {
@@ -49,6 +52,10 @@ export class LocalAdapter extends BaseAdapter {
     super(config);
     this.name = this.adapterName;
     this.localConfig = config;
+    if (config.forceKillAfterDelay !== undefined
+      && (!Number.isFinite(config.forceKillAfterDelay) || config.forceKillAfterDelay < 0)) {
+      throw new RangeError('forceKillAfterDelay must be a non-negative finite duration');
+    }
   }
 
   async isAvailable(): Promise<boolean> {
@@ -126,7 +133,7 @@ export class LocalAdapter extends BaseAdapter {
         );
       }
 
-      if (error instanceof CommandError || error instanceof AdapterError || error instanceof MaxBufferExceededError) {
+      if (error instanceof CommandError || error instanceof AdapterError || error instanceof TimeoutError || error instanceof MaxBufferExceededError) {
         throw error;
       }
 
@@ -291,30 +298,36 @@ export class LocalAdapter extends BaseAdapter {
       child = spawn(command.command, command.args || [], spawnOptions);
     }
 
-    killOnOverflow = () => this.terminate(child, (this.localConfig.killSignal ?? 'SIGTERM') as NodeJS.Signals);
-
-    // Publish the live process. `.child`, `.pid`, `.stdin` and the output
-    // streams on ProcessPromise were hardcoded placeholders before this hook
-    // existed — the type promised access and delivered nothing.
-    command.onSpawn?.({
-      pid: child.pid,
-      stdin: child.stdin,
-      stdout: child.stdout,
-      stderr: child.stderr,
-      kill: (signal: NodeJS.Signals = 'SIGTERM') => this.terminate(child, signal),
+    let processClosed = false;
+    const nativeCompletion = new Promise<void>(resolve => {
+      child.once('close', () => { processClosed = true; resolve(); });
     });
-
-    // Handle stdin. Nothing to forward when the descriptor was inherited —
-    // the child is reading it directly, and `child.stdin` is null.
-    if (command.stdin && !isProcessStdin(command.stdin)) {
-      this.absorbStdinErrors(child.stdin);
-      if (typeof command.stdin === 'string' || Buffer.isBuffer(command.stdin)) {
-        child.stdin?.write(command.stdin);
-        child.stdin?.end();
-      } else if (command.stdin instanceof Readable) {
-        command.stdin.pipe(child.stdin!);
-      }
-    }
+    let stopping = false;
+    let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
+    let forceTimer: ReturnType<typeof setTimeout> | undefined;
+    let closeTimer: ReturnType<typeof setTimeout> | undefined;
+    let failTermination!: (error: Error) => void;
+    const terminationFailure = new Promise<never>((_, reject) => { failTermination = reject; });
+    const grace = this.localConfig.forceKillAfterDelay ?? 1000;
+    const requestTermination = (signal: NodeJS.Signals = (this.localConfig.killSignal ?? 'SIGTERM') as NodeJS.Signals) => {
+      if (stopping) return;
+      stopping = true;
+      clearTimeout(timeoutTimer);
+      // A completed native lifetime must never be addressed by its old PID.
+      if (child.exitCode == null && child.signalCode == null) this.terminate(child, signal);
+      forceTimer = setTimeout(() => {
+        if (child.exitCode == null && child.signalCode == null) this.terminate(child, 'SIGKILL');
+        closeTimer = setTimeout(() => {
+          // Release owned read ends and expose unconfirmed output completion.
+          child.stdout?.destroy();
+          child.stderr?.destroy();
+          const detail = processClosed ? 'Output destination did not finish' : 'Native process did not close';
+          failTermination(new AdapterError('local', 'terminate',
+            new Error(`${detail} after termination (pid ${child.pid ?? 'unavailable'})`)));
+        }, 1000);
+      }, signal === 'SIGKILL' ? 0 : grace);
+    };
+    killOnOverflow = () => requestTermination();
 
     // Collect output and keep references to transforms for cleanup
     let stdoutTransform: any = null;
@@ -347,12 +360,14 @@ export class LocalAdapter extends BaseAdapter {
       let processExited = false;
       let stdoutClosed = false;
       let stderrClosed = false;
+      let stdoutFlushed = false;
+      let stderrFlushed = false;
       let exitCode: number | null = null;
       let exitSignal: string | null = null;
 
       const tryResolve = () => {
         // Only resolve when the process has exited and all streams are closed
-        if (processExited && stdoutClosed && stderrClosed) {
+        if (processExited && stdoutClosed && stderrClosed && stdoutFlushed && stderrFlushed) {
           // A capped stream means the collected output is incomplete. The
           // child was killed on overflow, but if it managed to exit 0 first
           // the result would read as a clean success with silently truncated
@@ -385,6 +400,22 @@ export class LocalAdapter extends BaseAdapter {
           });
         }
       };
+
+      const waitForDestination = (source: Readable | null, destination: Command['stdout'], complete: () => void) => {
+        if (!destination || typeof destination === 'string' || !source) { complete(); return; }
+        const fail = (error: Error) => { requestTermination(); reject(error); };
+        if (destination === process.stdout || destination === process.stderr) {
+          // Global output remains open. A queued write acknowledges every prior write.
+          source.once('close', () => {
+            try { destination.write('', error => { if (error) fail(error); else complete(); }); }
+            catch (error) { fail(error as Error); }
+          });
+          return;
+        }
+        void finished(destination, { readable: false, cleanup: true }).then(complete, fail);
+      };
+      waitForDestination(child.stdout, stdoutTransform ?? command.stdout, () => { stdoutFlushed = true; tryResolve(); });
+      waitForDestination(child.stderr, stderrTransform ?? command.stderr, () => { stderrFlushed = true; tryResolve(); });
 
       child.on('error', (err: any) => {
         // Enhance error message for common cases
@@ -455,27 +486,55 @@ export class LocalAdapter extends BaseAdapter {
       });
     });
 
-    // Register only after all native completion/error listeners exist. Keep the
-    // cleanup through every outcome: an AbortSignal may outlive this command,
-    // and signalling its old PID later could address a different process.
-    let completed = false;
-    const cancel = () => {
-      if (!completed) this.terminate(child, (this.localConfig.killSignal ?? 'SIGTERM') as NodeJS.Signals);
-    };
+    let timeoutError: TimeoutError | undefined;
     let detachAbort = () => {};
-    // setupAbortSignal can throw when onSpawn cancelled synchronously. Native
-    // errors still need a consumer while the terminated process closes.
     void processPromise.catch(() => {});
+    void terminationFailure.catch(() => {});
     try {
-      detachAbort = this.setupAbortSignal(command.signal, cancel);
-      return await this.handleTimeout(
-        processPromise,
-        command.timeout ?? this.config.defaultTimeout,
-        this.buildCommandString(command),
-        cancel
-      );
+      // Publish the live process. `.child`, `.pid`, `.stdin` and the output
+      // streams on ProcessPromise were hardcoded placeholders before this hook
+      // existed — the type promised access and delivered nothing.
+      command.onSpawn?.({
+        pid: child.pid,
+        stdin: child.stdin,
+        stdout: child.stdout,
+        stderr: child.stderr,
+        kill: (signal: NodeJS.Signals = 'SIGTERM') => { if (!processClosed) requestTermination(signal); },
+      });
+
+      // Handle stdin. Nothing to forward when the descriptor was inherited —
+      // the child is reading it directly, and `child.stdin` is null.
+      if (command.stdin && !isProcessStdin(command.stdin)) {
+        this.absorbStdinErrors(child.stdin);
+        if (typeof command.stdin === 'string' || Buffer.isBuffer(command.stdin)) {
+          child.stdin?.write(command.stdin);
+          child.stdin?.end();
+        } else if (command.stdin instanceof Readable) {
+          command.stdin.pipe(child.stdin!);
+        }
+      }
+
+      detachAbort = this.setupAbortSignal(command.signal, () => requestTermination());
+      const timeout = Number(command.timeout ?? this.config.defaultTimeout);
+      if (timeout > 0 && !stopping) {
+        timeoutTimer = setTimeout(() => {
+          timeoutError = new TimeoutError(this.buildCommandString(command), timeout);
+          requestTermination(command.timeoutSignal as NodeJS.Signals | undefined);
+        }, timeout);
+      }
+      const result = await Promise.race([processPromise, terminationFailure]);
+      await Promise.race([nativeCompletion, terminationFailure]);
+      if (timeoutError) throw timeoutError;
+      return result;
+    } catch (error) {
+      if (!processClosed) requestTermination();
+      await Promise.race([nativeCompletion, terminationFailure]);
+      if (error instanceof AdapterError && error.operation === 'terminate') throw error;
+      throw timeoutError ?? error;
     } finally {
-      completed = true;
+      clearTimeout(timeoutTimer);
+      clearTimeout(forceTimer);
+      clearTimeout(closeTimer);
       detachAbort();
     }
   }

@@ -78,7 +78,7 @@ jobs:
           pnpm check:ssh-security
 
       - name: core unit
-        run: pnpm --filter @xec-sh/core test:unit
+        run: pnpm --filter @xec-sh/core test:unit test/integration/kubernetes-lifecycle-native.test.ts
 
       - name: core property
         run: pnpm --filter @xec-sh/core test:property
@@ -204,7 +204,7 @@ jobs:
 
       - name: core unit
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: pnpm --filter @xec-sh/core test:unit
+        run: pnpm --filter @xec-sh/core test:unit test/integration/kubernetes-lifecycle-native.test.ts
 
       - name: core property
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}

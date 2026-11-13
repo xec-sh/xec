@@ -374,7 +374,7 @@ export { registerSecret, isRegisteredSecret, registeredSecretCount } from './uti
 
 export type { DockerOptions, DockerEphemeralOptions, DockerPersistentOptions } from './types/execution.js';
 
-export type { K8sPod, K8sLogStream, K8sPortForward, K8sExecutionContext } from './adapters/kubernetes/kubernetes-api.js';
+export type { K8sPod, K8sLogStream, K8sLogOptions, K8sPortForward, K8sExecutionContext, K8sPortForwardOptions } from './adapters/kubernetes/kubernetes-api.js';
 // The result of running one command across many targets — the shape a
 // fan-out has and a loop does not.
 export {

@@ -378,7 +378,7 @@ describe('Kubernetes API', () => {
 
         expect(mockAdapter.copyFiles).toHaveBeenCalledWith(
           '/local/config.json',
-          'test-pod:/app/config.json -c app',
+          'test-pod:/app/config.json',
           {
             namespace: 'test-namespace',
             container: 'app',
@@ -405,7 +405,7 @@ describe('Kubernetes API', () => {
         await pod.copyFrom('/var/log/nginx/access.log', './nginx-access.log', 'nginx');
 
         expect(mockAdapter.copyFiles).toHaveBeenCalledWith(
-          'test-pod:/var/log/nginx/access.log -c nginx',
+          'test-pod:/var/log/nginx/access.log',
           './nginx-access.log',
           {
             namespace: 'test-namespace',

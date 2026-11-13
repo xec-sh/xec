@@ -1,14 +1,15 @@
-import { Readable } from 'node:stream';
-import { spawn, type ChildProcess } from 'node:child_process';
+import type { K8sLogStream, K8sLogOptions, K8sPortForwardOptions } from './kubernetes-api.js';
 
-import { StreamHandler } from '../../utils/stream.js';
+import { Writable } from 'node:stream';
+import { StringDecoder } from 'node:string_decoder';
+
+import { LocalAdapter } from '../local/index.js';
 import { ExecutionResult } from '../../core/result.js';
 import { findKubectlPath } from './kubernetes-utils.js';
-import { killProcessTree } from '../../utils/process-tree.js';
 import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
 import { Command, KubernetesAdapterOptions } from '../../types/command.js';
 import { quoteForShell, validateEnvName } from '../../utils/shell-escape.js';
-import { TimeoutError, ExecutionError, sanitizeCommandForError } from '../../core/error.js';
+import { TimeoutError, ExecutionError, MaxBufferExceededError, sanitizeCommandForError } from '../../core/error.js';
 
 export interface KubernetesAdapterConfig extends BaseAdapterConfig {
   /**
@@ -37,16 +38,31 @@ export interface KubernetesAdapterConfig extends BaseAdapterConfig {
   kubectlTimeout?: number;
 }
 
+type KubectlOptions = Pick<Command, 'signal' | 'maxBuffer' | 'throwOnNonZeroExit'> & {
+  timeout?: number;
+  context?: string;
+  kubeconfig?: string;
+};
+
 export class KubernetesAdapter extends BaseAdapter {
   protected readonly adapterName = 'kubernetes';
   private kubectlPath: string;
   private k8sConfig: KubernetesAdapterConfig;
+  private local: LocalAdapter;
+  private sessions = new Set<KubectlSession>();
+  private disposed = false;
 
   constructor(config: KubernetesAdapterConfig = {}) {
     super(config);
     this.name = this.adapterName;
     this.k8sConfig = config;
     this.kubectlPath = config.kubectlPath || findKubectlPath();
+    this.local = new LocalAdapter({
+      forceImplementation: 'node',
+      encoding: config.encoding,
+      // kubectl results are protocol data. Errors and events are sanitized at their boundary.
+      sensitiveDataMasking: { enabled: false },
+    });
   }
 
   async isAvailable(): Promise<boolean> {
@@ -93,184 +109,37 @@ export class KubernetesAdapter extends BaseAdapter {
       command: this.buildCommandString(mergedCommand)
     });
 
-    // Execute via kubectl
     const startTime = Date.now();
-
-    // Kill kubectl once either stream blows the cap — there is no point
-    // letting the pod keep streaming into a void. Filled in after spawn.
-    let killOnOverflow: () => void = () => {};
-
-    // Shared sink: records both streams in observed arrival order.
-    const interleaved: Buffer[] = [];
-
-    const stdoutHandler = new StreamHandler({
-      maxBuffer: mergedCommand.maxBuffer ?? this.config.maxBuffer,
-      encoding: this.config.encoding,
-      streamName: 'stdout',
-      interleaved,
-      onOverflow: () => killOnOverflow(),
-    });
-    const stderrHandler = new StreamHandler({
-      maxBuffer: mergedCommand.maxBuffer ?? this.config.maxBuffer,
-      encoding: this.config.encoding,
-      streamName: 'stderr',
-      interleaved,
-      onOverflow: () => killOnOverflow(),
-    });
-
-    return new Promise((resolve, reject) => {
-      // The local kubectl process gets the operator's environment only.
-      // `command.env` is for the pod — it travels as an export prelude in the
-      // exec args — and passing it here leaked every value, secrets included,
-      // into a local process that never needed them. `command.cwd` likewise
-      // names a directory in the pod, not on this machine.
-      const env = this.createCombinedEnv({});
-
-      const proc = spawn(this.kubectlPath, kubectlArgs, {
-        env: {
-          ...env,
-          PATH: `${env['PATH'] || process.env['PATH'] || ''}:/usr/local/bin:/opt/homebrew/bin`
-        },
-        shell: false, // Never use shell for kubectl
+    let result: ExecutionResult;
+    try {
+      const session = this.startSession({
+        ...mergedCommand,
+        command: this.kubectlPath,
+        args: kubectlArgs,
+        // Pod env and cwd already travel in the quoted remote command.
+        env: { PATH: `${process.env['PATH'] ?? ''}:/usr/local/bin:/opt/homebrew/bin` },
+        cwd: undefined,
+        shell: false,
+        throwOnNonZeroExit: false,
       });
-
-      // Handle timeout
-      let timeoutHandle: NodeJS.Timeout | undefined;
-      if (mergedCommand.timeout) {
-        timeoutHandle = setTimeout(async () => {
-          proc.kill((mergedCommand.timeoutSignal as any) || 'SIGTERM');
-          const timeoutMs = mergedCommand.timeout as number;
-          const timeoutError = new TimeoutError(
-            `kubectl exec timed out after ${timeoutMs}ms`,
-            timeoutMs
-          );
-
-          // If nothrow is set, resolve with a non-throwing result representation
-          if (mergedCommand.nothrow) {
-            const endTime = Date.now();
-            const result = await this.createResultNoThrow(
-              '',
-              timeoutError.message,
-              124,
-              'SIGTERM',
-              mergedCommand.command,
-              startTime,
-              endTime,
-              { originalCommand: mergedCommand }
-            );
-            resolve(result);
-          } else {
-            reject(timeoutError);
-          }
-        }, mergedCommand.timeout);
+      result = await session.result;
+      if (session.stopped) throw new ExecutionError('kubectl exec stopped before completion', 'KUBERNETES_ERROR');
+    } catch (error) {
+      if (error instanceof TimeoutError && mergedCommand.nothrow) {
+        return this.createResultNoThrow('', error.message, 124, 'SIGTERM', mergedCommand.command,
+          startTime, Date.now(), { originalCommand: mergedCommand });
       }
-
-      killOnOverflow = () => this.terminateTree(proc);
-
-      // The kubectl process is the reachable end of the pod's streams.
-      mergedCommand.onSpawn?.({
-        pid: proc.pid,
-        stdin: proc.stdin,
-        stdout: proc.stdout,
-        stderr: proc.stderr,
-        kill: (signal: NodeJS.Signals = 'SIGTERM') => this.terminateTree(proc, signal),
-      });
-
-      // An abort kills the local kubectl, which tears down the exec session.
-      const clearAbort = this.setupAbortSignal(mergedCommand.signal, () => {
-        proc.kill('SIGTERM');
-      });
-
-      // Pipe stdin if provided
-      if (mergedCommand.stdin) {
-        this.absorbStdinErrors(proc.stdin);
-        if (typeof mergedCommand.stdin === 'string' || Buffer.isBuffer(mergedCommand.stdin)) {
-          proc.stdin.write(mergedCommand.stdin);
-          proc.stdin.end();
-        } else if (mergedCommand.stdin instanceof Readable) {
-          mergedCommand.stdin.pipe(proc.stdin);
-        }
-      }
-
-      // Handle streams
-      if (proc.stdout && mergedCommand.stdout === 'pipe') {
-        proc.stdout.pipe(stdoutHandler.createTransform());
-      }
-
-      if (proc.stderr && mergedCommand.stderr === 'pipe') {
-        proc.stderr.pipe(stderrHandler.createTransform());
-      }
-
-      // Handle process exit
-      proc.on('error', (error) => {
-        if (timeoutHandle) clearTimeout(timeoutHandle);
-        clearAbort();
-        reject(new ExecutionError(`Failed to execute kubectl: ${error.message}`, 'KUBERNETES_ERROR'));
-      });
-
-      proc.on('exit', (code, signal) => {
-        if (timeoutHandle) clearTimeout(timeoutHandle);
-        clearAbort();
-
-        const endTime = Date.now();
-        const stdout = stdoutHandler.getContent();
-        const stderr = stderrHandler.getContent();
-
-        // Truncated output must never read as a clean success.
-        const overflow = stdoutHandler.overflowError ?? stderrHandler.overflowError;
-        if (overflow) {
-          overflow.partialStdout = stdout;
-          overflow.partialStderr = stderr;
-          reject(overflow);
-          return;
-        }
-
-        // The throw decision is made here, once. The previous construction
-        // built the result via createResult with this.config.throwOnNonZeroExit
-        // toggled off around the call — but the command's own setting
-        // outranks the config, so a command carrying throwOnNonZeroExit made
-        // the async createResult return an already-rejected promise that
-        // nothing awaited. The rejection surfaced as an unhandled error in
-        // the exit handler and took down whole test files in CI.
-        const result = this.createResultNoThrow(
-          stdout,
-          stderr,
-          code ?? -1,
-          signal || undefined,
-          mergedCommand.command,
-          startTime,
-          endTime,
-          { originalCommand: mergedCommand, stdall: Buffer.concat(interleaved).toString(this.config.encoding) }
-        );
-
-        if (this.shouldThrowOnNonZeroExit(mergedCommand, code ?? -1)) {
-          reject(new ExecutionError(
-            `Command failed with exit code ${code}`,
-            'KUBERNETES_ERROR',
-            { stdout, stderr, command: sanitizeCommandForError(kubectlArgs.join(' ')) }
-          ));
-        } else {
-          resolve(result);
-        }
-      });
-    });
-  }
-
-  /**
-   * Terminate the kubectl process and anything it spawned.
-   *
-   * @param proc - The kubectl process.
-   * @param signal - Signal to deliver.
-   */
-  private terminateTree(
-    proc: { pid?: number; kill: (s?: NodeJS.Signals) => boolean },
-    signal: NodeJS.Signals = 'SIGTERM'
-  ): void {
-    if (proc.pid) {
-      killProcessTree(proc.pid, signal);
-    } else {
-      proc.kill(signal);
+      throw error;
     }
+    if (this.shouldThrowOnNonZeroExit(mergedCommand, result.exitCode)) {
+      throw new ExecutionError(`Command failed with exit code ${result.exitCode}`, 'KUBERNETES_ERROR', {
+        stdout: sanitizeCommandForError(result.stdout),
+        stderr: sanitizeCommandForError(result.stderr),
+        command: sanitizeCommandForError(kubectlArgs.join(' ')),
+      });
+    }
+    return this.createResultNoThrow(result.stdout, result.stderr, result.exitCode, result.signal,
+      mergedCommand.command, startTime, Date.now(), { originalCommand: mergedCommand, stdall: result.stdall });
   }
 
   /**
@@ -409,60 +278,35 @@ export class KubernetesAdapter extends BaseAdapter {
 
   async executeKubectl(
     args: string[],
-    options: { timeout?: number; throwOnNonZeroExit?: boolean } = {}
+    options: KubectlOptions = {}
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-    return new Promise((resolve, reject) => {
-      // Build full args with global options
-      const fullArgs: string[] = [];
+    const session = this.startSession(this.kubectlCommand(args, options));
+    const result = await session.result;
+    if (session.stopped) throw new ExecutionError('kubectl operation stopped before completion', 'KUBERNETES_ERROR');
+    return { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode };
+  }
 
-      // Add global options first
-      fullArgs.push(...this.clusterFlags());
+  private kubectlCommand(args: string[], options: KubectlOptions = {}): Command {
+    if (this.disposed) throw new Error('Kubernetes adapter has been disposed');
+    return {
+      command: this.kubectlPath,
+      args: [...this.clusterFlags(options), ...args],
+      shell: false,
+      env: { PATH: `${process.env['PATH'] ?? ''}:/usr/local/bin:/opt/homebrew/bin` },
+      timeout: options.timeout ?? this.k8sConfig.kubectlTimeout ?? this.config.defaultTimeout,
+      maxBuffer: options.maxBuffer ?? this.config.maxBuffer,
+      signal: options.signal,
+      throwOnNonZeroExit: options.throwOnNonZeroExit ?? false,
+    };
+  }
 
-      // Add the actual command args
-      fullArgs.push(...args);
-
-      const proc = spawn(this.kubectlPath, fullArgs, {
-        timeout: options.timeout,
-        env: {
-          ...process.env,
-          PATH: `${process.env['PATH']}:/usr/local/bin:/opt/homebrew/bin`
-        }
-      });
-
-      let stdout = '';
-      let stderr = '';
-
-      if (proc.stdout) {
-        proc.stdout.on('data', (chunk) => {
-          stdout += chunk.toString();
-        });
-      }
-
-      if (proc.stderr) {
-        proc.stderr.on('data', (chunk) => {
-          stderr += chunk.toString();
-        });
-      }
-
-      proc.on('error', (error) => {
-
-        reject(new ExecutionError(`kubectl command failed: ${error.message}`, 'KUBERNETES_ERROR'));
-      });
-
-      proc.on('exit', (code) => {
-        const exitCode = code ?? -1;
-
-        if (options.throwOnNonZeroExit && exitCode !== 0) {
-          reject(new ExecutionError(
-            `kubectl command failed with exit code ${exitCode}: ${stderr}`,
-            'KUBERNETES_ERROR',
-            { stdout, stderr, args }
-          ));
-        } else {
-          resolve({ stdout, stderr, exitCode });
-        }
-      });
-    });
+  private startSession(command: Command, onLine?: (data: string) => void): KubectlSession {
+    if (this.disposed) throw new Error('Kubernetes adapter has been disposed');
+    const session = new KubectlSession(this.local, command, onLine, this.config.encoding);
+    this.sessions.add(session);
+    const release = () => { this.sessions.delete(session); };
+    void session.completion.then(release, release);
+    return session;
   }
 
   /**
@@ -518,6 +362,8 @@ export class KubernetesAdapter extends BaseAdapter {
       namespace?: string;
       container?: string;
       direction: 'to' | 'from';
+      context?: string;
+      kubeconfig?: string;
     }
   ): Promise<void> {
     const args = ['cp'];
@@ -530,241 +376,245 @@ export class KubernetesAdapter extends BaseAdapter {
       args.push('-c', options.container);
     }
 
-    // Build source and destination based on direction
-    if (options.direction === 'to') {
-      args.push(source, destination);
-    } else {
-      // For 'from' direction, source is the pod path, destination is local
-      args.push(source, destination);
-    }
-
-    await this.executeKubectl(args, { throwOnNonZeroExit: true });
+    args.push(source, destination);
+    await this.executeKubectl(args, { ...options, throwOnNonZeroExit: true });
   }
 
   async dispose(): Promise<void> {
-    // Clean up any active port forwards
-    await this.closeAllPortForwards();
+    this.disposed = true;
+    const results = await Promise.allSettled([...this.sessions].map(session => session.stop()));
+    const errors = results.filter(result => result.status === 'rejected').map(result => result.reason);
+    if (errors.length) throw new AggregateError(errors, 'Kubernetes operation cleanup failed');
   }
 
-  /**
-   * Port forward to a pod
-   */
+  /** Create a forward. The pod API also waits for open(). */
   async portForward(
     pod: string,
     localPort: number,
     remotePort: number,
-    options: {
+    options: K8sPortForwardOptions & {
       namespace?: string;
       dynamicLocalPort?: boolean;
+      context?: string;
+      kubeconfig?: string;
     } = {}
   ): Promise<KubernetesPortForward> {
     const ns = options.namespace || this.k8sConfig.namespace || 'default';
     const actualLocalPort = options.dynamicLocalPort ? 0 : localPort;
-
-    const args = ['port-forward', '-n', ns];
-
-    // Build port mapping
-    const portMapping = actualLocalPort === 0
-      ? `:${remotePort}` // Dynamic local port
-      : `${localPort}:${remotePort}`;
-
-    args.push(pod, portMapping);
-
+    if (!Number.isInteger(actualLocalPort) || actualLocalPort < 0 || actualLocalPort > 65535
+      || !Number.isInteger(remotePort) || remotePort < 1 || remotePort > 65535) {
+      throw new RangeError('Port forwarding requires local port 0–65535 and remote port 1–65535');
+    }
+    const mapping = `${actualLocalPort || ''}:${remotePort}`;
+    const command = this.kubectlCommand(['port-forward', '-n', ns, pod, mapping], options);
     return new KubernetesPortForward(
-      this.kubectlPath,
-      args,
-      localPort,
+      actualLocalPort,
       remotePort,
-      this.buildGlobalOptions()
+      Number(command.timeout),
+      onLine => this.startSession({ ...command, timeout: 0, throwOnNonZeroExit: true }, onLine),
     );
   }
 
-  /**
-   * Stream logs from a pod
-   */
   async streamLogs(
     pod: string,
     onData: (data: string) => void,
-    options: {
-      namespace?: string;
-      container?: string;
-      follow?: boolean;
-      tail?: number;
-      previous?: boolean;
-      timestamps?: boolean;
-    } = {}
-  ): Promise<{ stop: () => void }> {
+    options: K8sLogOptions & { namespace?: string; context?: string; kubeconfig?: string } = {}
+  ): Promise<K8sLogStream> {
     const ns = options.namespace || this.k8sConfig.namespace || 'default';
     const args = ['logs', '-n', ns];
-
-    if (options.container) {
-      args.push('-c', options.container);
-    }
-
-    if (options.follow) {
-      args.push('-f');
-    }
-
-    if (options.tail !== undefined) {
-      args.push('--tail', String(options.tail));
-    }
-
-    if (options.previous) {
-      args.push('--previous');
-    }
-
-    if (options.timestamps) {
-      args.push('--timestamps');
-    }
-
+    if (options.container) args.push('-c', options.container);
+    if (options.follow) args.push('-f');
+    if (options.tail !== undefined) args.push('--tail', String(options.tail));
+    if (options.previous) args.push('--previous');
+    if (options.timestamps) args.push('--timestamps');
     args.push(pod);
 
-    const proc = spawn(this.kubectlPath, [...this.buildGlobalOptions(), ...args], {
-      env: {
-        ...process.env,
-        PATH: `${process.env['PATH']}:/usr/local/bin:/opt/homebrew/bin`
-      }
+    const command = this.kubectlCommand(args, {
+      ...options,
+      timeout: options.timeout ?? (options.follow ? 0 : undefined),
     });
-
-    let stopped = false;
-
-    if (proc.stdout) {
-      proc.stdout.on('data', (chunk) => {
-        if (!stopped) {
-          const lines = chunk.toString().split('\n').filter((line: string) => line.trim());
-          lines.forEach((line: string) => onData(line + '\n'));
-        }
-      });
-    }
-
-    if (proc.stderr) {
-      proc.stderr.on('data', (chunk) => {
-        if (!stopped) {
-          console.error('kubectl logs stderr:', chunk.toString());
-        }
-      });
-    }
-
-    proc.on('error', (error) => {
-      console.error('kubectl logs error:', error);
-    });
-
-    return {
-      stop: () => {
-        stopped = true;
-        proc.kill();
-      }
-    };
-  }
-
-  private buildGlobalOptions(): string[] {
-    const options: string[] = [];
-
-    options.push(...this.clusterFlags());
-
-    return options;
-  }
-
-  private portForwards: Set<KubernetesPortForward> = new Set();
-
-  private async closeAllPortForwards(): Promise<void> {
-    const closes = Array.from(this.portForwards).map(pf => pf.close());
-    await Promise.all(closes);
-    this.portForwards.clear();
+    return this.startSession({ ...command, throwOnNonZeroExit: true }, onData);
   }
 }
 
-/**
- * Kubernetes port forward handler
- */
+/** A kubectl operation uses LocalAdapter's process, output and termination contract. */
+class KubectlSession implements K8sLogStream {
+  readonly result: Promise<ExecutionResult>;
+  readonly completion: Promise<void>;
+  private controller = new AbortController();
+  private failure: unknown;
+  private stopping = false;
+  private settled = false;
+
+  get stopped(): boolean { return this.stopping; }
+
+  constructor(local: LocalAdapter, command: Command, onLine: ((data: string) => void) | undefined, encoding: BufferEncoding) {
+    command.signal?.throwIfAborted();
+    const fail = (error: unknown) => {
+      if (!this.settled && this.failure === undefined) {
+        this.failure = error;
+        this.controller.abort();
+      }
+    };
+    const output = onLine ? new KubectlOutput(onLine, command.maxBuffer!, encoding, fail) : (command.stdout ?? 'pipe');
+    const abort = () => fail(command.signal!.reason);
+    command.signal?.addEventListener('abort', abort, { once: true });
+    this.result = local.execute({
+      ...command,
+      signal: this.controller.signal,
+      stdout: output,
+      throwOnNonZeroExit: false,
+      nothrow: undefined,
+    }).catch(error => {
+      if (error instanceof MaxBufferExceededError) {
+        error.partialStdout = sanitizeCommandForError(error.partialStdout);
+        error.partialStderr = sanitizeCommandForError(error.partialStderr);
+      }
+      throw error;
+    }).then(result => {
+      if (this.failure !== undefined) throw this.failure;
+      if (command.throwOnNonZeroExit && result.exitCode !== 0 && !(this.stopping && result.signal)) {
+        const stderr = sanitizeCommandForError(result.stderr);
+        throw new ExecutionError(
+          `kubectl exited with code ${result.exitCode}: ${stderr}`,
+          'KUBERNETES_ERROR',
+          { stdout: sanitizeCommandForError(result.stdout), stderr, exitCode: result.exitCode },
+        );
+      }
+      return result;
+    }).finally(() => {
+      this.settled = true;
+      command.signal?.removeEventListener('abort', abort);
+    });
+    this.completion = this.result.then(() => {});
+    // Handles remain safe to stop without awaiting; completion still exposes failures.
+    void this.completion.catch(() => {});
+  }
+
+  cancel(error: Error): void {
+    if (!this.settled && this.failure === undefined) {
+      this.failure = error;
+      this.controller.abort();
+    }
+  }
+
+  stop(): Promise<void> {
+    if (!this.settled && !this.stopping) {
+      this.stopping = true;
+      this.controller.abort();
+    }
+    return this.completion;
+  }
+}
+
+/** Decode full lines across OS chunks, retaining blank lines and an unterminated tail. */
+class KubectlOutput extends Writable {
+  private decoder: StringDecoder;
+  private pending = '';
+  private failed = false;
+
+  constructor(
+    private onLine: (line: string) => void,
+    private maxBuffer: number,
+    private encoding: BufferEncoding,
+    private onFailure: (error: unknown) => void,
+  ) {
+    super();
+    this.decoder = new StringDecoder(encoding);
+  }
+
+  override _write(chunk: Buffer, _encoding: BufferEncoding, done: () => void): void {
+    this.consume(this.decoder.write(chunk), false);
+    done();
+  }
+
+  override _final(done: () => void): void {
+    this.consume(this.decoder.end(), true);
+    done();
+  }
+
+  private consume(text: string, final: boolean): void {
+    if (this.failed) return;
+    try {
+      this.pending += text;
+      let newline: number;
+      while ((newline = this.pending.indexOf('\n')) !== -1) {
+        const line = this.pending.slice(0, newline + 1);
+        this.checkLimit(line);
+        this.pending = this.pending.slice(newline + 1);
+        this.onLine(line);
+      }
+      this.checkLimit(this.pending);
+      if (final && this.pending) {
+        this.onLine(this.pending);
+        this.pending = '';
+      }
+    } catch (error) {
+      this.failed = true;
+      this.pending = '';
+      this.onFailure(error);
+    }
+  }
+
+  private checkLimit(text: string): void {
+    if (Buffer.byteLength(text, this.encoding) > this.maxBuffer) {
+      throw new MaxBufferExceededError(this.maxBuffer, 'stdout');
+    }
+  }
+}
+
 class KubernetesPortForward {
-  private proc: ChildProcess | null = null;
+  private session?: KubectlSession;
+  private opening?: Promise<void>;
   private _localPort: number;
   private _isOpen = false;
 
   constructor(
-    private kubectlPath: string,
-    private args: string[],
     private requestedLocalPort: number,
     public readonly remotePort: number,
-    private globalOptions: string[]
+    private readinessTimeout: number,
+    private start: (onLine: (data: string) => void) => KubectlSession,
   ) {
     this._localPort = requestedLocalPort;
   }
 
-  get localPort(): number {
-    return this._localPort;
-  }
+  get localPort(): number { return this._localPort; }
+  get isOpen(): boolean { return this._isOpen; }
 
-  get isOpen(): boolean {
-    return this._isOpen;
-  }
-
-  async open(): Promise<void> {
-    if (this._isOpen) {
-      throw new Error('Port forward is already open');
-    }
-
-    return new Promise((resolve, reject) => {
-      this.proc = spawn(this.kubectlPath, [...this.globalOptions, ...this.args], {
-        env: {
-          ...process.env,
-          PATH: `${process.env['PATH']}:/usr/local/bin:/opt/homebrew/bin`
-        }
+  open(): Promise<void> {
+    if (this._isOpen || this.opening) return Promise.reject(new Error('Port forward is already opening or open'));
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const ready = new Promise<void>((resolve, reject) => {
+      this.session = this.start(line => {
+        const match = line.match(/^Forwarding from (?:127\.0\.0\.1:|\[::1\]:)(\d+) -> (\d+)\r?\n?$/);
+        if (!match) return;
+        const port = Number(match[1]);
+        if (port < 1 || port > 65535 || Number(match[2]) !== this.remotePort
+          || (this.requestedLocalPort !== 0 && port !== this.requestedLocalPort)) return;
+        this._localPort = port;
+        this._isOpen = true;
+        clearTimeout(timer);
+        resolve();
       });
-
-      let resolved = false;
-
-      if (this.proc.stdout) {
-        this.proc.stdout.on('data', (chunk) => {
-          const output = chunk.toString();
-
-          // Parse dynamic port if needed
-          const portMatch = output.match(/Forwarding from (?:127\.0\.0\.1:|\[::1\]:)(\d+) -> \d+/);
-          if (portMatch && this.requestedLocalPort === 0) {
-            this._localPort = parseInt(portMatch[1], 10);
-          }
-
-          if (output.includes('Forwarding from') && !resolved) {
-            resolved = true;
-            this._isOpen = true;
-            resolve();
-          }
-        });
+      if (this.readinessTimeout > 0) {
+        timer = setTimeout(() => {
+          if (!this.session?.stopped) this.session?.cancel(
+            new TimeoutError('kubectl port-forward readiness', this.readinessTimeout),
+          );
+        }, this.readinessTimeout);
       }
-
-      if (this.proc.stderr) {
-        this.proc.stderr.on('data', (chunk) => {
-          const error = chunk.toString();
-          if (!resolved) {
-            resolved = true;
-            reject(new ExecutionError(`Port forward failed: ${error}`, 'KUBERNETES_ERROR'));
-          }
-        });
-      }
-
-      this.proc.on('error', (error) => {
-        if (!resolved) {
-          resolved = true;
-          reject(new ExecutionError(`Port forward process error: ${error.message}`, 'KUBERNETES_ERROR'));
-        }
-      });
-
-      this.proc.on('exit', (code) => {
+      const finish = (error?: unknown) => {
+        clearTimeout(timer);
         this._isOpen = false;
-        if (!resolved && code !== 0) {
-          resolved = true;
-          reject(new ExecutionError(`Port forward exited with code ${code}`, 'KUBERNETES_ERROR'));
-        }
-      });
+        reject(error ?? new ExecutionError('Port forward exited before becoming ready', 'KUBERNETES_ERROR'));
+      };
+      void this.session.completion.then(() => finish(), finish);
     });
+    this.opening = ready.finally(() => { this.opening = undefined; });
+    return this.opening;
   }
 
-  async close(): Promise<void> {
-    if (this.proc && this._isOpen) {
-      this.proc.kill();
-      this._isOpen = false;
-      this.proc = null;
-    }
+  close(): Promise<void> {
+    return this.session?.stop() ?? Promise.resolve();
   }
 }
