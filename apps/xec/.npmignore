@@ -14,6 +14,6 @@ artifacts
 .editorconfig
 .bithoundrc
 dist
-CLAUDE.md
+AGENTS.md
 GEMINI.md
 CHANGELOG.md

@@ -7,7 +7,7 @@ const DIST = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../d
 /**
  * Every Node builtin must be imported with its `node:` prefix.
  *
- * CLAUDE.md promises the package works identically on Node, Bun and Deno.
+ * AGENTS.md promises the package works identically on Node, Bun and Deno.
  * It did not: Deno rejects a bare `import ... from 'path'` outright —
  * `Import "path" not a dependency` — so `import '@xec-sh/core'` failed before
  * a single line of ours ran. Node and Bun accept both spellings, which is why

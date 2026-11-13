@@ -21,7 +21,7 @@ Welcome to Xec! We're excited to have you contribute to the universal command ex
 
 ## 🌟 Philosophy & Principles
 
-Before contributing, please understand our core principles. For comprehensive development guidelines, testing strategy, and architecture details, see [CLAUDE.md](./CLAUDE.md).
+Before contributing, please understand our core principles. For comprehensive development guidelines, testing strategy, and architecture details, see [AGENTS.md](./AGENTS.md).
 
 ### 1. ⚠️ Task Focus
 **CRITICAL**: Only implement what is explicitly requested. No additional features or files unless specified.
@@ -118,7 +118,7 @@ xec/
 ├── docker/           # Test containers
 ├── .xec/             # Project-specific commands
 ├── scripts/release.ts # Verified release entry point
-├── CLAUDE.md         # AI assistant instructions
+├── AGENTS.md         # AI assistant instructions
 └── turbo.json        # Build orchestration
 ```
 

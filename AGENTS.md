@@ -38,7 +38,7 @@ xec/
 │   └── testing/      # Shared test utilities (@xec-sh/testing)
 ├── experiments/      # Experimental features and prototypes
 ├── turbo.json        # Build orchestration
-└── CLAUDE.md         # This file - project specification
+└── AGENTS.md         # This file - project specification
 ```
 
 ## 🏗 Architecture

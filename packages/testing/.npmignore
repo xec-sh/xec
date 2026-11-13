@@ -19,5 +19,5 @@ examples
 .editorconfig
 .bithoundrc
 dist
-CLAUDE.md
+AGENTS.md
 GEMINI.md

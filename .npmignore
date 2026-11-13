@@ -21,5 +21,5 @@ dist
 node_modules
 packages/*/src
 apps/*/src
-CLAUDE.md
+AGENTS.md
 GEMINI.md

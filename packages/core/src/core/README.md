@@ -39,7 +39,7 @@ adapter call. Contributor notes — the public API is documented in the package
 
 ## Performance
 
-Measured on the built `dist` (2026-08-04, see the repository `CLAUDE.md` for
+Measured on the built `dist` (2026-08-04, see the repository `AGENTS.md` for
 the method): command creation ~6µs, pipe setup ~12µs, execution overhead
 <5ms per spawned process. Creation cost is dominated by call-site capture for
 error diagnostics (`captureCallSite: false` removes ~3µs of it).
