@@ -63,3 +63,41 @@ test('an unexplained skip marker does not bypass the checker', async () => {
   assert.equal(result.status, 1, result.output);
   assert.equal(result.report.failures.length, 1);
 });
+
+
+test('JavaScript class fields are inferred without weakening API checks', async () => {
+  const valid = '```javascript\nclass Example { constructor() { this.value = 1; } }\nconsole.log(new Example().value);\n```\n';
+  const invalid = "```js\nimport { $ } from '@xec-sh/core';\nawait $.nonexistentPublicMethod();\n```\n";
+  const result = await check(valid + invalid);
+  assert.equal(result.status, 1, result.output);
+  assert.equal(result.report.checkedBlocks, 2);
+  assert.equal(result.report.failures.length, 1, result.output);
+  assert.equal(result.report.failures[0].language, 'js');
+  assert.ok(result.report.failures[0].errors.some(error => error.code === 'TS2339'), result.output);
+});
+
+test('JSX retains semantic prop checking against declared React types', async () => {
+  const result = await check('```tsx\nfunction Example(props: { count: number }) { return <span>{props.count}</span>; }\nconst valid = <Example count={1} />;\nconst invalid = <Example count="text" />;\n```\n');
+  assert.equal(result.status, 1, result.output);
+  assert.equal(result.report.syntaxBlocks, 0, result.output);
+  assert.equal(result.report.failures.length, 1);
+  assert.ok(result.report.failures[0].errors.some(error => error.code === 'TS2322'), result.output);
+});
+
+test('a declared workspace dependency resolves its actual public types and subpaths', async () => {
+  const result = await check(block("import { z } from 'zod/v4'; const count = z.number().parse(1); const text: string = count;"));
+  assert.equal(result.status, 1, result.output);
+  assert.equal(result.report.failures.length, 1);
+  assert.deepEqual(result.report.failures[0].errors.map(error => error.code), ['TS2322'], result.output);
+});
+
+
+test('TypeScript-only JavaScript syntax cannot suppress a neighboring semantic failure', async () => {
+  const result = await check('```javascript\nclass Example { constructor(private value) {} }\n```\n' + block('const count: number = "text";'));
+  assert.equal(result.status, 1, result.output);
+  assert.equal(result.report.syntaxBlocks, 1, result.output);
+  assert.equal(result.report.failures.length, 2, result.output);
+  const codes = result.report.failures.flatMap(item => item.errors.map(error => error.code));
+  assert.ok(codes.includes('TS8012'), result.output);
+  assert.ok(codes.includes('TS2322'), result.output);
+});

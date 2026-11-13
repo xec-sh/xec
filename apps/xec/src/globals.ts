@@ -41,6 +41,11 @@ declare global {
   // Core execution engine from @xec-sh/core
   const $: typeof import('@xec-sh/core').$;
 
+  // The target selected by `xec run`, `xec on` or `xec in`. Local script
+  // execution binds the same engine as `$`; remote invocation binds its target.
+  const $target: CallableExecutionEngine;
+  const $targetInfo: import('@xec-sh/loader').TargetInfo;
+
   // Script invocation context. `args` is what the script was invoked with;
   // `argv` follows the shell convention (interpreter, script path, then the
   // arguments). `__filename`/`__dirname` are also injected at run time and

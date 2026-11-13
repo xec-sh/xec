@@ -25,10 +25,11 @@ describe('script globals: declared means injected', () => {
   const declared = (): string[] => {
     const source = readFileSync(path.join(ROOT, 'src/globals.ts'), 'utf-8');
     const block = source.slice(source.indexOf('declare global'));
-    const names = [...block.matchAll(/^\s+const (\w+):/gm)].map(m => m[1]!);
+    const names = [...block.matchAll(/^\s+const ([A-Za-z_$][\w$]*):/gm)].map(m => m[1]!);
 
     // A parse that finds nothing must fail loudly, not pass vacuously.
     expect(names.length).toBeGreaterThanOrEqual(30);
+    expect(names).toEqual(expect.arrayContaining(['$', '$target', '$targetInfo']));
     return names;
   };
 

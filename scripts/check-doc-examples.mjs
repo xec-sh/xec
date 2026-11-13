@@ -31,7 +31,7 @@ const run = promisify(execFile);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /** Languages worth compiling. Anything else is shell, yaml, json, output. */
-const COMPILED = new Set(['ts', 'typescript', 'js', 'javascript', 'tsx']);
+const COMPILED = new Set(['ts', 'typescript', 'js', 'javascript', 'tsx', 'jsx']);
 
 /** Walk for markdown, skipping build output. */
 function* markdownUnder(dir) {
@@ -135,29 +135,49 @@ async function main() {
     await mkdir(cases);
     await writeFile(path.join(dir, 'package.json'), '{"type":"module"}');
 
-    // Resolve only declared public type exports, including subpaths. No API stubs.
+    // Resolve declared public type exports, including subpaths. No API stubs.
     const typePaths = {};
-    for (const location of ['packages/core', 'packages/ops', 'packages/kit', 'packages/loader', 'packages/testing', 'apps/xec']) {
-      const folder = path.join(ROOT, location);
+    const typeEntry = entry => {
+      if (typeof entry === 'string') return entry;
+      return entry && (typeEntry(entry.types) ?? typeEntry(entry.import) ?? typeEntry(entry.default));
+    };
+    const addTypeExports = async (folder, name) => {
       const manifest = JSON.parse(await readFile(path.join(folder, 'package.json'), 'utf8'));
-      for (const [subpath, entry] of Object.entries(manifest.exports ?? {})) {
-        const types = entry?.types ?? entry?.import?.types;
+      for (const [subpath, entry] of Object.entries(manifest.exports ?? { '.': { types: manifest.types } })) {
+        // Runtime-only exports (for example package.json) are not declarations.
+        const types = typeof entry === 'object' ? typeEntry(entry.types) ?? typeEntry(entry.import?.types) : undefined;
         if (typeof types !== 'string') continue;
         const resolved = manifest.name === '@xec-sh/core' && process.env.XEC_CORE_TYPES && types.startsWith('./dist/')
           ? path.join(process.env.XEC_CORE_TYPES, types.slice('./dist/'.length)) : path.resolve(folder, types);
-        typePaths[manifest.name + (subpath === '.' ? '' : subpath.slice(1))] = [resolved];
+        typePaths[(name ?? manifest.name) + (subpath === '.' ? '' : subpath.slice(1))] = [resolved];
       }
+    };
+    for (const location of ['packages/core', 'packages/ops', 'packages/kit', 'packages/loader', 'packages/testing', 'apps/xec']) {
+      await addTypeExports(path.join(ROOT, location));
     }
-    // Test examples use the runner declared by the testing package.
-    typePaths.vitest = [path.join(ROOT, 'packages/testing/node_modules/vitest/dist/index.d.ts')];
+    // These examples use dependencies already declared by their owning workspace.
+    // Resolve there instead of adding checker-only dependencies to the root.
+    for (const [owner, dependency, name] of [
+      ['packages/testing', 'vitest'],
+      ['packages/kit', 'zod'],
+      ['website', '@types/react', 'react'],
+    ]) {
+      const folder = path.join(ROOT, owner);
+      const manifest = JSON.parse(await readFile(path.join(folder, 'package.json'), 'utf8'));
+      if (![manifest.dependencies, manifest.devDependencies, manifest.peerDependencies]
+        .some(dependencies => dependencies?.[dependency])) throw new Error(`${owner} must declare ${dependency}`);
+      await addTypeExports(path.join(folder, 'node_modules', dependency), name);
+    }
 
     // Each block becomes a module. Top-level await is legal, and the script
     // globals are declared, so a scripting example needs no preamble.
-    await Promise.all(
-      work.map((block, index) =>
-        writeFile(path.join(cases, `case-${index}.ts`), `${block.code}\nexport {};\n`)
-      )
-    );
+    const filenames = work.map((block, index) => {
+      const extension = ['js', 'javascript'].includes(block.lang) ? 'js' : block.lang === 'tsx' || block.lang === 'jsx' ? block.lang : 'ts';
+      return path.join(cases, `case-${index}.${extension}`);
+    });
+    await Promise.all(work.map((block, index) =>
+      writeFile(filenames[index], `${block.code}\nexport {};\n`)
+    ));
 
     await writeFile(
       path.join(dir, 'tsconfig.json'),
@@ -173,20 +193,22 @@ async function main() {
             noEmit: true,
             skipLibCheck: true,
             allowJs: true,
+            checkJs: true,
+            jsx: 'react-jsx',
             paths: typePaths,
           },
-          include: ['cases/**/*.ts', path.join(ROOT, 'apps/xec/dist/globals.d.ts')],
+          include: ['cases/**/*', path.join(ROOT, 'apps/xec/dist/globals.d.ts')],
         },
         null,
         2
       )
     );
 
-    const compile = async () => {
+    const compile = async (flags = []) => {
       try {
       const result = await run(
         process.execPath,
-        [resolveTypeScriptCompiler(ROOT), '-p', dir],
+        [resolveTypeScriptCompiler(ROOT), '-p', dir, ...flags],
         { cwd: ROOT, maxBuffer: 64 * 1024 * 1024 }
       );
         return result.stdout;
@@ -196,17 +218,17 @@ async function main() {
         return output;
       }
     };
-    let output = await compile();
-    // tsc stops before semantic analysis if any input contains a syntax error.
-    // Preserve those failures and check the remaining programs in a second pass.
-    const syntaxCases = new Set([...output.matchAll(/case-(\d+)\.ts\(\d+,\d+\): error TS1\d{3}:/g)].map(match => Number(match[1])));
+    // Ask the same compiler for syntax diagnostics explicitly. Numeric ranges
+    // cannot classify them: TypeScript syntax in JavaScript reports TS80xx.
+    let output = await compile(['--noCheck']);
+    const syntaxCases = new Set([...output.matchAll(/case-(\d+)\.(?:[jt]sx?)\(\d+,\d+\): error TS\d+:/g)].map(match => Number(match[1])));
     if (syntaxCases.size) {
       const configPath = path.join(dir, 'tsconfig.json');
       const config = JSON.parse(await readFile(configPath, 'utf8'));
-      config.exclude = [...syntaxCases].map(index => path.join(cases, `case-${index}.ts`));
+      config.exclude = [...syntaxCases].map(index => filenames[index]);
       await writeFile(configPath, JSON.stringify(config));
-      output += '\n' + await compile();
     }
+    output += '\n' + await compile();
 
     // An error with no file prefix is tsc failing to start — a missing type
     // package, a bad path. It must not read as "nothing found".
@@ -223,7 +245,7 @@ async function main() {
     for (const line of output.split('\n')) {
       // tsc reports paths relative to cwd, not to the tsconfig, so the
       // prefix varies. Anchor on the case file itself.
-      const m = /case-(\d+)\.ts\((\d+),(\d+)\): error (TS\d+): (.*)$/.exec(line.trim());
+      const m = /case-(\d+)\.(?:[jt]sx?)\((\d+),(\d+)\): error (TS\d+): (.*)$/.exec(line.trim());
       if (!m) {
         if (/error TS\d+:/.test(line)) throw new Error('Unattributed compiler failure: ' + line);
         continue;
