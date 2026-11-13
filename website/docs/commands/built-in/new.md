@@ -273,12 +273,9 @@ const files = await glob('**/*.ts');
 log.step(`Found ${files.length} TypeScript files`);
 
 // Interactive prompts with type inference
-const name = await question({
-  message: 'What is your name?',
-  defaultValue: 'Developer'
-});
-
-log.info(chalk.blue(`Hello, ${name}!`));
+const name = await kit.text({ message: 'What is your name?', defaultValue: 'Developer' });
+if (kit.isCancel(name)) throw new Error('Cancelled');
+log.info(prism.blue(`Hello, ${name}!`));
 ```
 
 ### Advanced Script Features
@@ -307,7 +304,7 @@ export function command(program) {
     .description('{description}')
     .option('-v, --verbose', 'Enable verbose output')
     .action(async (args, options) => {
-      const { log } = await import('@clack/prompts');
+      const { log } = await import('@xec-sh/kit');
       
       // Your command logic here
       log.info('Running {name} command...');

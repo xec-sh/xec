@@ -114,7 +114,7 @@ export function command(program: any) {
 
       // `upload` sends a local path to the engine's own target — no URL to
       // restate the host in.
-      await remote.transfer.upload('dist/', '/srv/app/', { recursive: true });
+      await remote.uploadDirectory('dist/', '/srv/app/', { recursive: true });
       await remote`systemctl restart myapp`;
 
       s.stop(`Deployed to ${host}`);
@@ -212,7 +212,7 @@ export function command(program: any) {
 
       if (!result.ok) {
         log.error(`Migration failed: ${result.stderr.trim()}`);
-        log.info('The database is unchanged; fix the migration and rerun.');
+        log.info('Inspect the migration result before retrying; a failed command may have partially applied changes.');
         process.exitCode = 1;
       }
     });
@@ -223,19 +223,11 @@ export function command(program: any) {
 
 A command file is a module; test it like one:
 
-```typescript
-// .xec/commands/greet.test.ts — skipped by discovery, run by your test runner
-import { Command } from 'commander';
-import { command } from './greet.js';
-
-it('registers with its description', () => {
-  const program = new Command();
-  command(program);
-
-  const greet = program.commands.find(c => c.name() === 'greet');
-  expect(greet?.description()).toBe('Greet someone properly');
-});
-```
+Import the exported `command` function from your actual command file in a Vitest
+suite, then register it on a fresh Commander `Command`. Assert the registered name,
+options and description, and invoke the real CLI for its observable execution
+behavior. The [command testing guide](./command-testing.md#output-capture) contains
+a complete test against the installed CLI.
 
 End to end, the CLI itself is the harness:
 

@@ -23,6 +23,7 @@ await pod.copyFrom('/app/logs/application.log', './app-logs.log');
 Both accept a directory path too — `kubectl cp` copies recursively, provided `tar` is available inside the target container (it copies by streaming a tar archive through `kubectl exec`):
 
 ```typescript
+const pod = $.k8s({ namespace: 'production' }).pod('web-server');
 await pod.copyTo('./assets/', '/app/assets/');
 await pod.copyFrom('/app/generated-reports/', './reports/');
 ```
@@ -153,6 +154,8 @@ async function verifiedCopyTo(pod: K8sPod, localPath: string, remotePath: string
 `copyTo`/`copyFrom` preserve no permission metadata beyond what `kubectl cp` itself does — set permissions explicitly afterward if they matter:
 
 ```typescript
+const configFile = './config.json';
+const pod = $.k8s({ namespace: 'production' }).pod('web-server');
 await pod.copyTo(configFile, '/tmp/new-config.json');
 await pod.exec`chown app:app /tmp/new-config.json && chmod 600 /tmp/new-config.json`;
 await pod.exec`mv /tmp/new-config.json /app/config/secure-config.json`;
@@ -163,6 +166,9 @@ await pod.exec`mv /tmp/new-config.json /app/config/secure-config.json`;
 - Many small files are slow over `kubectl cp` (one tar stream per call). Archive locally, copy the single archive, and extract inside the pod instead:
 
   ```typescript
+  const localDir = './assets';
+  const remoteDir = '/app/assets';
+  const pod = $.k8s({ namespace: 'production' }).pod('web-server');
   await $`tar -czf /tmp/transfer.tar.gz -C ${localDir} .`;
   await pod.copyTo('/tmp/transfer.tar.gz', '/tmp/transfer.tar.gz');
   await pod.exec`mkdir -p ${remoteDir} && tar -xzf /tmp/transfer.tar.gz -C ${remoteDir}`;

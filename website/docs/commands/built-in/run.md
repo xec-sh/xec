@@ -185,8 +185,8 @@ console.log(__filename);   // Script file path
 console.log(__dirname);    // Script directory
 
 // Xec context (injected by ScriptRunner)
-console.log($target);      // Current target from config
-console.log($config);      // Loaded configuration object
+console.log($targetInfo);  // Selected target metadata (local for xec run)
+await $target`node --version`; // Selected callable execution engine
 ```
 
 #### Built-in Modules
@@ -205,10 +205,8 @@ const response = await fetch('https://api.example.com');
 const data = await response.json();
 
 // Interactive prompts
-const answer = await question({
-  message: 'Continue?',
-  defaultValue: 'yes'
-});
+const answer = await kit.confirm({ message: 'Continue?' });
+if (kit.isCancel(answer)) throw new Error('Cancelled');
 
 // Logging utilities
 log.info('Information message');
@@ -220,15 +218,13 @@ log.warning('Warning message');
 #### Utilities
 
 ```javascript
-// Chalk for colors
-console.log(chalk.blue('Blue text'));
-console.log(chalk.red.bold('Bold red text'));
+// Built-in Prism formatting
+console.log(prism.blue('Blue text'));
+console.log(prism.red.bold('Bold red text'));
 
-// Lodash utilities
-const result = _.uniq([1, 2, 2, 3]);
-
-// Date utilities (dayjs)
-const now = dayjs().format('YYYY-MM-DD HH:mm:ss');
+// Standard JavaScript utilities
+const unique = [...new Set([1, 2, 2, 3])];
+const now = new Date().toISOString();
 ```
 
 ## Task Execution
@@ -332,7 +328,7 @@ xec run --repl
 
 In the REPL:
 
-```javascript
+```text
 // Execute commands
 > await $`ls -la`
 { stdout: '...', stderr: '', exitCode: 0 }
@@ -348,12 +344,14 @@ In the REPL:
 { ... }
 
 // Use utilities
-> chalk.blue('Hello')
+> prism.blue('Hello')
 '\u001b[34mHello\u001b[39m'
 
 // Access configuration
-> xec.config
-{ name: 'my-project', ... }
+> (await import('@xec-sh/ops')).config
+{ load: [Function], get: [Function], ... }
+// Call await config.load(), then config.get('name'), in a script.
+// { name: 'my-project', ... }
 ```
 
 ### REPL Features
@@ -383,17 +381,15 @@ xec run --typescript script.js
 Built-in type definitions are available:
 
 ```typescript
-// Xec types
-const target: ResolvedTarget = xec.target;
-const config: XecConfig = xec.config;
+import '@xec-sh/cli/globals';
+import type { ProcessPromise } from '@xec-sh/core';
+import type { TargetInfo } from '@xec-sh/loader';
 
-// Process promise types
-const result: ProcessPromise = $`ls -la`;
-const output: string = result.stdout;
-
-// File operations
+const target: TargetInfo = $targetInfo;
+const pending: ProcessPromise = $`node --version`;
+const output: string = (await pending).stdout;
 const files: string[] = await glob('**/*.ts');
-const stats: fs.Stats = await fs.stat('package.json');
+const stats = await fs.stat('package.json');
 ```
 
 ## Watch Mode

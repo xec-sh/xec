@@ -28,7 +28,7 @@ import { $ } from '@xec-sh/core';
 const result = await $`echo "Hello, World"`;
 
 // The same API works everywhere
-await $.ssh({ host: 'server' })`echo "Hello from SSH"`;
+await $.ssh('deploy@server')`echo "Hello from SSH"`;
 await $.docker({ container: 'container' })`echo "Hello from Docker"`;
 await $.k8s({ pod: 'pod' })`echo "Hello from Kubernetes"`;
 ```
@@ -54,7 +54,7 @@ Executes commands on remote servers via SSH.
 // SSH with connection pooling
 await $.ssh({
   host: 'server.example.com',
-  user: 'deploy'
+  username: 'deploy'
 })`systemctl restart app`;
 ```
 
@@ -82,9 +82,10 @@ await $.k8s({
 Xec automatically selects the appropriate adapter based on the target:
 
 ```typescript
-// Automatic adapter selection
-const target = getTarget('production');
-await $[target]`deploy.sh`;
+import { targets } from '@xec-sh/ops';
+
+// Resolve a configured reference through the public configuration API.
+await targets.exec('hosts.production', './deploy.sh');
 ```
 
 ## Configuration System
@@ -203,24 +204,17 @@ targets:
 ### Target Resolution
 
 ```typescript
-// Use targets from configuration  
-// Access via dot notation
-await $['hosts.web-server']`uptime`;
-await $['containers.app']`npm test`;
-await $['pods.api']`health-check`;
+import { targets } from '@xec-sh/ops';
 
-// Or use with CLI commands
-// xec on hosts.web-server "uptime"
-// xec in containers.app "npm test"
+await targets.exec('hosts.web-server', 'uptime');
+await targets.exec('containers.app', 'npm test');
+await targets.exec('pods.api', './health-check');
 
-// Dynamic target resolution
-const target = process.env.DEPLOY_TARGET || 'hosts.staging';
-await $[target]`deploy.sh`;
+const reference = process.env.DEPLOY_TARGET || 'hosts.staging';
+await targets.exec(reference, './deploy.sh');
 
-// Multiple targets using parallel execution
-const targets = ['hosts.staging', 'hosts.production'];
-const results = await $.parallel.all(
-  targets.map(t => $[t]`health-check.sh`)
+const results = await Promise.all(
+  ['hosts.staging', 'hosts.production'].map(ref => targets.exec(ref, './health-check.sh'))
 );
 ```
 
@@ -259,7 +253,7 @@ console.log(status);
 // Error handling
 const result = await $`test-command`.nothrow();
 if (!result.ok) {
-  console.error('Command failed:', result.error);
+  console.error('Command failed:', result.cause);
 }
 ```
 
@@ -296,20 +290,15 @@ Xec automatically manages connection pools for efficient resource usage.
 ### SSH Connection Pooling
 
 ```typescript
-// Connections are automatically pooled
-for (const server of servers) {
-  await $.ssh({ host: server })`uptime`;  // Reuses connections
+import { $ } from '@xec-sh/core';
+
+const servers = ['web-1', 'web-2'];
+for (const host of servers) {
+  await $.ssh({ host, username: 'deploy' })`uptime`;
 }
 
-// Connection pooling happens automatically
-// Configure via adapter options:
-const ssh = $.ssh({
-  host: 'server',
-  poolConfig: {
-    maxConnections: 10,
-    idleTimeout: 30000
-  }
-});
+// Reuse the engine throughout the owning operation; dispose it when finished.
+await $.dispose();
 ```
 
 ### Benefits
@@ -326,11 +315,13 @@ Xec provides consistent error handling across all environments.
 ### Error Types
 
 ```typescript
+import { CommandError, ConnectionError, TimeoutError } from '@xec-sh/core';
+
 // Execution errors
 try {
   await $`false`;
 } catch (error) {
-  if (error instanceof ExecutionError) {
+  if (error instanceof CommandError) {
     console.log('Exit code:', error.exitCode);
   }
 }
@@ -363,7 +354,7 @@ const result = await $`risky-command`.nothrow();
 if (result.ok) {
   console.log('Success:', result.stdout);
 } else {
-  console.log('Failed:', result.error);
+  console.log('Failed:', result.cause);
 }
 ```
 
@@ -392,22 +383,16 @@ Execute commands across multiple targets simultaneously.
 ### Parallel Patterns
 
 ```typescript
-// Execute on all targets
-const results = await $.parallel.all(
-  ['server1', 'server2'].map(s => $.ssh({ host: s })`uptime`)
-);
-
-// Parallel with different commands
-const [build, test, deploy] = await Promise.all([
+// Independent local commands run concurrently.
+const [build, test] = await $.parallel.all([
   $`npm run build`,
   $`npm test`,
-  $.ssh({ host: 'staging' })`deploy.sh`
-]);
+], { maxConcurrency: 2 });
 
-// Map over targets
-const servers = ['web1', 'web2', 'web3'];
+const servers = ['web-1', 'web-2', 'web-3'];
 const results = await $.parallel.all(
-  servers.map(server => $.ssh({ host: server })`health-check.sh`)
+  servers.map(host => $.ssh({ host, username: 'deploy' })`./health-check.sh`),
+  { maxConcurrency: 2 },
 );
 ```
 
@@ -418,15 +403,13 @@ Xec commands have access to configuration context.
 ### Context Variables
 
 ```typescript
-// Access current target
-console.log($target.type);  // 'ssh', 'docker', etc.
+import { config } from '@xec-sh/ops';
 
-// Access configuration
-console.log($config.name);
-console.log($config.environment);
-
-// Access environment variables
-console.log($env.NODE_ENV);
+// In an Xec CLI script, this metadata describes the selected target.
+console.log($targetInfo.type);
+await config.load();
+console.log(config.get('name'));
+console.log(process.env.NODE_ENV);
 ```
 
 ## File Operations
@@ -442,13 +425,13 @@ Xec provides unified file operations across environments.
 
 // Or use the transfer engine from code. `upload`/`download` resolve the remote
 // side from the engine's own target, so there is no URL to restate the host in.
-const ssh = $.ssh({ host: 'server' });
+const ssh = $.ssh('deploy@server');
 
 // Upload a local file to the target
-await ssh.transfer.upload('local-file.txt', '/remote/path/');
+await ssh.uploadFile('local-file.txt', '/remote/path/local-file.txt');
 
 // Download from the target to a local path
-await ssh.transfer.download('/remote/file.txt', 'local-path/');
+await ssh.downloadFile('/remote/file.txt', './file.txt');
 ```
 
 ## Module System
@@ -458,19 +441,15 @@ Xec supports modular command organization.
 ### Command Modules
 
 ```typescript
-// Define reusable commands
-export const deploy = async (target: string, version: string) => {
-  await $[target]`
-    git fetch --tags
-    git checkout ${version}
-    npm ci --production
-    pm2 restart app
-  `;
-};
+import type { ProcessPromise } from '@xec-sh/core';
 
-// Use in scripts
-import { deploy } from './commands/deploy';
-await deploy('production', 'v1.2.3');
+type CommandTarget = (parts: TemplateStringsArray, ...values: unknown[]) => ProcessPromise;
+
+export async function deploy(target: CommandTarget, version: string) {
+  await target`./deploy.sh ${version}`;
+}
+
+await deploy($.ssh('deploy@production'), 'v1.2.3');
 ```
 
 ## Best Practices
@@ -478,11 +457,10 @@ await deploy('production', 'v1.2.3');
 ### 1. Use Named Targets
 
 ```typescript
-// Good: Named targets from config
-await $['production']`deploy.sh`;
+import { targets } from '@xec-sh/ops';
 
-// Avoid: Hardcoded connection details
-await $.ssh({ host: '192.168.1.1', user: 'root' })`deploy.sh`;
+// Read identity, connection settings and environment from project configuration.
+await targets.exec('hosts.production', './deploy.sh');
 ```
 
 ### 2. Handle Errors Gracefully
@@ -502,13 +480,13 @@ await $`risky-command`;  // May crash
 
 ```typescript
 // Good: Reuse connections
-const ssh = $.ssh({ host: 'server' });
+const ssh = $.ssh('deploy@server');
 await ssh`command1`;
 await ssh`command2`;
 
 // Also good: Pooling handles this automatically
-await $.ssh({ host: 'server' })`command1`;
-await $.ssh({ host: 'server' })`command2`;  // Reuses pooled connection
+await $.ssh('deploy@server')`command1`;
+await $.ssh('deploy@server')`command2`;  // Reuses pooled connection
 ```
 
 ### 4. Stream Large Outputs
@@ -516,12 +494,12 @@ await $.ssh({ host: 'server' })`command2`;  // Reuses pooled connection
 ```typescript
 // Good: Stream processing
 for await (const line of $`large-output`) {
-  process(line);
+  console.log(line);
 }
 
 // Avoid: Loading everything in memory
 const result = await $`large-output`;
-process(result.stdout);  // May cause OOM
+console.log(result.stdout);  // May cause OOM
 ```
 
 ## Architecture Overview

@@ -343,12 +343,17 @@ tasks:
 Access secrets in scripts:
 
 ```javascript
-// JavaScript/TypeScript scripts
+import { ConfigurationManager } from '@xec-sh/ops';
+
+const project = new ConfigurationManager();
+await project.load();
+const secrets = project.getSecretManager();
+
 const dbPassword = await secrets.get('DATABASE_PASSWORD');
 const apiKey = await secrets.get('API_KEY');
 
 // Connection string with secret
-const connectionString = `postgresql://user:${dbPassword}@localhost/myapp`;
+const connectionString = `postgresql://user:${encodeURIComponent(dbPassword ?? "")}@localhost/myapp`;
 
 // HTTP request with secret
 const response = await fetch('https://api.example.com/data', {

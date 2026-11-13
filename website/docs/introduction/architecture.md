@@ -34,7 +34,7 @@ xec/
 
 ### Package Dependencies
 
-Arrows point from each package to the packages it imports at runtime. `@xec-sh/testing` is not shown — it has no runtime edges and is consumed only by test suites.
+Arrows point from each package to the packages it imports at runtime. `@xec-sh/testing` is not shown — it does not depend on other Xec packages and is consumed by Vitest suites through its required runner peer.
 
 ```mermaid
 flowchart TD
@@ -61,15 +61,14 @@ The execution engine (`packages/core/src/core/execution-engine.ts`) is the centr
 - Provides error handling
 
 ```typescript
-class ExecutionEngine {
-  constructor(private config: ExecutionConfig) {}
-  
-  async execute(command: string, options?: ExecutionOptions): Promise<Result> {
-    const adapter = this.selectAdapter(options);
-    const prepared = await adapter.prepare(command);
-    const result = await adapter.execute(prepared);
-    return this.processResult(result);
-  }
+import { ExecutionEngine } from '@xec-sh/core';
+
+const engine = new ExecutionEngine();
+try {
+  const result = await engine.execute({ command: 'printf ready' });
+  console.log(result.stdout);
+} finally {
+  await engine.dispose();
 }
 ```
 
@@ -80,12 +79,11 @@ Adapters (`packages/core/src/adapters/`) provide environment-specific implementa
 #### Base Adapter Interface
 
 ```typescript
-abstract class BaseAdapter {
-  abstract async execute(command: Command): Promise<Result>;
-  abstract async connect(): Promise<void>;
-  abstract async disconnect(): Promise<void>;
-  abstract async validate(): Promise<boolean>;
-}
+import type { LocalAdapter } from '@xec-sh/core';
+
+// Inspect the real adapter contract rather than copying a second interface.
+type ExecuteCommand = Parameters<LocalAdapter['execute']>[0];
+type ExecuteResult = Awaited<ReturnType<LocalAdapter['execute']>>;
 ```
 
 #### Adapter Implementations
@@ -97,21 +95,13 @@ abstract class BaseAdapter {
 
 ### 3. Command Builder
 
-The command builder (`packages/core/src/core/command-builder.ts`) constructs executable commands:
+The engine parses tagged templates, escapes their interpolated values and passes a `Command` to the chosen adapter. String shell syntax stays explicit; values are not shell programs:
 
 ```typescript
-class CommandBuilder {
-  private parts: CommandPart[] = [];
-  
-  add(part: string | TemplateExpression): this {
-    this.parts.push(this.sanitize(part));
-    return this;
-  }
-  
-  build(): Command {
-    return new Command(this.parts);
-  }
-}
+import { $ } from '@xec-sh/core';
+
+const filename = 'report with spaces.txt';
+await $`printf '%s\n' ${filename}`;
 ```
 
 ### 4. Connection Management
@@ -119,18 +109,14 @@ class CommandBuilder {
 #### Connection Pool
 
 ```typescript
-class ConnectionPool<T extends Connection> {
-  private available: T[] = [];
-  private inUse: Map<string, T> = new Map();
-  private pending: Promise<T>[] = [];
-  
-  async acquire(): Promise<T> {
-    // Return available connection or create new
-  }
-  
-  release(connection: T): void {
-    // Return connection to pool
-  }
+import { $ } from '@xec-sh/core';
+
+const target = $.ssh('deploy@server.example.com');
+try {
+  await target`uptime`;
+  await target`df -h`;
+} finally {
+  await $.dispose();
 }
 ```
 
@@ -138,7 +124,7 @@ class ConnectionPool<T extends Connection> {
 
 - Maintains persistent SSH connections
 - Configurable pool size and idle timeout
-- Automatic reconnection on failure
+- Dead connections are discarded; uncertain remote outcomes are not silently replayed
 - Connection health checks
 
 ### 5. CLI Layer
@@ -151,19 +137,10 @@ The CLI (`apps/xec/src/`) provides:
 - Task management
 - Interactive features
 
-```typescript
-// Main CLI entry point
-async function main() {
-  const command = parseArgs(process.argv);
-  const config = await loadConfig();
-  const executor = createExecutor(config);
-  
-  try {
-    await executor.run(command);
-  } catch (error) {
-    handleError(error);
-  }
-}
+```bash
+xec run scripts/inspect.ts
+xec on deploy@server.example.com 'uptime'
+xec in app 'node --version'
 ```
 
 ## Data Flow
@@ -208,51 +185,42 @@ flowchart LR
 ### Parse Phase
 
 ```typescript
-// Template literal: $`echo ${variable}`
-// Parsed into:
-{
-  type: 'template',
-  parts: [
-    { type: 'literal', value: 'echo ' },
-    { type: 'expression', value: variable }
-  ]
-}
+import { $ } from '@xec-sh/core';
+
+const value = 'one argument; not another command';
+await $`printf '%s\n' ${value}`;
 ```
 
 ### Compilation Phase
 
 ```typescript
-// Compiled to executable command
-{
-  command: 'echo',
-  args: [resolvedVariable],
-  env: mergedEnvironment,
-  options: executionOptions
-}
+import { ExecutionEngine, type Command } from '@xec-sh/core';
+
+const command: Command = {
+  command: process.execPath,
+  args: ['-e', 'console.log("ready")'],
+  shell: false,
+};
+const engine = new ExecutionEngine();
+try { console.log((await engine.execute(command)).stdout); }
+finally { await engine.dispose(); }
 ```
 
 ## Error Architecture
 
 ### Error Hierarchy
 
-All failures are typed subclasses of `ExecutionError` (`packages/core/src/core/error.ts`):
+Execution failures use the exported error classes in `packages/core/src/core/error.ts`. Input and application errors may also be ordinary JavaScript errors. Use the real classes and stable `code`/`kind` fields:
 
 ```typescript
-class ExecutionError extends Error {
-  constructor(
-    message: string,
-    public readonly code: string,
-    public readonly details?: Record<string, any>
-  ) {
-    super(message);
-  }
-}
+import { $, CommandError, ExecutionError } from '@xec-sh/core';
 
-class CommandError extends ExecutionError {}     // non-zero exit code
-class ConnectionError extends ExecutionError {}  // transport failure
-class TimeoutError extends ExecutionError {}     // deadline exceeded
-class DockerError extends ExecutionError {}
-class KubernetesError extends ExecutionError {}
+try { await $`exit 7`; }
+catch (error) {
+  if (error instanceof CommandError) console.error(error.exitCode);
+  else if (error instanceof ExecutionError) console.error(error.code, error.kind);
+  else throw error;
+}
 ```
 
 ### Error Flow
@@ -274,42 +242,38 @@ flowchart TD
 
 - **SSH**: Reuse SSH connections across commands
 - **Docker**: Maintain Docker client connections
-- **Kubernetes**: Cache kubectl contexts
+- **Kubernetes**: Preserve the explicitly selected context and kubeconfig for every operation
 
 ### 2. Lazy Loading
 
 ```typescript
-// Commands loaded on demand
-const commands = new Map<string, () => Promise<Command>>();
-
-async function loadCommand(name: string) {
-  if (!commands.has(name)) {
-    commands.set(name, () => import(`./commands/${name}`));
-  }
-  return commands.get(name)();
-}
+// A project can load a library only when the operation needs it.
+const { Pipeline } = await import('@xec-sh/ops/pipeline');
+const plan = Pipeline.create('inspect').step('version', { run: 'node --version' });
+const result = await plan.run();
+if (!result.success) throw new Error('Inspection failed');
 ```
 
 ### 3. Stream Processing
 
 ```typescript
-// Process output as streams instead of buffering
-async function* streamOutput(process: ChildProcess) {
-  for await (const chunk of process.stdout) {
-    yield chunk.toString();
-  }
+import { $ } from '@xec-sh/core';
+
+for await (const line of $`printf 'one\ntwo\n'`) {
+  console.log(line);
 }
 ```
 
 ### 4. Parallel Execution
 
 ```typescript
-// Execute commands in parallel
-async function executeParallel(commands: Command[]) {
-  return Promise.all(
-    commands.map(cmd => execute(cmd))
-  );
-}
+import { $ } from '@xec-sh/core';
+
+const results = await $.parallel.all([
+  $`node --version`,
+  $`git --version`,
+], { maxConcurrency: 2 });
+console.log(results.map(result => result.exitCode));
 ```
 
 ## Security Architecture
@@ -317,127 +281,89 @@ async function executeParallel(commands: Command[]) {
 ### 1. Input Sanitization
 
 ```typescript
-function sanitizeCommand(input: string): string {
-  // Escape shell metacharacters
-  return input.replace(/[;&|<>]/g, '\\$&');
-}
+import { $ } from '@xec-sh/core';
+
+const untrustedFilename = 'file; echo not-a-command';
+await $`printf '%s\n' ${untrustedFilename}`;
+// $.raw deliberately disables interpolation escaping. Use it only with trusted shell text.
 ```
 
 ### 2. Secret Management
 
 ```typescript
-class SecretManager {
-  private secrets = new Map<string, EncryptedValue>();
-  
-  async get(key: string): Promise<string> {
-    const encrypted = this.secrets.get(key);
-    return this.decrypt(encrypted);
-  }
-  
-  async set(key: string, value: string): Promise<void> {
-    const encrypted = await this.encrypt(value);
-    this.secrets.set(key, encrypted);
-  }
-}
+import { ConfigurationManager } from '@xec-sh/ops';
+
+const project = new ConfigurationManager();
+await project.load();
+const secrets = project.getSecretManager();
+
+const apiToken = await secrets.get('API_TOKEN');
+if (!apiToken) throw new Error('API_TOKEN is not configured');
+// Pass it to the intended authenticated operation; do not print it.
 ```
 
 ### 3. Permission Model
 
-```typescript
-interface Permissions {
-  canExecute: boolean;
-  canRead: boolean;
-  canWrite: boolean;
-  allowedTargets: string[];
-  deniedCommands: string[];
-}
-```
+Xec runs with the privileges of its local process and configured remote identity.
+It is not an operating-system sandbox. Use restricted service identities and target
+credentials, and enable only the adapters and operations your application requires.
+Command escaping and diagnostic redaction do not replace authorization.
 
 ## Extension Points
 
 ### 1. Custom Adapters
 
-```typescript
-class CustomAdapter extends BaseAdapter {
-  async execute(command: Command): Promise<Result> {
-    // Custom implementation
-  }
-}
-
-// Register adapter
-registerAdapter('custom', CustomAdapter);
-```
+Adapter implementations follow the internal `BaseAdapter` contract and the
+engine registry. This is a Core contribution, not a separate public plugin API. The [adapter development guide](../core/execution-engine/adapters/concept.md)
+describes validation, streaming, errors and disposal. Do not copy an abbreviated
+interface from documentation into a separate execution mechanism.
 
 ### 2. Command Hooks
 
-```typescript
-interface CommandHooks {
-  beforeExecute?: (command: Command) => Promise<void>;
-  afterExecute?: (result: Result) => Promise<void>;
-  onError?: (error: Error) => Promise<void>;
-}
-```
+Use the engine's declared hooks and event types for observation. Keep telemetry
+separate from executable input and preserve error propagation and cancellation.
+The [execution-engine reference](../api/execution-engine.md) documents the public surface.
 
 ### 3. Plugin System
 
-```typescript
-interface Plugin {
-  name: string;
-  version: string;
-  install(xec: XecInstance): void;
-}
-
-// Load plugins
-async function loadPlugins(plugins: string[]) {
-  for (const plugin of plugins) {
-    const module = await import(plugin);
-    module.default.install(xec);
-  }
-}
-```
+The CLI discovers project commands from `.xec/commands`; libraries compose through
+ordinary imports and functions. There is no separate public `Plugin.install(xec)`
+contract. See [creating commands](../commands/custom/creating-commands.md).
 
 ## Testing Architecture
 
 ### Unit Testing
 
 ```typescript
-// Test individual components
-describe('ExecutionEngine', () => {
-  it('should execute commands', async () => {
-    const engine = new ExecutionEngine(testConfig);
-    const result = await engine.execute('echo test');
-    expect(result.stdout).toBe('test\n');
-  });
+import { expect, it } from 'vitest';
+import { $ } from '@xec-sh/core';
+
+it('retains the command exit code', async () => {
+  const result = await $`${process.execPath} -e ${'process.exitCode = 7'}`.nothrow();
+  expect(result.exitCode).toBe(7);
 });
 ```
 
 ### Integration Testing
 
 ```typescript
-// Test with real environments
-describe('SSH Integration', () => {
-  let container: SSHContainer;
-  
-  beforeAll(async () => {
-    container = await startSSHContainer();
+import { expect, it } from 'vitest';
+import { $ } from '@xec-sh/core';
+import { describeSSH, getSSHConfig } from '@xec-sh/testing';
+
+describeSSH('SSH output', () => {
+  it('preserves output from the fixture', async () => {
+    const target = $.ssh(getSSHConfig('alpine-apk'));
+    expect(await target`printf ready`.text()).toBe('ready');
   });
-  
-  it('should execute via SSH', async () => {
-    const result = await $.ssh(container.connection)`echo test`;
-    expect(result.stdout).toBe('test\n');
-  });
-});
+}, { containers: ['alpine-apk'], skipIfNoDocker: true });
 ```
 
 ### Test Utilities
 
-```typescript
-// packages/testing provides:
-- Test containers (SSH, Docker, K8s)
-- Mock adapters
-- Fixture management
-- Assertion helpers
-```
+`@xec-sh/testing` provides named SSH/Docker fixtures, a Kind cluster manager,
+binary discovery and shell-name validation. It requires the declared Vitest runner;
+fixture skips must remain visible in test results.
 
 ## Build System
 
@@ -445,7 +371,7 @@ describe('SSH Integration', () => {
 
 ```json
 {
-  "pipeline": {
+  "tasks": {
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
@@ -467,7 +393,8 @@ describe('SSH Integration', () => {
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "commonjs",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,

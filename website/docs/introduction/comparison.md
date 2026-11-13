@@ -81,7 +81,7 @@ await $.docker({ container: 'container1' })`python manage.py migrate`;
 // Xec script
 import { $, parallel } from '@xec-sh/core';
 
-const webservers = config.targets.webservers;
+const webservers = ['deploy@web-1', 'deploy@web-2'];
 await parallel(webservers.map(host => $.ssh(host)`
   cd /app
   git pull
@@ -177,6 +177,8 @@ const k8sLogs = await $.k8s().pod('app-pod').logs();
 ## Xec vs zx/shelljs
 
 ### zx Script
+
+<!-- doc-check: skip — comparison uses zx, which is not an Xec workspace dependency -->
 ```javascript
 // zx script
 import 'zx/globals';
@@ -366,6 +368,7 @@ await $.ssh('server')`deploy.sh`;
 // After: Xec
 import { $, parallel } from '@xec-sh/core';
 
+const servers = ['deploy@web-1', 'deploy@web-2'];
 await parallel(servers.map(host => $.ssh(host)`deploy.sh`));
 ```
 
@@ -376,19 +379,15 @@ await $`deploy.sh`;
 
 // After: Xec (anywhere) — target local, SSH, Docker or Kubernetes with the
 // same chain, e.g. an SSH host:
-await $.ssh(target)`deploy.sh`;
+await $.ssh('deploy@web-1')`deploy.sh`;
 ```
 
 ## Performance Comparison
 
-| Tool | Connection Overhead | Execution Speed | Memory Usage |
-|------|-------------------|-----------------|--------------|
-| **Xec** | Low (pooled) | Fast | ~30MB base |
-| **SSH** | High (per command) | Fast | Minimal |
-| **Ansible** | Medium | Slow (Python) | ~100MB |
-| **Terraform** | Low | Medium | ~50MB |
-| **Docker CLI** | Low | Fast | ~20MB |
-| **zx** | N/A (local) | Fast | ~30MB |
+Measure tools against the same command, target, connection reuse policy and output
+volume. This project does not publish a reproducible cross-tool memory or latency
+benchmark here. Connection pooling can reduce repeated SSH setup cost; it does not
+make arbitrary commands faster, and deployment tools have different semantics.
 
 ## Summary
 

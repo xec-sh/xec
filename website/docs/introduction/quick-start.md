@@ -44,7 +44,7 @@ xec run -e "console.log('Hello, Xec!')"
 # Execute on SSH host
 xec on user@server.com "uptime"
 
-# Execute in Docker container  
+# Execute in Docker container
 xec in my-container "npm test"
 
 # Copy files between environments
@@ -115,7 +115,7 @@ import { $ } from '@xec-sh/core';
 await $.docker({ container: 'my-app' })`npm test`;
 
 // Create ephemeral container with configuration
-await $.docker({ 
+await $.docker({
   image: 'node:20',
   autoRemove: true,
   volumes: ['./src:/app'],
@@ -127,7 +127,7 @@ await $.docker()
   .ephemeral('node:20')
   .volumes(['./src:/app'])
   .workdir('/app')
-  .run('npm install && npm run build');
+  .run`npm install && npm run build`;
 ```
 
 ### Kubernetes Execution
@@ -138,9 +138,9 @@ Execute in pods:
 import { $ } from '@xec-sh/core';
 
 // Execute command in pod
-const hostname = await $.k8s({ 
-  pod: 'web-server', 
-  namespace: 'default' 
+const hostname = await $.k8s({
+  pod: 'web-server',
+  namespace: 'default'
 })`hostname`.text();
 console.log(`Pod hostname: ${hostname}`);
 
@@ -185,10 +185,9 @@ files.forEach(file => console.log(file));
 ### Method Chaining
 
 ```javascript
-await $`npm test`
-  .cd('/app')                      // Set working directory
+await $.cd('/app')                      // Set working directory
   .env({ NODE_ENV: 'test' })       // Set environment
-  .timeout(30000)                  // Set timeout
+  .timeout(30000)`npm test`        // Set timeout before invocation
   .quiet()                         // Suppress output
   .nothrow();                      // Don't throw on error
 ```
@@ -204,11 +203,12 @@ const results = await $.parallel.all([
 ]);
 
 // Run with concurrency limit
-const serverCommands = servers.map(s => 
-  $.ssh({ host: s })`apt update`
+const servers = ['web-1', 'web-2'];
+const serverCommands = servers.map(s =>
+  $.ssh({ host: s, username: 'deploy' })`apt update`
 );
-const results2 = await $.parallel.all(serverCommands, { 
-  concurrency: 3 
+const results2 = await $.parallel.all(serverCommands, {
+  maxConcurrency: 3
 });
 ```
 
@@ -256,7 +256,7 @@ targets:
       host: prod.example.com
       user: deploy  # YAML targets use 'user' (the programmatic $.ssh() API uses 'username')
       privateKey: ~/.ssh/deploy_key
-  
+
   containers:
     staging:
       type: docker

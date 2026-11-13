@@ -89,14 +89,15 @@ const files = await $`ls -1`.lines();
 // Environment-specific power stays available:
 await $.ssh('deploy@prod').tunnel({ localPort: 5432, remoteHost: 'db', remotePort: 5432 });
 await $.k8s('production/api').pod('api-7f9d').portForward(8080, 80);
-await $.k8s('production/api').pod('api-7f9d').follow(line => audit(line));
+const logs = await $.k8s('production/api').pod('api-7f9d').follow(line => process.stdout.write(line));
+try { await logs.completion; } finally { await logs.stop(); }
 ```
 
 ## Packages
 
 | Package | What it is |
 |---------|------------|
-| **[@xec-sh/core](packages/core)** | The execution engine: `$`, adapters, pooling, masking. One runtime dependency (`ssh2`), loaded only when an SSH target is used. |
+| **[@xec-sh/core](packages/core)** | The execution engine: `$`, adapters, pooling, masking. SSH loads its pinned `ssh2` transport on demand; release archives bundle the reviewed transport and its dependency closure. |
 | **[@xec-sh/cli](apps/xec)** | `xec` command: run scripts and tasks against configured targets. |
 | **[@xec-sh/ops](packages/ops)** | Deploy strategies, pipelines, health checks, secrets, discovery. |
 | **[@xec-sh/kit](packages/kit)** | Terminal UI: prompts, spinners, tables, colors. |
@@ -109,8 +110,8 @@ pnpm add -g @xec-sh/cli   # the CLI
 ```
 
 Runs on Node 22.18+, Bun, and Deno — the same commands, byte-identical
-results, pinned by a cross-runtime parity test. The libraries alone need
-only Node 20.
+results, pinned by a cross-runtime parity test. Core, Ops, Loader and Kit support Node 20; Testing uses the
+Node versions supported by its required Vitest 5.1 peer.
 
 ## The CLI
 
@@ -149,7 +150,7 @@ pnpm --filter @xec-sh/core docker:start   # SSH test fixtures
 pnpm lint && pnpm typecheck               # both are kept at zero
 ```
 
-Use the pnpm version pinned in `packageManager` (12.16.1). Builds use the native
+Use the pnpm version pinned in `packageManager` (12.18.0). Builds use the native
 TypeScript 7 compiler; tools that inspect TypeScript syntax use the separately
 aliased TypeScript 6 Compiler API until they support the native API. Dependency
 updates include the workspace policy, lockfile, builds and adapter tests together.

@@ -30,6 +30,7 @@ Let kubectl ask the OS for a local port. The returned `localPort` is the
 actual listener reported by kubectl, not a random candidate guessed in advance:
 
 ```typescript
+const pod = $.k8s({ namespace: 'production' }).pod('web-server');
 const forward = await pod.portForwardDynamic(3000); // remote port 3000, local port assigned
 console.log(`API available at: http://localhost:${forward.localPort}`);
 
@@ -39,6 +40,7 @@ await forward.close();
 ## Forward State
 
 ```typescript
+const pod = $.k8s({ namespace: 'production' }).pod('web-server');
 const forward = await pod.portForward(5432, 5432);
 
 console.log(forward.localPort, forward.remotePort, forward.isOpen); // true
@@ -50,6 +52,7 @@ console.log(forward.isOpen); // false
 Always close forwards you open — each one is a live `kubectl` subprocess:
 
 ```typescript
+const pod = $.k8s({ namespace: 'production' }).pod('web-server');
 const dbForward = await pod.portForward(5432, 5432);
 try {
   await $`pg_dump -h localhost -p ${dbForward.localPort} mydb > backup.sql`;
@@ -66,6 +69,7 @@ signal remains attached after readiness, so cancellation also closes an open
 forward. Context and kubeconfig from the pod's target apply to the operation.
 
 ```typescript
+const pod = $.k8s({ namespace: 'production' }).pod('web-server');
 import { getExecutionSignal } from '@xec-sh/core';
 
 const forward = await pod.portForwardDynamic(3000, {

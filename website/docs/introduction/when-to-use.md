@@ -20,7 +20,7 @@ Xec is not the right tool for every situation. This guide helps you determine wh
 ```typescript
 // Deploy across environments with one API
 await $`npm run build`;                          // Build locally
-await $.ssh({ host: 'staging' })`docker pull`;   // Update staging
+await $.ssh('deploy@staging')`docker pull`;   // Update staging
 await $.k8s({ pod: 'web', namespace: 'default' })`curl /health`; // Verify in K8s
 ```
 
@@ -67,14 +67,12 @@ async function runCI() {
   ]);
   
   // Build in Docker
-  await $.docker({ image: 'node:20' })
-    .volumes([`${process.cwd()}:/app`])
-    .workdir('/app')
+  await $.docker({ image: 'node:24', volumes: [`${process.cwd()}:/app`], workdir: '/app' })
     `npm run build`;
   
   // Deploy if on main branch
   if (process.env.BRANCH === 'main') {
-    await $.ssh({ host: 'prod' })`./deploy.sh`;
+    await $.ssh('deploy@prod')`./deploy.sh`;
   }
 }
 ```

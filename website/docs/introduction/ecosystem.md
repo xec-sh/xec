@@ -165,14 +165,16 @@ plugins.register({
 ```
 
 ### @xec-sh/testing
-Shared test utilities for Docker/SSH/Kubernetes test environments.
+Vitest helpers for Docker/SSH/Kubernetes test environments. Vitest 5.1 is a
+required peer; run the following in a `*.test.ts` file with `pnpm exec vitest run`.
 
 ```bash
-pnpm add -D @xec-sh/testing
+pnpm add -D @xec-sh/testing vitest
 ```
 
 ```typescript
-import { describeSSH, getSSHConfig, dockerManager } from '@xec-sh/testing';
+import { it } from 'vitest';
+import { describeSSH, getSSHConfig } from '@xec-sh/testing';
 
 describeSSH('SSH Tests', () => {
   it('should execute on remote', async () => {
@@ -189,7 +191,7 @@ The xec command-line tool — a thin wrapper over `@xec-sh/ops`.
 pnpm add -g @xec-sh/cli
 
 # Or use directly
-npx xec run deploy.ts
+npx --package @xec-sh/cli xec run deploy.ts
 xec on server-1 "docker-compose up -d"
 xec in my-container "npm test"
 ```

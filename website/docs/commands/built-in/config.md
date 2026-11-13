@@ -871,14 +871,15 @@ cp .xec/config.yaml.backup .xec/config.yaml
 Configuration values are available in scripts:
 
 ```javascript
-// Access configuration in scripts
-const config = xec.config;
-console.log(`Project: ${config.name}`);
-console.log(`Database: ${config.vars.DATABASE_URL}`);
+import { ConfigurationManager } from '@xec-sh/ops';
 
-// Access resolved variables
-const dbUrl = await vars.get('DATABASE_URL');
-const apiKey = await secrets.get('API_KEY');
+const project = new ConfigurationManager();
+await project.load();
+const config = project.getConfig();
+console.log(`Project: ${config.name}`);
+const dbUrl = config.vars?.DATABASE_URL;
+const apiKey = await project.getSecretManager().get('API_KEY');
+// Use credentials in their intended operation, not diagnostic output.
 ```
 
 ### Command Execution

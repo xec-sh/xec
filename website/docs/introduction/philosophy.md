@@ -19,10 +19,10 @@ The fundamental philosophy of Xec is that **command execution should be environm
 // The same command works everywhere
 const command = `echo "Hello, World"`;
 
-await $`${command}`;                           // Local
-await $.ssh({ host: 'server' })`${command}`;   // SSH
-await $.docker({ container: 'app' })`${command}`; // Docker
-await $.k8s({ pod: 'web', namespace: 'default' })`${command}`; // Kubernetes
+await $.exec(command);                           // Local
+await $.ssh('deploy@server').raw`${command}`;   // SSH
+await $.docker({ container: 'app' }).exec(command); // Docker
+await $.k8s({ pod: 'web', namespace: 'default' }).raw`${command}`; // Kubernetes
 ```
 
 This principle eliminates the cognitive overhead of learning different APIs for different environments.
@@ -43,12 +43,8 @@ This principle eliminates the cognitive overhead of learning different APIs for 
 await $`ls`;
 
 // Complex: Still possible
-await $`complex-command`
-  .cd('/specific/path')
-  .env({ CUSTOM_VAR: 'value' })
-  .timeout(60000)
-  .retry(3)
-  .nothrow();
+await $.cd('/specific/path').env({ CUSTOM_VAR: 'value' })
+  .timeout(60000)`complex-command`.nothrow();
 ```
 
 ### 2. Safety by Default
@@ -67,7 +63,8 @@ const userInput = "file'; rm -rf /; echo 'deleted";
 await $`touch ${userInput}`;  // Creates file named exactly as input
 
 // Explicit raw mode when needed
-await $.raw`echo ${userInput}`;  // Use with caution
+const trustedCommand = 'printf ready';
+await $.raw`${trustedCommand}`; // Only trusted shell source belongs in raw mode
 ```
 
 ### 3. Composability
@@ -89,7 +86,7 @@ await $`cat data.json`
 
 // Combine adapters
 const prod = $.ssh({ host: 'prod.example.com', username: 'deploy' });
-await prod.docker({ container: 'app' })`npm test`;
+await prod`docker exec app npm test`; // Explicitly runs Docker on that SSH host
 ```
 
 ### 4. Predictable Behavior
@@ -103,14 +100,10 @@ await prod.docker({ container: 'app' })`npm test`;
 - Predictable option inheritance
 
 ```typescript
-// Same result structure everywhere
-interface ExecutionResult {
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-  ok: boolean;        // true if exitCode === 0
-  cause?: string;     // Error description if failed
-  duration: number;   // Execution time in ms
+import type { ExecutionResult } from '@xec-sh/core';
+
+function report(result: ExecutionResult) {
+  console.log(result.exitCode, result.ok, result.stdout, result.stderr, result.duration);
 }
 ```
 
@@ -141,27 +134,13 @@ const files = await $`ls -1`.lines();
 - Feature detection
 
 ```typescript
-// Level 1: Basic execution
-await $`echo "Hello"`;
-
-// Level 2: Add configuration
+await $`echo Hello`;
 await $`npm test`.timeout(30000);
+const result = await $`risky-command`.nothrow();
+console.log({ ok: result.ok, duration: result.duration });
 
-// Level 3: Add error handling
-await $`risky-command`.nothrow();
-
-// Level 4: Add monitoring
-await $`important-task`
-  .on('start', () => console.log('Starting...'))
-  .on('complete', (result) => console.log(`Done in ${result.duration}ms`));
-
-// Level 5: Full control
-await $`critical-operation`
-  .timeout(60000)
-  .retry(3)
-  .env({ DEBUG: 'true' })
-  .cd('/workspace')
-  .nothrow();
+await $.cd('/workspace').env({ DEBUG: 'true' })
+  .timeout(60000)`critical-operation`.nothrow();
 ```
 
 ### 7. Fail Fast, Fail Clearly
@@ -174,7 +153,7 @@ await $`critical-operation`
 - Suggestions for fixes
 - Error recovery strategies
 
-```typescript
+```text
 // Clear error messages
 ExecutionError: Command failed with exit code 127
   Command: npm test
@@ -221,9 +200,11 @@ A step is a function that takes an engine. It does not know, and does not need
 to know, which environment it was handed:
 
 ```typescript
-import type { ExecutionEngine } from '@xec-sh/core';
+import type { ProcessPromise } from '@xec-sh/core';
 
-export async function restart(target: ExecutionEngine, service: string) {
+type CommandTarget = (parts: TemplateStringsArray, ...values: unknown[]) => ProcessPromise;
+
+export async function restart(target: CommandTarget, service: string) {
   await target`systemctl restart ${service}`;
   return target`systemctl is-active ${service}`.nothrow().text();
 }

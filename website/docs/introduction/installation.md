@@ -12,8 +12,9 @@ Before installing Xec, ensure your system meets these requirements:
 
 - **Node.js**: Version 22.18.0 or higher — the CLI runs TypeScript files
   through Node's own type stripping, on by default since 22.18. The
-  libraries (`@xec-sh/core` and friends) used programmatically need only
-  Node 20.
+  Core, Ops, Loader and Kit libraries support Node 20. The Testing package
+  requires Vitest 5.1, whose supported Node ranges are `^22.12.0`, `^24.0.0`
+  or `>=26.0.0`.
 - **Operating System**: macOS, Linux, or Windows — all three run the unit suite in CI
 - **Package Manager**: npm (included with Node.js) or pnpm
 
@@ -23,7 +24,9 @@ For full functionality, you may also want:
 
 - **Docker**: For container execution features
 - **kubectl**: For Kubernetes pod execution
-- **SSH Client**: For remote execution (OpenSSH recommended)
+SSH execution uses Xec's bundled, reviewed `ssh2` transport; an external
+OpenSSH client is not required. A reachable SSH server and appropriate
+credentials/host-key policy are still required.
 
 ## Installation Methods
 
@@ -62,12 +65,16 @@ Add to your `package.json` scripts:
 ```json
 {
   "scripts": {
-    "deploy": "xec deploy.ts",
-    "build": "xec run build",
-    "test": "xec test --coverage"
+    "deploy": "xec run scripts/deploy.ts",
+    "build": "xec run scripts/build.ts",
+    "test": "xec run scripts/test.ts"
   }
 }
 ```
+
+Create those three project-owned script files before running the package
+scripts. `build`, `test` and `deploy` are not built-in Xec commands; their
+shorthands require matching project tasks or dynamic command definitions.
 
 ### Development Installation
 
@@ -125,13 +132,13 @@ Features:
 Testing utilities for Xec scripts and commands.
 
 ```bash
-npm install --save-dev @xec-sh/testing
+npm install --save-dev @xec-sh/testing vitest
 ```
 
 Features:
 - Test containers
-- Mock targets
-- Test helpers
+- Docker/SSH/kind fixture lifecycle
+- Vitest test helpers (run inside `vitest`, not directly with Node)
 
 ## Platform-Specific Setup
 

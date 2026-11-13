@@ -1,72 +1,48 @@
 ---
 title: Command Testing
-description: Testing strategies and best practices for Xec commands
-keywords: [commands, testing, unit tests, integration tests, mocking]
+description: Verify dynamic commands through Vitest, public Xec APIs and the real CLI
+keywords: [commands, testing, unit tests, integration tests, Vitest]
 source_files:
-  - apps/xec/test/commands/
-  - packages/testing/src/
-  - apps/xec/src/commands/base-command.ts
-key_functions:
-  - createTestConfig()
-  - createMockTarget()
-  - TestCommand.execute()
-verification_date: 2025-08-03
+  - apps/xec/test/globals-parity.test.ts
+  - packages/testing/src/index.ts
+  - packages/testing/src/helpers/ssh-test-helpers.ts
 ---
 
 # Command Testing
 
+Test application logic with Vitest, then invoke the installed CLI to verify discovery,
+argument parsing, output and exit status. `@xec-sh/testing` supplies disposable SSH
+and Kubernetes fixtures and binary detection. It does not export command mocks,
+`createTestConfig`, `captureOutput`, or a replacement test runner.
+
 ## Implementation Reference
 
-**Source Files:**
-- `apps/xec/test/commands/*.test.ts` - Command test files
-- `packages/testing/src/config.ts` - Test configuration utilities
-- `packages/testing/src/mocks.ts` - Mock objects and helpers
-- `apps/xec/src/commands/base-command.ts` - Base command for testing
-
-**Test Utilities:**
-- `createTestConfig()` - Creates test configuration
-- `createMockTarget()` - Creates mock targets
-- `createTestCommand()` - Creates test command instances
+The public exports are in `packages/testing/src/index.ts`. The CLI's own
+`apps/xec/test/globals-parity.test.ts` demonstrates testing the built entry point.
+Applications should test their public `.xec/commands` contract without importing
+private CLI command classes.
 
 ## Testing Architecture
 
 ### Test Structure
 
-Command tests follow a consistent structure:
+Install the helper package and its required Vitest runner:
+
+```bash
+npm install --save-dev @xec-sh/testing vitest
+npx vitest run
+```
+
+The runner requires Node `^22.12.0 || ^24.0.0 || >=26.0.0`; running Xec CLI also
+requires Node 22.18 or newer. Put examples in ordinary `*.test.ts` files.
 
 ```typescript
-// apps/xec/test/commands/my-command.test.ts
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { MyCommand } from '../../src/commands/my-command';
-import { createTestConfig } from '@xec-sh/testing';
+import { describe, expect, it } from 'vitest';
+import { validateShellName } from '@xec-sh/testing';
 
-describe('MyCommand', () => {
-  let command: MyCommand;
-  let config: Config;
-  
-  beforeEach(() => {
-    config = createTestConfig({
-      // Custom config for tests
-    });
-    command = new MyCommand(
-      config,
-      '/test/config.yaml',
-      false, // verbose
-      false, // dryRun
-      false, // quiet
-      '/test/cwd'
-    );
-  });
-  
-  describe('execute', () => {
-    it('should execute successfully with valid arguments', async () => {
-      const args = ['arg1', 'arg2'];
-      const flags = { flag1: true };
-      
-      await command.execute(args, flags);
-      
-      // Assertions
-    });
+describe('fixture names', () => {
+  it('rejects shell syntax in a container name', () => {
+    expect(() => validateShellName('fixture; exit 0', 'container')).toThrow();
   });
 });
 ```
@@ -75,60 +51,25 @@ describe('MyCommand', () => {
 
 ### Testing Command Logic
 
-Test core command logic in isolation:
-
-```typescript
-describe('command logic', () => {
-  it('should parse targets correctly', () => {
-    const command = new TestCommand(config);
-    const result = command.parseTargets(['user@host', 'docker:container']);
-    
-    expect(result.targets).toHaveLength(2);
-    expect(result.targets[0].type).toBe('ssh');
-    expect(result.targets[1].type).toBe('docker');
-  });
-  
-  it('should validate arguments', async () => {
-    const command = new TestCommand(config);
-    
-    await expect(
-      command.execute([], {})
-    ).rejects.toThrow(ValidationError);
-  });
-});
-```
+Keep parsing and business rules in application functions. Test their observable
+result or error; avoid copying the implementation into the assertion.
 
 ### Mocking Dependencies
 
-Mock external dependencies:
+Inject an application dependency when isolation is needed. Mock the actual callable
+contract rather than inventing methods on `$` or a fake Xec target.
 
 ```typescript
-import { vi } from 'vitest';
-import { $ } from '@xec-sh/core';
+import { expect, it, vi } from 'vitest';
 
-// Mock the execution engine
-vi.mock('@xec-sh/core', () => ({
-  $: vi.fn(() => ({
-    ssh: vi.fn(() => ({
-      execute: vi.fn().mockResolvedValue({ stdout: 'output' })
-    })),
-    docker: vi.fn(() => ({
-      execute: vi.fn().mockResolvedValue({ stdout: 'output' })
-    }))
-  }))
-}));
+async function readiness(read: () => Promise<string>) {
+  return (await read()).trim() === 'ready';
+}
 
-describe('with mocked execution', () => {
-  it('should call execution engine correctly', async () => {
-    const command = new OnCommand(config);
-    await command.execute(['user@host', 'ls'], {});
-    
-    expect($).toHaveBeenCalled();
-    expect($.ssh).toHaveBeenCalledWith(expect.objectContaining({
-      host: 'host',
-      user: 'user'
-    }));
-  });
+it('reports an unavailable service', async () => {
+  const read = vi.fn(async () => 'starting');
+  expect(await readiness(read)).toBe(false);
+  expect(read).toHaveBeenCalledOnce();
 });
 ```
 
@@ -136,131 +77,80 @@ describe('with mocked execution', () => {
 
 ### Testing with Real Execution
 
-Use test containers for integration tests:
+`describeSSH` selects the named fixture, starts it when necessary and registers
+Vitest lifecycle hooks. The example below is an integration test: it requires
+Docker and uses the helper's `alpine-apk` fixture.
 
 ```typescript
-import { SSHTestContainer } from '@xec-sh/testing';
+import { expect, it } from 'vitest';
+import { $ } from '@xec-sh/core';
+import { describeSSH, getSSHConfig } from '@xec-sh/testing';
 
-describe('integration', () => {
-  let container: SSHTestContainer;
-  
-  beforeAll(async () => {
-    container = new SSHTestContainer();
-    await container.start();
+describeSSH('SSH command', () => {
+  it('preserves the remote command result', async () => {
+    const target = $.ssh(getSSHConfig('alpine-apk'));
+    const result = await target`printf fixture-ready`;
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe('fixture-ready');
   });
-  
-  afterAll(async () => {
-    await container.stop();
-  });
-  
-  it('should execute on SSH target', async () => {
-    const config = createTestConfig({
-      targets: {
-        test: {
-          type: 'ssh',
-          host: container.host,
-          port: container.port,
-          user: 'test',
-          password: 'test'
-        }
-      }
-    });
-    
-    const command = new OnCommand(config);
-    await command.execute(['test', 'echo', 'hello'], {});
-    
-    // Verify output
-  });
-});
+}, { containers: ['alpine-apk'], skipIfNoDocker: true });
 ```
 
 ### Testing with Docker
 
-```typescript
-import { DockerTestContainer } from '@xec-sh/testing';
+`dockerManager` manages the package's named SSH-container fixtures; it is not a
+generic `DockerTestContainer` constructor. For application containers, invoke the
+ordinary Xec Docker API and own the exact resources created by your test.
 
-describe('docker integration', () => {
-  let container: DockerTestContainer;
-  
-  beforeAll(async () => {
-    container = new DockerTestContainer('alpine:latest');
-    await container.start();
-  });
-  
-  afterAll(async () => {
-    await container.stop();
-  });
-  
-  it('should execute in container', async () => {
-    const command = new InCommand(config);
-    await command.execute([container.id, 'ls', '/'], {});
-    
-    // Verify output
-  });
-});
-```
+A disabled suite or unavailable Docker can be skipped by `describeSSH`. Inspect
+runner skip counts: a skipped integration test is not evidence of a working
+transport. `SKIP_SSH_DOCKER_TESTS=true` explicitly disables these fixtures.
+They are retained for reuse by default; `STOP_CONTAINERS_AFTER_TESTS=true` requests
+cleanup of the fixtures started by this manager.
 
 ## Test Utilities
 
 ### Configuration Helpers
 
-Create test configurations:
+Use the public `Configuration` type for application fixtures. Write a private
+`.xec/config.yaml` when exercising the real CLI, and set its working directory to
+that private project. Do not point fixture cleanup at a developer's active project.
 
 ```typescript
-import { createTestConfig } from '@xec-sh/testing';
+import type { Configuration } from '@xec-sh/ops';
 
-const config = createTestConfig({
-  targets: {
-    local: { type: 'local' },
-    ssh1: { type: 'ssh', host: 'host1' },
-    docker1: { type: 'docker', container: 'container1' }
-  },
-  tasks: {
-    test: {
-      command: 'echo test',
-      targets: ['local']
-    }
-  },
-  defaults: {
-    shell: '/bin/bash',
-    timeout: 30000
-  }
-});
+const fixture: Configuration = {
+  version: '1.0',
+  tasks: { inspect: { command: 'printf fixture-ready' } },
+};
 ```
 
 ### Mock Targets
 
-Create mock targets:
-
-```typescript
-import { createMockTarget } from '@xec-sh/testing';
-
-const sshTarget = createMockTarget('ssh', {
-  host: 'test.example.com',
-  user: 'testuser',
-  port: 22
-});
-
-const dockerTarget = createMockTarget('docker', {
-  container: 'test-container',
-  image: 'alpine:latest'
-});
-```
+Prefer the public Core mock adapter for execution-policy tests and real isolated
+targets for transport behavior. A mock cannot establish SSH host-key verification,
+remote cancellation or preservation of actual files.
 
 ### Output Capture
 
-Capture command output:
+Capture a child process's stdout/stderr at the CLI boundary. This example resolves
+the CLI installed in the test project and runs only a local expression:
 
 ```typescript
-import { captureOutput } from '@xec-sh/testing';
+import { expect, it } from 'vitest';
+import { createRequire } from 'node:module';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { dirname, join } from 'node:path';
 
-it('should output correct message', async () => {
-  const output = await captureOutput(async () => {
-    await command.execute(['arg'], {});
-  });
-  
-  expect(output.stdout).toContain('Expected message');
-  expect(output.stderr).toBe('');
+it('exposes the default local target through the real CLI', async () => {
+  const require = createRequire(import.meta.url);
+  const cli = join(dirname(require.resolve('@xec-sh/cli/package.json')), 'bin/xec');
+  const result = await promisify(execFile)(process.execPath, [
+    cli, 'run', '-e', 'console.log($targetInfo.type)',
+  ]);
+  expect(result.stdout.trim()).toBe('local');
+  expect(result.stderr).toBe('');
 });
 ```
 
@@ -268,58 +158,20 @@ it('should output correct message', async () => {
 
 ### Testing Error Conditions
 
-Test various error scenarios:
-
-```typescript
-describe('error handling', () => {
-  it('should handle validation errors', async () => {
-    const command = new MyCommand(config);
-    
-    await expect(
-      command.execute(['invalid'], {})
-    ).rejects.toThrow(ValidationError);
-  });
-  
-  it('should handle connection errors', async () => {
-    const config = createTestConfig({
-      targets: {
-        unreachable: {
-          type: 'ssh',
-          host: 'unreachable.invalid'
-        }
-      }
-    });
-    
-    const command = new OnCommand(config);
-    
-    await expect(
-      command.execute(['unreachable', 'ls'], {})
-    ).rejects.toThrow(ConnectionError);
-  });
-  
-  it('should handle timeout errors', async () => {
-    const command = new MyCommand(config);
-    
-    await expect(
-      command.execute(['long-running'], { timeout: 1 })
-    ).rejects.toThrow(TimeoutError);
-  });
-});
-```
+Assert both the rejection and its reason. For failures that intentionally return
+an `ExecutionResult`, inspect `exitCode`, `stderr` and `cause`. `.nothrow()` does not
+mean the command succeeded.
 
 ### Exit Code Verification
 
-Verify correct exit codes:
-
 ```typescript
-import { getExitCode } from '@xec-sh/testing';
+import { expect, it } from 'vitest';
+import { $ } from '@xec-sh/core';
 
-it('should exit with correct code', async () => {
-  const exitCode = await getExitCode(async () => {
-    await command.execute(['bad-arg'], {});
-  });
-  
-  expect(exitCode).toBe(1); // ValidationError
+it('retains a failed command status', async () => {
+  const result = await $`${process.execPath} -e ${'process.exitCode = 7'}`.nothrow();
+  expect(result.exitCode).toBe(7);
+  expect(result.ok).toBe(false);
 });
 ```
 
@@ -327,245 +179,99 @@ it('should exit with correct code', async () => {
 
 ### Testing Command Flags
 
-Test flag handling:
-
-```typescript
-describe('flags', () => {
-  it('should handle verbose flag', async () => {
-    const command = new MyCommand(config, '/config', true); // verbose
-    const output = await captureOutput(async () => {
-      await command.execute(['arg'], {});
-    });
-    
-    expect(output.stdout).toContain('[DEBUG]');
-  });
-  
-  it('should handle dry-run flag', async () => {
-    const command = new MyCommand(config, '/config', false, true); // dryRun
-    const spy = vi.spyOn(console, 'log');
-    
-    await command.execute(['arg'], {});
-    
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('[DRY-RUN]'));
-  });
-  
-  it('should handle quiet flag', async () => {
-    const command = new MyCommand(config, '/config', false, false, true); // quiet
-    const output = await captureOutput(async () => {
-      await command.execute(['arg'], {});
-    });
-    
-    expect(output.stdout).toBe('');
-  });
-});
-```
+Exercise the public command with accepted, missing and invalid arguments. Check
+that `--help` describes the registered options. For `--dry-run`, assert that the
+application's intended side effect did not happen; printing a plan alone is not
+proof of a dry run.
 
 ## Performance Testing
 
 ### Testing Command Performance
 
-Measure execution time:
-
-```typescript
-import { measureTime } from '@xec-sh/testing';
-
-describe('performance', () => {
-  it('should complete within timeout', async () => {
-    const { duration } = await measureTime(async () => {
-      await command.execute(['arg'], {});
-    });
-    
-    expect(duration).toBeLessThan(1000); // 1 second
-  });
-  
-  it('should handle parallel execution efficiently', async () => {
-    const targets = Array.from({ length: 10 }, (_, i) => `target${i}`);
-    
-    const { duration } = await measureTime(async () => {
-      await command.execute(targets, { parallel: true });
-    });
-    
-    // Should be faster than sequential (10 * 100ms)
-    expect(duration).toBeLessThan(500);
-  });
-});
-```
+Measure repeated executions with `performance.now()` on an isolated benchmark.
+Avoid strict wall-clock thresholds in a concurrently running unit-test suite.
 
 ### Memory Usage Testing
 
-Monitor memory usage:
-
-```typescript
-import { measureMemory } from '@xec-sh/testing';
-
-it('should not leak memory', async () => {
-  const initialMemory = measureMemory();
-  
-  // Run command multiple times
-  for (let i = 0; i < 100; i++) {
-    await command.execute(['arg'], {});
-  }
-  
-  const finalMemory = measureMemory();
-  const memoryIncrease = finalMemory - initialMemory;
-  
-  // Should not increase significantly
-  expect(memoryIncrease).toBeLessThan(10 * 1024 * 1024); // 10MB
-});
-```
+Track memory over a sustained workload and await cleanup before comparing retained
+resources. One `process.memoryUsage()` difference does not prove a leak.
 
 ## Test Coverage
 
 ### Coverage Requirements
 
-Commands should maintain:
-- **Line Coverage**: ≥90%
-- **Branch Coverage**: ≥85%
-- **Function Coverage**: ≥95%
+Cover success, rejected input, command failure and cancellation. Transport tests
+also need exact target selection, stream completion and owned-resource cleanup.
 
 ### Coverage Reports
 
-Generate coverage reports:
-
 ```bash
-# Run tests with coverage
-pnpm test:coverage
-
-# View HTML report
-open coverage/index.html
+npm install --save-dev @vitest/coverage-v8
+npx vitest run --coverage
 ```
 
 ### Coverage Configuration
 
-```javascript
-// vitest.config.ts
-export default {
-  test: {
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'html', 'lcov'],
-      exclude: [
-        'test/**',
-        '*.config.ts',
-        'src/types/**'
-      ],
-      thresholds: {
-        lines: 90,
-        branches: 85,
-        functions: 95,
-        statements: 90
-      }
-    }
-  }
-};
-```
+Use a coverage provider version compatible with your installed Vitest. Keep unit
+coverage separate from evidence for real SSH, Docker or Kubernetes behavior.
 
 ## Best Practices
 
 ### Test Organization
 
-1. **Group by functionality** - Related tests together
-2. **Clear descriptions** - Describe what is being tested
-3. **Isolated tests** - No dependencies between tests
-4. **Clean setup/teardown** - Proper resource management
-5. **Meaningful assertions** - Test actual behavior
+Keep fixtures private to a test run and make all process owners await termination.
+Test the standard public path at least once instead of only calling internal code.
 
 ### Test Data
 
-```typescript
-// Use factories for test data
-const createTestArgs = (overrides = {}) => ({
-  targets: ['target1'],
-  command: 'echo test',
-  flags: { verbose: false },
-  ...overrides
-});
-
-// Use fixtures for complex data
-const loadFixture = (name: string) => {
-  return fs.readFileSync(`test/fixtures/${name}`, 'utf-8');
-};
-```
+Use synthetic credentials and small fixtures. Never reuse production databases,
+secrets or container names in a cleanup test.
 
 ### Async Testing
 
-```typescript
-// Always await async operations
-it('should handle async operations', async () => {
-  const result = await command.execute(['arg'], {});
-  expect(result).toBeDefined();
-});
-
-// Use async assertions
-it('should reject with error', async () => {
-  await expect(command.execute([], {})).rejects.toThrow();
-});
-```
+Await every operation and cleanup promise. Attach rejection handling to streams
+and long-running processes immediately, not after an unrelated operation finishes.
 
 ## Common Testing Patterns
 
 ### Parameterized Tests
 
 ```typescript
-describe.each([
-  ['user@host', { type: 'ssh', user: 'user', host: 'host' }],
-  ['docker:container', { type: 'docker', container: 'container' }],
-  ['k8s:pod', { type: 'kubernetes', pod: 'pod' }]
-])('parseTarget(%s)', (input, expected) => {
-  it(`should parse ${input} correctly`, () => {
-    const result = command.parseTarget(input);
-    expect(result).toEqual(expected);
-  });
+import { expect, it } from 'vitest';
+import { validateShellName } from '@xec-sh/testing';
+
+it.each(['fixture-one', 'fixture_two'])('accepts fixture %s', name => {
+  expect(() => validateShellName(name, 'container')).not.toThrow();
 });
 ```
 
 ### Snapshot Testing
 
-```typescript
-it('should match output snapshot', async () => {
-  const output = await command.execute(['arg'], {});
-  expect(output).toMatchSnapshot();
-});
-```
+Snapshot stable user-visible plans or help text. Exclude random IDs, timestamps and
+secrets; assert important status and target fields directly.
 
 ### Spy and Mock Patterns
 
-```typescript
-// Spy on methods
-const spy = vi.spyOn(command, 'parseTargets');
-await command.execute(['arg'], {});
-expect(spy).toHaveBeenCalledWith(['arg']);
-
-// Mock external calls
-vi.mock('fs/promises', () => ({
-  readFile: vi.fn().mockResolvedValue('content')
-}));
-```
+Restore Vitest spies after each test. Use mocks to verify your integration boundary,
+then retain a real CLI or transport test for the behavior behind it.
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Timeout in CI** - Increase test timeout or use test containers
-2. **Flaky tests** - Add retries or improve test isolation
-3. **Mock not working** - Check mock scope and imports
-4. **Coverage gaps** - Add tests for error paths and edge cases
+- Undefined `describe` or `it`: import them from `vitest` in the test file.
+- Missing fixture: inspect Docker availability and the runner's skip reason.
+- Hanging suite: inspect unawaited streams, child processes and cleanup promises.
+- `@xec-sh/testing` imported outside a runner: execute the file with Vitest.
 
 ### Debug Strategies
 
-```typescript
-// Enable debug output
-DEBUG=xec:* pnpm test
-
-// Run single test
-pnpm test -t "should execute successfully"
-
-// Run with inspector
-node --inspect pnpm test
+```bash
+npx vitest run test/command.test.ts --reporter=verbose
 ```
 
 ## Related Topics
 
-- [Command Structure](./command-structure.md) - Command architecture
-- [Creating Commands](./creating-commands.md) - Command development
-- [CI/CD Integration](../../guides/automation/ci-cd-pipelines.md) - Automated testing
+- [Creating Commands](./creating-commands.md)
+- [Command Structure](./command-structure.md)
+- [CLI Reference](../cli-reference.md)

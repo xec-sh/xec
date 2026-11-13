@@ -48,7 +48,14 @@ async function getContainers(pod: string, namespace: string): Promise<string[]> 
 ## Running a Command in Every Container
 
 ```typescript
-const containers = await getContainers('multi-container-pod', 'production');
+import { KubernetesAdapter } from '@xec-sh/core';
+
+const adapter = $.getAdapter('kubernetes') as KubernetesAdapter;
+const { stdout } = await adapter.executeKubectl([
+  'get', 'pod', 'multi-container-pod', '-n', 'production',
+  '-o', 'jsonpath={.spec.containers[*].name}',
+], { throwOnNonZeroExit: true });
+const containers = stdout.trim().split(/\s+/).filter(Boolean);
 
 const results = await Promise.all(
   containers.map((container) =>

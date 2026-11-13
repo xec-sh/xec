@@ -83,6 +83,8 @@ Every built-in command is a class extending `BaseCommand`
 config; `create()` turns it into a commander `Command`:
 
 ```typescript
+import type { Command } from 'commander';
+
 export interface CommandConfig {
   name: string;
   description: string;
@@ -99,7 +101,7 @@ export interface CommandConfig {
 
 export abstract class BaseCommand {
   constructor(protected config: CommandConfig) { /* ... */ }
-  create(): Command { /* build the commander command */ }
+  abstract create(): Command; // Implemented by the internal CLI base class
   abstract execute(args: any[]): Promise<void>;
 }
 ```
@@ -117,19 +119,17 @@ The action handler `create()` installs unpacks commander's
 with the root program's `verbose`/`quiet`, runs the `validateOptions` hook
 if declared, configures the output formatter, and finally calls:
 
-```typescript
-await this.execute([...positionalArgs, this.options]);
-```
+`this.execute([...positionalArgs, this.options])`. This is an internal call shape, not a standalone script.
 
 So inside `execute()` the merged options object is the **last** element and
 positionals come before it — the pattern every command follows:
 
 ```typescript
-// apps/xec/src/commands/run.ts
-public async execute(args: any[]): Promise<void> {
+// A standalone illustration of the argument shape, not a public RunCommand class.
+function readArguments(args: unknown[]) {
   const fileOrTask = args[0];
-  const options = args[args.length - 1] as RunOptions;
-  // ...
+  const options = args[args.length - 1];
+  return { fileOrTask, options };
 }
 ```
 
@@ -142,13 +142,10 @@ is in the [CLI reference](../cli-reference.md#exit-codes).
 
 A command module default-exports a function that registers it:
 
-```typescript
-// apps/xec/src/commands/run.ts
-export default function registerCommand(program: Command): void {
-  const cmd = new RunCommand();
-  program.addCommand(cmd.create());
-}
-```
+The built-in registration function constructs the command class and passes
+`cmd.create()` to `program.addCommand(...)`. Project commands use the public
+`command(program)` registration shown in [Creating Commands](./creating-commands.md)
+and do not import the internal `RunCommand` or `BaseCommand`.
 
 ### Configuration-aware helpers
 

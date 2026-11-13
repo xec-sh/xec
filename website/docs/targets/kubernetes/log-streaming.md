@@ -30,6 +30,7 @@ const previous = await pod.logs({ previous: true, tail: 200 });
 ## Real-Time Streaming
 
 ```typescript
+const pod = $.k8s({ namespace: 'production' }).pod('web-server');
 const stream = await pod.streamLogs(
   line => process.stdout.write(line),
   { follow: true, tail: 10, maxBuffer: 1024 * 1024 }
@@ -56,6 +57,7 @@ kubectl error, but an already observed failure remains a failure.
 `follow()` enables `follow: true`; its options omit `follow` and `previous`:
 
 ```typescript
+const pod = $.k8s({ namespace: 'production' }).pod('web-server');
 const stream = await pod.follow(line => process.stdout.write(line), {
   tail: 20, timestamps: true,
 });
@@ -72,6 +74,7 @@ bounds each log line and captured stderr rather than retaining the entire stream
 A limit or deadline stops the owned kubectl process before completion rejects.
 
 ```typescript
+const pod = $.k8s({ namespace: 'production' }).pod('web-server');
 const cancellation = new AbortController();
 const stream = await pod.follow(line => process.stdout.write(line), {
   signal: cancellation.signal,

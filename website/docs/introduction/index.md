@@ -142,8 +142,9 @@ interface DeployConfig {
 }
 
 async function deploy(config: DeployConfig) {
-  const target = getTarget(config.environment);
-  await $[target]`deploy ${config.version} ${config.services.join(' ')}`;
+  const { targets, quote } = await import('@xec-sh/ops');
+  await targets.exec(`hosts.${config.environment}`,
+    `./deploy.sh ${quote(config.version)} ${config.services.map(quote).join(' ')}`);
 }
 ```
 
@@ -228,9 +229,7 @@ import { $ } from '@xec-sh/core';
 await $`npm run build`;
 
 // Test in Docker (ephemeral container)
-await $.docker({ image: 'node:20' })
-  .volumes([`${process.cwd()}:/app`])
-  .workdir('/app')
+await $.docker({ image: 'node:24', volumes: [`${process.cwd()}:/app`], workdir: '/app' })
   `npm test`;
 
 // Deploy to production
@@ -262,7 +261,7 @@ targets:
       host: staging.example.com
       user: deploy
       port: 22
-    
+
 tasks:
   deploy:
     description: Deploy to staging

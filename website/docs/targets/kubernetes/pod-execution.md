@@ -74,6 +74,7 @@ await $.k8s({
 ## Shell vs. Raw Execution
 
 ```typescript
+const pod = $.k8s({ namespace: 'production' }).pod('web-server');
 // Through a shell — interpolated values are quoted for it
 await pod.exec`ps aux | grep node | wc -l`;
 await pod.exec`echo $HOME`;                 // shell expands this
@@ -117,6 +118,7 @@ await resilient`curl -f http://external-api/data`;
 `ProcessPromise` supports async line iteration for any long-running command, kubernetes included:
 
 ```typescript
+const pod = $.k8s({ namespace: 'production' }).pod('web-server');
 const tail = pod.exec`tail -f /var/log/app.log`;
 
 for await (const line of tail) {
