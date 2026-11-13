@@ -9,7 +9,7 @@ source_files:
   - packages/core/src/types/execution.ts
   - packages/core/src/types/events.ts
   - packages/core/src/core/failure-kind.ts
-verification_date: 2026-08-04
+verification_date: 2026-11-14
 ---
 
 # Type Definitions
@@ -24,9 +24,22 @@ verification_date: 2026-08-04
 - `packages/core/src/types/events.ts` - Event types
 - `packages/core/src/core/failure-kind.ts` - `FailureKind`
 
-There is no generic `Target` base type, and no `SSHTarget`/`DockerTarget`/`KubernetesTarget`/`LocalTarget`
-hierarchy — those names do not appear anywhere in `@xec-sh/core`. Each
-adapter has its own options type instead, distinguished by a `type` literal.
+`Target` describes a destination using the `kind` discriminator. Adapter
+options describe the execution configuration and use `type`. Parse a target
+before mapping it to the corresponding execution context.
+
+```typescript
+import { parseTarget, formatTarget, type Target } from '@xec-sh/core';
+
+const parsed = parseTarget('ssh://deploy@server.example.com:2222');
+if (parsed.ok === true) {
+  const target: Target = parsed.target;
+  console.log(formatTarget(target));
+  if (target.kind === 'ssh') console.log(target.host, target.user, target.port);
+} else {
+  console.error(parsed.reason);
+}
+```
 
 ## Core Types
 
@@ -35,64 +48,44 @@ adapter has its own options type instead, distinguished by a `type` literal.
 #### SSHAdapterOptions
 
 ```typescript
-interface SSHAdapterOptions {
-  type: 'ssh';
-  host: string;
-  username: string;         // not `user`
-  port?: number;
-  privateKey?: string | Buffer;
-  passphrase?: string;
-  password?: string;
-  hostKeyChecking?: 'accept-new' | 'strict' | 'off'; // default: 'accept-new'
-  knownHostsPath?: string;
-  sudo?: {
-    enabled: boolean;
-    password?: string;
-    user?: string;
-    passwordMethod?: 'stdin' | 'askpass' | 'echo' | 'secure';
-    secureHandler?: SecurePasswordHandler;
-  };
-}
+import type { SSHAdapterOptions } from '@xec-sh/core';
+
+const target = {
+  type: 'ssh', host: 'server.example.com', username: 'deploy', port: 2222,
+  privateKey: '/home/deploy/.ssh/id_ed25519',
+  hostKeyChecking: 'strict', knownHostsPath: '/home/deploy/.ssh/known_hosts',
+} satisfies SSHAdapterOptions;
 ```
 
 #### DockerAdapterOptions
 
 ```typescript
-interface DockerAdapterOptions {
-  type: 'docker';
-  container: string;
-  user?: string;
-  workdir?: string;          // not `workingDir`
-  tty?: boolean;
-  runMode?: 'exec' | 'run';
-  image?: string;
-  volumes?: string[];
-  autoRemove?: boolean;
-}
+import type { DockerAdapterOptions } from '@xec-sh/core';
+
+const target = {
+  type: 'docker', container: 'api', user: 'node', workdir: '/app',
+} satisfies DockerAdapterOptions;
 ```
 
 #### KubernetesAdapterOptions
 
 ```typescript
-interface KubernetesAdapterOptions {
-  type: 'kubernetes';
-  pod: string;
-  container?: string;
-  namespace?: string;
-  execFlags?: string[];
-  tty?: boolean;
-  stdin?: boolean;
-  context?: string;      // which cluster — defaults to the ambient kubeconfig context otherwise
-  kubeconfig?: string;
-}
+import type { KubernetesAdapterOptions } from '@xec-sh/core';
+
+const target = {
+  type: 'kubernetes', pod: 'api-pod', container: 'main',
+  namespace: 'staging', context: 'staging-cluster',
+  kubeconfig: '/home/deploy/.kube/config',
+} satisfies KubernetesAdapterOptions;
 ```
 
 #### LocalAdapterOptions
 
 ```typescript
-interface LocalAdapterOptions {
-  type: 'local';
-}
+import type { Command } from '@xec-sh/core';
+
+type LocalAdapterOptions = Extract<NonNullable<Command['adapterOptions']>, { type: 'local' }>;
+const target: LocalAdapterOptions = { type: 'local' };
 ```
 
 These four are combined as `AdapterSpecificOptions` internally (not itself
@@ -108,44 +101,28 @@ The full shape accepted by `$.execute()` and built internally by every
 other execution method.
 
 ```typescript
-interface Command {
-  command: string;
-  args?: string[];
+import { $, type Command } from '@xec-sh/core';
 
-  cwd?: string;
-  env?: Record<string, string>;
-  timeout?: number | string;      // ms, or a duration string like '30s'
-  timeoutSignal?: string;
-  maxBuffer?: number;             // cap on captured output, in bytes
-  throwOnNonZeroExit?: boolean;   // `.nothrow()` sets this to false
+const command = {
+  command: process.execPath,
+  args: ['-e', 'process.stdout.write(process.env.NODE_ENV ?? "unset")'],
+  shell: false,
+  env: { NODE_ENV: 'test' },
+  timeout: '10s',
+  maxBuffer: 1024 * 1024,
+  stdout: 'pipe',
+  stderr: 'pipe',
+  adapter: 'local',
+  adapterOptions: { type: 'local' },
+  onSpawn: handle => console.log('Started', handle.pid),
+} satisfies Command;
 
-  stdin?: string | Buffer | Readable;
-  stdout?: StreamOption;          // 'pipe' | 'ignore' | 'inherit' | Writable
-  stderr?: StreamOption;
-
-  shell?: string | boolean;
-  detached?: boolean;
-  signal?: AbortSignal;
-  nothrow?: boolean;
-
-  onSpawn?: (handle: ProcessHandle) => void;
-  callSite?: { stack?: string } | null;
-
-  retry?: RetryOptions;
-  progress?: {
-    enabled?: boolean;
-    onProgress?: (event: any) => void;
-    updateInterval?: number;
-    reportLines?: boolean;
-  };
-
-  adapter?: AdapterType;  // 'local' | 'ssh' | 'docker' | 'kubernetes' | 'auto' | 'mock'
-  adapterOptions?: SSHAdapterOptions | DockerAdapterOptions | KubernetesAdapterOptions | LocalAdapterOptions;
-}
+console.log((await $.execute(command)).stdout);
 ```
 
-There is no `ExecutionOptions` type, and no `uid`/`gid`/`windowsHide`/`killSignal`
-fields.
+`Command` also carries `stdin`, `cwd`, `signal`, `timeoutSignal`, `retry` and
+`progress`. Derive option subsets with `Pick<Command, ...>` to keep consumer
+configuration checked against the public contract.
 
 #### ExecutionResult
 
@@ -179,115 +156,78 @@ interface ExecutionResult {
 }
 ```
 
-There is no `target`/`options` field on the real interface.
+Execution metadata names the selected adapter and, where available, the
+remote host or container. `stdall` preserves the order observed by the
+parent across stdout and stderr. `buffer()` returns captured original bytes.
 
 #### ProcessOutput
 
-A `ProcessOutput` class exists in the package's source
-(`packages/core/src/core/process-output.ts`), but it is dead code — nothing
-in the implementation constructs one, and it is not exported. `ExecutionResult`
-is what a command actually resolves to; there is no `ProcessOutput` type to
-import.
+Use the public `ExecutionResult` type for completed command output. The
+convenience methods on `ProcessPromise` derive text, JSON and lines from it.
 
 ### Error Types
 
-There is no `XecError`, `ValidationError` or `ConfigurationError` — those
-names don't exist. Every real error extends `ExecutionError` directly:
+`ExecutionError` carries the classified failure kind, error code and details.
+Execution and adapter errors derive from it. `RetryError` extends `Error` and
+adds the results of its attempted commands.
 
 ```typescript
-class ExecutionError extends Error {
-  readonly kind: FailureKind;
-  readonly code: string;
-  readonly details?: Record<string, any>;
-  get recoverable(): boolean;
-}
+import type { ExecutionError } from '@xec-sh/core';
+
+type FailureDetails = Pick<ExecutionError, 'kind' | 'code' | 'details' | 'recoverable'>;
 ```
 
 ```typescript
-type FailureKind =
-  | 'command-failed'       // ran to completion, exited non-zero
-  | 'timeout'
-  | 'connection-lost'      // recoverable
-  | 'connection-refused'   // recoverable
-  | 'authentication'
-  | 'not-found'
-  | 'permission-denied'
-  | 'invalid-usage'
-  | 'host-key-mismatch'    // never retry — the peer may be an impostor
-  | 'unknown';
+import type { FailureKind } from '@xec-sh/core';
 
-function classifyFailure(error: unknown): FailureKind;
-function isRecoverable(kind: FailureKind): boolean; // true only for connection-lost / connection-refused
+const guidance = {
+  'command-failed': 'Inspect the exit code and command output',
+  'outcome-unknown': 'Verify the remote effect before considering another attempt',
+  timeout: 'Inspect termination and the operation deadline',
+  'connection-lost': 'Restore transport and reconcile any possible effect',
+  'connection-refused': 'Check that the target is reachable and accepting connections',
+  authentication: 'Correct the credentials',
+  'not-found': 'Check the resource identity',
+  'permission-denied': 'Check the required permission',
+  'invalid-usage': 'Correct the command or configuration',
+  'host-key-mismatch': 'Verify the peer identity',
+  unknown: 'Inspect the original cause',
+} satisfies Record<FailureKind, string>;
 ```
 
 The concrete subclasses, and the fields each actually adds:
 
 ```typescript
-class CommandError extends ExecutionError {
-  readonly command: string;
-  readonly exitCode: number;
-  readonly signal: string | undefined;
-  readonly stdout: string;
-  readonly stderr: string;
-  readonly duration: number;
-  readonly callSite: string; // where the caller wrote the command, if captured
-}
+import type {
+  CommandError, ConnectionError, TimeoutError, MaxBufferExceededError,
+  RetryError, AdapterError, DockerError, KubernetesError,
+  ExecutionOutcomeUnknownError,
+} from '@xec-sh/core';
 
-class ConnectionError extends ExecutionError {
-  readonly host: string;
-  readonly originalError: Error;
-}
-
-class TimeoutError extends ExecutionError {
-  readonly command: string;
-  readonly timeout: number;
-}
-
-class MaxBufferExceededError extends ExecutionError {
-  readonly limit: number;
-  readonly stream: 'stdout' | 'stderr';
-  partialStdout: string;   // output collected before the cap was hit
-  partialStderr: string;
-}
-
-class RetryError extends Error {
-  readonly attempts: number;
-  readonly lastResult: ExecutionResult;
-  readonly results: ExecutionResult[];
-}
-
-class AdapterError extends ExecutionError {
-  readonly adapter: string;
-  readonly operation: string;
-  readonly originalError?: Error;
-}
-
-class DockerError extends ExecutionError {
-  readonly container: string;
-  readonly operation: string;
-  readonly originalError: Error;
-}
-
-class KubernetesError extends ExecutionError {
-  readonly pod: string;
-  readonly namespace?: string;
-  readonly container?: string;
-}
+type CommandFailure = Pick<CommandError,
+  'command' | 'exitCode' | 'signal' | 'stdout' | 'stderr' | 'duration' | 'callSite'>;
+type ConnectionFailure = Pick<ConnectionError, 'host' | 'originalError'>;
+type DeadlineFailure = Pick<TimeoutError, 'command' | 'timeout'>;
+type OutputLimitFailure = Pick<MaxBufferExceededError, 'limit' | 'stream' | 'partialStdout' | 'partialStderr'>;
+type RetryFailure = Pick<RetryError, 'attempts' | 'lastResult' | 'results'>;
+type AdapterFailure = Pick<AdapterError, 'adapter' | 'operation' | 'originalError'>;
+type DockerFailure = Pick<DockerError, 'container' | 'operation' | 'originalError'>;
+type PodFailure = Pick<KubernetesError, 'pod' | 'namespace' | 'container'>;
+type UncertainExecution = Pick<ExecutionOutcomeUnknownError, 'kind' | 'originalError'>;
 ```
 
-One adapter inconsistency worth knowing: a `.timeout()` that fires throws a
-genuine `TimeoutError` on the Docker, Kubernetes and SSH adapters (their
-source explicitly re-throws it unwrapped), but on the local adapter it
-currently surfaces as `AdapterError` with the same message instead — verified
-by triggering it directly. `error.kind === 'timeout'` is the one check that
-works the same way on every adapter; `instanceof TimeoutError` is not
-reliable across all of them.
+`ExecutionError.kind` identifies the cause across adapters. The Node local
+adapter preserves `TimeoutError`. A transport classified as recoverable can
+be re-established. Inspect a possibly completed effect before replaying it.
+`ExecutionOutcomeUnknownError` explicitly records that uncertainty.
 
 `explainExitCode(exitCode: number): string` is the real, exported function
 for turning a bare exit code into a short explanation — there is no
 `ExitCode` enum:
 
 ```typescript
+import { explainExitCode } from '@xec-sh/core';
+
 explainExitCode(2);   // 'misuse of shell builtins'
 explainExitCode(126); // 'command found but not executable'
 explainExitCode(127); // 'command not found'
@@ -316,27 +256,17 @@ interface BaseUshEvent {
 A few representative event shapes:
 
 ```typescript
-interface CommandStartEvent extends BaseUshEvent {
-  command: string;      // redacted — secrets are masked before this is emitted
-  args?: string[];
-  cwd?: string;
-  shell?: boolean;
-  envKeys?: string[];   // names only, never values
-}
+import { ExecutionEngine, type CommandStartEvent, type CommandCompleteEvent } from '@xec-sh/core';
 
-interface CommandCompleteEvent extends BaseUshEvent {
-  command: string;
-  exitCode: number;
-  stdout?: string;
-  stderr?: string;
-  duration: number;
-}
-
-interface CommandErrorEvent extends BaseUshEvent {
-  command: string;
-  error: string;
-  duration: number;
-}
+const engine = new ExecutionEngine();
+engine.on('command:start', (event: CommandStartEvent) => {
+  console.log(event.adapter, event.command, event.envKeys);
+});
+engine.on('command:complete', (event: CommandCompleteEvent) => {
+  console.log(event.exitCode, event.duration);
+});
+await engine.run`node --version`;
+await engine.dispose();
 ```
 
 The full set of exported event types: `UshEvent`, `UshEventMap`, `UshEventType`,
@@ -349,29 +279,28 @@ The full set of exported event types: `UshEvent`, `UshEventMap`, `UshEventType`,
 
 ## Type Guards
 
-Only two guard functions are exported, and neither is about targets or
-errors specifically:
+Use the public predicates for resource disposal and transport classification.
 
 ```typescript
-function isRecoverable(kind: FailureKind): boolean;
-function isDisposable(value: unknown): value is Disposable;
+import { ExecutionEngine, classifyFailure, isRecoverable, isDisposable } from '@xec-sh/core';
+
+const engine = new ExecutionEngine();
+console.log(isRecoverable(classifyFailure({ code: 'ECONNREFUSED' })));
+if (isDisposable(engine)) await engine.dispose();
 ```
 
-There is no `isSSHTarget`, `isDockerTarget`, `isKubernetesTarget`, `isLocalTarget`,
-`isExecutionError`, `isTimeoutError` or `isConnectionError`. For adapter
-options, check the `type` field directly (`options.type === 'ssh'`). For
-errors, `instanceof` already does the job a guard would — `error instanceof CommandError`,
-`error instanceof ExecutionError`, etc. — since these are real classes, not
-structural types.
+Narrow adapter options with their `type` discriminator and parsed targets
+with `kind`. Use `instanceof` for public error classes and `classifyFailure()`
+when the thrown value may come from another library.
 
 ## The Result Pattern
 
-There is no generic `Result<T, E>` / `AsyncResult<T, E>` union type, and no
-`isOk`/`isErr` — those names don't exist in `@xec-sh/core`. The project's
-actual "Result pattern" is `ExecutionResult` itself, reached with
-`.nothrow()`:
+`.nothrow()` returns an `ExecutionResult` for a completed nonzero command.
+Inspect its `ok`, `exitCode`, `stderr` and `cause` fields.
 
 ```typescript
+import { $ } from '@xec-sh/core';
+
 const result = await $`command`.nothrow();
 
 if (result.ok) {
@@ -381,8 +310,8 @@ if (result.ok) {
 }
 ```
 
-For anything outside a single command, the codebase uses ordinary throw/catch
-with the typed `ExecutionError` hierarchy above, not a wrapped `Result` value.
+Transport, authentication and infrastructure failures may still reject.
+Handle them with the typed error hierarchy and preserve uncertain outcomes.
 
 ## Related Documentation
 

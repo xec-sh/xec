@@ -12,7 +12,7 @@ key_functions:
   - ExecutionEngine.ssh()
   - ExecutionEngine.docker()
   - ExecutionEngine.k8s()
-verification_date: 2026-08-04
+verification_date: 2026-11-14
 ---
 
 # Execution Engine API
@@ -26,57 +26,26 @@ verification_date: 2026-08-04
 
 ## Class: ExecutionEngine
 
-The main execution engine that provides universal command execution across different environments. `import { $ } from '@xec-sh/core'` is a preconfigured instance wrapped so it's callable as a tagged template; `new ExecutionEngine(config)` builds one directly.
+The execution engine runs commands through local, SSH, Docker and Kubernetes adapters. `$` is a callable engine. `new ExecutionEngine(config)` provides `.run` as a template tag and `.execute()` for command objects. `createCallableEngine()` exposes the same instance as a callable tag.
 
 ### Constructor
 
 ```typescript
-class ExecutionEngine {
-  constructor(config?: ExecutionEngineConfig, existingAdapters?: Map<string, BaseAdapter>)
-}
+import { createCallableEngine, ExecutionEngine, type ExecutionEngineConfig } from '@xec-sh/core';
 
-interface ExecutionEngineConfig {
-  defaultAdapter?: string;
-  throwOnNonZeroExit?: boolean;
+const config = {
+  defaultCwd: process.cwd(),
+  defaultTimeout: '30s',
+  defaultEnv: { NODE_ENV: 'development' },
+  captureCallSite: true,
+  maxBuffer: 4 * 1024 * 1024,
+} satisfies ExecutionEngineConfig;
 
-  env?: Record<string, string>;
-  defaultEnv?: Record<string, string>;
-
-  cwd?: string;
-  defaultCwd?: string;
-
-  shell?: string | boolean;
-  defaultShell?: string | boolean;
-
-  // Milliseconds, or a duration string such as '30s'
-  timeout?: number | string;
-  defaultTimeout?: number | string;
-
-  encoding?: BufferEncoding;
-  verbose?: boolean;
-  quiet?: boolean;
-
-  // Records where each command was written, so a failure names the line.
-  // Costs ~1.4µs per command. Defaults to true.
-  captureCallSite?: boolean;
-
-  prefix?: string;   // e.g. 'set -euo pipefail;'
-  postfix?: string;  // e.g. '; exit $?'
-
-  preferLocal?: boolean | string; // prepend node_modules/.bin to PATH
-
-  retry?: { retries?: number; delay?: number; factor?: number };
-
-  maxBuffer?: number; // cap on captured output, in bytes
-
-  // Per-adapter config, e.g. adapters.ssh.connectionPool — see "Connection
-  // Pooling" below.
-  adapters?: {
-    ssh?: SSHAdapterConfig;
-    docker?: DockerAdapterConfig;
-    kubernetes?: KubernetesAdapterConfig;
-    local?: LocalAdapterConfig;
-  };
+const engine = createCallableEngine(new ExecutionEngine(config));
+try {
+  console.log(await engine`node --version`.text());
+} finally {
+  await engine.dispose();
 }
 ```
 
@@ -92,9 +61,7 @@ keep SSH connections alive across a chain.
 Run a fully-specified `Command` object directly — the lowest-level entry
 point, and the one every other execution method eventually calls.
 
-```typescript
-execute(command: Command): Promise<ExecutionResult>
-```
+`execute(command: Command): Promise<ExecutionResult>`
 
 **Parameters:**
 - `command` - A `Command` object (see [Types](./types.md)). At minimum needs `command: string`.
@@ -103,6 +70,8 @@ execute(command: Command): Promise<ExecutionResult>
 
 **Example:**
 ```typescript
+import { ExecutionEngine } from '@xec-sh/core';
+
 const engine = new ExecutionEngine();
 const result = await engine.execute({ command: 'ls -la' });
 console.log(result.stdout);
@@ -114,6 +83,8 @@ call fails. For a command you already have as a string, use `$.exec(command,
 options)` instead, which returns a full `ProcessPromise`:
 
 ```typescript
+import { $ } from '@xec-sh/core';
+
 const result = await $.exec('ls -la').nothrow();
 ```
 
@@ -124,9 +95,7 @@ Target an SSH host. Returns an `SSHExecutionContext`, not a bare
 SSH-only members (`.tunnel()`, `.reverseTunnel()`, `.uploadFile()`,
 `.downloadFile()`, `.uploadDirectory()`).
 
-```typescript
-ssh(target: string | Omit<SSHAdapterOptions, 'type'>): SSHExecutionContext
-```
+`ssh(target: string | Omit<SSHAdapterOptions, 'type'>): SSHExecutionContext`
 
 **Parameters:**
 - `target` - `[user@]host[:port]` shorthand, or an options object (note the field is `username`, not `user`)
@@ -135,6 +104,8 @@ ssh(target: string | Omit<SSHAdapterOptions, 'type'>): SSHExecutionContext
 
 **Example:**
 ```typescript
+import { $ as engine } from '@xec-sh/core';
+
 const sshEngine = engine.ssh('deploy@server.example.com');
 await sshEngine`uptime`;
 
@@ -151,11 +122,11 @@ const sshEngine2 = engine.ssh({
 
 Target a Docker container, or build one with the fluent API.
 
-```typescript
-docker(container: string): ExecutionEngine;
-docker(options: Omit<DockerAdapterOptions, 'type'>): ExecutionEngine;
-docker(): DockerFluentAPI;
-```
+`docker(container: string): ExecutionEngine;`
+
+`docker(options: Omit<DockerAdapterOptions, 'type'>): ExecutionEngine;`
+
+`docker(): DockerFluentAPI;`
 
 **Parameters:**
 - `container` - Container name/ID, or an options object. Omit entirely for the fluent API (`.compose()`, `.network()`, `.volume()`, `.swarm()`, `.pull()`, `.ps()`, …).
@@ -164,6 +135,8 @@ docker(): DockerFluentAPI;
 
 **Example:**
 ```typescript
+import { $ as engine } from '@xec-sh/core';
+
 const dockerEngine = engine.docker('my-app');
 await dockerEngine`npm test`;
 
@@ -180,9 +153,7 @@ const dockerEngine2 = engine.docker({
 Target a Kubernetes pod, or build one with `.pod(name)`. There is no
 `kubernetes()` alias — `k8s()` is the only spelling.
 
-```typescript
-k8s(target?: string | Omit<KubernetesAdapterOptions, 'type'>): K8sExecutionContext
-```
+`k8s(target?: string | Omit<KubernetesAdapterOptions, 'type'>): K8sExecutionContext`
 
 **Parameters:**
 - `target` - `[namespace/]pod[:container]` shorthand, an options object, or omitted to build the target fluently via `.pod(name)`
@@ -191,6 +162,8 @@ k8s(target?: string | Omit<KubernetesAdapterOptions, 'type'>): K8sExecutionConte
 
 **Example:**
 ```typescript
+import { $ as engine } from '@xec-sh/core';
+
 const k8sEngine = engine.k8s('app-pod');
 await k8sEngine`ls /app`;
 
@@ -203,21 +176,21 @@ const k8sEngine2 = engine.k8s({
 });
 
 // Or reach a pod's extras (portForward, logs, copyTo/copyFrom) explicitly:
-const pod = engine.k8s({ namespace: 'production' }).pod('app-pod');
+const pod = engine.k8s({ pod: 'app-pod', namespace: 'production', context: 'prod-cluster' }).pod('app-pod');
 ```
 
 #### local()
 
 Create a local execution context.
 
-```typescript
-local(): ExecutionEngine
-```
+`local(): ExecutionEngine`
 
 **Returns:** `ExecutionEngine` - New engine with local context
 
 **Example:**
 ```typescript
+import { $ as engine } from '@xec-sh/core';
+
 const localEngine = engine.local();
 await localEngine`npm install`;
 ```
@@ -227,9 +200,7 @@ await localEngine`npm install`;
 Derive an engine with a new working directory. Resolves `~` and relative
 paths against the current one; does not mutate `engine`.
 
-```typescript
-cd(path: string): ExecutionEngine
-```
+`cd(path: string): ExecutionEngine`
 
 **Parameters:**
 - `path` - Directory path, absolute, relative, or `~`-prefixed
@@ -238,6 +209,8 @@ cd(path: string): ExecutionEngine
 
 **Example:**
 ```typescript
+import { $ as engine } from '@xec-sh/core';
+
 await engine.cd('/project')`npm run build`;
 ```
 
@@ -245,9 +218,7 @@ await engine.cd('/project')`npm run build`;
 
 Set environment variables.
 
-```typescript
-env(variables: Record<string, string>): ExecutionEngine
-```
+`env(variables: Record<string, string>): ExecutionEngine`
 
 **Parameters:**
 - `variables` - Environment variables object
@@ -256,6 +227,8 @@ env(variables: Record<string, string>): ExecutionEngine
 
 **Example:**
 ```typescript
+import { $ as engine } from '@xec-sh/core';
+
 await engine
   .env({ NODE_ENV: 'production' })`npm start`;
 ```
@@ -264,9 +237,7 @@ await engine
 
 Set execution timeout.
 
-```typescript
-timeout(duration: number | string): ExecutionEngine
-```
+`timeout(duration: number | string): ExecutionEngine`
 
 **Parameters:**
 - `duration` - Milliseconds, or a duration string such as `'30s'`, `'5m'`
@@ -275,6 +246,8 @@ timeout(duration: number | string): ExecutionEngine
 
 **Example:**
 ```typescript
+import { $ as engine } from '@xec-sh/core';
+
 await engine
   .timeout('60s')`long-running-task`;
 ```
@@ -286,18 +259,24 @@ callable method — `engine.parallel(...)` throws; call one of its methods
 instead.
 
 ```typescript
-readonly parallel: ParallelEngine
+import { ExecutionEngine } from '@xec-sh/core';
 
-class ParallelEngine {
-  all(commands: Array<string | Command | ProcessPromise>, options?: ParallelOptions): Promise<ExecutionResult[]>;    // throws on first failure
-  settled(commands: Array<string | Command | ProcessPromise>, options?: ParallelOptions): Promise<ParallelResult>;   // never throws
-  race(commands: Array<string | Command | ProcessPromise>): Promise<ExecutionResult>;
-  map<T>(items: T[], fn: (item: T, index: number) => string | Command | ProcessPromise, options?: ParallelOptions): Promise<ParallelResult>;
-  filter<T>(items: T[], fn: (item: T, index: number) => string | Command | ProcessPromise, options?: ParallelOptions): Promise<T[]>;
-  some(commands: Array<string | Command | ProcessPromise>, options?: ParallelOptions): Promise<boolean>;
-  every(commands: Array<string | Command | ProcessPromise>, options?: ParallelOptions): Promise<boolean>;
-}
+const engine = new ExecutionEngine();
+type ParallelOptions = Parameters<typeof engine.parallel.settled>[1];
+const options = { maxConcurrent: 2 } satisfies ParallelOptions;
+const results = await engine.parallel.settled(['npm test', 'npm run lint'], options);
+console.log(results.succeeded.length, results.failed.length);
 ```
+
+| Method | Result |
+| --- | --- |
+| `all(commands, options?)` | Successful results, rejecting a failed command |
+| `settled(commands, options?)` | Results grouped into `succeeded` and `failed` |
+| `race(commands)` | First settled command |
+| `map(items, fn, options?)` | Grouped results from mapped commands |
+| `filter(items, fn, options?)` | Items whose command succeeds |
+| `some(commands, options?)` | Whether at least one command succeeds |
+| `every(commands, options?)` | Whether every command succeeds |
 
 `ParallelOptions.maxConcurrent` caps how many run at once (unset means
 unlimited). `ParallelResult` sorts commands into `succeeded` and `failed` by
@@ -306,6 +285,8 @@ holding an `ExecutionResult`, not thrown.
 
 **Example:**
 ```typescript
+import { $ as engine } from '@xec-sh/core';
+
 const { succeeded, failed } = await engine.parallel.settled(
   ['npm test', 'npm run lint', 'npm run type-check'],
   { maxConcurrent: 2 }
@@ -330,13 +311,10 @@ is read.
 ### Properties
 
 ```typescript
-interface ProcessPromise extends Promise<ExecutionResult> {
-  readonly stdin: NodeJS.WritableStream;  // writable immediately; buffered until the process exists
-  readonly pid?: number;                  // reading this starts the command
-  readonly spawned: Promise<ProcessHandle>; // resolves once actually running
-  readonly child?: ProcessHandle;         // reading this starts the command
-  exitCode: Promise<number | null>;       // null if the process was signalled
-}
+import type { ProcessPromise } from '@xec-sh/core';
+
+type ProcessProperties = Pick<ProcessPromise, 'stdin' | 'pid' | 'spawned' | 'child' | 'exitCode'>;
+type ProcessHandle = Awaited<ProcessPromise['spawned']>;
 ```
 
 `stdout`/`stderr` are **not** properties here — they're configurator methods
@@ -351,9 +329,7 @@ await `.spawned` first.
 Pipe the command's output somewhere else — another command, a stream, or a
 function.
 
-```typescript
-pipe(target: PipeTarget, ...args: unknown[]): ProcessPromise
-```
+`pipe(target: PipeTarget, ...args: unknown[]): ProcessPromise`
 
 `PipeTarget` accepts a template literal, a command string, a `Command`
 object, another `ProcessPromise`, a `Transform` or `Writable` stream, a
@@ -362,6 +338,9 @@ line-processor function `(line: string) => void`, or a conditional function
 
 **Example:**
 ```typescript
+import { $ } from '@xec-sh/core';
+import * as fs from 'node:fs';
+
 await $`cat file.txt`.pipe($`grep pattern`);
 await $`cat file.txt`.pipe(fs.createWriteStream('out.txt'));
 ```
@@ -370,12 +349,12 @@ await $`cat file.txt`.pipe(fs.createWriteStream('out.txt'));
 
 Don't throw on non-zero exit code.
 
-```typescript
-nothrow(): ProcessPromise
-```
+`nothrow(): ProcessPromise`
 
 **Example:**
 ```typescript
+import { $ } from '@xec-sh/core';
+
 const result = await $`test -f file.txt`.nothrow();
 if (!result.ok) {
   console.log('File does not exist');
@@ -386,12 +365,12 @@ if (!result.ok) {
 
 Suppress output.
 
-```typescript
-quiet(): ProcessPromise
-```
+`quiet(): ProcessPromise`
 
 **Example:**
 ```typescript
+import { $ } from '@xec-sh/core';
+
 await $`npm install`.quiet();
 ```
 
@@ -399,12 +378,12 @@ await $`npm install`.quiet();
 
 Fail the command after a duration.
 
-```typescript
-timeout(duration: number | string, timeoutSignal?: string): ProcessPromise
-```
+`timeout(duration: number | string, timeoutSignal?: string): ProcessPromise`
 
 **Example:**
 ```typescript
+import { $ } from '@xec-sh/core';
+
 await $`slow-command`.timeout('5s');
 ```
 
@@ -413,12 +392,12 @@ await $`slow-command`.timeout('5s');
 Attach an `AbortSignal`. Aborting kills the process; the awaited call
 rejects with a `CommandError` (signalled exit), not a generic `AbortError`.
 
-```typescript
-signal(signal: AbortSignal): ProcessPromise
-```
+`signal(signal: AbortSignal): ProcessPromise`
 
 **Example:**
 ```typescript
+import { $, CommandError } from '@xec-sh/core';
+
 const controller = new AbortController();
 setTimeout(() => controller.abort(), 5000);
 
@@ -435,12 +414,12 @@ try {
 
 Set working directory for this execution.
 
-```typescript
-cwd(path: string): ProcessPromise
-```
+`cwd(path: string): ProcessPromise`
 
 **Example:**
 ```typescript
+import { $ } from '@xec-sh/core';
+
 await $`npm build`.cwd('/project');
 ```
 
@@ -448,12 +427,12 @@ await $`npm build`.cwd('/project');
 
 Set environment variables for this execution.
 
-```typescript
-env(variables: Record<string, string>): ProcessPromise
-```
+`env(variables: Record<string, string>): ProcessPromise`
 
 **Example:**
 ```typescript
+import { $ } from '@xec-sh/core';
+
 await $`npm start`.env({ PORT: '3000' });
 ```
 
@@ -462,12 +441,12 @@ await $`npm start`.env({ PORT: '3000' });
 Begin execution without awaiting. Useful when you need `.child`/`.spawned`/`.pid`
 before the command finishes.
 
-```typescript
-start(): ProcessPromise
-```
+`start(): ProcessPromise`
 
 **Example:**
 ```typescript
+import { $ } from '@xec-sh/core';
+
 const p = $`long-server-process`.start();
 const handle = await p.spawned;
 console.log('pid:', handle.pid);
@@ -479,12 +458,12 @@ Cache the result of this single command. Keyed by command + cwd + env +
 target, so the same command against different hosts or containers never
 collides.
 
-```typescript
-cache(options?: { key?: string; ttl?: number; invalidateOn?: string[] }): ProcessPromise
-```
+`cache(options?: { key?: string; ttl?: number; invalidateOn?: string[] }): ProcessPromise`
 
 **Example:**
 ```typescript
+import { $ } from '@xec-sh/core';
+
 const result = await $`curl https://api.example.com/data`.cache({ ttl: 5000 });
 ```
 
@@ -493,21 +472,19 @@ const result = await $`curl https://api.example.com/data`.cache({ ttl: 5000 });
 Terminate the process, and everything it spawned (the whole process tree,
 not just the immediate child).
 
-```typescript
-kill(signal?: NodeJS.Signals): void
-```
+`kill(signal?: NodeJS.Signals): void`
 
 #### stdin
 
 Not a method — a writable stream property. Writes are buffered and
 forwarded once the process spawns, so there's no need to `.start()` first.
 
-```typescript
-readonly stdin: NodeJS.WritableStream
-```
+`readonly stdin: NodeJS.WritableStream`
 
 **Example:**
 ```typescript
+import { $ } from '@xec-sh/core';
+
 const p = $`cat`;
 p.stdin.write('Hello, World!\n');
 p.stdin.end();
@@ -518,12 +495,12 @@ const result = await p;
 
 Get output as array of lines.
 
-```typescript
-lines(): Promise<string[]>
-```
+`lines(): Promise<string[]>`
 
 **Example:**
 ```typescript
+import { $ } from '@xec-sh/core';
+
 const lines = await $`ls -la`.lines();
 lines.forEach(line => console.log(line));
 ```
@@ -532,12 +509,12 @@ lines.forEach(line => console.log(line));
 
 Parse trimmed output as JSON.
 
-```typescript
-json<T = any>(): Promise<T>
-```
+`json<T = any>(): Promise<T>`
 
 **Example:**
 ```typescript
+import { $ } from '@xec-sh/core';
+
 const data = await $`cat package.json`.json();
 console.log(data.name, data.version);
 ```
@@ -546,12 +523,12 @@ console.log(data.name, data.version);
 
 Get trimmed output as a string.
 
-```typescript
-text(): Promise<string>
-```
+`text(): Promise<string>`
 
 **Example:**
 ```typescript
+import { $ } from '@xec-sh/core';
+
 const content = await $`cat README.md`.text();
 ```
 
@@ -562,12 +539,12 @@ Get output as a `Buffer`. Called this way — directly on the un-awaited
 is **not** safe for binary output. For the exact bytes a command wrote, call
 `.buffer()` on the awaited `ExecutionResult` instead:
 
-```typescript
-buffer(): Promise<Buffer>
-```
+`buffer(): Promise<Buffer>`
 
 **Example:**
 ```typescript
+import { $ } from '@xec-sh/core';
+
 const lossyBuffer = await $`cat image.png`.buffer();       // not binary-safe
 const exactBuffer = (await $`cat image.png`).buffer();     // binary-safe
 ```
@@ -579,6 +556,8 @@ than waiting for the command to finish — the right tool for a follow-style
 command:
 
 ```typescript
+import { $ } from '@xec-sh/core';
+
 for await (const line of $`tail -f /var/log/app.log`) {
   console.log('Line:', line);
 }
@@ -589,28 +568,17 @@ for await (const line of $`tail -f /var/log/app.log`) {
 The result object an awaited `ProcessPromise` (or `execute()`) resolves to.
 
 ```typescript
-interface ExecutionResult {
-  stdout: string;
-  stderr: string;
-  stdall: string;      // stdout and stderr merged in arrival order
-  exitCode: number;
-  signal?: string;
-  ok: boolean;         // exitCode === 0 && !signal
-  cause?: string;       // set when !ok: 'signal: X' or 'exitCode: N'
-  command: string;
-  duration: number;
-  startedAt: Date;
-  finishedAt: Date;
-  adapter: string;
-  host?: string;        // set for SSH
-  container?: string;   // set for Docker/Kubernetes
+import type { ExecutionResult } from '@xec-sh/core';
 
-  toMetadata(): object;
-  throwIfFailed(): void;
-  text(): string;
-  json<T = any>(): T;
-  lines(): string[];
-  buffer(): Buffer;     // exact original bytes — binary-safe
+function summarize(result: ExecutionResult) {
+  return {
+    succeeded: result.ok,
+    exitCode: result.exitCode,
+    signal: result.signal,
+    output: result.stdall,
+    durationMs: result.duration,
+    metadata: result.toMetadata(),
+  };
 }
 ```
 
@@ -618,36 +586,30 @@ interface ExecutionResult {
 
 ### ExecutionError and CommandError
 
-`ExecutionError` is the base class every error in `@xec-sh/core` extends. It
+`ExecutionError` is the base class for execution and adapter failures. It
 carries a stable `kind: FailureKind` and a `recoverable` getter, for
 branching on *why* something failed rather than on message text.
 
 ```typescript
-class ExecutionError extends Error {
-  readonly kind: FailureKind;
-  readonly code: string;
-  readonly details?: Record<string, any>;
-  get recoverable(): boolean;
-}
+import type { ExecutionError } from '@xec-sh/core';
+
+type FailureDetails = Pick<ExecutionError, 'kind' | 'code' | 'details' | 'recoverable'>;
 ```
 
 `CommandError` is the one actually thrown when a command exits non-zero — it
 extends `ExecutionError` and adds the fields most callers reach for:
 
 ```typescript
-class CommandError extends ExecutionError {
-  readonly command: string;
-  readonly exitCode: number;
-  readonly signal: string | undefined;
-  readonly stdout: string;
-  readonly stderr: string;
-  readonly duration: number;
-  readonly callSite: string; // where the caller wrote the command, if captured
-}
+import type { CommandError } from '@xec-sh/core';
+
+type CommandFailure = Pick<CommandError,
+  'command' | 'exitCode' | 'signal' | 'stdout' | 'stderr' | 'duration' | 'callSite'>;
 ```
 
 **Example:**
 ```typescript
+import { $, CommandError } from '@xec-sh/core';
+
 try {
   await $`exit 1`;
 } catch (error) {
@@ -667,10 +629,12 @@ classes (`TimeoutError`, `MaxBufferExceededError`, `RetryError`,
 ### Connection Pooling
 
 SSH connections are pooled per adapter and reused automatically — there is
-no separate pool object to manage day-to-day. To tune the pool, configure
+configured on the adapter. To tune the pool, configure
 the SSH adapter directly:
 
 ```typescript
+import { ExecutionEngine } from '@xec-sh/core';
+
 const engine = new ExecutionEngine({
   adapters: {
     ssh: {
@@ -697,6 +661,8 @@ Process output as it arrives, via the async iterator — not `.lines()`,
 which waits for the command to finish and returns an array:
 
 ```typescript
+import { $ } from '@xec-sh/core';
+
 for await (const line of $`tail -f /var/log/app.log`) {
   console.log('Log:', line);
 }
@@ -706,6 +672,8 @@ For lower-level access to the live streams, use `.child` once the command
 has started:
 
 ```typescript
+import { $ } from '@xec-sh/core';
+
 const p = $`tail -f /var/log/app.log`.start();
 const handle = await p.spawned;
 handle.stdout?.on('data', chunk => console.log('Log:', chunk.toString()));
@@ -717,6 +685,8 @@ Cancel long-running operations. The command dies from the resulting signal,
 so the rejection is a `CommandError`, not a plain `AbortError`:
 
 ```typescript
+import { $, CommandError } from '@xec-sh/core';
+
 const controller = new AbortController();
 
 // Cancel after 5 seconds
@@ -733,16 +703,7 @@ try {
 
 ## Performance Characteristics
 
-Measured on the built `dist`, not estimated (see the project's `CLAUDE.md`
-for the full breakdown and methodology):
-
-- **Command creation**: ~6µs
-- **Simple execution**: `<5ms` overhead over the process spawn itself
-- **Pipe setup**: ~12µs
-- **SSH connection**: `<100ms`; `<10ms` when pooled
-- **Docker exec**: `<50ms`
-- **Memory overhead**: `<5MB` per command
-- **Startup (`xec --help`)**: ~150ms, against a ~20ms floor for an empty `node -e ""` on the same machine
+Command construction is lazy. Derived engines share adapter instances and SSH connection pools. `maxBuffer` bounds captured output, and `parallel` supplies a concurrency limit. Measure execution overhead with the built package, target shell and transport used by your application. Connection latency and child-process memory depend on that environment.
 
 ## Related Documentation
 

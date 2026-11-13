@@ -12,7 +12,7 @@ key_functions:
   - ProcessPromise.nothrow()
   - ProcessPromise.quiet()
   - ProcessPromise.timeout()
-verification_date: 2026-08-04
+verification_date: 2026-11-14
 ---
 
 # ProcessPromise API
@@ -28,25 +28,22 @@ verification_date: 2026-08-04
 
 A chainable, lazy promise that represents a command. Nothing runs until it's
 awaited, iterated with `for await`, or one of `.start()` / `.spawned` /
-`.child` / `.pid` is read. It extends the native `Promise`, resolving to an
-`ExecutionResult` — there is no separate `ProcessPromise<T>` type parameter
-and no public constructor; instances are produced by `` $`cmd` ``, `$.exec()`
-and equivalents, never built directly.
+`.child` / `.pid` is read. It implements the `Promise<ExecutionResult>` interface. Create commands with `` $`cmd` `` or `$.exec()` and await the result.
 
 ```typescript
-interface ProcessPromise extends Promise<ExecutionResult> { /* see below */ }
+import { $, type ProcessPromise } from '@xec-sh/core';
+
+const command: ProcessPromise = $`node --version`;
+const result = await command;
+console.log(result.text());
 ```
 
 ### Properties
 
 ```typescript
-interface ProcessPromise {
-  readonly stdin: NodeJS.WritableStream; // writable immediately, buffered until spawn
-  readonly pid?: number;                 // reading this starts the command
-  readonly spawned: Promise<ProcessHandle>; // resolves once actually running
-  readonly child?: ProcessHandle;        // reading this starts the command
-  exitCode: Promise<number | null>;      // 128+n when signal n killed the process
-}
+import type { ProcessPromise } from '@xec-sh/core';
+
+type ProcessProperties = Pick<ProcessPromise, 'stdin' | 'pid' | 'spawned' | 'child' | 'exitCode'>;
 ```
 
 `stdout` and `stderr` are **not** stream properties on `ProcessPromise` —
@@ -60,9 +57,7 @@ resolves), or iterate the promise itself with `for await`.
 
 Pipe the command's output somewhere else.
 
-```typescript
-pipe(target: PipeTarget, ...values: unknown[]): ProcessPromise
-```
+`pipe(target: PipeTarget, ...values: unknown[]): ProcessPromise`
 
 **Parameters:**
 - `target` - A command string, another `ProcessPromise`, a `Command` object, a `Transform`/`Writable` stream, a line-processor function `(line: string) => void`, a conditional function `(result: ExecutionResult) => Command | string | null`, or a template literal (calling `.pipe` itself as a tag)
@@ -71,6 +66,8 @@ pipe(target: PipeTarget, ...values: unknown[]): ProcessPromise
 
 **Example:**
 ```typescript
+import { $ } from '@xec-sh/core';
+
 // Simple pipe
 await $`cat file.txt`.pipe('grep pattern');
 
@@ -100,14 +97,14 @@ string instead.
 
 Prevent throwing on non-zero exit codes.
 
-```typescript
-nothrow(): ProcessPromise
-```
+`nothrow(): ProcessPromise`
 
 **Returns:** ProcessPromise that won't throw on error
 
 **Example:**
 ```typescript
+import { $ } from '@xec-sh/core';
+
 // Check if file exists without throwing
 const result = await $`test -f file.txt`.nothrow();
 if (result.ok) {
@@ -122,14 +119,14 @@ if (result.ok) {
 Suppress stdout/stderr output to the terminal (output is still captured on
 the result).
 
-```typescript
-quiet(): ProcessPromise
-```
+`quiet(): ProcessPromise`
 
 **Returns:** ProcessPromise with suppressed output
 
 **Example:**
 ```typescript
+import { $ } from '@xec-sh/core';
+
 await $`npm install`.quiet();
 ```
 
@@ -142,9 +139,7 @@ instance.
 
 Fail the command after a duration.
 
-```typescript
-timeout(duration: number | string, timeoutSignal?: string): ProcessPromise
-```
+`timeout(duration: number | string, timeoutSignal?: string): ProcessPromise`
 
 **Parameters:**
 - `duration` - Milliseconds, or a duration string such as `'30s'`, `'5m'`
@@ -152,15 +147,14 @@ timeout(duration: number | string, timeoutSignal?: string): ProcessPromise
 
 **Returns:** ProcessPromise with timeout
 
-**Throws:** `TimeoutError` when the timeout fires — this is what the Docker,
-Kubernetes and SSH adapters throw, verified by reading their source. The
-local adapter, verified empirically, currently throws `AdapterError` instead
-(with the same message and `kind: 'timeout'`) rather than a bare
-`TimeoutError` — so `instanceof TimeoutError` is not a reliable cross-adapter
-check. Test `error.kind === 'timeout'` instead, which every adapter sets
-consistently:
+A timeout rejects the command. Branch on `ExecutionError.kind` to handle
+its classified cause across adapters. The Node local adapter preserves
+`TimeoutError`. Failure to confirm process termination has its own error.
+
 
 ```typescript
+import { $, ExecutionError } from '@xec-sh/core';
+
 try {
   await $`slow-command`.timeout('5s');
 } catch (error) {
@@ -172,6 +166,8 @@ try {
 
 **Example:**
 ```typescript
+import { $ } from '@xec-sh/core';
+
 // Timeout after 5 seconds
 await $`slow-command`.timeout('5s');
 
@@ -185,9 +181,7 @@ await $`server`.timeout('10s', 'SIGKILL');
 
 Set working directory.
 
-```typescript
-cwd(path: string): ProcessPromise
-```
+`cwd(path: string): ProcessPromise`
 
 **Parameters:**
 - `path` - Working directory path
@@ -196,8 +190,10 @@ cwd(path: string): ProcessPromise
 
 **Example:**
 ```typescript
+import { $ } from '@xec-sh/core';
+
 // Run in specific directory
-await $`npm build`.cwd('/project');
+await $`npm run build`.cwd('/project');
 
 // Chain with other methods
 await $`git pull`
@@ -210,9 +206,7 @@ await $`git pull`
 
 Set environment variables.
 
-```typescript
-env(variables: Record<string, string>): ProcessPromise
-```
+`env(variables: Record<string, string>): ProcessPromise`
 
 **Parameters:**
 - `variables` - Environment variables object
@@ -221,26 +215,25 @@ env(variables: Record<string, string>): ProcessPromise
 
 **Example:**
 ```typescript
+import { $ } from '@xec-sh/core';
+
 // Set environment variables
 await $`npm start`.env({
   NODE_ENV: 'production',
   PORT: '3000'
 });
 
-// Merge with the current process's environment
-await $`deploy`.env({
-  ...process.env,
-  API_KEY: 'secret'
-});
+// Add a required value to the inherited process environment
+const apiKey = process.env.API_KEY;
+if (!apiKey) throw new Error('API_KEY is required');
+await $`deploy`.env({ API_KEY: apiKey });
 ```
 
 ### shell()
 
 Set shell for execution.
 
-```typescript
-shell(shell: string | boolean): ProcessPromise
-```
+`shell(shell: string | boolean): ProcessPromise`
 
 **Parameters:**
 - `shell` - Shell path, or `false` to execute without a shell
@@ -249,6 +242,8 @@ shell(shell: string | boolean): ProcessPromise
 
 **Example:**
 ```typescript
+import { $ } from '@xec-sh/core';
+
 // Use specific shell
 await $`echo $SHELL`.shell('/bin/zsh');
 
@@ -264,20 +259,23 @@ Not a method — a writable stream property, available immediately. Writes
 are buffered and forwarded once the process actually spawns, so there's no
 need to `.start()` first.
 
-```typescript
-readonly stdin: NodeJS.WritableStream
-```
+`readonly stdin: NodeJS.WritableStream`
 
 **Example:**
 ```typescript
+import { $ } from '@xec-sh/core';
+import * as fs from 'node:fs';
+
 // String input
 const p = $`cat`;
 p.stdin.write('Hello, World!\n');
 p.stdin.end();
 await p;
 
-// Stream input — pipe a Readable into it directly
-fs.createReadStream('input.txt').pipe($`sort`.stdin);
+// Stream input
+const sorted = $`sort`;
+fs.createReadStream('input.txt').pipe(sorted.stdin);
+console.log((await sorted).stdout);
 ```
 
 To provide the whole input up front instead, pass it as part of the
@@ -290,22 +288,20 @@ Kill the process — and everything it spawned. For local, Docker and
 Kubernetes this signals the whole process tree, not just the immediate
 child, so `sh -c 'node server.js'` doesn't orphan the server.
 
-```typescript
-kill(signal?: NodeJS.Signals): void
-```
+`kill(signal?: NodeJS.Signals): void`
 
 **Parameters:**
 - `signal` - Signal to send (default: `'SIGTERM'`)
 
 **Example:**
 ```typescript
-const proc = $`long-running-task`;
+import { $ } from '@xec-sh/core';
 
-// Kill after delay
-setTimeout(() => proc.kill(), 5000);
-
-// Kill with specific signal
-proc.kill('SIGKILL');
+const proc = $`node -e 'setInterval(() => {}, 1000)'`.nothrow().start();
+await proc.spawned;
+proc.kill('SIGTERM');
+const result = await proc;
+console.log(result.signal, result.exitCode);
 ```
 
 ### start() / spawned / child / pid
@@ -313,12 +309,13 @@ proc.kill('SIGKILL');
 Commands are lazy — nothing runs until the promise is awaited, iterated, or
 one of these is touched.
 
-```typescript
-start(): ProcessPromise
-readonly spawned: Promise<ProcessHandle>
-readonly child?: ProcessHandle
-readonly pid?: number
-```
+`start(): ProcessPromise`
+
+`readonly spawned: Promise<ProcessHandle>`
+
+`readonly child?: ProcessHandle`
+
+`readonly pid?: number`
 
 `start()` begins execution without awaiting the result. `.spawned` resolves
 once the command is actually running (spawning is asynchronous — an SSH
@@ -330,17 +327,20 @@ execution as a side effect.
 uniform across environments:
 
 ```typescript
-interface ProcessHandle {
-  readonly pid?: number;   // absent for SSH — the remote pid isn't knowable from the channel
-  readonly stdin: Writable | null;
-  readonly stdout: Readable | null;
-  readonly stderr: Readable | null;
-  kill(signal?: NodeJS.Signals): void;
+import type { ProcessPromise } from '@xec-sh/core';
+
+type ProcessHandle = Awaited<ProcessPromise['spawned']>;
+
+function reportHandle(handle: ProcessHandle) {
+  console.log(handle.pid);
+  handle.stdout?.on('data', chunk => console.log(chunk.toString()));
 }
 ```
 
 **Example:**
 ```typescript
+import { $ } from '@xec-sh/core';
+
 const p = $`long-server-process`.start();
 const handle = await p.spawned;
 console.log('pid:', handle.pid);
@@ -355,12 +355,12 @@ Get output as an array of lines, once the command finishes. This is a plain
 promise, not an async iterable — `for await` does not work directly on its
 return value.
 
-```typescript
-lines(): Promise<string[]>
-```
+`lines(): Promise<string[]>`
 
 **Example:**
 ```typescript
+import { $ } from '@xec-sh/core';
+
 const lines = await $`ls -la`.lines();
 lines.forEach(line => console.log(line));
 ```
@@ -378,9 +378,7 @@ iterate the `ProcessPromise` itself — see [Async Iteration](#async-iteration) 
 
 Parse trimmed output as JSON.
 
-```typescript
-json<T = any>(): Promise<T>
-```
+`json<T = any>(): Promise<T>`
 
 **Type Parameters:**
 - `T` - Expected JSON type
@@ -389,6 +387,8 @@ json<T = any>(): Promise<T>
 
 **Example:**
 ```typescript
+import { $ } from '@xec-sh/core';
+
 // Parse JSON output
 const data = await $`cat package.json`.json();
 console.log(data.name, data.version);
@@ -405,14 +405,14 @@ const config = await $`cat config.json`.json<Config>();
 
 Get trimmed output as a string.
 
-```typescript
-text(): Promise<string>
-```
+`text(): Promise<string>`
 
 **Returns:** Promise resolving to output text
 
 **Example:**
 ```typescript
+import { $ } from '@xec-sh/core';
+
 const content = await $`cat README.md`.text();
 console.log(content);
 ```
@@ -423,12 +423,13 @@ Get output as a `Buffer`. Called this way — directly on the `ProcessPromise`,
 before awaiting — it re-encodes the already-decoded `stdout` string, so it
 is **not** safe for binary data.
 
-```typescript
-buffer(): Promise<Buffer>
-```
+`buffer(): Promise<Buffer>`
 
 **Example:**
 ```typescript
+import { $ } from '@xec-sh/core';
+import * as fs from 'node:fs';
+
 const lossy = await $`cat image.png`.buffer();          // corrupts binary output
 const exact = (await $`cat image.png`).buffer();        // the awaited result's buffer() — binary-safe
 fs.writeFileSync('copy.png', exact);
@@ -440,9 +441,7 @@ Cache the result of this one command. Keyed by command + working directory +
 environment + target (host/container/pod), so identical commands against
 different machines never collide.
 
-```typescript
-cache(options?: { key?: string; ttl?: number; invalidateOn?: string[] }): ProcessPromise
-```
+`cache(options?: { key?: string; ttl?: number; invalidateOn?: string[] }): ProcessPromise`
 
 **Parameters:**
 - `options.key` - Override the computed cache key
@@ -451,6 +450,8 @@ cache(options?: { key?: string; ttl?: number; invalidateOn?: string[] }): Proces
 
 **Example:**
 ```typescript
+import { $ } from '@xec-sh/core';
+
 const result = await $`curl https://api.example.com/data`.cache({ ttl: 5000 });
 ```
 
@@ -462,15 +463,17 @@ There is no `.retry()` method on `ProcessPromise`. Two real alternatives
 exist instead, both taking the same `RetryOptions`:
 
 ```typescript
-interface RetryOptions {
-  maxRetries?: number;        // default 3
-  initialDelay?: number;      // default 100ms
-  maxDelay?: number;          // default 30000ms
-  backoffMultiplier?: number; // default 2
-  jitter?: boolean;           // default true
-  isRetryable?: (result: ExecutionResult) => boolean;
-  onRetry?: (attempt: number, result: ExecutionResult, nextDelay: number) => void;
-}
+import type { RetryOptions } from '@xec-sh/core';
+
+const options = {
+  maxRetries: 3,
+  initialDelay: 100,
+  maxDelay: 30_000,
+  backoffMultiplier: 2,
+  jitter: true,
+  isRetryable: result => result.exitCode === 75,
+  onRetry: (attempt, result, nextDelay) => console.log(attempt, result.exitCode, nextDelay),
+} satisfies RetryOptions;
 ```
 
 The standalone `retry()` export wraps a single call and retries it while it
@@ -479,6 +482,8 @@ propagates immediately). Exhaustion throws `RetryError`, carrying every
 attempt's result:
 
 ```typescript
+import { $ } from '@xec-sh/core';
+
 import { retry } from '@xec-sh/core';
 
 const result = await retry(() => $`flaky-command`, { maxRetries: 5, initialDelay: 1000 });
@@ -489,6 +494,8 @@ engine that applies retry to every command run through it, not a
 `ProcessPromise` method:
 
 ```typescript
+import { $ } from '@xec-sh/core';
+
 await $.retry({ maxRetries: 5 })`network-request`;
 ```
 
@@ -496,15 +503,15 @@ await $.retry({ maxRetries: 5 })`network-request`;
 
 Provide an abort signal.
 
-```typescript
-signal(signal: AbortSignal): ProcessPromise
-```
+`signal(signal: AbortSignal): ProcessPromise`
 
 **Parameters:**
 - `signal` - AbortSignal for cancellation
 
 **Example:**
 ```typescript
+import { $, CommandError } from '@xec-sh/core';
+
 const controller = new AbortController();
 
 // Cancel after timeout
@@ -528,17 +535,18 @@ rather than waiting for the command to finish — this is what makes it work
 for a follow-style command:
 
 ```typescript
+import { $ } from '@xec-sh/core';
+
 for await (const line of $`tail -f log.txt`) {
   console.log('Log:', line);
 }
 ```
 
-There is no `.tee()`, `.pipeStdout()` or `.pipeStderr()` method. Setting
-`.stdout(customWritable)` redirects output to that stream *instead of*
-capturing it on the result — it does not duplicate output to both places —
-so there's no built-in way to write to a file while also keeping the
-captured string; write both sides explicitly, e.g. by piping to a
-`fs.createWriteStream()` and separately reading `.child.stdout`.
+`.stdout(customWritable)` directs output to that writable stream. Use a
+callback when consuming text chunks, or `.pipe(writable)` when connecting
+the process to a writable destination. Set the stream behavior before
+starting the command. The command result reflects the capture policy of
+that destination.
 
 ## Result Properties
 
@@ -547,33 +555,17 @@ captured string; write both sides explicitly, e.g. by piping to a
 The object an awaited `ProcessPromise` resolves to:
 
 ```typescript
-interface ExecutionResult {
-  stdout: string;
-  stderr: string;
-  stdall: string;       // stdout and stderr merged in arrival order
-  exitCode: number;
-  signal?: string;
-  ok: boolean;          // exitCode === 0 && !signal
-  cause?: string;        // set when !ok
-  command: string;
-  duration: number;
-  startedAt: Date;
-  finishedAt: Date;
-  adapter: string;
-  host?: string;
-  container?: string;
+import { $, type ExecutionResult } from '@xec-sh/core';
 
-  toMetadata(): object;
-  throwIfFailed(): void;
-  text(): string;
-  json<T = any>(): T;
-  lines(): string[];
-  buffer(): Buffer;      // exact original bytes — binary-safe
-}
+const result: ExecutionResult = await $`node --version`;
+console.log(result.text(), result.duration, result.startedAt, result.finishedAt);
+const bytes: Buffer = result.buffer();
 ```
 
 **Example:**
 ```typescript
+import { $ } from '@xec-sh/core';
+
 const result = await $`echo hello`.nothrow();
 
 console.log(result.stdout);    // "hello\n"
@@ -583,9 +575,9 @@ console.log(result.ok);        // true
 console.log(result.duration);  // e.g. 15
 ```
 
-There is no separate `ProcessOutput` type — a `ProcessOutput` class exists
-in the package's source but is dead code, never instantiated or exported;
-`ExecutionResult` is what every command actually resolves to.
+`ExecutionResult` is the public completed-output contract. Its `.buffer()`
+method exposes original captured bytes, while `.text()`, `.json()` and
+`.lines()` provide decoded views.
 
 ## Error Handling
 
@@ -596,19 +588,16 @@ no `ProcessError` class — the real name is `CommandError`, and it extends
 the base `ExecutionError`:
 
 ```typescript
-class CommandError extends ExecutionError {
-  readonly command: string;
-  readonly exitCode: number;
-  readonly signal: string | undefined;
-  readonly stdout: string;
-  readonly stderr: string;
-  readonly duration: number;
-  readonly callSite: string; // where the caller wrote the command, if captured
-}
+import type { CommandError } from '@xec-sh/core';
+
+type CommandFailure = Pick<CommandError,
+  'command' | 'exitCode' | 'signal' | 'stdout' | 'stderr' | 'duration' | 'callSite'>;
 ```
 
 **Example:**
 ```typescript
+import { $, CommandError } from '@xec-sh/core';
+
 try {
   await $`exit 1`;
 } catch (error) {
@@ -622,17 +611,9 @@ try {
 
 ## Performance Characteristics
 
-Measured on the built `dist`, not estimated (see the project's `CLAUDE.md`
-for the full breakdown):
-
-- **Command creation**: ~6µs
-- **Pipe setup**: ~12µs
-- **Simple execution**: \<5ms overhead over the process spawn itself
-- **Memory overhead**: \<5MB per command
-
-There is no fixed "base ProcessPromise" allocation figure published beyond
-this — command creation already accounts for attaching every chain method.
-The default `maxBuffer` cap is unset at the `Command` level (no truncation)
+Lazy construction permits a command to be configured before execution.
+Measure throughput and memory with the adapters and capture policy used
+by your workload. The default `maxBuffer` cap is unset at the `Command` level (no truncation)
 unless configured; when set, exceeding it throws `MaxBufferExceededError`
 rather than silently truncating.
 
@@ -641,18 +622,23 @@ rather than silently truncating.
 ### Sequential Execution
 
 ```typescript
+import { $ } from '@xec-sh/core';
+
 // Chain commands sequentially
 await $`npm install`;
 await $`npm test`;
-await $`npm build`;
+await $`npm run build`;
 ```
 
 ### Parallel Execution
 
 ```typescript
-// Run commands in parallel
-const [install, lint, test] = await Promise.all([
-  $`npm install`.quiet(),
+import { $ } from '@xec-sh/core';
+
+// Install before starting independent checks
+await $`npm install`.quiet();
+const [build, lint, test] = await Promise.all([
+  $`npm run build`.quiet(),
   $`npm run lint`.nothrow(),
   $`npm test`.timeout('60s')
 ]);
@@ -661,6 +647,8 @@ const [install, lint, test] = await Promise.all([
 ### Error Recovery
 
 ```typescript
+import { $ } from '@xec-sh/core';
+
 // Try primary, fallback to secondary
 const result = await $`primary-command`.nothrow();
 if (!result.ok) {
@@ -671,9 +659,12 @@ if (!result.ok) {
 ### Stream Processing
 
 ```typescript
+import { $ } from '@xec-sh/core';
+import * as fs from 'node:fs';
+
 // Process a live stream of filenames as they're found
 for await (const file of $`find . -name "*.log"`) {
-  const size = await $`stat -f%z ${file}`.text();
+  const { size } = await fs.promises.stat(file);
   console.log(`${file}: ${size} bytes`);
 }
 ```

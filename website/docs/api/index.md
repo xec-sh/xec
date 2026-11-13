@@ -83,10 +83,12 @@ fluent Docker API instead of a target-bound engine.
 ### Programmatic Execution
 
 `$.run` and `$.raw` are tagged templates. Calling them as ordinary functions
-(`$.run('echo hello')`) throws a `TypeError` — a plain string would be
-iterated character by character. The supported programmatic forms are:
+(`$.run('echo hello')`) is rejected before execution. Use `$.exec()` for
+trusted command text and a `Command` object for explicit executable arguments.
 
 ```typescript
+import { $ } from '@xec-sh/core';
+
 // Full control via a Command object
 const result = await $.execute({
   command: 'npm install',
@@ -96,8 +98,11 @@ const result = await $.execute({
 
 // Command already assembled in a variable
 const cmd = 'echo hello';
-await $.run([cmd]);   // array form is a valid template substitute
-await $`${cmd}`;      // or interpolate into the template
+await $.exec(cmd);
+
+// Interpolated values represent arguments
+const message = 'hello; this remains one argument';
+await $`printf '%s\n' ${message}`;
 ```
 
 ### Type Definitions
@@ -215,25 +220,17 @@ interface KubernetesAdapterOptions {
 `$.execute()` takes a `Command`:
 
 ```typescript
-interface Command {
-  command: string;                      // Command to execute
-  args?: string[];                      // Command arguments
-  cwd?: string;                         // Working directory
-  env?: Record<string, string>;         // Environment variables
-  timeout?: number | string;            // Execution timeout: ms, or a duration string like '30s'
-  timeoutSignal?: string;               // Signal to send on timeout
-  maxBuffer?: number;                   // Cap on captured output, in bytes
-  stdin?: string | Buffer | Readable;   // Input data
-  stdout?: StreamOption;                // Output handling
-  stderr?: StreamOption;                // Error output handling
-  shell?: string | boolean;             // Use shell
-  detached?: boolean;                   // Detached process
-  signal?: AbortSignal;                 // Abort signal
-  nothrow?: boolean;                    // Don't throw on non-zero exit
-  retry?: RetryOptions;                 // Retry options
-  adapter?: AdapterType;                // Adapter selection
-  adapterOptions?: AdapterSpecificOptions;
-}
+import { $, type Command } from '@xec-sh/core';
+
+const command = {
+  command: process.execPath,
+  args: ['--version'],
+  shell: false,
+  cwd: process.cwd(),
+  timeout: '10s',
+  maxBuffer: 1024 * 1024,
+} satisfies Command;
+console.log((await $.execute(command)).stdout);
 ```
 
 ## Error Handling
@@ -243,6 +240,8 @@ interface Command {
 The error classes exported by `@xec-sh/core`:
 
 ```typescript
+import { $ } from '@xec-sh/core';
+
 import {
   ExecutionError,
   CommandError,
@@ -271,6 +270,8 @@ classification — and a `recoverable` flag. Branch on those rather than on the
 message text, which changes between versions and tools.
 
 ```typescript
+import { $, ExecutionError } from '@xec-sh/core';
+
 import { classifyFailure, isRecoverable, type FailureKind } from '@xec-sh/core';
 
 try {
@@ -278,12 +279,13 @@ try {
 } catch (error) {
   if (error instanceof ExecutionError && error.recoverable) {
     // The daemon went away mid-flight; a fresh connection may succeed.
-    await reconnect();
+    console.error('Transport recovery is available:', error.kind);
+    // Reconcile the migration outcome before deciding whether to run it again.
   }
 }
 ```
 
-`kind` is one of `command-failed`, `timeout`, `connection-lost`,
+`kind` is one of `command-failed`, `outcome-unknown`, `timeout`, `connection-lost`,
 `connection-refused`, `authentication`, `not-found`, `permission-denied`,
 `invalid-usage`, `host-key-mismatch` or `unknown`. Only `connection-lost` and
 `connection-refused` are reported as `recoverable` — retrying rejected
@@ -297,6 +299,8 @@ a raw stderr string from a tool you shelled out to yourself.
 ### Result Pattern
 
 ```typescript
+import { $ } from '@xec-sh/core';
+
 // Using nothrow for Result pattern
 const result = await $`command`.nothrow();
 
@@ -316,6 +320,8 @@ the same host reuse one connection. There is no separate pool object to
 manage:
 
 ```typescript
+import { $ } from '@xec-sh/core';
+
 const server = $.ssh('deploy@server.example.com');
 
 // All of these share a pooled connection
@@ -338,6 +344,8 @@ for await (const line of $`tail -f /var/log/app.log`) {
 ### Parallel Execution
 
 ```typescript
+import { $ } from '@xec-sh/core';
+
 const targets = ['host1', 'host2', 'host3'];
 
 const results = await Promise.all(
@@ -359,6 +367,7 @@ rejecting the whole batch:
 ```typescript
 import { $, parallel } from '@xec-sh/core';
 
+const targets = ['host1', 'host2', 'host3'];
 const { succeeded, failed } = await parallel(
   targets.map(host => $.ssh(host)`uptime`.nothrow()),
   { maxConcurrent: 5 }
