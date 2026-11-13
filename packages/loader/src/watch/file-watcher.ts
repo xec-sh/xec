@@ -1,6 +1,6 @@
 /**
- * File watcher with debounce, glob patterns, and proper lifecycle management.
- * Uses native Node.js fs.watch (recursive) — zero external dependencies.
+ * File watcher with debounce, path filtering, and explicit lifecycle management.
+ * Uses native Node.js notifications or bounded filesystem polling.
  *
  * @module @xec-sh/loader/watch/file-watcher
  */
@@ -31,12 +31,10 @@ export interface WatchOptions {
   debounce?: number;
   /** File extensions to watch; an empty array watches all files (default: ['.ts', '.js', '.mjs', '.cjs', '.tsx', '.jsx']) */
   extensions?: string[];
-  /** Glob patterns to ignore (default: ['node_modules', '.git', 'dist', 'coverage']) */
+  /** Path fragments to ignore (default: ['node_modules', '.git', 'dist', 'coverage', '.turbo']) */
   ignore?: string[];
   /** Watch subdirectories recursively (default: true) */
   recursive?: boolean;
-  /** Run handler immediately on start (default: false) */
-  runOnStart?: boolean;
   /**
    * Poll the filesystem instead of subscribing to it (default: false).
    *
@@ -49,6 +47,8 @@ export interface WatchOptions {
   poll?: boolean;
   /** Interval between polls in milliseconds (default: 1000) */
   pollInterval?: number;
+  /** Keep the event loop alive until close() (default: true, matching fs.watch). */
+  persistent?: boolean;
 }
 
 type WatchEventMap = {
@@ -61,8 +61,9 @@ type WatchEventMap = {
 /**
  * Efficient file watcher with debounce and filtering.
  *
- * Uses Node.js native `fs.watch` with recursive support (available on
- * macOS, Windows, and Linux 5.1+). Falls back to polling on older Linux.
+ * Uses Node.js native `fs.watch` by default. Select `poll: true` when
+ * native notifications are unreliable or unavailable. Errors close the watcher
+ * and are reported through the error event; ready means every root is watched.
  *
  * @example
  * ```typescript
@@ -84,10 +85,11 @@ type WatchEventMap = {
 export class FileWatcher extends EventEmitter<WatchEventMap> {
   private watchers: fs.FSWatcher[] = [];
   private pollTimer: NodeJS.Timeout | null = null;
-  private pollState = new Map<string, number>();
+  private pollState = new Map<string, string>();
   private debounceTimers = new Map<string, NodeJS.Timeout>();
   private readonly options: Required<WatchOptions>;
   private closed = false;
+  private started = false;
 
   constructor(
     private readonly directories: string | string[],
@@ -99,10 +101,14 @@ export class FileWatcher extends EventEmitter<WatchEventMap> {
       extensions: options.extensions ?? ['.ts', '.js', '.mjs', '.cjs', '.tsx', '.jsx'],
       ignore: options.ignore ?? ['node_modules', '.git', 'dist', 'coverage', '.turbo'],
       recursive: options.recursive ?? true,
-      runOnStart: options.runOnStart ?? false,
       poll: options.poll ?? false,
       pollInterval: options.pollInterval ?? 1000,
+      persistent: options.persistent ?? true,
     };
+    if (!Number.isFinite(this.options.pollInterval) || this.options.pollInterval <= 0)
+      throw new RangeError('pollInterval must be a positive finite number');
+    if (!Number.isFinite(this.options.debounce) || this.options.debounce < 0)
+      throw new RangeError('debounce must be a nonnegative finite number');
   }
 
   /**
@@ -110,101 +116,99 @@ export class FileWatcher extends EventEmitter<WatchEventMap> {
    */
   start(): void {
     if (this.closed) throw new Error('Watcher has been closed');
+    if (this.started) return;
+    this.started = true;
+    const dirs = [...new Set((Array.isArray(this.directories) ? this.directories : [this.directories])
+      .map(dir => path.resolve(dir)))];
 
-    const dirs = Array.isArray(this.directories) ? this.directories : [this.directories];
-
-    if (this.options.poll) {
-      this.startPolling(dirs.map(dir => path.resolve(dir)));
-      this.emit('ready');
+    try {
+      if (!dirs.length) throw new Error('At least one watch directory is required');
+      if (this.options.poll) this.startPolling(dirs);
+      else {
+        for (const absoluteDir of dirs) {
+          const watcher = fs.watch(absoluteDir, {
+            recursive: this.options.recursive, persistent: this.options.persistent,
+          }, (eventType, filename) => {
+            if (!filename) {
+              this.fail(new Error(`Native watcher did not identify a change in ${absoluteDir}; use polling for this filesystem`));
+              return;
+            }
+            this.handleChange(absoluteDir, String(filename), eventType);
+          });
+          watcher.on('error', error => this.fail(error));
+          this.watchers.push(watcher);
+        }
+      }
+    } catch (error) {
+      this.fail(error instanceof Error ? error : new Error(String(error)));
       return;
     }
-
-    for (const dir of dirs) {
-      const absoluteDir = path.resolve(dir);
-      try {
-        const watcher = fs.watch(absoluteDir, { recursive: this.options.recursive }, (eventType, filename) => {
-          if (!filename) return;
-          this.handleChange(absoluteDir, filename, eventType as 'rename' | 'change');
-        });
-
-        watcher.on('error', (error) => {
-          this.emit('error', error);
-        });
-
-        this.watchers.push(watcher);
-      } catch (error) {
-        this.emit('error', error instanceof Error ? error : new Error(String(error)));
-      }
-    }
-
     this.emit('ready');
   }
 
-  /**
-   * Walk the tree and report files whose modification time moved.
-   *
-   * The first sweep records the state without emitting: a watcher that
-   * announced every existing file as changed the moment it started would
-   * trigger the very rebuild the operator was waiting to avoid.
-   */
+  private fail(error: Error): void {
+    if (this.closed) return;
+    try { this.emit('error', error); }
+    finally { this.close(); }
+  }
+
+  /** A complete sweep is committed before comparing changes, so a failed read
+   * cannot turn an unreadable tree into false unlink events. */
   private startPolling(roots: string[]): void {
     const sweep = (emit: boolean): void => {
-      const seen = new Set<string>();
-
-      const walk = (dir: string): void => {
+      const next = new Map<string, string>();
+      const walk = (dir: string, root: boolean): void => {
         let entries: fs.Dirent[];
         try {
           entries = fs.readdirSync(dir, { withFileTypes: true });
-        } catch {
-          return; // A directory that vanished mid-sweep is not an error.
+        } catch (error) {
+          // A child removed during this sweep is a real change. The configured
+          // root itself disappearing, or a permission/I/O error, ends the watch.
+          if (!root && ['ENOENT', 'ENOTDIR'].includes((error as NodeJS.ErrnoException).code ?? '')) return;
+          throw error;
         }
-
         for (const entry of entries) {
           const full = path.join(dir, entry.name);
           if (this.options.ignore.some(pattern => full.includes(pattern))) continue;
-
           if (entry.isDirectory()) {
-            if (this.options.recursive) walk(full);
+            if (this.options.recursive) walk(full, false);
             continue;
           }
           if (!entry.isFile()) continue;
-
-          seen.add(full);
-          let mtime: number;
-          try {
-            mtime = fs.statSync(full).mtimeMs;
-          } catch {
-            continue;
+          if (this.options.extensions.length && !this.options.extensions.includes(path.extname(entry.name))) continue;
+          let stat: fs.Stats;
+          try { stat = fs.statSync(full); }
+          catch (error) {
+            if (['ENOENT', 'ENOTDIR'].includes((error as NodeJS.ErrnoException).code ?? '')) continue;
+            throw error;
           }
-
-          const previous = this.pollState.get(full);
-          this.pollState.set(full, mtime);
-          if (!emit) continue;
-          if (previous === undefined) {
-            this.handleChange(path.dirname(full), path.basename(full), 'rename');
-          } else if (previous !== mtime) {
-            this.handleChange(path.dirname(full), path.basename(full), 'change');
-          }
+          // An editor may atomically replace a file while preserving mtime.
+          next.set(full, `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}`);
         }
       };
-
-      for (const root of roots) walk(root);
-
-      if (emit) {
-        for (const known of [...this.pollState.keys()]) {
-          if (!seen.has(known)) {
-            this.pollState.delete(known);
-            this.handleChange(path.dirname(known), path.basename(known), 'rename');
-          }
-        }
+      for (const root of roots) walk(root, true);
+      const previous = this.pollState;
+      this.pollState = next;
+      if (!emit) return;
+      const notify = (file: string, type: 'rename' | 'change') => {
+        const root = roots.find(candidate => file.startsWith(candidate.endsWith(path.sep) ? candidate : candidate + path.sep))!;
+        this.handleChange(root, path.relative(root, file), type);
+      };
+      for (const [file, identity] of next) {
+        const prior = previous.get(file);
+        if (prior !== identity) notify(file, prior === undefined ? 'rename' : 'change');
+      }
+      for (const file of previous.keys()) {
+        if (!next.has(file)) notify(file, 'rename');
       }
     };
 
     sweep(false);
-    this.pollTimer = setInterval(() => sweep(true), this.options.pollInterval);
-    // A poll loop must not be the reason a program stays alive.
-    const timer = this.pollTimer as NodeJS.Timeout & { unref?: () => void };
-    timer.unref?.();
+    this.pollTimer = setInterval(() => {
+      try { sweep(true); }
+      catch (error) { this.fail(error instanceof Error ? error : new Error(String(error))); }
+    }, this.options.pollInterval);
+    if (!this.options.persistent) this.pollTimer.unref();
   }
 
   /**
@@ -237,6 +241,7 @@ export class FileWatcher extends EventEmitter<WatchEventMap> {
   }
 
   private handleChange(baseDir: string, filename: string, eventType: 'rename' | 'change'): void {
+    if (this.closed) return;
     const absolutePath = path.join(baseDir, filename);
     const ext = path.extname(filename);
 
@@ -252,7 +257,7 @@ export class FileWatcher extends EventEmitter<WatchEventMap> {
     const existing = this.debounceTimers.get(absolutePath);
     if (existing) clearTimeout(existing);
 
-    this.debounceTimers.set(absolutePath, setTimeout(() => {
+    const timer = setTimeout(() => {
       this.debounceTimers.delete(absolutePath);
 
       // Determine change type
@@ -260,7 +265,11 @@ export class FileWatcher extends EventEmitter<WatchEventMap> {
       try {
         fs.statSync(absolutePath);
         type = eventType === 'rename' ? 'add' : 'change';
-      } catch {
+      } catch (error) {
+        if (!['ENOENT', 'ENOTDIR'].includes((error as NodeJS.ErrnoException).code ?? '')) {
+          this.fail(error instanceof Error ? error : new Error(String(error)));
+          return;
+        }
         type = 'unlink';
       }
 
@@ -272,7 +281,9 @@ export class FileWatcher extends EventEmitter<WatchEventMap> {
       };
 
       this.emit('change', event);
-    }, this.options.debounce));
+    }, this.options.debounce);
+    if (!this.options.persistent) timer.unref();
+    this.debounceTimers.set(absolutePath, timer);
   }
 }
 
@@ -299,7 +310,7 @@ export function watchFiles(
   const watcher = new FileWatcher(directories, options);
 
   watcher.on('change', (event) => {
-    Promise.resolve(onChange(event)).catch((error) => {
+    Promise.resolve().then(() => onChange(event)).catch((error) => {
       console.error('Watch handler error:', error);
     });
   });

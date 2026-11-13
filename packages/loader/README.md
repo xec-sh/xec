@@ -64,17 +64,21 @@ for await (const event of streamLines('./script.ts')) {
 ## Watching, REPL, globals
 
 ```typescript
-import { watchFiles, FileWatcher, REPLServer, GlobalInjector } from '@xec-sh/loader';
+import { watchFiles, FileWatcher } from '@xec-sh/loader/watch';
+import { REPLServer, GlobalInjector } from '@xec-sh/loader';
 
 // One-call watcher; returns a stop function
 const stop = watchFiles('./src', (event) => {
   console.log(`${event.type}: ${event.path}`);   // 'add' | 'change' | 'unlink'
 }, { debounce: 300, extensions: ['.ts'] });
 
-// Or the class form, an EventEmitter over node:fs watchers
-const watcher = new FileWatcher('./src', { debounce: 300 });
+// Poll explicitly when the filesystem cannot reliably deliver native events.
+const watcher = new FileWatcher('./src', { poll: true, pollInterval: 1000, debounce: 300 });
 watcher.on('change', (event) => console.log(event.relativePath));
+watcher.on('error', (error) => console.error(error));
+watcher.on('close', () => console.log('Watcher stopped'));
 watcher.start();
+// watcher.close() releases the subscription when the caller finishes.
 
 // Interactive REPL
 const repl = new REPLServer({ prompt: 'xec> ', includeBuiltins: true });
@@ -87,6 +91,15 @@ await injector.execute(async () => {
 });
 // VERSION is removed again here
 ```
+
+Watching keeps the process alive until `close()`; use `persistent: false` only for a
+background observer whose lifetime belongs to another active task. Starting the same
+watcher twice is idempotent. `ready` confirms all configured roots; a subscription or
+filesystem error emits `error` and closes the watcher. Polling detects creation,
+removal, writes and atomic replacement, including replacements preserving mtime.
+`relativePath` is relative to the configured watch root in both modes. An empty
+`extensions` list includes assets as well as source code. Ignore values are path
+fragments, not glob expressions.
 
 ## Plugins
 
@@ -114,7 +127,7 @@ plugins.register({
 | `CodeEvaluator` | Evaluate inline code with top-level await |
 | `ModuleLoader` | Load modules from CDN, local files, or node_modules; integrity-checked |
 | `REPLServer` / `REPLCommands` | REPL with extensible commands |
-| `FileWatcher` / `watchFiles` | Debounced watcher over `node:fs` `watch` |
+| `FileWatcher` / `watchFiles` | Debounced native notifications or explicit polling with a caller-owned lifetime |
 | `PluginManager` | Lifecycle hooks around resolution, transform, and execution |
 | `streamExecute` / `streamLines` | Line-streamed script execution |
 | `GlobalInjector` / `createInjector` | Scoped global injection with restoration |

@@ -1,19 +1,16 @@
 import * as os from 'node:os';
+import { build } from 'esbuild';
 import * as path from 'node:path';
-import { promises as fs } from 'node:fs';
+import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
+import nativeFs, { promises as fs } from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
+import { spawn, execFile } from 'node:child_process';
 
-import { FileWatcher } from '../../../src/watch/file-watcher.js';
+import { watchFiles, FileWatcher } from '../../../src/watch/file-watcher.js';
 
-/**
- * Polling is not a lesser strategy — it is the only one that works when
- * `fs.watch` cannot deliver. A wedged fseventsd leaves every macOS watcher
- * silent while still reporting success, which is how a watch session can
- * appear to run for an hour and fire nothing; network filesystems never
- * deliver at all. The flag existed and selected nothing.
- *
- * These tests use the polling path exclusively, so they pass on a machine
- * whose native watcher is dead — the machine this was written on.
- */
+/** Real filesystem mutations exercise the polling contract independently of
+ * native notification delivery. No working application or source is touched. */
 describe('FileWatcher polling', () => {
   let dir: string;
 
@@ -126,4 +123,166 @@ describe('FileWatcher polling', () => {
 
     expect(events).toEqual([]);
   }, 20_000);
+
+  it('detects atomic replacements even when the editor preserves size and mtime', async () => {
+    const file = path.join(dir, 'atomic.txt'), temporary = path.join(dir, 'replacement.tmp');
+    await fs.writeFile(file, 'before');
+    const previous = await fs.stat(file);
+    const watcher = new FileWatcher(dir, { poll: true, pollInterval: 30, debounce: 10, extensions: ['.txt'] });
+    watcher.start();
+    try {
+      const seen = nextChange(watcher);
+      await fs.writeFile(temporary, 'after!');
+      await fs.utimes(temporary, previous.atime, previous.mtime);
+      await fs.rename(temporary, file);
+      expect(await seen).toBe(file);
+      expect(await fs.readFile(file, 'utf8')).toBe('after!');
+    } finally { watcher.close(); }
+  });
+
+  it('keeps nested paths relative to their configured root', async () => {
+    await fs.mkdir(path.join(dir, 'nested'));
+    const watcher = new FileWatcher(dir, { poll: true, pollInterval: 30, debounce: 10, extensions: [] });
+    watcher.start();
+    try {
+      const event = new Promise<{ relativePath: string }>(resolve => watcher.once('change', resolve));
+      await fs.writeFile(path.join(dir, 'nested/created.txt'), 'new');
+      expect(await event).toMatchObject({ relativePath: path.join('nested', 'created.txt') });
+    } finally { watcher.close(); }
+  });
+
+  it('reports removed files as unlink without announcing them as existing', async () => {
+    const file = path.join(dir, 'removed.txt');
+    await fs.writeFile(file, 'before');
+    const watcher = new FileWatcher(dir, { poll: true, pollInterval: 30, debounce: 10, extensions: [] });
+    watcher.start();
+    try {
+      const event = new Promise<{ type: string; path: string }>(resolve => watcher.once('change', resolve));
+      await fs.rm(file);
+      expect(await event).toMatchObject({ type: 'unlink', path: file });
+    } finally { watcher.close(); }
+  });
+
+  it('fails visibly and closes if a configured polling root disappears', async () => {
+    await fs.writeFile(path.join(dir, 'preserved.txt'), 'before');
+    const watcher = new FileWatcher(dir, { poll: true, pollInterval: 30, debounce: 10, extensions: [] });
+    const events: string[] = [];
+    const failed = new Promise<Error>(resolve => watcher.once('error', resolve));
+    watcher.on('ready', () => events.push('ready'));
+    watcher.on('change', event => events.push(event.type));
+    watcher.on('close', () => events.push('closed'));
+    watcher.start();
+    await fs.rm(dir, { recursive: true });
+    expect(await failed).toMatchObject({ code: 'ENOENT' });
+    expect(events).toEqual(['ready', 'closed']);
+    expect(() => watcher.start()).toThrow('closed');
+  });
+
+  it('does not announce ready after an incomplete initial subscription', () => {
+    const watcher = new FileWatcher([dir, path.join(dir, 'absent')], { poll: true });
+    const events: string[] = [];
+    watcher.on('error', () => events.push('error'));
+    watcher.on('ready', () => events.push('ready'));
+    watcher.on('close', () => events.push('closed'));
+    watcher.start();
+    expect(events).toEqual(['error', 'closed']);
+  });
+
+  it('starts once and closes its only polling schedule', () => {
+    vi.useFakeTimers();
+    const watcher = new FileWatcher(dir, { poll: true });
+    const ready = vi.fn();
+    watcher.on('ready', ready);
+    try {
+      watcher.start(); watcher.start();
+      expect(ready).toHaveBeenCalledTimes(1);
+      expect(vi.getTimerCount()).toBe(1);
+      watcher.close();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally { watcher.close(); vi.useRealTimers(); }
+  });
+
+  it.each([0, -1, Infinity, NaN])('rejects invalid polling interval %s', pollInterval => {
+    expect(() => new FileWatcher(dir, { poll: true, pollInterval })).toThrow('pollInterval');
+  });
+
+  it('reports a deferred filesystem I/O error without claiming unlink', async () => {
+    const file = path.join(dir, 'pending.txt');
+    await fs.writeFile(file, 'before');
+    const watcher = new FileWatcher(dir, { poll: true, pollInterval: 100, debounce: 10, extensions: [] });
+    const changes: string[] = [];
+    watcher.on('change', event => changes.push(event.type));
+    const failure = new Promise<Error>(resolve => watcher.once('error', resolve));
+    watcher.start();
+    const stat = nativeFs.statSync;
+    let calls = 0;
+    const probe = vi.spyOn(nativeFs, 'statSync').mockImplementation((...args: Parameters<typeof stat>) => {
+      if (args[0] === file && ++calls > 1) throw Object.assign(new Error('fixture I/O failure'), { code: 'EIO' });
+      return Reflect.apply(stat, nativeFs, args);
+    });
+    syncBuiltinESMExports();
+    try {
+      await fs.writeFile(file, 'after');
+      expect(await failure).toMatchObject({ code: 'EIO' });
+      expect(changes).toEqual([]);
+      expect(() => watcher.start()).toThrow('closed');
+    } finally { watcher.close(); probe.mockRestore(); syncBuiltinESMExports(); }
+  });
+
+  it('reports synchronous convenience-handler errors through the same path as rejections', async () => {
+    const error = new Error('synchronous handler failure');
+    const reported = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const stop = watchFiles(dir, () => { throw error; }, { poll: true, pollInterval: 30, debounce: 10, extensions: [] });
+    try {
+      await fs.writeFile(path.join(dir, 'created.txt'), 'new');
+      const deadline = Date.now() + 5000;
+      while (!reported.mock.calls.length && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 10));
+      expect(reported).toHaveBeenCalledWith('Watch handler error:', error);
+    } finally { stop(); reported.mockRestore(); }
+  });
+
+  it('keeps a public polling CLI alive until close, with explicit background opt-out', async () => {
+    const consumer = path.join(dir, 'consumer'), watched = path.join(dir, 'watched');
+    const pkg = path.join(consumer, 'node_modules/@xec-sh/loader');
+    await fs.mkdir(pkg, { recursive: true });
+    await fs.mkdir(watched);
+    await fs.writeFile(path.join(pkg, 'package.json'), JSON.stringify({
+      name: '@xec-sh/loader', type: 'module', exports: { './watch': './watch.js' },
+    }));
+    await build({ entryPoints: [fileURLToPath(new URL('../../../src/watch/index.ts', import.meta.url))],
+      outfile: path.join(pkg, 'watch.js'), bundle: true, platform: 'node', format: 'esm' });
+    const script = path.join(consumer, 'run.mjs');
+    await fs.writeFile(script, `import { FileWatcher } from '@xec-sh/loader/watch';
+const watcher = new FileWatcher(process.argv[2], { poll: true, persistent: process.argv[3] !== 'background' });
+watcher.on('ready', () => console.log('ready'));
+watcher.on('close', () => console.log('closed'));
+process.on('SIGTERM', () => watcher.close());
+process.on('beforeExit', () => console.log('idle'));
+watcher.start();
+`);
+    const child = spawn(process.execPath, [script, watched], { stdio: ['ignore', 'pipe', 'pipe'] });
+    let output = '', stderr = '', ended = false;
+    child.stdout.on('data', chunk => { output += String(chunk); });
+    child.stderr.on('data', chunk => { stderr += String(chunk); });
+    const exit = new Promise<number | null>((resolve, reject) => {
+      child.once('error', reject);
+      child.once('close', code => { ended = true; resolve(code); });
+    });
+    try {
+      const deadline = Date.now() + 5000;
+      while (!ended && !output.includes('ready') && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 10));
+      expect(output, stderr).toContain('ready');
+      await new Promise(resolve => setTimeout(resolve, 150));
+      expect(ended, 'a subscribed CLI must remain alive without another active handle').toBe(false);
+      child.kill('SIGTERM');
+      expect(await exit).toBe(0);
+      expect(output).toContain('closed');
+      expect(output).toContain('idle');
+    } finally {
+      if (!ended) { child.kill('SIGTERM'); await exit; }
+    }
+    const background = await promisify(execFile)(process.execPath, [script, watched, 'background'], { timeout: 5000 });
+    expect(background.stdout).toBe('ready\nidle\n');
+  });
+
 });
