@@ -3,7 +3,8 @@ import type { ExecutionResult } from '../core/result.js';
 import type { CallableExecutionEngine } from '../types/engine.js';
 import type { ProcessPromise, ExecutionEngine } from '../core/execution-engine.js';
 
-import { CommandError } from '../core/error.js';
+import { within, getExecutionSignal } from './within.js';
+import { CommandError, TimeoutError } from '../core/error.js';
 
 export interface ParallelOptions {
   /**
@@ -42,154 +43,79 @@ export interface ParallelResult {
   duration: number;
 }
 
+function isProcessPromise(command: unknown): command is ProcessPromise {
+  return !!command && typeof (command as ProcessPromise).then === 'function'
+    && 'pipe' in (command as object) && 'nothrow' in (command as object);
+}
+
+function successful(result: ExecutionResult | Error): result is ExecutionResult {
+  return !(result instanceof Error) && (result.ok ?? (result.exitCode === 0 && !result.signal));
+}
+
 export async function parallel(
   commands: Array<string | Command | ProcessPromise>,
   engine: ExecutionEngine | CallableExecutionEngine,
   options: ParallelOptions = {}
 ): Promise<ParallelResult> {
-  const {
-    stopOnError = false,
-    timeout,
-    onProgress
-  } = options;
-
-  const maxConcurrency = options.maxConcurrent ?? options.maxConcurrency ?? Infinity;
-
+  const limit = options.maxConcurrent ?? options.maxConcurrency ?? Infinity;
+  if (limit !== Infinity && (!Number.isSafeInteger(limit) || limit < 1)) {
+    throw new RangeError('maxConcurrent must be a positive safe integer or Infinity');
+  }
+  if (options.timeout !== undefined && (!Number.isFinite(options.timeout) || options.timeout < 0)) {
+    throw new RangeError('parallel timeout must be a non-negative finite duration');
+  }
   const startTime = Date.now();
   const results: (ExecutionResult | Error)[] = [];
-  const succeeded: ExecutionResult[] = [];
-  const failed: (ExecutionResult | Error)[] = [];
+  let index = 0;
+  let succeeded = 0;
+  let failed = 0;
+  let stopped = false;
+  let progressError: unknown;
+  let progressFailed = false;
 
-  /**
-   * A command counts as succeeded only if it exited zero and was not signalled.
-   *
-   * `ok` is computed by the result implementation, but a custom engine may
-   * return a plain object without it, so fall back to the same rule rather
-   * than reading `undefined` as failure.
-   */
-  const record = (result: ExecutionResult): boolean => {
-    const ok = result.ok ?? (result.exitCode === 0 && !result.signal);
-
-    (ok ? succeeded : failed).push(result);
-    return ok;
-  };
-
-  // Helper to check if an object is a ProcessPromise
-  const isProcessPromise = (obj: any): obj is ProcessPromise =>
-    obj && typeof obj.then === 'function' && 'pipe' in obj && 'nothrow' in obj;
-
-  if (maxConcurrency === Infinity) {
-    // Only create promises upfront when using unlimited concurrency
-    const promises = commands.map(cmd => {
-      if (isProcessPromise(cmd)) {
-        // ProcessPromise is already executing, just return it
-        return cmd;
-      } else {
-        // Convert string or Command to a promise
-        const normalizedCmd = typeof cmd === 'string' ? { command: cmd } : cmd;
-        return executeWithTimeout(engine, normalizedCmd, timeout);
-      }
-    });
-
-    const settled = await Promise.allSettled(promises);
-
-    for (let i = 0; i < settled.length; i++) {
-      const result = settled[i];
-
-      if (result && result.status === 'fulfilled') {
-        results.push(result.value);
-        if (!record(result.value) && stopOnError) break;
-      } else if (result && result.status === 'rejected') {
-        results.push(result.reason);
-        failed.push(result.reason);
-        if (stopOnError) break;
-      }
-
-      // Call progress callback
-      if (onProgress) {
-        onProgress(i + 1, commands.length, succeeded.length, failed.length);
-      }
-    }
-  } else {
-    // Limited concurrency execution
-    const executing: Promise<void>[] = [];
-    let index = 0;
-    let shouldStop = false;
-
-    async function executeNext(): Promise<void> {
-      if (shouldStop || index >= commands.length) return;
-
-      const currentIndex = index++;
-      const cmd = commands[currentIndex];
-
-      if (!cmd) return;
-
+  const worker = async () => {
+    while (!stopped && index < commands.length) {
+      const current = index++;
       try {
-        let result: ExecutionResult;
-        if (isProcessPromise(cmd)) {
-          // ProcessPromise is already executing
-          result = await cmd;
-        } else {
-          // Convert and execute
-          const normalizedCmd = typeof cmd === 'string' ? { command: cmd } : cmd;
-          result = await executeWithTimeout(engine, normalizedCmd, timeout);
-        }
-        results[currentIndex] = result;
-        if (!record(result) && stopOnError) {
-          shouldStop = true;
-        }
+        results[current] = await executeWithTimeout(engine, commands[current]!, options.timeout);
       } catch (error) {
-        results[currentIndex] = error as Error;
-        failed.push(error as Error);
-        if (stopOnError) {
-          shouldStop = true;
-        }
+        results[current] = error instanceof Error ? error : new Error(String(error));
       }
-
-      // Call progress callback
-      if (onProgress) {
-        const completed = succeeded.length + failed.length;
-        onProgress(completed, commands.length, succeeded.length, failed.length);
-      }
-
-      if (!shouldStop && index < commands.length) {
-        await executeNext();
+      if (successful(results[current]!)) succeeded++;
+      else { failed++; if (options.stopOnError) stopped = true; }
+      if (!progressFailed) {
+        try { options.onProgress?.(succeeded + failed, commands.length, succeeded, failed); }
+        catch (error) { progressError = error; progressFailed = true; stopped = true; }
       }
     }
-
-    for (let i = 0; i < Math.min(maxConcurrency, commands.length); i++) {
-      executing.push(executeNext());
-    }
-
-    await Promise.all(executing);
-  }
-
+  };
+  // Every started command is joined and recorded, including those still running
+  // when stopOnError or a progress callback stops admission of new work.
+  await Promise.all(Array.from({ length: Math.min(limit, commands.length) }, () => worker()));
+  if (progressFailed) throw progressError;
   return {
     results,
-    succeeded,
-    failed,
-    duration: Date.now() - startTime
+    succeeded: results.filter(successful),
+    failed: results.filter(result => !successful(result)),
+    duration: Date.now() - startTime,
   };
 }
 
 async function executeWithTimeout(
   engine: ExecutionEngine | CallableExecutionEngine,
-  command: Command,
+  command: string | Command | ProcessPromise,
   timeout?: number
 ): Promise<ExecutionResult> {
-  if (!timeout) {
-    return engine.execute(command);
-  }
-
+  const run = () => {
+    if (isProcessPromise(command)) return command;
+    const normalized = typeof command === 'string' ? { command } : command;
+    return engine.execute({ ...normalized, signal: getExecutionSignal(normalized.signal) });
+  };
+  if (!timeout) return run();
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-  try {
-    const commandWithSignal = { ...command, signal: controller.signal };
-    return await engine.execute(commandWithSignal);
-  } finally {
-    clearTimeout(timeoutId);
-  }
+  const timer = setTimeout(() => controller.abort(new TimeoutError('parallel command', timeout)), timeout);
+  try { return await within({ signal: controller.signal }, run); }
+  finally { clearTimeout(timer); }
 }
 
 export class ParallelEngine {
@@ -224,10 +150,6 @@ export class ParallelEngine {
   }
 
   async race(commands: Array<string | Command | ProcessPromise>): Promise<ExecutionResult> {
-    // Helper to check if an object is a ProcessPromise
-    const isProcessPromise = (obj: any): obj is ProcessPromise =>
-      obj && typeof obj.then === 'function' && 'pipe' in obj && 'nothrow' in obj;
-
     const promises = commands.map(cmd => {
       if (isProcessPromise(cmd)) {
         return cmd;
@@ -253,67 +175,16 @@ export class ParallelEngine {
     fn: (item: T, index: number) => string | Command | ProcessPromise,
     options?: ParallelOptions
   ): Promise<T[]> {
-    // Helper to check if an object is a ProcessPromise
-    const isProcessPromise = (obj: any): obj is ProcessPromise =>
-      obj && typeof obj.then === 'function' && 'pipe' in obj && 'nothrow' in obj;
-
-    const commandsWithItems = items.map((item, index) => ({
-      item,
-      command: fn(item, index)
-    }));
-
-    const results = await Promise.allSettled(
-      commandsWithItems.map(({ command }) => {
-        if (isProcessPromise(command)) {
-          return command;
-        }
-        const normalizedCmd = typeof command === 'string' ? { command } : command;
-        return this.engine.execute(normalizedCmd);
-      })
-    );
-
-    return commandsWithItems
-      .filter((_, index) => {
-        const result = results[index];
-        return result && result.status === 'fulfilled' && result.value.exitCode === 0;
-      })
-      .map(({ item }) => item);
+    const result = await parallel(items.map(fn), this.engine, options);
+    return items.filter((_, index) => result.results[index] !== undefined && successful(result.results[index]!));
   }
 
   async some(
     commands: Array<string | Command | ProcessPromise>,
     options?: ParallelOptions
   ): Promise<boolean> {
-    // Helper to check if an object is a ProcessPromise
-    const isProcessPromise = (obj: any): obj is ProcessPromise =>
-      obj && typeof obj.then === 'function' && 'pipe' in obj && 'nothrow' in obj;
-
-    // Success is the same rule the rest of this file uses: a zero exit and
-    // no signal. Treating any resolved execution as success — which is what
-    // this did — answered `true` for a batch where every command had failed,
-    // whenever the engine reports a failure by resolving rather than
-    // throwing: `nothrow`, a mock, an adapter with throwOnNonZeroExit off.
-    const succeeded = (result: ExecutionResult): boolean =>
-      result.ok ?? (result.exitCode === 0 && !result.signal);
-
-    const promises = commands.map(cmd => {
-      if (isProcessPromise(cmd)) {
-        return cmd.then(succeeded).catch(() => false);
-      }
-      const normalizedCmd = typeof cmd === 'string' ? { command: cmd } : cmd;
-      return this.engine.execute(normalizedCmd)
-        .then(succeeded)
-        .catch(() => false);
-    });
-
-    const results = await Promise.race([
-      Promise.any(promises.map((p, index) =>
-        p.then(success => success ? index : Promise.reject())
-      )),
-      Promise.all(promises).then(() => false)
-    ]);
-
-    return typeof results === 'number';
+    const result = await parallel(commands, this.engine, options);
+    return result.succeeded.length > 0;
   }
 
   async every(

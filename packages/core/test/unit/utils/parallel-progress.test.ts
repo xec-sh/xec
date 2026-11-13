@@ -297,7 +297,7 @@ describe('Parallel Execution with Progress', () => {
       expect(progressCalled).toBe(true);
     });
 
-    it('should stop reporting progress on stopOnError', async () => {
+    it('reports all already-started commands when stopOnError is unlimited', async () => {
       const failEngine = new MockExecutionEngine(10, true);
       const progressUpdates: number[] = [];
 
@@ -310,8 +310,8 @@ describe('Parallel Execution with Progress', () => {
         }
       });
 
-      // Should stop after first error (but still report it)
-      expect(progressUpdates.length).toBeLessThanOrEqual(3);
+      // All five commands started before the first failure; none can be omitted.
+      expect(progressUpdates).toEqual([1, 2, 3, 4, 5]);
     });
 
     it('should handle timeout with progress tracking', async () => {

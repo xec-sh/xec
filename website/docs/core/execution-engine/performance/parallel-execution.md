@@ -80,6 +80,10 @@ const outcomes = await parallel(files.map(file => $`wc -c ${file}`), { maxConcur
 if (outcomes.failed.length) throw new AggregateError(outcomes.failed, 'File measurement failed');
 ```
 
+`maxConcurrent` must be a positive safe integer or `Infinity`; an invalid limit rejects before execution. `maxConcurrency` is an alias. The same scheduler and limit apply to `filter` and `some`; both wait for started work before returning.
+
+`timeout` is a per-command deadline in milliseconds (`0` disables it). It combines with the command’s existing cancellation signal and the surrounding `within()` scope. Keep `ProcessPromise` inputs lazy so the scheduler can apply its limit and deadline before execution. A command explicitly started elsewhere already owns its running lifetime.
+
 ## Map-Reduce Pattern
 
 ### Parallel Map
