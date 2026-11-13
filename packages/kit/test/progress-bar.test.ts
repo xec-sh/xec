@@ -5,7 +5,7 @@ import { EventEmitter } from 'node:stream';
 import { vi, test, expect, afterAll, describe, afterEach, beforeAll, beforeEach } from 'vitest';
 
 import * as prompts from '../src/index.js';
-import { MockWritable } from './test-utils.js';
+import { MockWritable, useFakeTimers } from './test-utils.js';
 
 const activeIndicators: ReturnType<typeof prompts.progress>[] = [];
 const makeIndicator = (...args: Parameters<typeof prompts.progress>) => {
@@ -30,7 +30,7 @@ describe.each(['true', 'false'])('prompts - progress (isCI = %s)', (isCI) => {
   beforeEach(() => {
     output = new MockWritable();
     output.isTTY = true;
-    vi.useFakeTimers();
+    useFakeTimers();
   });
 
   afterEach(() => {

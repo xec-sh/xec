@@ -2,8 +2,8 @@ import { EventEmitter } from 'node:stream';
 import { vi, test, expect, afterAll, describe, afterEach, beforeAll, beforeEach } from 'vitest';
 
 import * as prompts from '../src/index.js';
-import { MockWritable } from './test-utils.js';
 import { getColumns } from '../src/core/utils/index.js';
+import { MockWritable, useFakeTimers } from './test-utils.js';
 
 const activeIndicators: ReturnType<typeof prompts.spinner>[] = [];
 const makeIndicator = (...args: Parameters<typeof prompts.spinner>) => {
@@ -28,7 +28,7 @@ describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
   beforeEach(() => {
     output = new MockWritable();
     output.isTTY = true;
-    vi.useFakeTimers();
+    useFakeTimers();
   });
 
   afterEach(() => {

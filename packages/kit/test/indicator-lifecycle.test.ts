@@ -1,7 +1,7 @@
 import { getEventListeners } from 'node:events';
 import { it, vi, expect, describe, afterEach } from 'vitest';
 
-import { MockReadable, MockWritable } from './test-utils.js';
+import { MockReadable, MockWritable, useFakeTimers } from './test-utils.js';
 import { spinner, progress, settings, updateSettings } from '../src/index.js';
 
 class TerminalInput extends MockReadable {
@@ -29,8 +29,46 @@ afterEach(() => {
 });
 
 describe('indicator lifecycle', () => {
+  it('disables all output, timers and terminal hooks while preserving the state API', () => {
+    useFakeTimers();
+    const input = new TerminalInput();
+    const output = new MockWritable();
+    output.isTTY = true;
+    const controller = new AbortController();
+    const signals = process.eventNames().map((name) => [name, process.listenerCount(name)]);
+    const result = create({ enabled: false, input, output, signal: controller.signal });
+    result.start('Task');
+    result.message('Progress');
+    result.cancel('Cancelled');
+    expect(result.isCancelled).toBe(true);
+    result.start('Again');
+    expect(result.isCancelled).toBe(false);
+    result.stop('Done');
+    result.start();
+    result.error('Failed');
+    result.start();
+    result.clear();
+    expect(output.buffer).toEqual([]);
+    expect(input.setRawMode).not.toHaveBeenCalled();
+    expect(input.eventNames()).toEqual([]);
+    expect(output.eventNames()).toEqual([]);
+    expect(getEventListeners(controller.signal, 'abort')).toHaveLength(0);
+    expect(process.eventNames().map((name) => [name, process.listenerCount(name)])).toEqual(signals);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('keeps a disabled pre-aborted indicator silent', () => {
+    const controller = new AbortController();
+    controller.abort();
+    const output = new MockWritable();
+    const result = create({ enabled: false, signal: controller.signal, output });
+    result.start('Task');
+    expect(result.isCancelled).toBe(true);
+    expect(output.buffer).toEqual([]);
+  });
+
   it('uses append-only output for a pipe and never captures input', () => {
-    vi.useFakeTimers();
+    useFakeTimers();
     vi.stubEnv('CI', 'false');
     const input = new TerminalInput();
     const output = new MockWritable();
@@ -45,7 +83,7 @@ describe('indicator lifecycle', () => {
   });
 
   it.each(['CI', 'ACCESSIBLE'])('uses static output for %s in a TTY', (name) => {
-    vi.useFakeTimers();
+    useFakeTimers();
     vi.stubEnv(name, 'true');
     const output = new MockWritable();
     output.isTTY = true;
@@ -66,7 +104,7 @@ describe('indicator lifecycle', () => {
   });
 
   it('cancels and restarts both spinner and progress with fresh state', () => {
-    vi.useFakeTimers();
+    useFakeTimers();
     const output = new MockWritable();
     const indicator = progress({ output, size: 4, max: 2 });
     active.push(indicator);
@@ -84,7 +122,7 @@ describe('indicator lifecycle', () => {
   });
 
   it('does not install hooks for a pre-aborted signal', () => {
-    vi.useFakeTimers();
+    useFakeTimers();
     const controller = new AbortController();
     controller.abort();
     const input = new TerminalInput();
@@ -101,7 +139,7 @@ describe('indicator lifecycle', () => {
   });
 
   it('uses the supplied terminal and restores raw mode on keyboard cancellation', () => {
-    vi.useFakeTimers();
+    useFakeTimers();
     vi.stubEnv('CI', 'false');
     const input = new TerminalInput();
     input.isRaw = true;
@@ -129,7 +167,7 @@ describe('indicator lifecycle', () => {
   });
 
   it('cleans hooks when a frame callback fails', () => {
-    vi.useFakeTimers();
+    useFakeTimers();
     vi.stubEnv('CI', 'false');
     const input = new TerminalInput();
     const output = new MockWritable();

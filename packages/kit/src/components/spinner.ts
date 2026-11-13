@@ -1,3 +1,4 @@
+import timers from 'node:timers';
 import { erase, cursor } from 'sisteransi';
 
 import prism from '../prism/index.js';
@@ -71,6 +72,8 @@ export type SpinnerFrameStyle = keyof typeof SPINNER_FRAMES;
 
 export interface SpinnerOptions extends CommonOptions {
   indicator?: 'dots' | 'timer';
+  /** Disable all indicator output and terminal hooks while retaining its state API. */
+  enabled?: boolean;
   /** Append-only output, also enabled by global settings or ACCESSIBLE. */
   accessible?: boolean;
   onCancel?: () => void;
@@ -96,6 +99,7 @@ export interface SpinnerResult {
 
 export const spinner = ({
   indicator = 'dots',
+  enabled = true,
   onCancel,
   input = process.stdin,
   output = process.stdout,
@@ -140,7 +144,7 @@ export const spinner = ({
     previousFrame = '';
   };
   const detach = () => {
-    clearInterval(loop);
+    timers.clearInterval(loop);
     loop = undefined;
     process.removeListener('uncaughtExceptionMonitor', onFailure);
     process.removeListener('SIGINT', onInterrupt);
@@ -156,6 +160,7 @@ export const spinner = ({
     if (!active) return;
     active = false;
     cancelled = code === 1;
+    if (!enabled) return;
     try {
       if (!output.destroyed) {
         clearFrame();
@@ -234,13 +239,18 @@ export const spinner = ({
   const start = (message = '') => {
     currentMessage = message.replace(/\.+$/, '');
     cancelled = false;
+    if (!enabled) {
+      cancelled = signal?.aborted ?? false;
+      active = !cancelled;
+      return;
+    }
     if (signal?.aborted) {
       cancelled = true;
       output.write(`${plain(cancelMessage ?? settings.messages.cancel)}\n`);
       return;
     }
     const wasActive = active;
-    clearInterval(loop);
+    timers.clearInterval(loop);
     origin = performance.now();
     frameIndex = 0;
     active = true;
@@ -260,8 +270,8 @@ export const spinner = ({
       }
       if (staticOutput) {
         writeStatus(currentMessage);
-        loop = setInterval(() => writeStatus(`Still working — ${currentMessage}`), 30_000);
-      } else loop = setInterval(render, delay);
+        loop = timers.setInterval(() => writeStatus(`Still working — ${currentMessage}`), 30_000);
+      } else loop = timers.setInterval(render, delay);
       loop.unref();
     } catch (error) {
       active = false;
@@ -277,7 +287,7 @@ export const spinner = ({
     clear: () => finish('', 0, true),
     message: (message = currentMessage) => {
       const next = message.replace(/\.+$/, '');
-      if (active && staticOutput && next !== currentMessage) writeStatus(next);
+      if (enabled && active && staticOutput && next !== currentMessage) writeStatus(next);
       currentMessage = next;
     },
     get isCancelled() {

@@ -1,4 +1,13 @@
+import { vi } from 'vitest';
+import timers from 'node:timers';
 import { Readable, Writable } from 'node:stream';
+
+/** Drive global and Node-compatible interval APIs with the same test clock. */
+export function useFakeTimers() {
+  vi.useFakeTimers();
+  vi.spyOn(timers, 'setInterval').mockImplementation(globalThis.setInterval);
+  vi.spyOn(timers, 'clearInterval').mockImplementation(globalThis.clearInterval);
+}
 
 export class MockWritable extends Writable {
   public buffer: string[] = [];
