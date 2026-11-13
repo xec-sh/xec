@@ -1,3 +1,6 @@
+import stringWidth from '../../core/utils/string-width.js';
+import { terminalSegments } from '../../core/utils/string-truncated-width.js';
+
 /**
  * ANSI escape sequence utilities
  */
@@ -225,23 +228,22 @@ export function rgbToAnsi16(r: number, g: number, b: number): number {
  * Strip ANSI codes from string
  */
 export function stripAnsi(str: string): string {
-  // eslint-disable-next-line no-control-regex
-  return str.replace(/\x1b\[[0-9;]*m/g, '');
+  return Array.from(terminalSegments(str), part => part.escape ? '' : part.text).join('');
 }
 
 /**
  * Get visible string length (ignoring ANSI codes)
  */
 export function stringLength(str: string): number {
-  return stripAnsi(str).length;
+  return stringWidth(str);
 }
 
 /**
  * Check if string contains ANSI codes
  */
 export function hasAnsi(str: string): boolean {
-  // eslint-disable-next-line no-control-regex
-  return /\x1b\[[0-9;]*m/.test(str);
+  for (const part of terminalSegments(str)) if (part.escape) return true;
+  return false;
 }
 
 /**
@@ -280,4 +282,16 @@ export function handleLineBreaks(str: string, open: string, close: string): stri
       return open + line;
     })
     .join(close + '\n');
+}
+
+/** Keep display styling while removing terminal commands and non-display control bytes. */
+export function sanitizeTerminalText(text: string, preserveStyles = true): string {
+  return Array.from(terminalSegments(text), part => {
+    if (part.escape) {
+      // eslint-disable-next-line no-control-regex -- Only SGR styling is allowed from display text.
+      return preserveStyles && /^\x1b\[[0-9;:]*m$/.test(part.text) ? part.text : '';
+    }
+    // eslint-disable-next-line no-control-regex -- Remove cursor controls while retaining line breaks and tabs.
+    return part.text.replace(/[\x00-\x08\x0b-\x1f\x7f-\x9f]/g, '');
+  }).join('');
 }
