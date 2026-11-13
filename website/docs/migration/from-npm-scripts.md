@@ -4,9 +4,8 @@ description: Complete guide for migrating from package.json scripts to Xec
 keywords: [migration, npm, scripts, package.json, automation]
 source_files:
   - apps/xec/src/commands/run.ts
-  - apps/xec/src/config/task-manager.ts
-  - apps/xec/src/script-runner.ts
-verification_date: 2025-08-03
+  - packages/ops/src/config/task-manager.ts
+  - apps/xec/src/commands/run.ts
 ---
 
 # Migrating from npm Scripts to Xec
@@ -45,7 +44,7 @@ tasks:
   build:
     command: webpack --mode production
     timeout: 5m
-    
+
   deploy:
     steps:
       - name: Build
@@ -119,10 +118,10 @@ tasks:
   clean:
     # Cross-platform: avoids depending on a Unix shell for `rm -rf`
     command: xec -e "const fs = await import('node:fs/promises'); await fs.rm('dist', { recursive: true, force: true })"
-    
+
   lint:
     command: eslint src/**/*.ts
-    
+
   format:
     command: prettier --write src/**/*.ts
 ```
@@ -370,10 +369,9 @@ tasks:
 ```typescript
 // scripts/deploy.ts
 import { $ } from '@xec-sh/core';
-import { readConfig } from './utils';
-
-const config = await readConfig();
-const target = args[0] || 'production';
+import { targets } from '@xec-sh/ops';
+const target = args[0] || 'hosts.production';
+if (!(await targets.get(target))) throw new Error(`Target not configured: ${target}`);
 
 // Pre-deployment checks
 console.log('🔍 Running tests...');
@@ -393,7 +391,7 @@ await $`terser dist/bundle.js -o dist/bundle.min.js`;
 // Deploy
 console.log(`🚀 Deploying to ${target}...`);
 await $`xec copy dist/ ${target}:/var/www/html/`;
-await $.ssh(target)`systemctl restart nginx`;
+await targets.exec(target, 'systemctl reload nginx');
 
 // Notify
 console.log('✅ Deployment complete!');

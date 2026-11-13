@@ -5,8 +5,7 @@ keywords: [migration, gulp, grunt, task runner, build automation]
 source_files:
   - apps/xec/src/commands/watch.ts
   - packages/core/src/core/execution-engine.ts
-  - apps/xec/src/script-runner.ts
-verification_date: 2025-08-03
+  - apps/xec/src/commands/run.ts
 ---
 
 # Migrating from Gulp/Grunt to Xec
@@ -20,6 +19,7 @@ This guide helps you migrate from JavaScript task runners like Gulp and Grunt to
 ### Gulp/Grunt Limitations
 
 **Gulp Example:**
+<!-- doc-check: skip — Gulp or Grunt comparison uses its original task runner and plugins, not Xec -->
 ```javascript
 // gulpfile.js
 const gulp = require('gulp');
@@ -45,6 +45,7 @@ gulp.task('default', gulp.series('styles', 'scripts'));
 ```
 
 **Grunt Example:**
+<!-- doc-check: skip — Gulp or Grunt comparison uses its original task runner and plugins, not Xec -->
 ```javascript
 // Gruntfile.js
 module.exports = function(grunt) {
@@ -70,11 +71,11 @@ module.exports = function(grunt) {
       }
     }
   });
-  
+
   grunt.loadNpmTasks('grunt-sass');
   grunt.loadNpmTasks('grunt-contrib-uglify');
   grunt.loadNpmTasks('grunt-contrib-watch');
-  
+
   grunt.registerTask('default', ['sass', 'uglify']);
 };
 ```
@@ -138,6 +139,7 @@ await Promise.all([buildStyles(), buildScripts()]);
 ### 1. Style Processing
 
 **Gulp:**
+<!-- doc-check: skip — Gulp or Grunt comparison uses its original task runner and plugins, not Xec -->
 ```javascript
 const sass = require('gulp-sass')(require('sass'));
 const autoprefixer = require('gulp-autoprefixer');
@@ -161,17 +163,17 @@ import { pathToFileURL } from 'node:url';
 
 export async function buildStyles() {
   const sassFiles = await glob('src/scss/**/*.scss');
-  
+
   for (const file of sassFiles) {
     const output = file
       .replace('src/scss', 'dist/css')
       .replace('.scss', '.css');
-    
+
     // Compile SASS, add prefixes, and minify
     await $`sass ${file} ${output} --compressed`;
     await $`postcss ${output} --use autoprefixer -o ${output}`;
   }
-  
+
   console.log(`✅ Compiled ${sassFiles.length} style files`);
 }
 
@@ -186,6 +188,7 @@ if (import.meta.url.split('?')[0] === pathToFileURL(__filename).href) {
 ### 2. JavaScript Bundling
 
 **Grunt:**
+<!-- doc-check: skip — Gulp or Grunt comparison uses its original task runner and plugins, not Xec -->
 ```javascript
 grunt.initConfig({
   concat: {
@@ -227,10 +230,10 @@ export async function bundleScripts() {
     --sourcemap \
     --target=es2020 \
     --outfile=dist/js/bundle.min.js`;
-  
+
   // Or use webpack/rollup if preferred
   // await $`webpack --mode production`;
-  
+
   console.log('✅ JavaScript bundled and minified');
 }
 ```
@@ -238,6 +241,7 @@ export async function bundleScripts() {
 ### 3. Image Optimization
 
 **Gulp:**
+<!-- doc-check: skip — Gulp or Grunt comparison uses its original task runner and plugins, not Xec -->
 ```javascript
 const imagemin = require('gulp-imagemin');
 
@@ -262,26 +266,26 @@ import { mkdir } from 'fs/promises';
 
 export async function optimizeImages() {
   const images = await glob('src/images/**/*.{jpg,png,gif,svg}');
-  
+
   // Ensure output directory exists
   await mkdir('dist/images', { recursive: true });
-  
+
   // Process images in parallel with concurrency limit
   const batchSize = 5;
   for (let i = 0; i < images.length; i += batchSize) {
     const batch = images.slice(i, i + batchSize);
-    
+
     await Promise.all(batch.map(async (image) => {
       const output = image.replace('src/', 'dist/');
       const dir = path.dirname(output);
-      
+
       await mkdir(dir, { recursive: true });
-      
+
       // Use sharp or imagemin CLI
       await $`imagemin ${image} --out-dir=${dir}`;
     }));
   }
-  
+
   console.log(`✅ Optimized ${images.length} images`);
 }
 ```
@@ -289,6 +293,7 @@ export async function optimizeImages() {
 ### 4. File Watching
 
 **Gulp:**
+<!-- doc-check: skip — Gulp or Grunt comparison uses its original task runner and plugins, not Xec -->
 ```javascript
 gulp.task('watch', () => {
   gulp.watch('src/scss/**/*.scss', gulp.series('styles'));
@@ -303,10 +308,10 @@ gulp.task('watch', () => {
 tasks:
   watch:styles:
     command: xec watch local "src/scss/**/*.scss" --command "xec build:styles"
-    
+
   watch:scripts:
     command: xec watch local "src/js/**/*.js" --command "xec build:scripts"
-    
+
   watch:all:
     parallel: true
     steps:
@@ -333,6 +338,7 @@ console.log('👀 Watching for changes...');
 ### 5. Clean Task
 
 **Grunt:**
+<!-- doc-check: skip — Gulp or Grunt comparison uses its original task runner and plugins, not Xec -->
 ```javascript
 grunt.initConfig({
   clean: {
@@ -350,19 +356,19 @@ import { $, glob } from '@xec-sh/core';
 
 export async function clean() {
   const dirs = ['dist', 'tmp', '.sass-cache', 'node_modules/.cache'];
-  
+
   await Promise.all(
-    dirs.map(dir => 
+    dirs.map(dir =>
       rm(dir, { recursive: true, force: true })
     )
   );
-  
+
   // Clean specific file patterns
   const tempFiles = await glob('**/*.tmp');
   await Promise.all(
     tempFiles.map(file => rm(file))
   );
-  
+
   console.log('🧹 Cleaned build artifacts');
 }
 ```
@@ -371,6 +377,7 @@ export async function clean() {
 
 ### Gulp Workflow Example
 
+<!-- doc-check: skip — Gulp or Grunt comparison uses its original task runner and plugins, not Xec -->
 ```javascript
 // gulpfile.js
 const gulp = require('gulp');
@@ -432,7 +439,7 @@ gulp.task('clean:dist', () => {
 });
 
 gulp.task('build', (callback) => {
-  runSequence('clean:dist', 
+  runSequence('clean:dist',
     ['sass', 'useref', 'images', 'fonts'],
     callback
   );
@@ -454,7 +461,7 @@ tasks:
         command: xec build:styles --watch
       - name: Start server
         command: xec serve
-        
+
   build:
     description: Production build
     steps:
@@ -469,7 +476,7 @@ tasks:
           - command: xec copy:fonts
       - name: Generate HTML
         command: xec build:html
-        
+
   serve:
     command: browser-sync start --server app --files "app/**/*"
 ```
@@ -487,52 +494,52 @@ const isWatch = args.includes('--watch');
 
 export async function buildStyles() {
   const sassFiles = await glob('app/scss/**/*.scss');
-  
+
   for (const file of sassFiles) {
     const output = file
       .replace('app/scss', isProduction ? 'dist/css' : 'app/css')
       .replace('.scss', '.css');
-    
+
     const commands = [
       `sass ${file} ${output}`,
       isProduction && `postcss ${output} --use cssnano -o ${output}`
     ].filter(Boolean);
-    
+
     for (const cmd of commands) {
       await $`${cmd}`;
     }
   }
-  
+
   console.log('✅ Styles built');
 }
 
 export async function buildScripts() {
   const target = isProduction ? 'dist' : 'app';
-  
+
   await $`esbuild app/js/main.js \
     --bundle \
     ${isProduction ? '--minify' : ''} \
     --sourcemap \
     --outfile=${target}/js/bundle.js`;
-  
+
   console.log('✅ Scripts built');
 }
 
 export async function buildHtml() {
   const html = await fs.readFile('app/index.html', 'utf-8');
-  
+
   // Simple asset processing
   const processed = html
     .replace(/<!-- build:css (.+?) -->/g, '<link rel="stylesheet" href="$1">')
     .replace(/<!-- build:js (.+?) -->/g, '<script src="$1"></script>');
-  
+
   await fs.writeFile('dist/index.html', processed);
   console.log('✅ HTML processed');
 }
 
 export async function optimizeImages() {
   const images = await glob('app/images/**/*.{jpg,png,gif,svg}');
-  
+
   await Promise.all(
     images.map(async (image) => {
       const output = image.replace('app/', 'dist/');
@@ -540,7 +547,7 @@ export async function optimizeImages() {
       await $`imagemin ${image} --out-dir=${path.dirname(output)}`;
     })
   );
-  
+
   console.log(`✅ Optimized ${images.length} images`);
 }
 
@@ -557,16 +564,16 @@ export async function clean() {
 // Main build orchestration
 export async function build() {
   await clean();
-  
+
   await Promise.all([
     buildStyles(),
     buildScripts(),
     optimizeImages(),
     copyFonts()
   ]);
-  
+
   await buildHtml();
-  
+
   console.log('🎉 Build complete!');
 }
 
@@ -577,7 +584,7 @@ if (isWatch) {
     $`xec watch local "app/js/**/*.js" --command "xec build:scripts"`,
     $`xec watch local "app/images/**/*" --command "xec optimize:images"`
   ]);
-  
+
   console.log('👀 Watching for changes...');
 }
 ```
@@ -587,31 +594,17 @@ if (isWatch) {
 If you prefer Gulp's streaming approach, you can create similar patterns:
 
 ```typescript
-// scripts/stream-example.ts
-import { $, glob } from '@xec-sh/core';
-import { pipeline } from 'stream/promises';
-import { createReadStream, createWriteStream } from 'fs';
-import { Transform } from 'stream';
+import { pipeline } from 'node:stream/promises';
+import { createReadStream, createWriteStream } from 'node:fs';
+import { createGzip } from 'node:zlib';
 
-// Create a transform stream
-function createMinifyStream() {
-  return new Transform({
-    async transform(chunk, encoding, callback) {
-      // Process chunk
-      const minified = await minifyCode(chunk.toString());
-      callback(null, minified);
-    }
-  });
-}
-
-// Use pipeline for streaming
-async function processLargeFile() {
-  await pipeline(
-    createReadStream('src/large-file.js'),
-    createMinifyStream(),
-    createWriteStream('dist/large-file.min.js')
-  );
-}
+// Compression is a stream transform. Minification needs a parser, not a
+// transform that parses independent chunks of a JavaScript source file.
+await pipeline(
+  createReadStream('dist/app.js'),
+  createGzip(),
+  createWriteStream('dist/app.js.gz')
+);
 ```
 
 ## Plugin Replacement Guide
@@ -678,26 +671,15 @@ async function processLargeFile() {
 ### Build Time Improvements
 
 ```typescript
-// Measure build performance
-import { performance } from 'perf_hooks';
-
-async function benchmarkBuild() {
-  const start = performance.now();
-  
-  // Parallel execution with Xec
-  await Promise.all([
-    buildStyles(),
-    buildScripts(),
-    optimizeImages()
-  ]);
-  
-  const end = performance.now();
-  console.log(`Build completed in ${(end - start) / 1000}s`);
-  
-  // Typical results:
-  // Gulp: 12-15s (sequential plugins)
-  // Xec: 4-6s (parallel, direct tools)
-}
+import { performance } from 'node:perf_hooks';
+const started = performance.now();
+await $.parallel.all([
+  $`npm run build:styles`,
+  $`npm run build:scripts`,
+  $`npm run build:images`
+], { maxConcurrency: 3 });
+console.log(`Build completed in ${(performance.now() - started) / 1000}s`);
+// Compare on the same inputs, tool versions and cache state; no speedup is guaranteed.
 ```
 
 ## Advanced Features After Migration
@@ -719,22 +701,9 @@ if (env === 'production') {
 ### 2. Conditional Processing
 
 ```typescript
-// Smart rebuilds based on changes
-import { createHash } from 'crypto';
-
-const cache = new Map();
-
-async function shouldRebuild(file: string): Promise<boolean> {
-  const content = await fs.readFile(file);
-  const hash = createHash('md5').update(content).digest('hex');
-  
-  if (cache.get(file) !== hash) {
-    cache.set(file, hash);
-    return true;
-  }
-  
-  return false;
-}
+// Let the bundler own dependency invalidation; Xec owns the surrounding steps.
+await $`npm run build`;
+await $`npm run verify:assets`;
 ```
 
 ### 3. Remote Execution

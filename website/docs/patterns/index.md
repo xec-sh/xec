@@ -2,7 +2,6 @@
 title: Common Patterns & Best Practices
 description: Design patterns and best practices for Xec automation
 keywords: [patterns, best practices, design, architecture, automation]
-verification_date: 2025-08-03
 ---
 
 # Common Patterns & Best Practices
@@ -44,32 +43,15 @@ This section covers common patterns, best practices, and design approaches for b
 ### Error Handling Pattern
 
 ```typescript
-// Robust error handling with retries
-async function deployWithRetry(target: string, maxRetries = 3) {
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      const result = await $.ssh(target)`
-        cd /app &&
-        git pull &&
-        npm install &&
-        npm run build &&
-        pm2 restart app
-      `.timeout(300000);
-      
-      console.log(`✅ Deployed successfully to ${target}`);
-      return result;
-      
-    } catch (error) {
-      console.log(`⚠️ Attempt ${i + 1} failed: ${error.message}`);
-      
-      if (i === maxRetries - 1) {
-        throw new Error(`Failed to deploy after ${maxRetries} attempts`);
-      }
-      
-      // Wait before retry
-      await new Promise(resolve => setTimeout(resolve, 5000));
-    }
-  }
+import { retry } from '@xec-sh/ops';
+
+// Retry a read-only probe. A deployment retry needs its own idempotency contract.
+async function probeWithRetry(host: string) {
+  return retry(() => $.ssh({ host, username: 'deploy' })
+    `curl --fail --silent http://localhost:3000/health`.timeout(5000), {
+      maxAttempts: 3,
+      initialDelay: 1000
+    });
 }
 ```
 
@@ -87,7 +69,7 @@ async function healthCheckAll(targets: string[]) {
         free -m &&
         systemctl status app
       `.nothrow();
-      
+
       return {
         target,
         healthy: result.exitCode === 0,
@@ -96,7 +78,7 @@ async function healthCheckAll(targets: string[]) {
       };
     })
   );
-  
+
   // Process results
   const summary = results.map((result, i) => {
     if (result.status === 'fulfilled') {
@@ -109,7 +91,7 @@ async function healthCheckAll(targets: string[]) {
       };
     }
   });
-  
+
   return summary;
 }
 ```
@@ -128,7 +110,7 @@ async function processLogs(logFile: string) {
     sort -rn |
     head -20
   `.lines();
-  
+
   return lines.map(line => {
     const [count, date, time, error] = line.trim().split(/\s+/);
     return { count: parseInt(count), date, time, error };
@@ -139,84 +121,39 @@ async function processLogs(logFile: string) {
 ### State Management Pattern
 
 ```typescript
-// Maintain state across execution
-class DeploymentManager {
-  private state: Map<string, any> = new Map();
-  
-  async deploy(environment: string) {
-    // Save initial state
-    this.state.set('start_time', Date.now());
-    this.state.set('environment', environment);
-    
-    try {
-      // Pre-deployment checks
-      await this.runChecks();
-      this.state.set('checks_passed', true);
-      
-      // Backup current version
-      const backup = await this.createBackup();
-      this.state.set('backup_id', backup.id);
-      
-      // Deploy new version
-      await this.deployCode();
-      this.state.set('deployed', true);
-      
-      // Verify deployment
-      await this.verify();
-      this.state.set('verified', true);
-      
-      // Cleanup
-      await this.cleanup();
-      
-      return {
-        success: true,
-        duration: Date.now() - this.state.get('start_time'),
-        backup: this.state.get('backup_id')
-      };
-      
-    } catch (error) {
-      // Rollback on failure
-      if (this.state.get('deployed') && !this.state.get('verified')) {
-        await this.rollback(this.state.get('backup_id'));
-      }
-      throw error;
-    }
-  }
-}
+import { Pipeline } from '@xec-sh/ops';
+
+const result = await Pipeline.create('validate')
+  .step('types', { run: 'npm run typecheck' })
+  .step('tests', { run: 'npm test', dependsOn: ['types'] })
+  .step('build', { run: 'npm run build', dependsOn: ['tests'] })
+  .run();
+console.log(result.steps.map(({ name, success, duration }) => ({ name, success, duration })));
+if (!result.success) throw new Error('Validation failed');
+// This result is an in-memory report, not durable deployment or rollback state.
 ```
 
 ### Stream Processing Pattern
 
 ```typescript
-// Process streaming data in real-time
-async function monitorLogs(service: string) {
-  const proc = $.ssh('log-server')`
-    journalctl -u ${service} -f --output=json
-  `;
-  
-  for await (const line of proc) {
-    try {
-      const entry = JSON.parse(line);
-      
-      // Process based on severity
-      if (entry.PRIORITY <= 3) { // ERROR or worse
-        await notifyOncall({
-          service,
-          message: entry.MESSAGE,
-          timestamp: entry.__REALTIME_TIMESTAMP
-        });
+import { createInterface } from 'node:readline';
+import { createReadStream } from 'node:fs';
+
+async function inspectLogs(file: string) {
+  const input = createReadStream(file, { encoding: 'utf8' });
+  const lines = createInterface({ input, crlfDelay: Infinity });
+  try {
+    for await (const line of lines) {
+      if (!line.trim()) continue;
+      const entry: unknown = JSON.parse(line);
+      if (typeof entry !== 'object' || entry === null || !('level' in entry)) {
+        throw new Error('Invalid log entry');
       }
-      
-      // Store in metrics
-      await metrics.record({
-        service,
-        level: entry.PRIORITY,
-        timestamp: Date.now()
-      });
-      
-    } catch (error) {
-      console.error('Failed to process log entry:', error);
+      if (entry.level === 'error') console.error(entry);
     }
+  } finally {
+    lines.close();
+    input.destroy();
   }
 }
 ```
@@ -225,27 +162,21 @@ async function monitorLogs(service: string) {
 
 ### 1. Error Handling
 
-Always handle errors appropriately:
+Handle expected failures and preserve unexpected ones:
 
 ```typescript
-// ❌ Bad - No error handling
-await $`deploy.sh`;
-
-// ✅ Good - Proper error handling
+// Ordinary execution throws on a nonzero exit; preserve that failure.
 try {
-  await $`deploy.sh`;
+  await $`npm run deploy`;
 } catch (error) {
-  console.error('Deployment failed:', error.message);
-  await $`rollback.sh`;
+  console.error('Deployment failed:', error instanceof Error ? error.message : String(error));
+  // Invoke recovery only when its application-specific preconditions are known.
   throw error;
 }
 
-// ✅ Better - Using nothrow pattern
-const result = await $`deploy.sh`.nothrow();
-if (result.exitCode !== 0) {
-  console.error('Deployment failed:', result.stderr);
-  await $`rollback.sh`;
-}
+// Use nothrow only when the exit code is an expected decision input.
+const test = await $`npm test`.nothrow();
+if (!test.ok) throw new Error(`Tests exited ${test.exitCode}`);
 ```
 
 ### 2. Resource Management
@@ -253,12 +184,14 @@ if (result.exitCode !== 0) {
 Always clean up resources:
 
 ```typescript
-// ✅ Good - Proper cleanup
-const conn = await pool.acquire();
+import { ExecutionEngine } from '@xec-sh/core';
+
+// Dispose an engine that this function owns, not a derivative of shared global $.
+const engine = new ExecutionEngine();
 try {
-  await conn.exec('command');
+  await engine.execute({ command: 'node --version' });
 } finally {
-  await pool.release(conn);
+  await engine.dispose();
 }
 ```
 
@@ -267,12 +200,12 @@ try {
 Set appropriate timeouts:
 
 ```typescript
-// ✅ Good - Timeout for long operations
-await $`backup.sh`.timeout(600000); // 10 minutes
+import { config } from '@xec-sh/ops';
 
-// ✅ Better - Configurable timeout
-const timeout = config.get('backup.timeout', 600000);
-await $`backup.sh`.timeout(timeout);
+await config.load();
+const timeout = config.get<number>('vars.backupTimeoutMs') ?? 600_000;
+if (!Number.isSafeInteger(timeout) || timeout < 1) throw new Error('Invalid backupTimeoutMs');
+await $`npm run backup`.timeout(timeout);
 ```
 
 ### 4. Logging and Monitoring
@@ -280,17 +213,14 @@ await $`backup.sh`.timeout(timeout);
 Add comprehensive logging:
 
 ```typescript
-// ✅ Good - Detailed logging
-console.log(`Starting deployment to ${environment}`);
+const environment = args[0];
+if (environment !== 'staging' && environment !== 'production') throw new Error('Select an environment');
 const startTime = Date.now();
-
 try {
-  const result = await deploy(environment);
-  console.log(`✅ Deployment successful in ${Date.now() - startTime}ms`);
-  await metrics.recordSuccess('deployment', Date.now() - startTime);
+  await $`npm run ${`deploy:${environment}`}`;
+  log.success(`Deployment completed in ${Date.now() - startTime} ms`);
 } catch (error) {
-  console.error(`❌ Deployment failed: ${error.message}`);
-  await metrics.recordFailure('deployment', error);
+  log.error(`Deployment failed after ${Date.now() - startTime} ms`);
   throw error;
 }
 ```
@@ -300,12 +230,10 @@ try {
 Externalize configuration:
 
 ```typescript
-// ❌ Bad - Hardcoded values
-await $.ssh('prod-server')`deploy`;
+import { targets } from '@xec-sh/ops';
 
-// ✅ Good - Configuration-driven
-const target = config.get('deployment.target');
-await $.ssh(target)`deploy`;
+// Resolve the exact configured target. An absent target is an error.
+await targets.exec('hosts.production', 'cd /srv/app && npm run deploy');
 ```
 
 ## Anti-Patterns to Avoid
@@ -313,15 +241,13 @@ await $.ssh(target)`deploy`;
 ### 1. Ignoring Exit Codes
 
 ```typescript
-// ❌ Bad - Ignoring failures
-await $`test.sh`;
-await $`deploy.sh`; // Deploys even if tests fail
+// Ordinary execution already stops on failure.
+await $`npm test`;
+await $`npm run deploy`;
 
-// ✅ Good - Check exit codes
-await $`test.sh`;
-if (result.exitCode === 0) {
-  await $`deploy.sh`;
-}
+// If nothrow is necessary, test the returned result explicitly.
+const result = await $`npm test`.nothrow();
+if (!result.ok) throw new Error(`Tests failed: exit ${result.exitCode}`);
 ```
 
 ### 2. No Timeout on Long Operations
@@ -337,17 +263,12 @@ await $`long-running-task`.timeout(300000);
 ### 3. Mixing Concerns
 
 ```typescript
-// ❌ Bad - Mixed responsibilities
-async function deployAndMonitor() {
-  // Deployment logic
-  // Monitoring logic
-  // Notification logic
-}
-
-// ✅ Good - Separated concerns
-async function deploy() { /* ... */ }
-async function monitor() { /* ... */ }
-async function notify() { /* ... */ }
+async function build() { await $`npm run build`; }
+async function test() { await $`npm test`; }
+async function deploy() { await $`npm run deploy`; }
+await test();
+await build();
+await deploy();
 ```
 
 ## Performance Patterns
@@ -355,31 +276,20 @@ async function notify() { /* ... */ }
 ### Connection Reuse
 
 ```typescript
-// Reuse SSH connections
-const engine = new ExecutionEngine({
-  connectionPool: {
-    max: 10,
-    idleTimeoutMillis: 30000
-  }
-});
-
-// Connections are automatically reused
-for (const command of commands) {
-  await engine.ssh('server').execute(command);
-}
+// Derive both commands from the same SSH engine; the root manages the pool.
+const server = $.ssh({ host: 'server.example.com', username: 'deploy' });
+await server`node --version`;
+await server`df -h`;
+// The Xec CLI owns final disposal of its global engine.
 ```
 
 ### Batch Operations
 
 ```typescript
-// Batch multiple operations
-async function batchUpdate(servers: string[], commands: string[]) {
-  const script = commands.join(' && ');
-  
-  return Promise.all(
-    servers.map(server =>
-      $.ssh(server)`${script}`.nothrow()
-    )
+async function inspectHosts(servers: string[]) {
+  return $.parallel.map(servers,
+    host => $.ssh({ host, username: 'deploy' })`node --version`.timeout(5000),
+    { maxConcurrency: 4 }
   );
 }
 ```
@@ -389,30 +299,19 @@ async function batchUpdate(servers: string[], commands: string[]) {
 ### Secret Management
 
 ```typescript
-// ✅ Good - Use environment variables
 const apiKey = process.env.API_KEY;
-await $`curl -H "Authorization: Bearer ${apiKey}" https://api.example.com`;
-
-// ✅ Better - Use secret management
-const secrets = await loadSecrets();
-await $`deploy`.env({ API_KEY: secrets.apiKey });
+if (!apiKey) throw new Error('API_KEY is required');
+// An environment variable keeps the value out of command arguments.
+await $`npm run deploy`.env({ API_KEY: apiKey });
 ```
 
 ### Input Validation
 
 ```typescript
-// Always validate external input
-function validateTarget(target: string): boolean {
-  const pattern = /^[a-zA-Z0-9.-]+$/;
-  return pattern.test(target);
-}
-
-async function executeOn(target: string, command: string) {
-  if (!validateTarget(target)) {
-    throw new Error('Invalid target format');
-  }
-  
-  await $.ssh(target)`${command}`;
+async function inspectHost(host: string) {
+  if (!/^[a-zA-Z0-9.-]+$/.test(host)) throw new Error('Invalid hostname');
+  // A fixed command is safer than accepting arbitrary shell text from a request.
+  await $.ssh({ host, username: 'deploy' })`node --version`.timeout(5000);
 }
 ```
 
@@ -421,44 +320,27 @@ async function executeOn(target: string, command: string) {
 ### Unit Testing Commands
 
 ```typescript
-import { describe, it, expect, vi } from 'vitest';
+import { it, expect } from 'vitest';
+import { $ } from '@xec-sh/core';
 
-describe('deployment', () => {
-  it('should deploy successfully', async () => {
-    const mockExec = vi.fn().mockResolvedValue({
-      stdout: 'Success',
-      exitCode: 0
-    });
-    
-    const result = await deploy('staging', { exec: mockExec });
-    
-    expect(result.success).toBe(true);
-    expect(mockExec).toHaveBeenCalledWith('deploy.sh');
-  });
+it('preserves arguments containing shell metacharacters', async () => {
+  const value = 'a b; literal';
+  const result = await $`${process.execPath} -e ${'console.log(process.argv[1])'} ${value}`;
+  expect(result.stdout.trim()).toBe(value);
 });
 ```
 
 ### Integration Testing
 
 ```typescript
-import { TestContainer } from '@xec-sh/testing';
+import { it, expect } from 'vitest';
+import { $ } from '@xec-sh/core';
+import { isDockerAvailable } from '@xec-sh/testing';
 
-describe('integration', () => {
-  let container: TestContainer;
-  
-  beforeAll(async () => {
-    container = new TestContainer();
-    await container.start();
-  });
-  
-  afterAll(async () => {
-    await container.stop();
-  });
-  
-  it('should execute in container', async () => {
-    const result = await $.docker({ container: container.id })`echo test`;
-    expect(result.stdout).toBe('test\n');
-  });
+// Requires Docker and the alpine:3.22 image; this test owns its disposable container.
+it.skipIf(!isDockerAvailable())('executes inside the test image', async () => {
+  const result = await $.docker({ image: 'alpine:3.22', autoRemove: true })`echo test`;
+  expect(result.stdout.trim()).toBe('test');
 });
 ```
 

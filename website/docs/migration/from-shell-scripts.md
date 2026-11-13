@@ -4,9 +4,8 @@ description: Complete guide for migrating bash/sh scripts to Xec
 keywords: [migration, bash, shell, scripts, automation]
 source_files:
   - packages/core/src/core/execution-engine.ts
-  - packages/core/src/adapters/local-adapter.ts
-  - apps/xec/src/script-runner.ts
-verification_date: 2025-08-03
+  - packages/core/src/adapters/local/index.ts
+  - apps/xec/src/commands/run.ts
 ---
 
 # Migrating from Shell Scripts to Xec
@@ -38,11 +37,11 @@ fi
 # Error-prone string manipulation
 for server in $(cat servers.txt | grep "^$ENV"); do
     echo "Deploying to $server..."
-    
+
     # No proper error handling
     ssh $server "mkdir -p /app" || exit 1
     scp -r dist/* $server:/app/ || exit 1
-    
+
     # Complex command construction
     ssh $server "cd /app && \
         $SED_CMD 's/VERSION_PLACEHOLDER/$VERSION/g' config.json && \
@@ -86,11 +85,11 @@ const targetServers = servers.filter(s => s.env === env);
 // Deploy with proper error handling
 for (const server of targetServers) {
   console.log(`Deploying to ${server.name}...`);
-  
+
   try {
     await $.ssh(server.host)`mkdir -p /app`;
     await $`xec copy dist/ ${server.host}:/app/`;
-    
+
     await $.ssh(server.host)`
       cd /app &&
       sed -i 's/VERSION_PLACEHOLDER/${version}/g' config.json &&
@@ -228,6 +227,8 @@ if (!existsSync('dist')) {
 const MINIFY = process.env.ENV === 'production';
 
 // Numeric comparison
+const count = Number(process.env.COUNT ?? '0');
+if (!Number.isSafeInteger(count) || count < 0) throw new Error('Invalid COUNT');
 if (count > 10) {
     console.log('Too many files');
 }
@@ -514,7 +515,7 @@ log() {
 check_disk_space() {
     local required=$1
     local available=$(df "$BACKUP_DIR" | awk 'NR==2 {print $4}')
-    
+
     if [ "$available" -lt "$required" ]; then
         log "ERROR: Insufficient disk space"
         return 1
@@ -525,9 +526,9 @@ check_disk_space() {
 backup_database() {
     local db=$1
     local backup_file="$BACKUP_DIR/db_${db}_$(date +%Y%m%d).sql.gz"
-    
+
     log "Backing up database: $db"
-    
+
     if mysqldump --single-transaction "$db" | gzip > "$backup_file"; then
         log "Database backup successful: $db"
         return 0
@@ -539,9 +540,9 @@ backup_database() {
 
 backup_files() {
     local backup_file="$BACKUP_DIR/files_$(date +%Y%m%d).tar.gz"
-    
+
     log "Backing up files"
-    
+
     tar czf "$backup_file" \
         --exclude='*.log' \
         --exclude='node_modules' \
@@ -564,7 +565,7 @@ start_services() {
 
 sync_to_remote() {
     log "Syncing to remote host"
-    
+
     rsync -avz --delete \
         "$BACKUP_DIR/" \
         "$REMOTE_HOST:/backups/" || {
@@ -575,44 +576,44 @@ sync_to_remote() {
 
 cleanup_old_backups() {
     log "Cleaning up old backups"
-    
+
     find "$BACKUP_DIR" -name "*.gz" -mtime +$RETENTION_DAYS -delete
 }
 
 # Main execution
 main() {
     log "Starting backup process"
-    
+
     # Check prerequisites
     if ! check_disk_space 1000000; then
         exit 1
     fi
-    
+
     # Stop services for consistency
     stop_services
-    
+
     # Perform backups
     local exit_code=0
-    
+
     for db in "${DATABASES[@]}"; do
         if ! backup_database "$db"; then
             exit_code=1
         fi
     done
-    
+
     if ! backup_files; then
         exit_code=1
     fi
-    
+
     # Restart services
     start_services
-    
+
     # Sync to remote if backups succeeded
     if [ $exit_code -eq 0 ]; then
         sync_to_remote
         cleanup_old_backups
     fi
-    
+
     log "Backup process complete (exit code: $exit_code)"
     exit $exit_code
 }
@@ -654,7 +655,7 @@ const config: BackupConfig = {
 async function log(message: string): Promise<void> {
     const timestamp = new Date().toISOString();
     const logEntry = `[${timestamp}] ${message}\n`;
-    
+
     console.log(logEntry.trim());
     await appendFile(config.logFile, logEntry);
 }
@@ -663,7 +664,7 @@ async function log(message: string): Promise<void> {
 async function checkDiskSpace(requiredKB: number): Promise<boolean> {
     const stats = await promisify(statfs)(config.backupDir);
     const availableKB = stats.bavail * stats.bsize / 1024;
-    
+
     if (availableKB < requiredKB) {
         await log('ERROR: Insufficient disk space');
         return false;
@@ -678,9 +679,9 @@ async function backupDatabase(db: string): Promise<boolean> {
         config.backupDir,
         `db_${db}_${date}.sql.gz`
     );
-    
+
     await log(`Backing up database: ${db}`);
-    
+
     try {
         await $`mysqldump --single-transaction ${db} | gzip > ${backupFile}`;
         await log(`Database backup successful: ${db}`);
@@ -698,15 +699,15 @@ async function backupFiles(): Promise<boolean> {
         config.backupDir,
         `files_${date}.tar.gz`
     );
-    
+
     await log('Backing up files');
-    
+
     try {
         await $`tar czf ${backupFile} \
             --exclude='*.log' \
             --exclude='node_modules' \
             /var/www /etc/nginx`;
-        
+
         await log('File backup successful');
         return true;
     } catch (error) {
@@ -743,13 +744,13 @@ async function startServices(): Promise<void> {
 // Remote sync with retry logic
 async function syncToRemote(retries = 3): Promise<boolean> {
     await log('Syncing to remote host');
-    
+
     for (let i = 0; i < retries; i++) {
         try {
             await $`rsync -avz --delete \
                 ${config.backupDir}/ \
                 ${config.remoteHost}:/backups/`;
-            
+
             await log('Remote sync successful');
             return true;
         } catch (error) {
@@ -759,7 +760,7 @@ async function syncToRemote(retries = 3): Promise<boolean> {
             }
         }
     }
-    
+
     await log('ERROR: Remote sync failed after all retries');
     return false;
 }
@@ -767,21 +768,21 @@ async function syncToRemote(retries = 3): Promise<boolean> {
 // Cleanup with safety checks
 async function cleanupOldBackups(): Promise<void> {
     await log('Cleaning up old backups');
-    
+
     try {
         // Safer cleanup with explicit file matching
         const files = await $`find ${config.backupDir} \
             -name "*.gz" \
             -mtime +${config.retentionDays} \
             -type f`.lines();
-        
+
         for (const file of files) {
             if (file) {
                 await log(`Deleting old backup: ${file}`);
                 await $`rm ${file}`;
             }
         }
-        
+
         await log(`Cleaned up ${files.length} old backups`);
     } catch (error) {
         await log(`ERROR: Cleanup failed: ${error}`);
@@ -791,44 +792,44 @@ async function cleanupOldBackups(): Promise<void> {
 // Main execution with proper error handling
 async function main(): Promise<void> {
     await log('Starting backup process');
-    
+
     // Check prerequisites
     if (!await checkDiskSpace(1000000)) {
         process.exit(1);
     }
-    
+
     // Stop services for consistency
     await stopServices();
-    
+
     let exitCode = 0;
-    
+
     try {
         // Perform backups in parallel where possible
         const dbBackups = await Promise.all(
             config.databases.map(db => backupDatabase(db))
         );
-        
+
         const filesBackup = await backupFiles();
-        
+
         // Check results
         if (dbBackups.some(result => !result) || !filesBackup) {
             exitCode = 1;
         }
-        
+
         // Sync to remote if backups succeeded
         if (exitCode === 0) {
             const syncSuccess = await syncToRemote();
             if (!syncSuccess) {
                 exitCode = 2; // Different code for sync failure
             }
-            
+
             await cleanupOldBackups();
         }
     } finally {
         // Always restart services
         await startServices();
     }
-    
+
     await log(`Backup process complete (exit code: ${exitCode})`);
     process.exit(exitCode);
 }
@@ -858,19 +859,21 @@ trap 'cleanup' EXIT
 
 **Xec:**
 ```typescript
-process.on('SIGINT', () => {
-    console.log('Interrupted');
-    process.exit(130); // Standard SIGINT exit code
-});
+import { getExecutionSignal } from '@xec-sh/core';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 
-process.on('SIGTERM', () => {
-    cleanup();
-    process.exit(0);
-});
-
-process.on('exit', () => {
-    cleanup();
-});
+// Under xec run, the first signal aborts owned operations and awaits finally.
+const directory = await mkdtemp(path.join(tmpdir(), 'build-'));
+try {
+  const build = $`npm run build`.env({ BUILD_OUTPUT: directory });
+  const signal = getExecutionSignal();
+  await (signal ? build.signal(signal) : build);
+} finally {
+  await rm(directory, { recursive: true, force: true });
+}
+// Do not call process.exit() or attach async cleanup to the synchronous exit event.
 ```
 
 ### 2. Background Jobs
@@ -975,46 +978,32 @@ enum LogLevel {
 
 // Type-safe functions
 async function deploy(config: DeployConfig): Promise<void> {
-    // Implementation
+    for (const host of config.servers) {
+        await $.ssh({ host, username: 'deploy' }).cd('/srv/app')`npm run deploy -- ${config.version}`;
+    }
 }
 ```
 
 ### 2. Error Handling Strategy
 
 ```typescript
-// Create custom error types
-class DeploymentError extends Error {
-    constructor(message: string, public server: string) {
-        super(message);
-        this.name = 'DeploymentError';
-    }
-}
-
-// Structured error handling
 try {
-    await riskyOperation();
+  await $`npm run deploy`;
 } catch (error) {
-    if (error instanceof DeploymentError) {
-        // Handle specific error
-    } else {
-        // Handle generic error
-    }
+  console.error('Deployment failed:', error instanceof Error ? error.message : String(error));
+  // Recovery is application-specific and must inspect the accepted deployment state.
+  throw error;
 }
 ```
 
 ### 3. Configuration Management
 
 ```typescript
-// Load configuration from multiple sources
-import { config } from 'dotenv';
-
-config(); // Load .env file
-
-const configuration = {
-    ...defaultConfig,
-    ...JSON.parse(await readFile('config.json', 'utf-8')),
-    ...process.env
-};
+import { config } from '@xec-sh/ops';
+await config.load();
+const environment = config.get<string>('vars.environment');
+if (!environment) throw new Error('vars.environment is required');
+console.log(`Configured environment: ${environment}`);
 ```
 
 ## Summary

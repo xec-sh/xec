@@ -3,21 +3,20 @@ title: Xec Recipes Cookbook
 description: Practical recipes and real-world examples for common Xec use cases
 keywords: [recipes, cookbook, examples, patterns, deployment, maintenance]
 source_files:
-  - packages/core/examples/
-  - apps/xec/examples/
-verification_date: 2025-01-03
+  - packages/core/src/core/execution-engine.ts
+  - packages/ops/src/pipeline/index.ts
 ---
 
 # Xec Recipes Cookbook
 
-Welcome to the Xec Recipes Cookbook - a comprehensive collection of practical, production-ready recipes for common automation tasks using Xec's universal command execution system.
+Welcome to the Xec Recipes Cookbook - a collection of adaptable recipes for common automation tasks using Xec's universal command execution system.
 
 ## 📚 Recipe Categories
 
 ### 🚀 [Deployment](deployment/node-app-deploy.md)
-Production-ready deployment strategies and patterns
+Deployment strategies and explicit acceptance checks
 
-- **[Node.js Application Deployment](deployment/node-app-deploy.md)** - Deploy Node.js apps with zero downtime
+- **[Node.js Application Deployment](deployment/node-app-deploy.md)** - Deploy Node.js applications with a reviewed transition
 - **[Static Site Deployment](deployment/static-site-deploy.md)** - Deploy to CDNs, S3, Nginx, and more
 - **[Docker Container Deployment](deployment/docker-deploy.md)** - Container orchestration and management
 - **[Kubernetes Deployment](deployment/k8s-deploy.md)** - Deploy to Kubernetes clusters with Helm
@@ -25,7 +24,7 @@ Production-ready deployment strategies and patterns
 ### 🔧 [Maintenance](maintenance/backup-restore.md)
 System maintenance and operational excellence
 
-- **[Log Aggregation](maintenance/log-aggregation.md)** - Centralized logging with ELK/Loki
+- **[Log Aggregation](maintenance/log-aggregation.md)** - Inspect sources and verify centralized delivery
 - **[Backup and Restore](maintenance/backup-restore.md)** - Comprehensive backup strategies
 - **[Health Checks](maintenance/health-checks.md)** - Service monitoring and alerting
 - **[Certificate Renewal](maintenance/certificate-renewal.md)** - SSL/TLS certificate management
@@ -35,7 +34,7 @@ Development workflows and environment setup
 
 - **[Database Setup](development/database-setup.md)** - Local database configuration
 - **[API Mocking](development/api-mocking.md)** - Mock servers for development
-- **[Test Data Generation](development/test-data.md)** - Generate realistic test data
+- **[Test Data Generation](development/test-data.md)** - Generate deterministic test fixtures
 - **[Hot Reload Workflows](development/hot-reload.md)** - Live development with hot reload
 
 ### 🔌 [Integration](integration/github-actions.md)
@@ -63,11 +62,7 @@ Each recipe follows a consistent structure:
 
 ### Code Verification
 
-All recipes in this cookbook:
-- ✅ Are tested against the actual Xec codebase
-- ✅ Include working examples with real implementation
-- ✅ Reference actual source files and functions
-- ✅ Follow the surgical precision requirement from the documentation spec
+JavaScript and TypeScript examples are checked against Xec's public types. Commands that use remote services, databases or cloud providers also require the named tools, credentials and application-owned scripts. Type checking does not establish a production deployment or restore guarantee: run each recipe's acceptance checks in the intended environment.
 
 ### Getting Started
 
@@ -118,45 +113,46 @@ All recipes in this cookbook:
 
 **Databases:**
 - PostgreSQL → [Backup and Restore](maintenance/backup-restore.md)
-- MySQL → [Backup and Restore](maintenance/backup-restore.md)
-- MongoDB → [Backup and Restore](maintenance/backup-restore.md)
+- MySQL → [Database Setup](development/database-setup.md)
+- MongoDB → [Database Setup](development/database-setup.md)
 - Redis → [Database Setup](development/database-setup.md)
 
 ## 💡 Common Patterns
 
 ### Parallel Execution
 ```typescript
-// Execute on multiple targets simultaneously
-await Promise.all(
-  targets.map(target => $.ssh(target)`command`)
-);
+const hosts = ['web-1.example.com', 'web-2.example.com'];
+const results = await $.parallel.map(hosts,
+  host => $.ssh({ host, username: 'observer' })`hostname`,
+  { maxConcurrency: 2 });
+for (const result of results.results) {
+  if (result instanceof Error) throw result;
+  console.log(result.stdout.trim());
+}
 ```
 
 ### Error Handling
 ```typescript
-// Use Result pattern for safe execution
-const result = await $`command`.nothrow();
-if (!result.ok) {
-  console.error(`Failed: ${result.cause}`);
-}
+const result = await $`node --version`.nothrow();
+if (!result.ok) throw new Error(`Runtime probe failed: ${result.cause}`);
+console.log(result.stdout.trim());
 ```
 
 ### Progress Tracking
 ```typescript
-// Track multi-step operations
-for (const [index, step] of steps.entries()) {
-  console.log(`Step ${index + 1}/${steps.length}: ${step.name}`);
-  await step.execute();
-}
+import { Pipeline } from '@xec-sh/ops';
+const result = await Pipeline.create('validate')
+  .step('runtime', { run: 'node --version' })
+  .step('package-manager', { run: 'npm --version', dependsOn: ['runtime'] })
+  .run({}, { onEvent: event => { console.log(event); } });
+if (result.status !== 'success') throw new Error(`Validation ${result.status}`);
 ```
 
 ### Connection Reuse
 ```typescript
-// Reuse SSH connections for multiple commands
-const server = $.ssh('production');
-await server`command1`;
-await server`command2`;
-await server`command3`;
+const server = $.ssh({ host: 'staging.example.com', username: 'observer' });
+await server`hostname`;
+await server`uptime`;
 ```
 
 ## 📝 Contributing Recipes
@@ -178,24 +174,11 @@ We welcome contributions! To add a new recipe:
 
 ## 📊 Recipe Statistics
 
-- **Total Recipes**: 16 complete recipes
-- **Categories**: 4 main categories
-- **Technologies Covered**: 20+ technologies
-- **Code Examples**: 100+ working examples
-- **Best Practices**: 50+ recommendations
+The cookbook groups recipes into deployment, maintenance, development and integration. The examples use shared Xec execution, configuration and lifecycle APIs; application-specific schemas and service policies remain explicit inputs.
 
 ## 🚦 Recipe Maturity
 
-| Recipe | Status | Testing | Production Ready |
-|--------|--------|---------|------------------|
-| Node.js Deployment | ✅ Complete | ✅ Tested | ✅ Yes |
-| Static Site Deployment | ✅ Complete | ✅ Tested | ✅ Yes |
-| Docker Deployment | ✅ Complete | ✅ Tested | ✅ Yes |
-| Kubernetes Deployment | ✅ Complete | ✅ Tested | ✅ Yes |
-| Log Aggregation | ✅ Complete | ✅ Tested | ✅ Yes |
-| Backup and Restore | ✅ Complete | ✅ Tested | ✅ Yes |
-| Hot Reload | ✅ Complete | ✅ Tested | ✅ Yes |
-| GitHub Actions | ✅ Complete | ✅ Tested | ✅ Yes |
+Choose acceptance criteria for the actual target: a successful process exit, healthy container, reachable HTTP endpoint and validated application data are separate guarantees. Adapt and test the selected recipe before enabling automated production changes. Preserve a recovery path appropriate to the data and service being changed.
 
 ## 🎓 Learning Path
 
@@ -219,7 +202,6 @@ We welcome contributions! To add a new recipe:
 - **Documentation**: Check the detailed documentation for each recipe
 - **Examples**: Look at the complete examples in each recipe
 - **Troubleshooting**: Each recipe includes a troubleshooting section
-- **Community**: Join our Discord for recipe discussions
 - **Support**: Open an issue for recipe-specific problems
 
 ---

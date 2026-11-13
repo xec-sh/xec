@@ -3,10 +3,9 @@ title: Migrating from Make
 description: Comprehensive guide for migrating from Makefile to Xec
 keywords: [migration, make, makefile, build, automation]
 source_files:
-  - apps/xec/src/config/task-manager.ts
+  - packages/ops/src/config/task-manager.ts
   - apps/xec/src/commands/run.ts
   - packages/core/src/core/execution-engine.ts
-verification_date: 2025-08-03
 ---
 
 # Migrating from Make to Xec
@@ -59,11 +58,11 @@ tasks:
     description: Build application
     command: gcc -Wall -O2 -o app src/*.c
     outputs: [app]
-    
+
   test:
     needs: [build]
     command: ./test/run-tests.sh
-    
+
   deploy:
     needs: [test]
     targets: production
@@ -118,7 +117,7 @@ clean:
 tasks:
   hello:
     command: echo "Hello, World!"
-    
+
   clean:
     steps:
       - command: rm -rf build/
@@ -168,21 +167,21 @@ package: test
 tasks:
   all:
     needs: [build, test, package]
-    
+
   build:
     needs: [compile, link]
-    
+
   compile:
     command: gcc -c src/*.c
-    
+
   link:
     needs: [compile]
     command: gcc *.o -o app
-    
+
   test:
     needs: [build]
     command: ./run-tests
-    
+
   package:
     needs: [test]
     command: tar -czf app.tar.gz app
@@ -225,7 +224,7 @@ for (const source of sources) {
   const object = source
     .replace(SRC_DIR, BUILD_DIR)
     .replace('.c', '.o');
-  
+
   console.log(`Compiling ${source}...`);
   await $`${CC} ${CFLAGS} -c ${source} -o ${object}`;
 }
@@ -259,7 +258,7 @@ import { $, glob } from '@xec-sh/core';
 // Process markdown to PDF
 const markdownFiles = await glob('**/*.md');
 await Promise.all(
-  markdownFiles.map(file => 
+  markdownFiles.map(file =>
     $`pandoc ${file} -o ${file.replace('.md', '.pdf')}`
   )
 );
@@ -462,21 +461,21 @@ defaults:
 tasks:
   all:
     needs: [build]
-    
+
   build:
     description: Build the C++ application
     script: scripts/build.ts
-    
+
   test:
     description: Run test suite
     needs: [build]
     script: scripts/test.ts
-    
+
   install:
     description: Install to system
     needs: [build]
     command: install -m 755 myapp /usr/local/bin/
-    
+
   docker:
     description: Build and push Docker image
     steps:
@@ -484,11 +483,11 @@ tasks:
         command: docker build -t myapp:latest .
       - name: Push image
         command: docker push myregistry/myapp:latest
-        
+
   clean:
     description: Clean build artifacts
     script: scripts/clean.ts
-    
+
   watch:
     description: Watch and rebuild on changes
     command: xec watch local "src/**/*.cpp" --command "xec build"
@@ -520,7 +519,7 @@ const compilePromises = sources.map(async (source) => {
     BUILD_DIR,
     path.basename(source, '.cpp') + '.o'
   );
-  
+
   console.log(`  Compiling ${source}...`);
   await $`${CXX} ${CXXFLAGS} -c ${source} -o ${object}`;
   return object;
@@ -560,7 +559,7 @@ const testObjects = await Promise.all(
       BUILD_DIR,
       'test_' + path.basename(source, '.cpp') + '.o'
     );
-    
+
     await $`${CXX} ${CXXFLAGS} -c ${source} -o ${object}`;
     return object;
   })
@@ -619,17 +618,14 @@ $(foreach obj,$(OBJECTS),$(eval $(call compile_rule,$(obj),$(obj:.o=.cpp))))
 
 **Xec TypeScript:**
 ```typescript
-// scripts/compile.ts
-function createCompileTask(source: string, output: string) {
-  return $`${CXX} ${CXXFLAGS} -c ${source} -o ${output}`;
-}
-
-const compileTasks = sources.map(source => {
-  const output = source.replace('.cpp', '.o');
-  return createCompileTask(source, output);
-});
-
-await Promise.all(compileTasks);
+import { glob } from '@xec-sh/core';
+const compiler = process.env.CXX || 'g++';
+const flags = ['-std=c++20', '-O2'];
+const sources = await glob('src/**/*.cpp');
+await $.parallel.map(sources, source =>
+  $`${compiler} ${flags} -c ${source} -o ${source.replace(/\.cpp$/, '.o')}`,
+  { maxConcurrency: 4 }
+);
 ```
 
 ### 3. Auto-Dependencies
@@ -646,37 +642,10 @@ DEPS = $(OBJECTS:.o=.d)
 
 **Xec with Incremental Rebuilds:**
 ```typescript
-// scripts/build-incremental.ts
-import { $ } from '@xec-sh/core';
-import { createHash } from 'crypto';
-import { readFile } from 'fs/promises';
-
-const cache = new Map<string, string>();
-
-async function getFileHash(file: string): Promise<string> {
-  const content = await readFile(file);
-  return createHash('md5').update(content).digest('hex');
-}
-
-async function needsRebuild(source: string): Promise<boolean> {
-  const hash = await getFileHash(source);
-  const cached = cache.get(source);
-  
-  if (cached !== hash) {
-    cache.set(source, hash);
-    return true;
-  }
-  
-  return false;
-}
-
-// Only compile changed files
-for (const source of sources) {
-  if (await needsRebuild(source)) {
-    console.log(`Recompiling ${source}...`);
-    await $`${CXX} ${CXXFLAGS} -c ${source} -o ${output}`;
-  }
-}
+// Retain Make's dependency graph and header tracking. A hash of one .cpp file
+// does not account for included headers, compiler options or toolchain changes.
+await $`make --jobs=4 app`;
+await $`npm run test:native`;
 ```
 
 ## Migration Strategy
@@ -719,7 +688,7 @@ build: xec-build
 1. Convert all targets to Xec tasks
 2. Replace pattern rules with TypeScript scripts
 3. Update CI/CD pipelines
-4. Remove Makefile
+4. Remove only superseded orchestration; retain Make when it owns incremental compilation and dependency tracking.
 
 ## Compatibility During Migration
 
@@ -774,7 +743,7 @@ const result = await $`gcc -o app src/*.c`.nothrow();
 if (!result.ok) {
   console.error('Compilation failed:', result.stderr);
   // Send notification, create issue, etc.
-  await notifyBuildFailure(result.stderr);
+  throw new Error(`Compilation failed with exit ${result.exitCode}`);
 }
 ```
 
@@ -786,15 +755,11 @@ if (!result.ok) {
 
 ### 4. Enhanced Parallelism
 ```typescript
-// Compile all files in parallel with concurrency limit
-import pLimit from 'p-limit';
-
-const limit = pLimit(4); // Max 4 concurrent compilations
-
-await Promise.all(
-  sources.map(source => 
-    limit(() => compileFile(source))
-  )
+import { glob } from '@xec-sh/core';
+const sources = await glob('src/**/*.cpp');
+await $.parallel.map(sources,
+  source => $`g++ -std=c++20 -c ${source} -o ${source.replace(/\.cpp$/, '.o')}`,
+  { maxConcurrency: 4 }
 );
 ```
 
@@ -806,7 +771,7 @@ await Promise.all(
 
 ### 2. Shell Differences
 - Make uses sh by default
-- Xec provides consistent cross-platform shell
+- Xec provides consistent execution APIs; shell syntax and installed compilers still differ by platform
 
 ### 3. Variable Expansion
 - Make: `$(VAR)` or `${VAR}`

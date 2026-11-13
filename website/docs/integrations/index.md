@@ -2,7 +2,6 @@
 title: Integrations
 description: Integration guides for CI/CD, cloud providers, and third-party tools
 keywords: [integrations, ci/cd, cloud, github, gitlab, aws, docker, kubernetes]
-verification_date: 2025-08-03
 ---
 
 # Integrations
@@ -55,174 +54,87 @@ For general CI/CD guidance:
 ### GitHub Actions
 
 ```yaml
-# .github/workflows/deploy.yml
-name: Deploy with Xec
-
-on:
-  push:
-    branches: [main]
-
+name: Validate
+on: [push, pull_request]
 jobs:
-  deploy:
+  validate:
     runs-on: ubuntu-latest
-    
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
-    
-    - name: Install Xec
-      run: npm install -g @xec-sh/cli
-    
-    - name: Configure Xec
-      run: |
-        cat > .xec/config.yaml << EOF
-        targets:
-          production:
-            type: ssh
-            host: ${{ secrets.PROD_HOST }}
-            user: deploy
-            privateKey: ${{ secrets.SSH_KEY }}
-        EOF
-    
-    - name: Deploy Application
-      run: |
-        xec on production "
-          cd /app &&
-          git pull &&
-          npm install &&
-          npm run build &&
-          pm2 restart app
-        "
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      # package.json declares @xec-sh/cli; scripts/ci.ts is versioned with the project.
+      - run: npx --no-install xec run scripts/ci.ts
 ```
 
 ### Docker Integration
 
 ```typescript
-// Build and deploy Docker image
 import { $ } from '@xec-sh/core';
 
+// The remote compose.yaml owns ports, volumes and service configuration.
 async function deployDocker(tag: string) {
-  // Build image
-  await $`docker build -t myapp:${tag} .`;
-  
-  // Tag for registry
-  await $`docker tag myapp:${tag} registry.example.com/myapp:${tag}`;
-  
-  // Push to registry
-  await $`docker push registry.example.com/myapp:${tag}`;
-  
-  // Deploy to production
-  await $.ssh('prod-server')`
-    docker pull registry.example.com/myapp:${tag} &&
-    docker stop myapp || true &&
-    docker run -d --name myapp -p 80:3000 registry.example.com/myapp:${tag}
-  `;
+  if (!/^[a-zA-Z0-9_.-]+$/.test(tag)) throw new Error('Invalid image tag');
+  const image = `registry.example.com/myapp:${tag}`;
+  await $`docker build -t ${image} .`;
+  await $`docker push ${image}`;
+  const remote = $.ssh({ host: 'prod.example.com', username: 'deploy' })
+    .cd('/srv/myapp').env({ APP_IMAGE: image });
+  // compose.yaml reads APP_IMAGE. up replaces the container; restart would not.
+  await remote`docker compose pull`;
+  await remote`docker compose up -d --wait`;
 }
 ```
 
 ### AWS Integration
 
 ```typescript
-// Deploy to AWS ECS
 async function deployToECS(cluster: string, service: string) {
-  // Build and push image
-  await $`
-    aws ecr get-login-password --region us-east-1 |
-    docker login --username AWS --password-stdin ${ECR_REGISTRY}
-  `;
-  
-  await $`docker build -t ${service} .`;
-  await $`docker tag ${service}:latest ${ECR_REGISTRY}/${service}:latest`;
-  await $`docker push ${ECR_REGISTRY}/${service}:latest`;
-  
-  // Update ECS service
-  await $`
-    aws ecs update-service \
-      --cluster ${cluster} \
-      --service ${service} \
-      --force-new-deployment
-  `;
-  
-  // Wait for deployment
-  await $`
-    aws ecs wait services-stable \
-      --cluster ${cluster} \
-      --services ${service}
-  `;
+  const registry = process.env.ECR_REGISTRY;
+  if (!registry) throw new Error('ECR_REGISTRY is required');
+  await $`aws ecr get-login-password --region us-east-1`
+    .pipe($`docker login --username AWS --password-stdin ${registry}`);
+  const image = `${registry}/${service}:latest`;
+  await $`docker build -t ${image} .`;
+  await $`docker push ${image}`;
+  // The service task definition must reference this image tag.
+  await $`aws ecs update-service --cluster ${cluster} --service ${service} --force-new-deployment`;
+  await $`aws ecs wait services-stable --cluster ${cluster} --services ${service}`.timeout(600_000);
 }
 ```
 
 ### Kubernetes Deployment
 
 ```typescript
-// Rolling deployment to Kubernetes
-async function deployToK8s(namespace: string, deployment: string) {
-  // Update image
-  await $`
-    kubectl set image deployment/${deployment} \
-      app=myapp:${VERSION} \
-      -n ${namespace}
-  `;
-  
-  // Wait for rollout
-  await $`
-    kubectl rollout status deployment/${deployment} \
-      -n ${namespace} \
-      --timeout=10m
-  `;
-  
-  // Verify deployment
-  const pods = await $`
-    kubectl get pods -n ${namespace} \
-      -l app=${deployment} \
-      -o json
-  `.json();
-  
-  console.log(`Deployed ${pods.items.length} pods`);
+async function deployToK8s(context: string, namespace: string, deployment: string, image: string) {
+  // Use the same explicit context and namespace for change and acceptance.
+  const kubeArgs = ['--context', context, '--namespace', namespace];
+  await $`kubectl ${kubeArgs} set image ${`deployment/${deployment}`} ${`app=${image}`}`;
+  await $`kubectl ${kubeArgs} rollout status ${`deployment/${deployment}`} --timeout=10m`.timeout(610_000);
 }
 ```
 
 ### GitLab CI Integration
 
 ```yaml
-# .gitlab-ci.yml
-stages:
-  - test
-  - build
-  - deploy
-
-before_script:
-  - npm install -g @xec-sh/cli
-
-test:
-  stage: test
+image: node:24
+stages: [validate, deploy]
+validate:
+  stage: validate
   script:
-    - xec run test
-
-build:
-  stage: build
-  script:
-    - xec run build
-  artifacts:
-    paths:
-      - dist/
-
+    - npm ci
+    - npx --no-install xec run scripts/ci.ts
 deploy:
   stage: deploy
-  only:
-    - main
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual
   script:
-    - |
-      xec on production "
-        cd /app &&
-        git pull &&
-        npm ci --production &&
-        pm2 restart app
-      "
+    - npm ci
+    - npx --no-install xec run scripts/deploy.ts
 ```
 
 ### Jenkins Pipeline
@@ -231,30 +143,30 @@ deploy:
 // Jenkinsfile
 pipeline {
     agent any
-    
+
     environment {
         XEC_CONFIG = '.xec/config.yaml'
     }
-    
+
     stages {
         stage('Setup') {
             steps {
-                sh 'npm install -g @xec-sh/cli'
+                sh 'npm ci'
             }
         }
-        
+
         stage('Test') {
             steps {
-                sh 'xec run test'
+                sh 'npx --no-install xec run scripts/test.ts'
             }
         }
-        
+
         stage('Build') {
             steps {
-                sh 'xec run build'
+                sh 'npx --no-install xec run scripts/build.ts'
             }
         }
-        
+
         stage('Deploy') {
             when {
                 branch 'main'
@@ -264,14 +176,7 @@ pipeline {
                     credentialsId: 'deploy-key',
                     keyFileVariable: 'SSH_KEY'
                 )]) {
-                    sh '''
-                        xec on production "
-                            cd /app &&
-                            git pull &&
-                            npm install &&
-                            pm2 restart app
-                        "
-                    '''
+                    sh 'npx --no-install xec run scripts/deploy.ts'
                 }
             }
         }
@@ -284,99 +189,66 @@ pipeline {
 ### Webhook Handlers
 
 ```typescript
-// Handle GitHub webhooks
-async function handleGitHubWebhook(payload: any) {
-  if (payload.action === 'opened' && payload.pull_request) {
-    // Run tests on new PR
-    await $`
-      git fetch origin pull/${payload.pull_request.number}/head:pr-${payload.pull_request.number} &&
-      git checkout pr-${payload.pull_request.number} &&
-      npm test
-    `;
-  }
+// Invoke only after the HTTP boundary authenticates the sender, verifies the
+// signature on raw bytes and authorizes this repository. Do not expose this as
+// an unauthenticated endpoint. The checkout is an isolated, unprivileged CI workspace.
+async function validateVerifiedCommit(commit: string) {
+  if (!/^[a-f0-9]{40,64}$/.test(commit)) throw new Error('Expected a full Git object ID');
+  const checkedOut = await $`git rev-parse HEAD`.text();
+  if (checkedOut.trim() !== commit) throw new Error('Checkout does not match the verified event');
+  await $`npm ci`;
+  await $`npm test`;
 }
 ```
 
 ### API Integrations
 
 ```typescript
-// Integrate with external APIs
-class JiraIntegration {
-  async createIssue(title: string, description: string) {
-    const response = await fetch(`${JIRA_URL}/rest/api/2/issue`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${Buffer.from(`${JIRA_USER}:${JIRA_TOKEN}`).toString('base64')}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        fields: {
-          project: { key: 'PROJ' },
-          summary: title,
-          description,
-          issuetype: { name: 'Task' }
-        }
-      })
-    });
-    
-    return response.json();
-  }
+async function createJiraIssue(title: string, description: string) {
+  const { JIRA_URL, JIRA_USER, JIRA_TOKEN } = process.env;
+  if (!JIRA_URL || !JIRA_USER || !JIRA_TOKEN) throw new Error('Jira credentials and URL are required');
+  const response = await fetch(new URL('/rest/api/2/issue', JIRA_URL), {
+    method: 'POST',
+    signal: AbortSignal.timeout(10_000),
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${JIRA_USER}:${JIRA_TOKEN}`).toString('base64')}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ fields: {
+      project: { key: 'PROJ' }, summary: title, description, issuetype: { name: 'Task' }
+    } })
+  });
+  if (!response.ok) throw new Error(`Jira returned HTTP ${response.status}`);
+  return response.json();
 }
 ```
 
 ### Slack Notifications
 
 ```typescript
-// Send deployment notifications to Slack
-async function notifySlack(webhook: string, message: any) {
-  await fetch(webhook, {
+async function notifySlack(webhook: string, message: string) {
+  const response = await fetch(webhook, {
     method: 'POST',
+    signal: AbortSignal.timeout(10_000),
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      text: message.text,
-      attachments: [{
-        color: message.success ? 'good' : 'danger',
-        fields: [
-          { title: 'Environment', value: message.environment },
-          { title: 'Version', value: message.version },
-          { title: 'Deployed by', value: message.user },
-          { title: 'Duration', value: `${message.duration}s` }
-        ]
-      }]
-    })
+    body: JSON.stringify({ text: message })
   });
+  if (!response.ok) throw new Error(`Notification failed with HTTP ${response.status}`);
 }
 ```
 
 ### Event-Driven Automation
 
 ```typescript
-// React to system events
-import { EventEmitter } from 'events';
+import { Pipeline } from '@xec-sh/ops';
 
-class DeploymentAutomation extends EventEmitter {
-  async onPushToMain(commit: string) {
-    this.emit('deployment:start', { commit });
-    
-    try {
-      // Run tests
-      await $`npm test`;
-      this.emit('tests:passed');
-      
-      // Build application
-      await $`npm run build`;
-      this.emit('build:completed');
-      
-      // Deploy
-      await this.deploy();
-      this.emit('deployment:success');
-      
-    } catch (error) {
-      this.emit('deployment:failed', error);
-      throw error;
-    }
-  }
-}
+// The trusted event handler selects this versioned pipeline.
+const result = await Pipeline.create('delivery')
+  .step('tests', { run: 'npm test' })
+  .step('build', { run: 'npm run build', dependsOn: ['tests'] })
+  .step('deploy', { run: 'npm run deploy', dependsOn: ['build'] })
+  .run({}, { onEvent: event => { console.log(event.type); } });
+if (!result.success) throw new Error('Delivery failed');
 ```
 
 ## Security Considerations
@@ -405,16 +277,10 @@ For secure credential handling, see:
 ### Connection Pooling
 
 ```typescript
-// Reuse connections for better performance
-const pool = new ConnectionPool({
-  max: 10,
-  idleTimeout: 30000
-});
-
-// Connections are reused automatically
-for (const server of servers) {
-  await pool.execute(server, 'command');
-}
+// Engines derived from $ share its adapter pool. The CLI disposes it at exit.
+const server = $.ssh({ host: 'prod.example.com', username: 'deploy' });
+await server`node --version`;
+await server`df -h`;
 ```
 
 For more on connection pooling:
@@ -423,23 +289,15 @@ For more on connection pooling:
 ### Caching Strategies
 
 ```typescript
-// Cache expensive operations
-const cache = new Map();
-
-async function getDeploymentStatus(env: string) {
-  const key = `status:${env}`;
-  
-  if (cache.has(key)) {
-    const cached = cache.get(key);
-    if (Date.now() - cached.time < 60000) { // 1 minute
-      return cached.data;
-    }
-  }
-  
-  const status = await fetchStatus(env);
-  cache.set(key, { data: status, time: Date.now() });
-  
-  return status;
+// Cache only observations whose staleness is acceptable; refresh before mutation.
+const cache = new Map<string, { checkedAt: number; healthy: boolean }>();
+async function getHealth(url: string) {
+  const cached = cache.get(url);
+  if (cached && Date.now() - cached.checkedAt < 5_000) return cached.healthy;
+  const response = await fetch(url, { signal: AbortSignal.timeout(2_000) });
+  const healthy = response.ok;
+  cache.set(url, { checkedAt: Date.now(), healthy });
+  return healthy;
 }
 ```
 
@@ -457,13 +315,13 @@ async function getDeploymentStatus(env: string) {
 
 ```bash
 # Enable debug output
-XEC_DEBUG=true xec deploy
+xec --verbose run scripts/deploy.ts
 
 # Test connectivity
-xec on production "echo test"
+xec on hosts.production echo test
 
 # Verify credentials
-xec config validate
+xec inspect --validate
 
 # Check API access
 curl -H "Authorization: Bearer $TOKEN" https://api.example.com/status

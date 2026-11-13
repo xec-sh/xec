@@ -4,9 +4,8 @@ description: Guide for migrating from Google's zx or shelljs to Xec
 keywords: [migration, zx, shelljs, automation, scripting]
 source_files:
   - packages/core/src/core/execution-engine.ts
-  - packages/core/src/core/process-promise.ts
-  - apps/xec/src/script-runner.ts
-verification_date: 2025-08-03
+  - packages/core/src/core/process-context.ts
+  - apps/xec/src/commands/run.ts
 ---
 
 # Migrating from zx/shelljs to Xec
@@ -18,6 +17,7 @@ This guide helps you migrate from Google's zx or shelljs to Xec. While zx brough
 ## Why Migrate to Xec?
 
 ### zx Example
+<!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
 ```javascript
 #!/usr/bin/env zx
 
@@ -43,6 +43,7 @@ await Promise.all([
 ```
 
 ### shelljs Example
+<!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
 ```javascript
 const shell = require('shelljs');
 
@@ -68,7 +69,7 @@ shell.cp('-R', 'src/', 'dist/');
 
 ```typescript
 // scripts/deploy.ts
-import { $, glob } from '@xec-sh/core';
+import { $, glob, type ProcessPromise } from '@xec-sh/core';
 
 // Multi-environment execution
 await $`npm install`;                           // Local
@@ -113,7 +114,7 @@ await $.ssh('server')
 | `sleep()` | `sleep()` | Same behavior |
 | `glob()` | `glob()` | Same behavior |
 | `fs` | `node:fs/promises` | Not re-exported; import Node's own module |
-| `chalk` | `chalk` | Not re-exported; install and import it directly |
+| `chalk` | `prism` from `@xec-sh/kit` | Built-in terminal styling; no extra Chalk dependency |
 | `argv` | `argv` / `args` | zx's `argv` is minimist-parsed; Xec's `argv` is the raw array and `args` holds just the script's arguments — use `parseArgs(args)` for flags |
 | `$.verbose` | `$.verbose` | Same behavior |
 | `$.shell` | `$.shell()` | A method, not an assignable property |
@@ -148,6 +149,7 @@ await $.ssh('server')
 ### 1. Basic Command Execution
 
 **zx:**
+<!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
 ```javascript
 #!/usr/bin/env zx
 
@@ -161,6 +163,7 @@ const quiet = await $`npm install`;
 ```
 
 **shelljs:**
+<!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
 ```javascript
 const result = shell.exec('git branch --show-current', { silent: true });
 if (result.code === 0) {
@@ -191,6 +194,7 @@ const containerFiles = await $.docker('app')`ls -la`;
 ### 2. Error Handling
 
 **zx:**
+<!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
 ```javascript
 try {
   await $`exit 1`;
@@ -207,6 +211,7 @@ if (result.exitCode !== 0) {
 ```
 
 **shelljs:**
+<!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
 ```javascript
 const result = shell.exec('exit 1');
 if (result.code !== 0) {
@@ -226,8 +231,8 @@ import { $ } from '@xec-sh/core';
 try {
   await $`exit 1`;
 } catch (error) {
-  console.log(`Exit code: ${error.exitCode}`);
-  console.log(`Error: ${error.stderr}`);
+  console.error(error instanceof Error ? error.message : String(error));
+  throw error;
 }
 
 // Result pattern (preferred)
@@ -252,6 +257,7 @@ const failed = results.filter(r => r.status === 'rejected');
 ### 3. File Operations
 
 **zx:**
+<!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
 ```javascript
 import { fs } from 'zx';
 
@@ -263,6 +269,7 @@ const configs = await glob('**/*.json');
 ```
 
 **shelljs:**
+<!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
 ```javascript
 shell.ls('-la', '.');
 shell.echo('content').to('output.txt');
@@ -293,6 +300,7 @@ await $.transfer.copy('local.txt', 'docker://container:/app/local.txt');
 ### 4. Working Directory
 
 **zx:**
+<!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
 ```javascript
 const cwd = process.cwd();
 cd('/tmp');
@@ -307,6 +315,7 @@ await $`pwd`; // back to original
 ```
 
 **shelljs:**
+<!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
 ```javascript
 const cwd = shell.pwd();
 shell.cd('/tmp');
@@ -340,6 +349,7 @@ await $.ssh('server')`cd /app && npm install`;
 ### 5. Environment Variables
 
 **zx:**
+<!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
 ```javascript
 process.env.NODE_ENV = 'production';
 await $`echo $NODE_ENV`;
@@ -348,6 +358,7 @@ await $`NODE_ENV=production npm run build`;
 ```
 
 **shelljs:**
+<!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
 ```javascript
 shell.env.NODE_ENV = 'production';
 shell.exec('echo $NODE_ENV');
@@ -375,6 +386,7 @@ await $.docker('container')
 ### 6. Piping and Streams
 
 **zx:**
+<!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
 ```javascript
 await $`cat file.txt | grep pattern | wc -l`;
 
@@ -384,6 +396,7 @@ await proc1.pipe(proc2);
 ```
 
 **shelljs:**
+<!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
 ```javascript
 shell.cat('file.txt').grep('pattern').exec('wc -l');
 
@@ -417,6 +430,7 @@ for await (const line of $.ssh('server')`tail -f /var/log/app.log`) {
 ### 1. Parallel Execution
 
 **zx:**
+<!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
 ```javascript
 // Basic parallel
 await Promise.all([
@@ -425,7 +439,7 @@ await Promise.all([
   $`npm run lint`
 ]);
 
-// No built-in concurrency control
+// This example starts all promises at once
 ```
 
 **Xec:**
@@ -437,33 +451,24 @@ await Promise.all([
   $`npm run lint`
 ]);
 
-// Parallel with concurrency limit
-import pLimit from 'p-limit';
-const limit = pLimit(2);
-
-await Promise.all(
-  servers.map(server => 
-    limit(() => $.ssh(server)`deploy.sh`)
-  )
+// The callback creates each command only when its concurrency slot opens.
+const servers = ['server1.example.com', 'server2.example.com'];
+await $.parallel.map(servers,
+  host => $.ssh({ host, username: 'deploy' })`node --version`,
+  { maxConcurrency: 2 }
 );
-
-// Built-in parallel execution
-await $.parallel.all([
-  $`npm run build`,
-  $.ssh('server')`npm test`,
-  $.docker('container')`npm lint`
-], { maxConcurrent: 2 });
 ```
 
 ### 2. Remote Execution
 
 **zx (Limited):**
+<!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
 ```javascript
 // Manual SSH commands
 await $`ssh user@server "cd /app && npm install"`;
 await $`scp local.txt user@server:/remote/`;
 
-// No connection management
+// This script invokes a separate OpenSSH process for each command
 for (const server of servers) {
   await $`ssh ${server} "deploy.sh"`;
 }
@@ -471,6 +476,7 @@ for (const server of servers) {
 
 **Xec:**
 ```typescript
+const servers = ['server1.example.com', 'server2.example.com'];
 // Native SSH support
 await $.ssh('server')`cd /app && npm install`;
 await $`xec copy local.txt server:/remote/`;
@@ -480,7 +486,7 @@ import { configure } from '@xec-sh/core';
 configure({ adapters: { ssh: { connectionPool: { maxConnections: 5 } } } });
 
 await Promise.all(
-  servers.map(server => 
+  servers.map(server =>
     $.ssh(server)`deploy.sh`
   )
 );
@@ -489,12 +495,13 @@ await Promise.all(
 await $.docker('container')`npm install`;
 
 // Kubernetes execution
-await $.k8s('pod-name')`kubectl get pods`;
+await $.k8s({ pod: 'pod-name', namespace: 'default' })`node --version`;
 ```
 
 ### 3. Configuration and Tasks
 
 **zx (Manual):**
+<!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
 ```javascript
 // No built-in task system
 const tasks = {
@@ -519,10 +526,10 @@ if (tasks[task]) {
 tasks:
   build:
     command: npm run build
-    
+
   test:
     command: npm test
-    
+
   deploy:
     needs: [build, test]
     steps:
@@ -541,6 +548,7 @@ Programmatic task definition (as opposed to the YAML form above) is provided by 
 
 ### Original zx Script
 
+<!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
 ```javascript
 #!/usr/bin/env zx
 
@@ -566,30 +574,30 @@ async function checkServer(server) {
 
 async function buildApp() {
   console.log(chalk.blue('Building application...'));
-  
+
   await $`rm -rf ${buildDir}`;
   await $`npm run build`;
-  
+
   const files = await glob(`${buildDir}/**/*`);
   console.log(chalk.green(`Built ${files.length} files`));
 }
 
 async function deployToServer(server) {
   console.log(chalk.yellow(`Deploying to ${server}...`));
-  
+
   // Create backup
   await $`ssh ${server} "cp -r ${deployDir} ${deployDir}.backup"`;
-  
+
   // Copy files
   await $`rsync -avz --delete ${buildDir}/ ${server}:${deployDir}/`;
-  
+
   // Restart service
   await $`ssh ${server} "systemctl restart app"`;
-  
+
   // Health check
   await sleep(2000);
   const response = await fetch(`http://${server}/health`);
-  
+
   if (!response.ok) {
     console.error(chalk.red(`Health check failed for ${server}`));
     // Rollback
@@ -597,38 +605,38 @@ async function deployToServer(server) {
     await $`ssh ${server} "systemctl restart app"`;
     throw new Error(`Deployment failed for ${server}`);
   }
-  
+
   console.log(chalk.green(`Successfully deployed to ${server}`));
 }
 
 // Main execution
 async function main() {
   const start = Date.now();
-  
+
   // Check all servers
   console.log(chalk.blue('Checking servers...'));
   const serverStatus = await Promise.all(
     servers.map(checkServer)
   );
-  
+
   const availableServers = servers.filter((_, i) => serverStatus[i]);
-  
+
   if (availableServers.length === 0) {
     console.error(chalk.red('No servers available'));
     process.exit(1);
   }
-  
+
   // Build application
   await buildApp();
-  
+
   // Deploy to servers
   console.log(chalk.blue('Starting deployment...'));
-  
+
   const deployments = [];
   for (const server of availableServers) {
     deployments.push(deployToServer(server));
   }
-  
+
   try {
     await Promise.all(deployments);
     console.log(chalk.green('Deployment completed successfully!'));
@@ -636,7 +644,7 @@ async function main() {
     console.error(chalk.red('Deployment failed:'), error);
     process.exit(1);
   }
-  
+
   const duration = (Date.now() - start) / 1000;
   console.log(chalk.cyan(`Total time: ${duration}s`));
 }
@@ -649,7 +657,7 @@ await main();
 ```typescript
 // scripts/deploy.ts
 import { $, glob, sleep } from '@xec-sh/core';
-import chalk from 'chalk';
+import { prism as chalk } from '@xec-sh/kit';
 import * as fs from 'node:fs/promises';
 
 // Type-safe configuration
@@ -674,12 +682,12 @@ async function checkServer(server: string): Promise<boolean> {
   const result = await $.ssh(server)`echo "Server accessible"`
     .timeout(5000)
     .nothrow();
-  
+
   if (!result.ok) {
     console.error(chalk.red(`Server ${server} is not accessible`));
     return false;
   }
-  
+
   return true;
 }
 
@@ -723,8 +731,8 @@ async function deployToServer(server: string): Promise<void> {
 
       // Clean old backups (keep last 3)
       await $.ssh(server)`
-        ls -dt ${config.deployDir}.backup-* | 
-        tail -n +4 | 
+        ls -dt ${config.deployDir}.backup-* |
+        tail -n +4 |
         xargs rm -rf
       `.nothrow();
     });
@@ -733,16 +741,16 @@ async function deployToServer(server: string): Promise<void> {
   } catch (error) {
     if (config.rollbackOnFailure) {
       console.log(chalk.yellow(`Rolling back ${server}...`));
-      
+
       await $.ssh(server)`
         rm -rf ${config.deployDir} &&
         mv ${config.deployDir}.backup-* ${config.deployDir} &&
         systemctl restart app
       `;
-      
+
       console.log(chalk.green(`Rolled back ${server}`));
     }
-    
+
     throw error;
   }
 }
@@ -750,30 +758,30 @@ async function deployToServer(server: string): Promise<void> {
 // Main execution with enhanced features
 async function main(): Promise<void> {
   const start = performance.now();
-  
+
   // Parallel server checks — SSH connections are pooled automatically
   console.log(chalk.blue('Checking servers...'));
-  
+
   const serverStatus = await Promise.all(
     config.servers.map(server => checkServer(server))
   );
-  
+
   const availableServers = config.servers.filter((_, i) => serverStatus[i]);
-  
+
   if (availableServers.length === 0) {
     throw new Error('No servers available');
   }
-  
+
   console.log(chalk.green(`Available servers: ${availableServers.join(', ')}`));
-  
+
   // Build application
   await buildApp();
-  
+
   // Deploy with strategies
   console.log(chalk.blue('Starting deployment...'));
-  
+
   const strategy = process.env.DEPLOY_STRATEGY || 'parallel';
-  
+
   if (strategy === 'rolling') {
     // Rolling deployment
     for (const server of availableServers) {
@@ -785,7 +793,7 @@ async function main(): Promise<void> {
     await deployToServer(availableServers[0]);
     console.log(chalk.yellow('Canary deployment complete. Monitoring...'));
     await sleep(30000); // Monitor canary
-    
+
     // Deploy to rest
     await Promise.all(
       availableServers.slice(1).map(deployToServer)
@@ -796,10 +804,10 @@ async function main(): Promise<void> {
       availableServers.map(deployToServer)
     );
   }
-  
+
   const duration = (performance.now() - start) / 1000;
   console.log(chalk.cyan(`✨ Deployment completed in ${duration.toFixed(2)}s`));
-  
+
   // Close pooled SSH connections
   await $.dispose();
 }
@@ -852,6 +860,7 @@ npm install zx
 
 ### Phase 2: Gradual Migration
 
+<!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
 ```typescript
 // hybrid-script.ts
 import { $ as zx$ } from 'zx';

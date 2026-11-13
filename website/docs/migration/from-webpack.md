@@ -4,9 +4,8 @@ description: Guide for migrating webpack build automation to Xec
 keywords: [migration, webpack, build, bundling, automation]
 source_files:
   - apps/xec/src/commands/watch.ts
-  - apps/xec/src/script-runner.ts
+  - apps/xec/src/commands/run.ts
   - packages/core/src/core/execution-engine.ts
-verification_date: 2025-08-03
 ---
 
 # Migrating from Webpack Build Scripts to Xec
@@ -19,6 +18,7 @@ This guide helps you migrate webpack-based build automation to Xec. While webpac
 
 ### Traditional Webpack Setup
 
+<!-- doc-check: skip — Webpack configuration comparison requires the application-specific plugins and config files -->
 ```javascript
 // scripts/build.js - Complex build orchestration
 const webpack = require('webpack');
@@ -40,22 +40,22 @@ async function buildApp(env) {
   const configBase = require('../webpack.config.base');
   const configEnv = require(`../webpack.config.${env}`);
   const config = merge(configBase, configEnv);
-  
+
   return new Promise((resolve, reject) => {
     webpack(config, (err, stats) => {
       if (err) return reject(err);
-      
+
       if (stats.hasErrors()) {
         console.error(stats.toString('errors-only'));
         return reject(new Error('Build failed'));
       }
-      
+
       console.log(stats.toString({
         colors: true,
         modules: false,
         children: false
       }));
-      
+
       resolve(stats);
     });
   });
@@ -72,7 +72,7 @@ async function deployToServer(env) {
     staging: ['staging.example.com'],
     production: ['prod1.example.com', 'prod2.example.com']
   };
-  
+
   for (const server of servers[env]) {
     console.log(`Deploying to ${server}...`);
     await execAsync(`rsync -avz dist/ ${server}:/var/www/`);
@@ -83,19 +83,19 @@ async function deployToServer(env) {
 // Main build pipeline
 async function build() {
   const env = args[0] || 'development';
-  
+
   try {
     await clean();
     await buildApp(env);
-    
+
     if (env === 'production') {
       await optimizeAssets();
     }
-    
+
     if (env !== 'development') {
       await deployToServer(env);
     }
-    
+
     console.log('Build complete!');
   } catch (error) {
     console.error('Build failed:', error);
@@ -140,16 +140,16 @@ if (env === 'production') {
 
 // Deploy to appropriate servers
 if (env !== 'development') {
-  const servers = env === 'production' 
-    ? ['prod1', 'prod2'] 
+  const servers = env === 'production'
+    ? ['prod1', 'prod2']
     : ['staging'];
-  
+
   await Promise.all(
-    servers.map(server => 
+    servers.map(server =>
       $.ssh(server)`mkdir -p /var/www && systemctl restart nginx`
     )
   );
-  
+
   await Promise.all(
     servers.map(server => $`xec copy dist/ ${server}:/var/www/`)
   );
@@ -171,6 +171,7 @@ console.log('✅ Build complete!');
 ### 1. Webpack as a Tool, Not the Orchestrator
 
 **Before:** Webpack plugins handle everything
+<!-- doc-check: skip — Webpack configuration comparison requires the application-specific plugins and config files -->
 ```javascript
 // webpack.config.js
 const CopyPlugin = require('copy-webpack-plugin');
@@ -209,10 +210,11 @@ tasks:
 ### 2. Environment Management
 
 **Traditional Webpack Approach:**
+<!-- doc-check: skip — Webpack configuration comparison requires the application-specific plugins and config files -->
 ```javascript
 // Multiple config files
 // webpack.config.dev.js
-// webpack.config.staging.js  
+// webpack.config.staging.js
 // webpack.config.prod.js
 
 const config = require(`./webpack.config.${process.env.NODE_ENV}`);
@@ -274,6 +276,7 @@ await $`webpack \
 ### 1. Development Server
 
 **Webpack Dev Server:**
+<!-- doc-check: skip — Webpack configuration comparison requires the application-specific plugins and config files -->
 ```javascript
 // scripts/dev-server.js
 const webpack = require('webpack');
@@ -301,10 +304,10 @@ import { $ } from '@xec-sh/core';
 await Promise.all([
   // Backend API server
   $`nodemon server.js`,
-  
+
   // Webpack dev server
   $`webpack serve --config webpack.config.dev.js --port 8080`,
-  
+
   // Additional watchers, driven by the CLI's file watcher
   $`xec watch local "src/styles/**/*.scss" --command "sass src/styles:dist/css"`,
   $`xec watch local "docs/**/*.md" --command "markdown-pdf docs/*.md"`
@@ -314,6 +317,7 @@ await Promise.all([
 ### 2. Multi-Configuration Builds
 
 **Complex Webpack Setup:**
+<!-- doc-check: skip — Webpack configuration comparison requires the application-specific plugins and config files -->
 ```javascript
 // build-all.js
 const configs = [
@@ -349,18 +353,18 @@ const builds = [
 const results = await Promise.all(
   builds.map(async ({ name, entry, output }) => {
     console.log(`📦 Building ${name}...`);
-    
+
     const result = await $`webpack \
       --entry ${entry} \
       --output-path ${output} \
       --mode production`.nothrow();
-    
+
     if (result.ok) {
       console.log(`✅ ${name} built successfully`);
     } else {
       console.error(`❌ ${name} build failed`);
     }
-    
+
     return result;
   })
 );
@@ -375,6 +379,7 @@ if (failed.length > 0) {
 ### 3. Asset Optimization
 
 **Webpack Plugin Approach:**
+<!-- doc-check: skip — Webpack configuration comparison requires the application-specific plugins and config files -->
 ```javascript
 // webpack.config.js
 const ImageMinimizerPlugin = require('image-minimizer-webpack-plugin');
@@ -411,19 +416,19 @@ console.log('🎨 Optimizing assets...');
 
 const [images, styles, scripts] = await Promise.all([
   // Optimize images
-  glob('dist/**/*.{jpg,png,gif,svg}').then(files => 
-    Promise.all(files.map(file => 
+  glob('dist/**/*.{jpg,png,gif,svg}').then(files =>
+    Promise.all(files.map(file =>
       $`imagemin ${file} --out-dir=${path.dirname(file)}`
     ))
   ),
-  
+
   // Optimize CSS
   glob('dist/**/*.css').then(files =>
     Promise.all(files.map(file =>
       $`postcss ${file} --use cssnano -o ${file}`
     ))
   ),
-  
+
   // Optimize JS (if not done by webpack)
   glob('dist/**/*.js').then(files =>
     Promise.all(files.map(file =>
@@ -438,6 +443,7 @@ console.log(`✅ Optimized ${images.length} images, ${styles.length} styles, ${s
 ### 4. Bundle Analysis
 
 **Traditional Approach:**
+<!-- doc-check: skip — Webpack configuration comparison requires the application-specific plugins and config files -->
 ```javascript
 // analyze.js
 const webpack = require('webpack');
@@ -458,10 +464,17 @@ import * as fs from 'node:fs/promises';
 await $`webpack --mode production --json > stats.json`;
 
 // Analyze bundle size
-const stats = JSON.parse(await fs.readFile('stats.json', 'utf-8'));
+const stats: unknown = JSON.parse(await fs.readFile('stats.json', 'utf-8'));
+if (!stats || typeof stats !== 'object' || !('assets' in stats) || !Array.isArray(stats.assets)) {
+  throw new Error('Webpack stats contain no assets');
+}
+const sizedAssets = stats.assets.map((asset: unknown) => {
+  if (!asset || typeof asset !== 'object' || !('name' in asset) || typeof asset.name !== 'string' || !('size' in asset) || typeof asset.size !== 'number') throw new Error('Invalid Webpack asset');
+  return { name: asset.name, size: asset.size };
+});
 
 // Custom analysis
-const assets = stats.assets.sort((a, b) => b.size - a.size);
+const assets = sizedAssets.sort((a, b) => b.size - a.size);
 
 console.log('📊 Bundle Analysis:');
 console.log('==================');
@@ -509,37 +522,37 @@ const apps: MicroFrontend[] = [
 async function buildAll(mode: string) {
   const builds = apps.map(async (app) => {
     console.log(`🏗️ Building ${app.name}...`);
-    
+
     // $.cd() scopes the directory to this one build; unlike process.chdir()
     // it does not touch global state, so concurrent builds don't race
     await $.cd(app.path)`webpack \
       --mode ${mode} \
       --output-public-path ${app.publicPath} \
       --define process.env.PORT=${app.port}`;
-    
+
     return app.name;
   });
-  
+
   const completed = await Promise.all(builds);
   console.log(`✅ Built: ${completed.join(', ')}`);
 }
 
 // Development mode - start all dev servers
 async function startDev() {
-  const servers = apps.map(app => 
+  const servers = apps.map(app =>
     $`cd ${app.path} && webpack serve --port ${app.port}`
   );
-  
+
   await Promise.all(servers);
 }
 
 // Production build and deploy
 async function deploy() {
   await buildAll('production');
-  
+
   // Deploy each app to its CDN path
   await Promise.all(
-    apps.map(app => 
+    apps.map(app =>
       $`aws s3 sync ${app.path}/dist s3://cdn-bucket${app.publicPath}`
     )
   );
@@ -578,12 +591,12 @@ console.log('🧩 Testing dynamic chunks...');
 
 for (const chunk of chunks) {
   const size = (await fs.stat(chunk)).size;
-  
+
   // Ensure chunks are reasonably sized
   if (size > 50 * 1024) { // 50KB
     console.warn(`⚠️ Large chunk: ${chunk} (${(size / 1024).toFixed(2)}KB)`);
   }
-  
+
   // Test chunk loading in headless browser
   await $`npx playwright test --grep "${path.basename(chunk)}"`;
 }
@@ -624,9 +637,9 @@ const result = await $`lighthouse https://localhost:8080 \
 if (result.ok) {
   const report = JSON.parse(await fs.readFile('pwa-report.json', 'utf-8'));
   const score = report.categories.pwa.score * 100;
-  
+
   console.log(`📱 PWA Score: ${score}%`);
-  
+
   if (score < 90) {
     console.error('❌ PWA score too low');
     process.exit(1);
@@ -636,7 +649,7 @@ if (result.ok) {
 async function generateIcons() {
   const sizes = [192, 512];
   const icons = [];
-  
+
   for (const size of sizes) {
     await $`sharp icon.png --resize ${size} --output dist/icon-${size}.png`;
     icons.push({
@@ -645,7 +658,7 @@ async function generateIcons() {
       type: 'image/png'
     });
   }
-  
+
   return icons;
 }
 ```
@@ -711,7 +724,7 @@ const config = generateWebpackConfig({
 });
 
 // Write config and build
-await writeFile('webpack.config.generated.js', 
+await writeFile('webpack.config.generated.js',
   `module.exports = ${JSON.stringify(config, null, 2)}`
 );
 
@@ -733,28 +746,28 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v3
-    
+
     - name: Setup Node.js
       uses: actions/setup-node@v3
       with:
         node-version: '18'
         cache: 'npm'
-    
+
     - name: Install dependencies
       run: npm ci
-    
+
     - name: Install Xec
       run: npm install -g @xec-sh/cli
-    
+
     - name: Build application
       run: xec build:production
-    
+
     - name: Run tests
       run: xec test:e2e
-    
+
     - name: Deploy
       run: xec deploy:staging
       env:
@@ -781,12 +794,12 @@ tasks:
         steps:
           - command: webpack-bundle-analyzer stats.json -m static
           - command: lighthouse http://localhost:8080 --output=json
-  
+
   test:e2e:
     description: End-to-end tests
     needs: [build:production]
     command: playwright test
-  
+
   deploy:staging:
     description: Deploy to staging
     needs: [test:e2e]
@@ -822,14 +835,14 @@ tasks:
 ### 1. Separation of Concerns
 
 ```typescript
+// Project scripts define optimization and reporting; deployment follows acceptance.
 // webpack handles bundling
 await $`webpack --mode production`;
 
 // Xec handles everything else
 await Promise.all([
-  optimizeAssets(),
-  generateReports(),
-  deployToServers()
+  $`npm run optimize`,
+  $`npm run report`
 ]);
 ```
 
