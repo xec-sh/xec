@@ -56,7 +56,7 @@ xec greet.js Alice
 
 ## TypeScript Support
 
-Xec natively supports TypeScript without any configuration:
+Xec loads TypeScript scripts without a separate compilation step. Runtime transpilation does not replace `tsc --noEmit` validation:
 
 ```typescript
 // deploy.ts
@@ -72,18 +72,18 @@ async function deploy(options: DeployOptions): Promise<void> {
   const { environment, version } = options;
   
   // Type-safe command execution
-  const result: ProcessPromise = $`git tag v${version}`;
+  const result: ProcessPromise = $`npm run ${`deploy:${environment}`} -- ${version}`;
   await result;
   
   console.log(`Deployed version ${version} to ${environment}`);
 }
 
-// Parse arguments — invoked as: xec deploy.ts prod 1.2.0
-// `args` is already in scope — a global, like $ itself.
-const options: DeployOptions = {
-  environment: (args[0] as DeployOptions['environment']) || 'dev',
-  version: args[1] || '1.0.0'
-};
+// The project must define deploy:dev, deploy:staging and deploy:prod scripts.
+const environment = args[0] || 'dev';
+if (environment !== 'dev' && environment !== 'staging' && environment !== 'prod') {
+  throw new Error('Expected dev, staging or prod');
+}
+const options: DeployOptions = { environment, version: args[1] || '1.0.0' };
 
 await deploy(options);
 ```
@@ -121,7 +121,7 @@ async function safeExecution() {
   try {
     await $`ls /nonexistent`;
   } catch (error) {
-    console.error('Command failed:', error.message);
+    console.error('Command failed:', error instanceof Error ? error.message : String(error));
   }
 }
 
@@ -155,7 +155,13 @@ await $`echo "Line 1"; sleep 1; echo "Line 2"`.pipe(process.stdout);
 await $`echo "This won't be displayed"`.quiet();
 
 // Verbose mode (show command being executed)
-await $`echo "Verbose output"`.verbose();
+const previousVerbose = $.verbose;
+try {
+  $.verbose = true;
+  await $`echo "Verbose output"`;
+} finally {
+  $.verbose = previousVerbose;
+}
 ```
 
 ## Script Context Variables
@@ -191,24 +197,26 @@ Scripts can use prompts for user interaction:
 ```javascript
 // interactive.js
 import { $ } from '@xec-sh/core';
-import * as clack from '@clack/prompts';
+import * as kit from '@xec-sh/kit';
 
 // Ask for user input
-const name = await clack.text({
+const name = await kit.text({
   message: 'What is your name?',
   placeholder: 'John Doe'
 });
 
-const shouldContinue = await clack.confirm({
+const shouldContinue = await kit.confirm({
   message: 'Do you want to continue?'
 });
+
+if (kit.isCancel(name) || kit.isCancel(shouldContinue)) throw new Error('Cancelled');
 
 if (shouldContinue) {
   await $`echo "Hello, ${name}!"`;
 }
 
 // Select from options
-const environment = await clack.select({
+const environment = await kit.select({
   message: 'Choose environment:',
   options: [
     { value: 'dev', label: 'Development' },
@@ -217,7 +225,8 @@ const environment = await clack.select({
   ]
 });
 
-console.log(`Deploying to ${environment}`);
+if (kit.isCancel(environment)) throw new Error('Cancelled');
+console.log(`Selected ${environment}`);
 ```
 
 ## Watch Mode
@@ -235,7 +244,7 @@ Your script will re-run whenever you save changes, making development iteration 
 Xec provides several built-in spinner styles with automatic fallback for different terminal environments:
 
 ```javascript
-import * as clack from '@clack/prompts';
+import * as kit from '@xec-sh/kit';
 
 // Available spinner styles
 const styles = [
@@ -249,12 +258,12 @@ const styles = [
 ];
 
 // Use different styles
-const spinner1 = clack.spinner({ style: 'braille' });
-const spinner2 = clack.spinner({ style: 'arrow' });
-const spinner3 = clack.spinner({ style: 'moon' });
+const spinner1 = kit.spinner({ style: 'braille' });
+const spinner2 = kit.spinner({ style: 'arrow' });
+const spinner3 = kit.spinner({ style: 'moon' });
 
 // Custom frames
-const customSpinner = clack.spinner({
+const customSpinner = kit.spinner({
   frames: ['🌟', '⭐', '✨', '💫'],
   delay: 150
 });
@@ -280,15 +289,14 @@ Here's a complete example combining multiple concepts:
 ```javascript
 // build-and-deploy.js
 import { $ } from '@xec-sh/core';
-import * as clack from '@clack/prompts';
-import chalk from 'chalk';
+import * as kit from '@xec-sh/kit';
 
 async function main() {
   // Show intro
-  clack.intro(chalk.cyan('Build and Deploy Script'));
+  kit.intro(kit.prism.cyan('Build and Deploy Script'));
   
   // Get deployment target
-  const target = await clack.select({
+  const target = await kit.select({
     message: 'Select deployment target:',
     options: [
       { value: 'local', label: 'Local Development' },
@@ -297,8 +305,11 @@ async function main() {
     ]
   });
   
+  if (kit.isCancel(target)) { kit.cancel('Cancelled'); return; }
+
   // Build the project with different spinner styles
-  const buildSpinner = clack.spinner({ style: 'braille' });
+  const buildSpinner = kit.spinner({ style: 'braille' });
+  const testSpinner = kit.spinner({ style: 'arrow' });
   buildSpinner.start('Building project...');
 
   try {
@@ -306,20 +317,19 @@ async function main() {
     buildSpinner.stop('Build complete');
 
     // Run tests with arrow style
-    const testSpinner = clack.spinner({ style: 'arrow' });
     testSpinner.start('Running tests...');
     await $`npm test`;
     testSpinner.stop('Tests passed');
     
     // Deploy based on target
     if (target === 'production') {
-      const confirm = await clack.confirm({
+      const confirm = await kit.confirm({
         message: 'Are you sure you want to deploy to production?'
       });
       
-      if (!confirm) {
-        clack.cancel('Deployment cancelled');
-        process.exit(0);
+      if (kit.isCancel(confirm) || !confirm) {
+        kit.cancel('Deployment cancelled');
+        return;
       }
     }
     
@@ -328,12 +338,13 @@ async function main() {
     buildSpinner.stop(`Deployed to ${target}`);
     
     // Show success
-    clack.outro(chalk.green('✨ Deployment complete!'));
+    kit.outro(kit.prism.green('✨ Deployment complete!'));
     
   } catch (error) {
     buildSpinner.stop('Failed');
-    clack.log.error(error.message);
-    process.exit(1);
+    testSpinner.stop('Failed');
+    kit.log.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
   }
 }
 

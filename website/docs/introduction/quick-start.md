@@ -284,11 +284,12 @@ xec run deploy
 Create `.xec/commands/greet.js`:
 
 ```javascript
+/** @param {import('commander').Command} program */
 export function command(program) {
   program
     .command('greet <name>')
     .description('Greet someone')
-    .action(async (name) => {
+    .action(async (/** @type {string} */ name) => {
       const { $ } = await import('@xec-sh/core');
       await $`echo "Hello, ${name}!"`;
       await $`date`;

@@ -51,15 +51,10 @@ after `--`.
 The `$targetInfo` object provides details about the execution target:
 
 ```typescript
-interface TargetInfo {
-  type: 'local' | 'ssh' | 'docker' | 'kubernetes';
-  name?: string;
-  host?: string;       // SSH targets
-  container?: string;  // Docker targets
-  pod?: string;        // Kubernetes targets
-  namespace?: string;  // Kubernetes targets
-  config: any;         // Full target configuration
-}
+import type { TargetInfo } from '@xec-sh/loader';
+
+const target: TargetInfo = $targetInfo;
+console.log(target.type, target.name); // name is required; config is the target's own config
 ```
 
 Example usage:
@@ -169,7 +164,7 @@ console.log(params._);       // [] — positional arguments land here
 ```
 
 The flags `run` owns — `--dry-run`, `--watch`, `-o/--output`,
-`-c/--config`, `--typescript`, `--runtime`, `-p/--param`, the root
+`-c/--config`, `--typescript`, `-p/--param`, the root
 `-v`/`-q` — are consumed by the CLI; everything else passes through. Put an
 owned flag after `--` to reach the script:
 `xec run deploy.js -- --dry-run`.
@@ -186,7 +181,7 @@ re-run inside the same process, they survive between runs.
 
 When running in REPL mode, additional helpers are available:
 
-```javascript
+```text
 // Start REPL
 xec run --repl
 
@@ -201,14 +196,15 @@ not callable functions — they're typed without parentheses.
 
 ## Custom Context Extension
 
-Scripts can extend their context programmatically:
+Prefer ordinary module-scoped functions and imports. They preserve ownership and avoid leaking mutable globals between watch runs:
 
 ```javascript
 // extend-context.js
 import { $ } from '@xec-sh/core';
 
-// Add custom utilities to the context
-global.utils = {
+// Application helpers stay local to this module
+const utils = {
+  /** @param {string[]} targetNames */
   async deployToAll(targetNames) {
     for (const name of targetNames) {
       console.log(`Deploying to ${name}...`);
@@ -216,6 +212,7 @@ global.utils = {
     }
   },
   
+  /** @param {number} bytes */
   formatBytes(bytes) {
     const sizes = ['B', 'KB', 'MB', 'GB'];
     if (bytes === 0) return '0 B';
@@ -242,8 +239,8 @@ process.env.XEC_PROFILE  // configuration profile to activate
 // XEC_VARS_APP_NAME=web  ->  vars.app_name = 'web'
 
 // Pass environment variables to commands
-process.env.API_KEY = 'secret';
-await $`echo $API_KEY`;
+process.env.API_KEY = 'example-token';
+// Use the value in the authenticated operation; never echo it.
 
 // Or use env option
 await $`node script.js`.env({ API_KEY: 'secret' });
@@ -267,7 +264,7 @@ await $`node script.js`.env({ API_KEY: 'secret' });
 
 3. **Provide fallbacks for local execution**:
    ```javascript
-   const engine = $target || $;
+   const engine = typeof $target === 'undefined' ? $ : $target;
    await engine`ls -la`;
    ```
 
@@ -297,93 +294,41 @@ await $`node script.js`.env({ API_KEY: 'secret' });
 Here's a comprehensive example using the execution context:
 
 ```javascript
-// multi-target-deploy.js
+// inspect-target.js — run through xec run/on/in.
 import { $ } from '@xec-sh/core';
-import chalk from 'chalk';
+import { prism } from '@xec-sh/kit';
 
-async function main() {
-  // Check if running against a target (typeof guard: the variable is not
-  // declared at all when the file is run directly as `xec script.js`)
-  if (typeof $targetInfo !== 'undefined' && $targetInfo.type !== 'local') {
-    console.log(chalk.blue(`Deploying to ${$targetInfo.type} target: ${$targetInfo.name}`));
-    
-    // Target-specific deployment
-    switch ($targetInfo.type) {
-      case 'ssh':
-        await deployToSSH();
-        break;
-      case 'docker':
-        await deployToDocker();
-        break;
-      case 'kubernetes':
-        await deployToKubernetes();
-        break;
-      default:
-        await deployLocal();
-    }
-  } else {
-    // Local target (xec run) or direct invocation — deploy locally
-    await deployLocal();
+async function inspect() {
+  // Selecting a remote target must never silently fall back to local execution.
+  if (typeof $target === 'undefined' || typeof $targetInfo === 'undefined') {
+    throw new Error('Run this script with xec run, xec on or xec in');
   }
-  
-  // Always run post-deployment tasks locally
-  await $`echo "Deployment complete" >> deployment.log`;
-  await $`date >> deployment.log`;
+  console.log(prism.blue(`Inspecting ${$targetInfo.type}: ${$targetInfo.name}`));
+  const remote = await $target`node --version`;
+  const local = await $`${process.execPath} --version`;
+  console.log({ targetVersion: remote.stdout.trim(), localVersion: local.stdout.trim() });
 }
 
-async function deployToSSH() {
-  console.log(`Connecting to ${$targetInfo.host}...`);
-  await $target`cd /app && git pull`;
-  await $target`npm install`;
-  await $target`npm run build`;
-  await $target`sudo systemctl restart app`;
-}
-
-async function deployToDocker() {
-  console.log(`Deploying to container ${$targetInfo.container}...`);
-  await $target`apt-get update`;
-  await $target`cd /app && npm install`;
-  await $target`npm run build`;
-}
-
-async function deployToKubernetes() {
-  console.log(`Deploying to pod ${$targetInfo.pod}...`);
-  await $target`cd /app && npm ci`;
-  await $target`npm run build`;
-  
-  // Restart the pod
-  await $`kubectl rollout restart deployment/${$targetInfo.pod}`;
-}
-
-async function deployLocal() {
-  console.log('Deploying locally...');
-  await $`npm install`;
-  await $`npm run build`;
-  await $`npm run start`;
-}
-
-// Execute with error handling
 try {
-  await main();
-  console.log(chalk.green('✅ Deployment successful!'));
+  await inspect();
 } catch (error) {
-  console.error(chalk.red('❌ Deployment failed:'), error.message);
-  process.exit(1);
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exitCode = 1;
 }
 ```
 
 Run this script with different targets:
 
 ```bash
-# Deploy locally
-xec run multi-target-deploy.js
+# Inspect locally
+xec run inspect-target.js
 
-# Deploy to SSH server
-xec on hosts.production multi-target-deploy.js
+# Inspect an SSH server
+xec on hosts.production inspect-target.js
 
-# Deploy to Docker container
-xec in containers.app multi-target-deploy.js
+# Inspect a Docker container
+xec in containers.app inspect-target.js
 
-# Deploy to Kubernetes pod
-xec in pods.app multi-target-deploy.js
+# Inspect a Kubernetes pod
+xec in pods.app inspect-target.js
 ```

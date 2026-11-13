@@ -518,14 +518,12 @@ xec inspect --validate && xec run deploy
 ### Scripting
 
 ```javascript
-// Get configuration in scripts
-import { $ } from '@xec-sh/core';
+// Use the typed API when already inside a script.
+import { config, targets } from '@xec-sh/ops';
 
-const config = await $`xec inspect config --format json`.json();
-
-// Check if target exists
-const targets = await $`xec inspect targets --format json`.json();
-const hasProduction = targets.some(t => t.name === 'hosts.production');
+await config.load();
+const production = await targets.get('hosts.production');
+console.log({ hasProduction: production !== undefined });
 ```
 
 ## Error Handling

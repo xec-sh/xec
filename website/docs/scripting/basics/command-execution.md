@@ -43,7 +43,7 @@ promise
   .timeout(5000)  // Set timeout in milliseconds
   .cwd('/tmp')    // Set working directory
   .env({KEY: 'value'}) // Set environment variables
-  .pipe(stream)   // Pipe output to stream
+  .pipe(process.stdout)   // Pipe output to stream
 
 // stdin is a property, not a method — write to it directly
 promise.stdin.end('input');
@@ -110,9 +110,12 @@ await $`npm test`.quiet();
 By default, commands throw on non-zero exit codes:
 
 ```javascript
+import { CommandError } from '@xec-sh/core';
+
 try {
   await $`exit 1`;
 } catch (error) {
+  if (!(error instanceof CommandError)) throw error;
   console.error('Command failed:', error.message);
   console.error('Exit code:', error.exitCode);
   console.error('Stderr:', error.stderr);
@@ -141,21 +144,17 @@ if (!result.ok) {
 ### Retry Logic
 
 ```javascript
-async function retryCommand(cmd, maxRetries = 3) {
-  for (let i = 0; i < maxRetries; i++) {
-    const result = await cmd.nothrow();
-    if (result.exitCode === 0) {
-      return result;
-    }
-    console.log(`Attempt ${i + 1} failed, retrying...`);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-  }
-  throw new Error(`Command failed after ${maxRetries} attempts`);
-}
+import { retry } from '@xec-sh/ops';
 
-// Usage
-const result = await retryCommand($`curl https://api.example.com`);
+// A fresh command is created for each attempt. Re-awaiting one ProcessPromise
+// returns its existing result and does not execute the command again.
+const result = await retry(
+  () => $`curl --fail https://api.example.com/health`,
+  { maxAttempts: 3, initialDelay: 1000 },
+);
 ```
+
+Retry only operations that are safe to repeat. An unknown remote outcome is not proof that the command had no effect.
 
 ## Environment and Working Directory
 
@@ -474,15 +473,17 @@ spliced into the command line unescaped. Interpolating untrusted input into
 one is exactly as dangerous as building the string by hand:
 
 ```javascript
-// DANGEROUS - array elements are not escaped; this actually runs `echo`
-// AND the injected `rm -rf /`
-await $(['echo', userInput]);  // DON'T DO THIS
+const userInput = '; printf injected';
+// Unsafe: $.exec('echo ' + userInput) would execute injected shell syntax.
+// Use tagged interpolation below instead:
+await $`echo ${userInput}`;
 ```
 
 For argv assembled entirely from untrusted parts, bypass the shell instead
 of relying on quoting at all:
 
 ```javascript
+const userInput = '; printf injected';
 // SAFE - no shell is involved, so there is nothing to inject into
 await $.execute({ command: 'echo', args: [userInput], shell: false });
 ```
@@ -490,9 +491,9 @@ await $.execute({ command: 'echo', args: [userInput], shell: false });
 ### Sensitive Data
 
 ```javascript
-// Don't log sensitive commands
+// quiet controls output, not authorization or visibility in the process table
 const password = 'secret123';
-await $`mysql -u root -p${password}`.quiet();  // Hide output
+await $`mysql -u root -p${password}`.quiet();  // Avoid passing real secrets as CLI arguments
 
 // Use environment variables for secrets
 await $`mysql -u root`.env({ MYSQL_PWD: password });
@@ -505,30 +506,30 @@ Here's a comprehensive example showcasing various command execution patterns:
 ```javascript
 // deploy.js - Complete deployment script
 import { $ } from '@xec-sh/core';
-import chalk from 'chalk';
+import { prism } from '@xec-sh/kit';
 
 async function deploy() {
-  console.log(chalk.blue('Starting deployment...'));
+  console.log(prism.blue('Starting deployment...'));
   
   // Check prerequisites
-  const gitStatus = await $`git status --porcelain`.nothrow().text();
+  const gitStatus = await $`git status --porcelain`.text();
   if (gitStatus) {
     throw new Error('Working directory not clean');
   }
   
   // Build the project
-  console.log(chalk.yellow('Building project...'));
+  console.log(prism.yellow('Building project...'));
   await $`npm run build`
     .timeout(60000)
     .pipe(process.stdout);
   
   // Run tests
-  console.log(chalk.yellow('Running tests...'));
+  console.log(prism.yellow('Running tests...'));
   const testResult = await $`npm test`.nothrow();
   if (testResult.exitCode !== 0) {
-    console.error(chalk.red('Tests failed!'));
+    console.error(prism.red('Tests failed!'));
     console.error(testResult.stderr);
-    process.exit(1);
+    throw new Error('Command did not meet deployment acceptance');
   }
   
   // Create deployment directory
@@ -536,12 +537,12 @@ async function deploy() {
   await $`sudo mkdir -p ${deployDir}`.quiet();
   
   // Copy files
-  console.log(chalk.yellow('Copying files...'));
+  console.log(prism.yellow('Copying files...'));
   $.verbose = true;
   await $`sudo rsync -av --delete dist/ ${deployDir}/`;
   
   // Restart service
-  console.log(chalk.yellow('Restarting service...'));
+  console.log(prism.yellow('Restarting service...'));
   await $`sudo systemctl restart app.service`;
   
   // Verify deployment
@@ -550,18 +551,18 @@ async function deploy() {
     .nothrow();
   
   if (healthCheck.exitCode === 0) {
-    console.log(chalk.green('✅ Deployment successful!'));
+    console.log(prism.green('✅ Deployment successful!'));
   } else {
-    console.error(chalk.red('❌ Health check failed'));
+    console.error(prism.red('❌ Health check failed'));
     await $`sudo systemctl status app.service`;
-    process.exit(1);
+    throw new Error('Command did not meet deployment acceptance');
   }
 }
 
 // Execute with error handling
-deploy().catch(error => {
-  console.error(chalk.red('Deployment failed:'), error.message);
-  process.exit(1);
+await deploy().catch(error => {
+  console.error(prism.red('Deployment failed:'), error.message);
+  process.exitCode = 1;
 });
 ```
 

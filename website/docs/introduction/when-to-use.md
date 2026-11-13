@@ -20,8 +20,8 @@ Xec is not the right tool for every situation. This guide helps you determine wh
 ```typescript
 // Deploy across environments with one API
 await $`npm run build`;                          // Build locally
-await $.ssh('deploy@staging')`docker pull`;   // Update staging
-await $.k8s({ pod: 'web', namespace: 'default' })`curl /health`; // Verify in K8s
+await $.ssh('deploy@staging').cd('/srv/app')`npm run deploy`; // Project-owned deployment
+await $.k8s({ pod: 'web', namespace: 'default' })`curl --fail http://localhost:3000/health`; // Verify in K8s
 ```
 
 ### 2. DevOps Automation Scripts
@@ -31,22 +31,14 @@ await $.k8s({ pod: 'web', namespace: 'default' })`curl /health`; // Verify in K8
 **Why Xec**: Replace complex bash scripts with maintainable JavaScript/TypeScript.
 
 ```typescript
-// Readable, maintainable deployment script
-async function deploy(environment) {
-  const server = $.ssh({ host: `${environment}.example.com`, username: 'deploy' });
-  
-  // Backup current version
-  await server`cp -r /app /backup/app-$(date +%Y%m%d)`;
-  
-  // Deploy new version
-  await server`git pull`;
-  await server`npm install`;
-  await server`npm run build`;
-  await server`pm2 restart app`;
-  
-  // Verify deployment
-  const health = await server`curl -s localhost:3000/health`.json();
-  if (!health.ok) throw new Error('Health check failed');
+// The server's package.json defines the deploy operation, including rollback.
+async function deploy(environment: 'staging' | 'production') {
+  const server = $.ssh({
+    host: `${environment}.example.com`,
+    username: 'deploy'
+  }).cd('/srv/app');
+  await server`npm run deploy`;
+  await server`curl --fail --silent http://localhost:3000/health`;
 }
 ```
 
@@ -84,12 +76,13 @@ async function runCI() {
 **Why Xec**: Simplified container operations with automatic resource cleanup.
 
 ```typescript
-// Manage containers across hosts
-async function updateContainers(hosts) {
-  await $.batch(hosts.map(host => 
-    $.ssh({ host, username: 'deploy' })
-      `docker pull myapp:latest && docker restart app`
-  ), { concurrency: 3 });
+// Each server owns its compose.yaml and deployment policy.
+async function updateContainers(hosts: string[]) {
+  await $.parallel.map(hosts, (host) =>
+    $.ssh({ host, username: 'deploy' }).cd('/srv/app')
+      `docker compose pull && docker compose up -d --wait`,
+    { maxConcurrency: 3 }
+  );
 }
 ```
 
@@ -100,22 +93,13 @@ async function updateContainers(hosts) {
 **Why Xec**: Execute commands across server fleets with error handling.
 
 ```typescript
-// System maintenance across servers
-async function performMaintenance(servers) {
-  for (const server of servers) {
-    const ssh = $.ssh({ host: server, username: 'admin' });
-    
-    // Check disk space
+// Inspect first; a maintenance task can use these observations to plan changes.
+async function inspectServers(servers: string[]) {
+  for (const host of servers) {
+    const ssh = $.ssh({ host, username: 'admin' });
     const disk = await ssh`df -h`.text();
-    if (disk.includes('100%')) {
-      await ssh`find /tmp -mtime +7 -delete`;
-    }
-    
-    // Update packages
-    await ssh`apt update && apt upgrade -y`.nothrow();
-    
-    // Restart services if needed
-    await ssh`systemctl restart nginx`;
+    const service = await ssh`systemctl is-active nginx`.nothrow();
+    console.log({ host, disk, nginx: service.stdout.trim(), exitCode: service.exitCode });
   }
 }
 ```
@@ -127,19 +111,10 @@ async function performMaintenance(servers) {
 **Why Xec**: Reliable environment management with proper cleanup.
 
 ```typescript
-// Test environment setup
-async function setupTestEnv() {
-  // Start test database
-  await $.docker({ image: 'postgres:14', autoRemove: true })
-    .env({ POSTGRES_PASSWORD: 'test' })
-    `postgres`;
-    
-  // Run tests in app container
-  await $.docker({ image: 'app:test', autoRemove: true })
-    .env({ DATABASE_URL: 'postgres://localhost:5432' })
-    `npm test`;
-  
-  // Cleanup happens automatically with autoRemove
+// app:test must contain the application and its self-contained test fixtures.
+// The container exits with the test command and is removed afterwards.
+async function runContainerTests() {
+  await $.docker({ image: 'app:test', autoRemove: true })`npm test`;
 }
 ```
 
@@ -150,19 +125,15 @@ async function setupTestEnv() {
 **Why Xec**: Quick script development.
 
 ```typescript
-// Development helper tool
-async function syncDatabase(from, to) {
-  const source = $.ssh({ host: from, username: 'dbadmin' });
-  const target = $.ssh({ host: to, username: 'dbadmin' });
-  
-  // Dump from source
-  await source`pg_dump app > /tmp/dump.sql`;
-  
-  // Transfer to target (using scp)
-  await $`scp ${from}:/tmp/dump.sql ${to}:/tmp/dump.sql`;
-  
-  // Restore on target
-  await target`psql app < /tmp/dump.sql`;
+// Compare service versions without copying databases or changing either host.
+async function compareVersions(from: string, to: string) {
+  const source = $.ssh({ host: from, username: 'deploy' }).cd('/srv/app');
+  const target = $.ssh({ host: to, username: 'deploy' }).cd('/srv/app');
+  const [sourceVersion, targetVersion] = await Promise.all([
+    source`npm pkg get version`.text(),
+    target`npm pkg get version`.text()
+  ]);
+  return { sourceVersion: sourceVersion.trim(), targetVersion: targetVersion.trim() };
 }
 ```
 
@@ -282,15 +253,9 @@ Xec may not be suitable when:
 
 ## Security Considerations
 
-Xec is secure for:
-- Handling user input (automatic escaping)
-- Managing credentials (secure storage)
-- Multi-tenant environments (isolation)
+Xec escapes interpolated arguments and masks recognized sensitive values in normal execution diagnostics. These mechanisms do not authorize a command or make arbitrary shell text safe: treat `.raw`, `.exec()` and configuration-provided commands as trusted code.
 
-Additional security needed for:
-- Highly regulated environments (add audit logging)
-- Zero-trust networks (add encryption layers)
-- Compliance requirements (implement specific controls)
+Keep target credentials in a secret provider, restrict accounts and container privileges, and review commands that mutate infrastructure. Xec is not a tenant-isolation boundary or a substitute for operating-system and cluster access controls.
 
 ## Conclusion
 

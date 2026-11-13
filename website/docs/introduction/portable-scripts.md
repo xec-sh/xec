@@ -168,6 +168,7 @@ const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 const backupFile = `backup-${$targetInfo.name}-${timestamp}.sql`;
 
 // Environment-specific connection strings
+/** @type {Record<string, string>} */
 const connections = {
   local: 'postgresql://localhost/myapp',
   'hosts.staging': 'postgresql://staging-db/myapp',
@@ -175,7 +176,8 @@ const connections = {
   'containers.postgres': 'postgresql://postgres/myapp'
 };
 
-const connStr = connections[$targetInfo.name] || connections[$targetInfo.type];
+const connStr = connections[$targetInfo.name];
+if (!connStr) throw new Error(`No database configured for target ${$targetInfo.name}`);
 
 // Perform backup
 await $`pg_dump ${connStr} > ${backupFile}`;
@@ -192,46 +194,19 @@ await $`rm ${backupFile}`;
 ### 3. Service Management
 
 ```javascript
-// service-control.js
-const action = args[0] || 'status';
-
-const serviceCommands = {
-  local: {
-    start: 'npm run dev',
-    stop: 'pkill -f "node.*dev"',
-    status: 'ps aux | grep node',
-    restart: 'npm run dev:restart'
-  },
-  ssh: {
-    start: 'systemctl start myapp',
-    stop: 'systemctl stop myapp',
-    status: 'systemctl status myapp',
-    restart: 'systemctl restart myapp'
-  },
-  docker: {
-    start: 'supervisorctl start app',
-    stop: 'supervisorctl stop app',
-    status: 'supervisorctl status',
-    restart: 'supervisorctl restart app'
-  },
-  kubernetes: {
-    start: 'kubectl scale deployment myapp --replicas=3',
-    stop: 'kubectl scale deployment myapp --replicas=0',
-    status: 'kubectl get pods -l app=myapp',
-    restart: 'kubectl rollout restart deployment myapp'
-  }
+// service-status.js — these are read-only commands installed on each target.
+// Container lifecycle belongs to its controller, not to a command inside it.
+/** @type {Record<import('@xec-sh/loader').TargetInfo['type'], string>} */
+const statusCommands = {
+  local: 'npm run status',
+  ssh: 'systemctl status myapp',
+  docker: 'supervisorctl status app',
+  kubernetes: 'npm run status'
 };
 
-const command = serviceCommands[$targetInfo.type][action];
-if (!command) {
-  console.error(`Unknown action: ${action}`);
-  process.exit(1);
-}
-
-console.log(`Executing ${action} on ${$targetInfo.name}`);
-// The command already exists as one string — interpolating it into a
-// template tag would escape it into a single argument, so use .exec().
-const output = await $target.exec(command).text();
+console.log(`Checking ${$targetInfo.name}`);
+// The fixed, trusted command is a complete shell string.
+const output = await $target.exec(statusCommands[$targetInfo.type]).text();
 console.log(output);
 ```
 
@@ -265,21 +240,22 @@ if ($targetInfo.type === 'kubernetes') {
 ```javascript
 // logger.js
 class TargetAwareLogger {
-  log(message) {
+  /** @param {string} message */
+  async log(message) {
     const prefix = `[${$targetInfo.type}:${$targetInfo.name}]`;
     console.log(`${prefix} ${message}`);
     
     // Also log to environment-specific location on the target
     if ($targetInfo.type === 'ssh') {
-      $target`echo "${prefix} ${message}" >> /var/log/app.log`.nothrow();
+      await $target`printf "%s\\n" ${`${prefix} ${message}`} >> /var/log/app.log`;
     } else if ($targetInfo.type === 'docker') {
-      $target`echo "${prefix} ${message}" >> /app/logs/app.log`.nothrow();
+      await $target`printf "%s\\n" ${`${prefix} ${message}`} >> /app/logs/app.log`;
     }
   }
 }
 
 const logger = new TargetAwareLogger();
-logger.log('Application started');
+await logger.log('Application started');
 ```
 
 ## Best Practices

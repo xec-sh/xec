@@ -298,12 +298,16 @@ log.info(prism.blue(`Hello, ${name}!`));
  * This command will be available as: xec {name} [arguments]
  */
 
+/** @param {import('commander').Command} program */
 export function command(program) {
   program
     .command('{name} [args...]')
     .description('{description}')
     .option('-v, --verbose', 'Enable verbose output')
-    .action(async (args, options) => {
+    .action(async (
+      /** @type {string[]} */ args,
+      /** @type {{ verbose?: boolean }} */ options
+    ) => {
       const { log } = await import('@xec-sh/kit');
       
       // Your command logic here
