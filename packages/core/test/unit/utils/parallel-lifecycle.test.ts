@@ -92,7 +92,7 @@ describe('parallel admission and completion', () => {
   });
 
   it('cancels a real lazy ProcessPromise through its parallel deadline and awaits native exit', async () => {
-    const engine = new ExecutionEngine({ adapters: { local: { forceImplementation: 'node' } } });
+    const engine = new ExecutionEngine({ adapters: { local: {} } });
     const command = engine.execute;
     const handles: number[] = [];
     vi.spyOn(engine, 'execute').mockImplementation(input => command.call(engine, {

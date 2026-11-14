@@ -39,7 +39,6 @@ import { ExecutionEngine } from '@xec-sh/core';
 const $ = new ExecutionEngine({
   adapters: {
     local: {
-      preferBun: true,          // Prefer Bun runtime
       uid: 1000,                // Unix user ID
       gid: 1000,                // Unix group ID
       killSignal: 'SIGTERM',    // Signal for termination
@@ -224,24 +223,9 @@ await $`npm init`.interactive();
 await $.with({ stdin: process.stdin })`cat`.stdout('inherit').stderr('inherit');
 ```
 
-## Bun Runtime Support
+## Runtime selection
 
-```typescript
-import { ExecutionEngine, RuntimeDetector } from '@xec-sh/core';
-const $ = new ExecutionEngine({
-  adapters: {
-    local: {
-      preferBun: true,  // Use Bun if available
-      forceImplementation: 'bun' // Force Bun
-    }
-  }
-});
-
-// Auto-detection
-if (RuntimeDetector.isBun()) {
-  console.log('Running with Bun!');
-}
-```
+Start the script with Node, Bun, or Deno. The local adapter uses their shared `node:child_process` API, so cancellation, output delivery, and cleanup follow one implementation. `preferBun` and `forceImplementation` were removed in Xec 0.12; remove them from adapter configuration.
 
 ## Performance
 

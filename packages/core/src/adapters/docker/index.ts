@@ -121,7 +121,6 @@ export class DockerAdapter extends BaseAdapter {
     super(config);
     this.name = this.adapterName;
     this.local = new LocalAdapter({
-      forceImplementation: 'node',
       encoding: config.encoding,
       // Management output is protocol data; public exec is masked by createResult.
       sensitiveDataMasking: { enabled: false },

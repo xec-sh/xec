@@ -383,7 +383,7 @@ if (!result.ok) console.log('Configuration check failed', result.exitCode);
 
 ## Runtime Support
 
-`@xec-sh/core` runs on Node.js 20+, Bun and Deno with the same API. The local adapter detects the runtime (`RuntimeDetector`) and uses `Bun.spawn` under Bun for faster process startup; Deno works through its Node compatibility layer. Importing the package pulls in Node builtins only — SSH, Docker and Kubernetes adapters load lazily on first use.
+`@xec-sh/core` runs on Node.js 20+, Bun and Deno with the same API. The local adapter uses the runtimes' shared `node:child_process` API, with one implementation of cancellation, streaming, and cleanup. Importing the package pulls in Node builtins only — SSH, Docker and Kubernetes adapters load lazily on first use.
 
 ```typescript
 import { RuntimeDetector } from '@xec-sh/core';

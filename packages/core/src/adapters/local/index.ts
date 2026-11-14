@@ -8,7 +8,6 @@ import { spawn, spawnSync } from 'node:child_process';
 
 import { Command } from '../../types/command.js';
 import { StreamHandler } from '../../utils/stream.js';
-import { RuntimeDetector } from './runtime-detect.js';
 import { ExecutionResult } from '../../core/result.js';
 import { resolveExitCode } from '../../core/failure-kind.js';
 import { killProcessTree } from '../../utils/process-tree.js';
@@ -16,8 +15,6 @@ import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
 import { CommandError, AdapterError, TimeoutError, MaxBufferExceededError } from '../../core/error.js';
 
 export interface LocalAdapterConfig extends BaseAdapterConfig {
-  preferBun?: boolean;
-  forceImplementation?: 'node' | 'bun';
   uid?: number;
   gid?: number;
   killSignal?: string;
@@ -54,6 +51,9 @@ export class LocalAdapter extends BaseAdapter {
   constructor(config: LocalAdapterConfig = {}) {
     super(config);
     this.name = this.adapterName;
+    if ('preferBun' in config || 'forceImplementation' in config) {
+      throw new TypeError('Local execution uses one process implementation; remove preferBun/forceImplementation and select the runtime when starting the script');
+    }
     this.localConfig = config;
     if (config.forceKillAfterDelay !== undefined
       && (!Number.isFinite(config.forceKillAfterDelay) || config.forceKillAfterDelay < 0)) {
@@ -70,14 +70,9 @@ export class LocalAdapter extends BaseAdapter {
     const startTime = Date.now();
 
     try {
-      const implementation = this.getImplementation();
-
-      let result: ProcessResult;
-      if (implementation === 'bun' && RuntimeDetector.isBun()) {
-        result = await this.executeBun(mergedCommand);
-      } else {
-        result = await this.executeNode(mergedCommand);
-      }
+      // Node, Bun and Deno provide this process API. One implementation owns
+      // cancellation, output backpressure, process trees and confirmed cleanup.
+      const result = await this.executeNode(mergedCommand);
 
       const endTime = Date.now();
 
@@ -154,14 +149,7 @@ export class LocalAdapter extends BaseAdapter {
     const startTime = Date.now();
 
     try {
-      const implementation = this.getImplementation();
-
-      let result: ProcessResult;
-      if (implementation === 'bun' && RuntimeDetector.isBun()) {
-        result = this.executeBunSync(mergedCommand);
-      } else {
-        result = this.executeNodeSync(mergedCommand);
-      }
+      const result = this.executeNodeSync(mergedCommand);
 
       const endTime = Date.now();
 
@@ -216,18 +204,6 @@ export class LocalAdapter extends BaseAdapter {
         error instanceof Error ? error : new Error(String(error))
       );
     }
-  }
-
-  private getImplementation(): 'node' | 'bun' {
-    if (this.localConfig.forceImplementation) {
-      return this.localConfig.forceImplementation;
-    }
-
-    if (this.localConfig.preferBun && RuntimeDetector.isBun()) {
-      return 'bun';
-    }
-
-    return 'node';
   }
 
   /**
@@ -564,87 +540,6 @@ export class LocalAdapter extends BaseAdapter {
     }
   }
 
-  private async executeBun(command: Command): Promise<ProcessResult> {
-    const Bun = globalThis.Bun;
-    if (!Bun || !Bun.spawn) {
-      throw new AdapterError(this.adapterName, 'execute', new Error('Bun.spawn is not available'));
-    }
-
-    // Create progress reporter if enabled
-    const progressReporter = this.createProgressReporter(command);
-
-    const stdoutHandler = new StreamHandler({
-      encoding: command.encoding ?? this.config.encoding,
-      maxBuffer: command.maxBuffer ?? this.config.maxBuffer,
-      onData: progressReporter ? (data) => progressReporter.reportOutput(data) : undefined
-    });
-
-    const stderrHandler = new StreamHandler({
-      encoding: command.encoding ?? this.config.encoding,
-      maxBuffer: command.maxBuffer ?? this.config.maxBuffer
-    });
-
-    // Start progress reporting if enabled
-    if (progressReporter) {
-      progressReporter.start(`Executing: ${this.buildCommandString(command)}`);
-    }
-
-    const proc = Bun.spawn({
-      cmd: [command.command, ...(command.args || [])],
-      cwd: command.cwd,
-      env: this.createCombinedEnv(this.config.defaultEnv, command.env),
-      stdin: this.mapBunStdin(command.stdin),
-      stdout: command.stdout === 'pipe' ? 'pipe' : command.stdout,
-      stderr: command.stderr === 'pipe' ? 'pipe' : command.stderr
-    });
-
-    // Handle stdin for string/buffer
-    if (command.stdin && (typeof command.stdin === 'string' || Buffer.isBuffer(command.stdin))) {
-      const writer = proc.stdin.getWriter();
-      await writer.write(typeof command.stdin === 'string' ? new TextEncoder().encode(command.stdin) : command.stdin);
-      await writer.close();
-    }
-
-    // Collect output
-    const stdoutPromise = command.stdout === 'pipe' && proc.stdout
-      ? this.streamBunReadable(proc.stdout, stdoutHandler)
-      : Promise.resolve();
-
-    const stderrPromise = command.stderr === 'pipe' && proc.stderr
-      ? this.streamBunReadable(proc.stderr, stderrHandler)
-      : Promise.resolve();
-
-    // Wait for process completion
-    const exitPromise = proc.exited;
-
-    // Handle timeout
-    const timeout = command.timeout ?? this.config.defaultTimeout;
-    const exitCode = await this.handleTimeout(
-      exitPromise,
-      timeout,
-      this.buildCommandString(command),
-      () => proc.kill()
-    );
-
-    await Promise.all([stdoutPromise, stderrPromise]);
-
-    // Report completion to progress reporter
-    if (progressReporter) {
-      if (exitCode === 0) {
-        progressReporter.complete('Command completed successfully');
-      } else {
-        progressReporter.error(new Error(`Command failed with exit code ${exitCode}`));
-      }
-    }
-
-    return {
-      stdout: stdoutHandler.getContent(),
-      stderr: stderrHandler.getContent(),
-      exitCode,
-      signal: null
-    };
-  }
-
   private buildNodeSpawnOptions(command: Command): any {
     const options: any = {
       cwd: command.cwd,
@@ -725,37 +620,6 @@ export class LocalAdapter extends BaseAdapter {
     return options;
   }
 
-  private mapBunStdin(stdin: Command['stdin']): any {
-    if (!stdin) return 'ignore';
-    if (isProcessStdin(stdin)) return 'inherit';
-    if (stdin instanceof Readable) return stdin;
-    if (typeof stdin === 'string' || Buffer.isBuffer(stdin)) return 'pipe';
-    return 'ignore';
-  }
-
-  private async streamBunReadable(readable: any, handler: StreamHandler): Promise<void> {
-    const reader = readable.getReader();
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = Buffer.from(value);
-        const transform = handler.createTransform();
-
-        await new Promise<void>((resolve, reject) => {
-          transform.on('error', reject);
-          transform.on('finish', resolve);
-          transform.write(chunk);
-          transform.end();
-        });
-      }
-    } finally {
-      reader.releaseLock();
-    }
-  }
-
   private executeNodeSync(command: Command): ProcessResult {
     if (!('stdout' in command) || command.stdout == null) command.stdout = 'pipe';
     if (!('stderr' in command) || command.stderr == null) command.stderr = 'pipe';
@@ -784,26 +648,6 @@ export class LocalAdapter extends BaseAdapter {
       stderr: result.stderr?.toString() || '',
       exitCode: result.status,
       signal: result.signal
-    };
-  }
-
-  private executeBunSync(command: Command): ProcessResult {
-    const proc = globalThis.Bun!.spawnSync({
-      cmd: [command.command, ...(command.args || [])],
-      cwd: command.cwd,
-      env: this.createCombinedEnv(this.config.defaultEnv, command.env),
-      stdin: command.stdin && (typeof command.stdin === 'string' || Buffer.isBuffer(command.stdin))
-        ? command.stdin
-        : undefined,
-      stdout: command.stdout === 'pipe' ? 'pipe' : command.stdout,
-      stderr: command.stderr === 'pipe' ? 'pipe' : command.stderr
-    });
-
-    return {
-      stdout: proc.stdout ? Buffer.from(proc.stdout).toString(command.encoding ?? this.config.encoding) : '',
-      stderr: proc.stderr ? Buffer.from(proc.stderr).toString(command.encoding ?? this.config.encoding) : '',
-      exitCode: proc.exitCode,
-      signal: null
     };
   }
 

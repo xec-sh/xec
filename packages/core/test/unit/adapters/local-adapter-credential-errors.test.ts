@@ -1,7 +1,7 @@
 import { LocalAdapter } from '../../../src/adapters/local/index.js';
 
 it('redacts credentials from failed local command messages and structured output', async () => {
-  const adapter = new LocalAdapter({ forceImplementation: 'node' });
+  const adapter = new LocalAdapter({});
   try {
     await adapter.execute({ command: process.execPath, shell: false,
       args: ['-e', 'process.stderr.write(process.argv.slice(1).join(" "));process.exit(9)', '--',

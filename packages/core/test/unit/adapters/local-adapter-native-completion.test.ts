@@ -11,6 +11,13 @@ const alive = (pid: number): boolean => {
 };
 
 describe('local native completion', () => {
+  it('rejects removed runtime overrides instead of silently accepting them', () => {
+    // @ts-expect-error Runtime overrides were removed; the JS boundary rejects them too.
+    expect(() => new LocalAdapter({ preferBun: true })).toThrow(/one process implementation/);
+    // @ts-expect-error Runtime overrides were removed; the JS boundary rejects them too.
+    expect(() => new LocalAdapter({ forceImplementation: 'bun' })).toThrow(/one process implementation/);
+  });
+
   it('waits for asynchronous writes and finalization in caller-owned output destinations', async () => {
     const output: string[] = [];
     let flushed = false;
@@ -20,14 +27,14 @@ describe('local native completion', () => {
       },
       final(callback) { setTimeout(() => { flushed = true; callback(); }, 40); },
     });
-    const adapter = new LocalAdapter({ forceImplementation: 'node' });
+    const adapter = new LocalAdapter({});
     await adapter.execute({ ...command('process.stdout.write("complete")'), stdout: sink });
     expect(output.join('')).toBe('complete');
     expect(flushed).toBe(true);
   });
 
   it('preserves cancellation after native exit without inventing a signal', async () => {
-    const adapter = new LocalAdapter({ forceImplementation: 'node' });
+    const adapter = new LocalAdapter({});
     for (const code of [0, 1]) {
       const controller = new AbortController();
       const result = await adapter.execute({
@@ -44,7 +51,7 @@ describe('local native completion', () => {
   });
 
   it('joins a stopped CLI session even when termination has no POSIX signal', async () => {
-    const adapter = new LocalAdapter({ forceImplementation: 'node' });
+    const adapter = new LocalAdapter({});
     let ready!: () => void;
     const output = new Promise<void>(resolve => { ready = resolve; });
     const session = new LocalCommandSession(adapter, {
@@ -57,7 +64,7 @@ describe('local native completion', () => {
   });
 
   it('publishes stdin before feeding the configured command input', async () => {
-    const adapter = new LocalAdapter({ forceImplementation: 'node' });
+    const adapter = new LocalAdapter({});
     const result = await adapter.execute({
       ...command('let input=""; process.stdin.on("data",part=>input+=part); process.stdin.on("end",()=>process.stdout.write(input))'),
       stdin: 'suffix', onSpawn: child => { child.stdin!.write('prefix'); },
@@ -66,7 +73,7 @@ describe('local native completion', () => {
   });
 
   it('drains global stdout and stderr without ending either stream', async () => {
-    const adapter = new LocalAdapter({ forceImplementation: 'node' });
+    const adapter = new LocalAdapter({});
     await adapter.execute({
       ...command('process.stdout.write("native stdout\\n"); process.stderr.write("native stderr\\n")'),
       stdout: process.stdout, stderr: process.stderr,
@@ -78,7 +85,7 @@ describe('local native completion', () => {
   it('reports a destination error and confirms native cleanup before rejecting', async () => {
     let child: ProcessHandle | undefined;
     const sink = new Writable({ write(_chunk, _encoding, callback) { callback(new Error('destination failed')); } });
-    const adapter = new LocalAdapter({ forceImplementation: 'node', forceKillAfterDelay: 50 });
+    const adapter = new LocalAdapter({ forceKillAfterDelay: 50 });
     await expect(adapter.execute({
       ...command('process.stdout.write("ready"); setInterval(()=>{},1000)'),
       stdout: sink, onSpawn: handle => { child = handle; },
@@ -88,7 +95,7 @@ describe('local native completion', () => {
 
   it('cleans up when the spawn observer refuses the process', async () => {
     let child: ProcessHandle | undefined;
-    const adapter = new LocalAdapter({ forceImplementation: 'node', forceKillAfterDelay: 50 });
+    const adapter = new LocalAdapter({ forceKillAfterDelay: 50 });
     await expect(adapter.execute({
       ...command('setInterval(()=>{},1000)'),
       onSpawn: handle => { child = handle; throw new Error('observer refused'); },
@@ -97,7 +104,7 @@ describe('local native completion', () => {
   });
 
   it.skipIf(process.platform === 'win32')('delivers SIGTERM and the last graceful output before completion', async () => {
-    const adapter = new LocalAdapter({ forceImplementation: 'node', forceKillAfterDelay: 200 });
+    const adapter = new LocalAdapter({ forceKillAfterDelay: 200 });
     let child: ProcessHandle | undefined;
     const result = await adapter.execute({
       ...command('process.on("SIGTERM",()=>{process.stdout.write("finished",()=>process.exit(0))}); process.stdout.write("ready"); setInterval(()=>{},1000)'),
@@ -109,7 +116,7 @@ describe('local native completion', () => {
   });
 
   it.skipIf(process.platform === 'win32')('escalates an ignored SIGTERM and waits for the exact native PID to exit', async () => {
-    const adapter = new LocalAdapter({ forceImplementation: 'node', forceKillAfterDelay: 50 });
+    const adapter = new LocalAdapter({ forceKillAfterDelay: 50 });
     const controller = new AbortController();
     let child: ProcessHandle | undefined;
     const result = await adapter.execute({
@@ -122,7 +129,7 @@ describe('local native completion', () => {
   });
 
   it.skipIf(process.platform === 'win32')('waits for termination after a real command deadline', async () => {
-    const adapter = new LocalAdapter({ forceImplementation: 'node', forceKillAfterDelay: 50 });
+    const adapter = new LocalAdapter({ forceKillAfterDelay: 50 });
     let child: ProcessHandle | undefined;
     await expect(adapter.execute({
       ...command('process.on("SIGTERM",()=>{}); setInterval(()=>{},1000)'),
@@ -132,7 +139,7 @@ describe('local native completion', () => {
   });
 
   it('reports an uncompleted output destination within the cleanup bound', async () => {
-    const adapter = new LocalAdapter({ forceImplementation: 'node', forceKillAfterDelay: 10 });
+    const adapter = new LocalAdapter({ forceKillAfterDelay: 10 });
     const controller = new AbortController();
     const sink = new Writable({ write(_chunk, _encoding, _callback) { controller.abort(); } });
     try {

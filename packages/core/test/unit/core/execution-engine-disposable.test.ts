@@ -153,7 +153,7 @@ describe('ExecutionEngine Disposable functionality', () => {
       const mockEngine = engine.with({ adapter: 'mock' });
 
       // Start a long-running process
-      const longProcess = mockEngine.tag`sleep 10`;
+      const longProcess = mockEngine.tag`sleep 10`.nothrow();
 
       // Trigger execution
       void longProcess.catch(() => {});
@@ -167,6 +167,7 @@ describe('ExecutionEngine Disposable functionality', () => {
       // Process should be terminated with a signal
       const result = await longProcess;
       expect(result.signal).toBe('SIGTERM');
+        expect(result.ok).toBe(false);
       expect(result.duration).toBeLessThan(5000); // Should not have run for full 10 seconds
     });
   });
@@ -417,7 +418,7 @@ describe('ExecutionEngine Disposable functionality', () => {
 
       // Start multiple long-running processes
       const processes = Array.from({ length: 5 }, (_, i) =>
-        mockEngine.tag`sleep ${i + 1}`
+        mockEngine.tag`sleep ${i + 1}`.nothrow()
       );
 
       // Trigger execution for all processes
@@ -433,6 +434,7 @@ describe('ExecutionEngine Disposable functionality', () => {
       const results = await Promise.all(processes);
       results.forEach((result: any) => {
         expect(result.signal).toBe('SIGTERM');
+        expect(result.ok).toBe(false);
       });
     });
 

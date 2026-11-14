@@ -47,6 +47,15 @@ out.push('within=' + await within(realpathSync(tmpdir()), async () =>
 const lines = []; for await (const l of node('process.stdout.write("x\\\\ny\\\\n")')) lines.push(l.trim());
 out.push('stream=' + lines.join(','));
 out.push('buffer=' + (await node('process.stdout.write("ab")')).buffer().length);
+const controller = new AbortController();
+let cancelledPid;
+const interrupted = $.exec('node', { args: ['-e', 'process.stdout.write("ready");setInterval(()=>{},1000)'], shell: false, timeout: 5000, signal: controller.signal,
+  onSpawn: handle => { cancelledPid = handle.pid; handle.stdout.once('data', () => controller.abort()); } }).nothrow();
+const cancelled = await interrupted;
+let alive = true;
+try { process.kill(cancelledPid, 0); } catch (error) { if (error.code === 'ESRCH') alive = false; else throw error; }
+out.push('cancel=' + (cancelled.aborted === true && !cancelled.ok && !alive));
+
 const p = await parallel([node('process.exit(0)').nothrow(), node('process.exit(1)').nothrow()], { maxConcurrent: 2 });
 out.push('parallel=' + p.succeeded.length + '/' + p.failed.length);
 console.log(out.join('|'));
@@ -83,7 +92,7 @@ function runProbe(argv: string[]): string {
 }
 
 describe('the probe behaves identically on every installed runtime', () => {
-  const EXPECTED = 'exec=hello|interp=a b;x|nothrow=3|timeout=threw|within=true|stream=x,y|buffer=2|parallel=1/1';
+  const EXPECTED = 'exec=hello|interp=a b;x|nothrow=3|timeout=threw|within=true|stream=x,y|buffer=2|cancel=true|parallel=1/1';
 
   it('node agrees with the contract', () => {
     expect(runProbe([process.execPath])).toBe(EXPECTED);

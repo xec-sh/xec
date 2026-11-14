@@ -56,7 +56,6 @@ export class KubernetesAdapter extends BaseAdapter {
     this.k8sConfig = config;
     this.kubectlPath = config.kubectlPath || findKubectlPath();
     this.local = new LocalAdapter({
-      forceImplementation: 'node',
       encoding: config.encoding,
       // kubectl results are protocol data. Errors and events are sanitized at their boundary.
       sensitiveDataMasking: { enabled: false },

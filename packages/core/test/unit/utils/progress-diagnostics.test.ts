@@ -23,7 +23,7 @@ describe('progress diagnostics', () => {
   afterEach(() => { vi.restoreAllMocks(); });
 
   it('redacts command diagnostics without altering raw output or progress counts', async () => {
-    const adapter = new LocalAdapter({ forceImplementation: 'node', sensitiveDataMasking: { enabled: false } });
+    const adapter = new LocalAdapter({ sensitiveDataMasking: { enabled: false } });
     const { events, progress } = collect();
     const output = JSON.stringify({ token: secret }) + '\n';
     const result = await adapter.execute({
@@ -39,7 +39,7 @@ describe('progress diagnostics', () => {
   });
 
   it('redacts overflow data in callbacks without changing the thrown error', async () => {
-    const adapter = new LocalAdapter({ forceImplementation: 'node', sensitiveDataMasking: { enabled: false } });
+    const adapter = new LocalAdapter({ sensitiveDataMasking: { enabled: false } });
     const { events, progress } = collect();
     const failure = await adapter.execute({
       command: process.execPath,
@@ -58,7 +58,7 @@ describe('progress diagnostics', () => {
   });
 
   it('preserves native spawn diagnostics while masking separated credential arguments', async () => {
-    const adapter = new LocalAdapter({ forceImplementation: 'node', sensitiveDataMasking: { enabled: false } });
+    const adapter = new LocalAdapter({ sensitiveDataMasking: { enabled: false } });
     const { events, progress } = collect();
     const command = join(tmpdir(), `xec-missing-${randomUUID()}`);
     const failure = await adapter.execute({ command, args: ['--password', secret], shell: false, timeout: 3000, progress }).catch(error => error);
@@ -93,7 +93,7 @@ describe('progress diagnostics', () => {
   it('uses the same redaction for default console messages', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const adapter = new LocalAdapter({ forceImplementation: 'node', sensitiveDataMasking: { enabled: false } });
+    const adapter = new LocalAdapter({ sensitiveDataMasking: { enabled: false } });
     await expect(adapter.execute({
       command: join(tmpdir(), `xec-missing-${randomUUID()}`), args: ['--password', secret],
       shell: false, timeout: 3000, progress: { enabled: true },

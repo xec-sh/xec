@@ -359,6 +359,7 @@ export class ProcessContext {
   private buildCommand(commandParts: Partial<Command>): Command {
     const { modifications } = this.state;
     const globalNothrow = throwingDisabled(this.engine);
+    const onSpawn = modifications.onSpawn ?? commandParts.onSpawn ?? this.engine.currentConfig.onSpawn;
 
     // Single object spread for better performance
     return Object.assign(
@@ -377,6 +378,7 @@ export class ProcessContext {
         onSpawn: (handle: ProcessHandle) => {
           this.state.handle = handle;
           this.state.spawnDeferred?.resolve(handle);
+          onSpawn?.(handle);
         },
         // A caller who touched `.stdin` gets their writes forwarded; an
         // explicitly supplied stdin still wins.

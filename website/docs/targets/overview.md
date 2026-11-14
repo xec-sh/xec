@@ -24,7 +24,7 @@ Each target is implemented as an adapter in `@xec-sh/core`. Adapters are loaded 
 
 ### [Local](./local/overview.md)
 
-The default. Commands run on the machine executing the script through Node's `child_process` (or `Bun.spawn` under Bun) — no configuration required. The section covers [shell selection](./local/shell-config.md) and [troubleshooting](./local/troubleshooting.md) of local execution.
+The default. Commands run on the machine executing the script through the shared `node:child_process` API on Node, Bun, and Deno — no configuration required. The section covers [shell selection](./local/shell-config.md) and [troubleshooting](./local/troubleshooting.md) of local execution.
 
 ### [SSH](./ssh/overview.md)
 

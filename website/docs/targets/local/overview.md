@@ -7,7 +7,7 @@ sidebar_position: 1
 
 # Local Target Overview
 
-Local targets run commands directly on the machine executing the script, through Node's `child_process` (or `Bun.spawn`, when the adapter is configured to prefer it). It is the default target — no configuration is required to use it.
+Local targets run commands directly on the machine executing the script, through the `node:child_process` API supported by Node, Bun, and Deno. It is the default target — no configuration is required to use it.
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -33,36 +33,26 @@ All fields are optional; `local` also accepts `timeout`, `encoding`, `maxBuffer`
 
 ## Execution model
 
-`LocalAdapter` (`packages/core/src/adapters/local/index.ts`) picks `Bun.spawn` or Node's `child_process.spawn` per command. The choice, and a few OS-level settings, are constructor-only — set them once when the engine is created, not per command:
+`LocalAdapter` uses one process implementation across Node, Bun, and Deno. Select the runtime by starting the script with that executable. Xec 0.12 removes `preferBun` and `forceImplementation`; the separate Bun path did not implement the full cancellation and output contract.
+
+OS-level options are configured when creating the engine:
 
 ```typescript
-import { configure, RuntimeDetector } from '@xec-sh/core';
+import { ExecutionEngine } from '@xec-sh/core';
 
-configure({
+const engine = new ExecutionEngine({
   adapters: {
     local: {
-      preferBun: true,             // use Bun.spawn when the process is running under Bun
-      forceImplementation: 'bun',  // or 'node' — skip detection entirely
-      uid: 1000,                   // Unix only
-      gid: 1000,                   // Unix only
-      killSignal: 'SIGKILL',       // used for timeouts, buffer overflow and tree-kill (default SIGTERM)
+      uid: 1000,
+      gid: 1000,
+      killSignal: 'SIGTERM',
+      forceKillAfterDelay: 1000,
     },
   },
 });
-
-RuntimeDetector.isBun(); // true when the current process is Bun
 ```
 
-`configure()` replaces the default `$`. To run specific commands through an independently configured engine instead:
-
-```typescript
-import { ExecutionEngine, createCallableEngine } from '@xec-sh/core';
-
-const bunOnly = createCallableEngine(
-  new ExecutionEngine({ adapters: { local: { forceImplementation: 'bun' } } }),
-);
-await bunOnly`echo hello`;
-```
+`uid` and `gid` apply on Unix. Cancellation, process-tree termination, output bounds, and completion use the same lifetime on every supported runtime. A completed local cancellation reports `aborted: true`, independently of the native exit code or signal.
 
 ## Environment variables
 

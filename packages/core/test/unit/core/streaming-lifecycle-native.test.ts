@@ -133,6 +133,15 @@ describe('native line iterator lifetime and backpressure', () => {
     await expect(siblingResult).resolves.toMatchObject({ stdout: 'sibling survived', exitCode: 0 });
   });
 
+  it('composes the caller spawn observer with the public process handle', async () => {
+    const observer = vi.fn();
+    const command = run('process.stdout.write("observed")', { onSpawn: observer });
+    const handle = await command.spawned;
+    await expect(command).resolves.toMatchObject({ stdout: 'observed' });
+    expect(observer).toHaveBeenCalledExactlyOnceWith(handle);
+    expect(command.pid).toBe(handle.pid);
+  });
+
   it('preserves a signal supplied directly to exec options', async () => {
     const controller = new AbortController();
     controller.abort(new Error('explicit exec cancellation'));

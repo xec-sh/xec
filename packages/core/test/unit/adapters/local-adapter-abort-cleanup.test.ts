@@ -4,7 +4,7 @@ import { LocalAdapter } from '../../../src/adapters/local/index.js';
 
 describe('local command cancellation lifetime', () => {
   const command = (script: string) => ({ command: process.execPath, args: ['-e', script], shell: false, timeout: 5000 });
-  const adapter = () => new LocalAdapter({ forceImplementation: 'node' });
+  const adapter = () => new LocalAdapter({});
 
   it('detaches cancellation after success so a later abort cannot address a recycled process', async () => {
     const controller = new AbortController();
