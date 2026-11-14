@@ -105,7 +105,7 @@ export class CliCommandManager {
   /**
    * Discover and load all commands
    */
-  async discoverAndLoad(program: Command): Promise<CliCommand[]> {
+  async discoverAndLoad(program: Command, requested?: string): Promise<CliCommand[]> {
     await this.ensureInitialized();
 
     // Discover all commands
@@ -120,7 +120,7 @@ export class CliCommandManager {
     this.commands = allCommands;
 
     // Load dynamic commands into program
-    await this.loadDynamicCommands(program);
+    await this.loadDynamicCommands(program, requested);
 
     // Build registry from program
     this.buildRegistry(program);
@@ -240,7 +240,7 @@ export class CliCommandManager {
   /**
    * Load dynamic commands into program
    */
-  private async loadDynamicCommands(program: Command): Promise<void> {
+  private async loadDynamicCommands(program: Command, requested?: string): Promise<void> {
     const dynamicCommands = this.getDynamicCommands();
 
     if (process.env['XEC_DEBUG'] && dynamicCommands.length > 0) {
@@ -254,8 +254,6 @@ export class CliCommandManager {
     // `xec --help` transformed and executed every `.xec/commands/*.ts` in the
     // project — the script loader, esbuild and whatever those files import at
     // module scope — to print one line each.
-    const requested = process.argv.slice(2).find(arg => !arg.startsWith('-'));
-
     for (const cmd of dynamicCommands) {
       const wanted = cmd.name === requested || (cmd.aliases ?? []).includes(requested ?? '');
 
@@ -279,7 +277,8 @@ export class CliCommandManager {
       // Reachable when a command is invoked by a name this pass did not
       // recognise as the request — an alias resolved late, say.
       stub.action(async () => {
-        const fresh = new Command();
+        const fresh = new Command(program.name()).enablePositionalOptions();
+        for (const [name, value] of Object.entries(program.opts())) fresh.setOptionValue(name, value);
         const result = await (await this.getLoader()).loadDynamicCommand(cmd.path, fresh, cmd.name);
 
         if (!result.success) {
@@ -289,7 +288,9 @@ export class CliCommandManager {
         }
 
         cmd.loaded = true;
-        await fresh.parseAsync(process.argv);
+        // The root already consumed its options. Reusing process.argv would
+        // parse --cwd again and ignore a caller's explicit parseAsync input.
+        await fresh.parseAsync(program.args, { from: 'user' });
       });
     }
 
@@ -662,9 +663,9 @@ export function getCliCommandManager(): CliCommandManager {
 /**
  * Discover and load all commands
  */
-export async function discoverAndLoadCommands(program: Command): Promise<CliCommand[]> {
+export async function discoverAndLoadCommands(program: Command, requested?: string): Promise<CliCommand[]> {
   const manager = getCliCommandManager();
-  return manager.discoverAndLoad(program);
+  return manager.discoverAndLoad(program, requested);
 }
 
 /**
@@ -678,9 +679,9 @@ export async function discoverAllCommands(): Promise<CliCommand[]> {
 /**
  * Load dynamic commands (legacy API)
  */
-export async function loadDynamicCommands(program: Command): Promise<string[]> {
+export async function loadDynamicCommands(program: Command, requested?: string): Promise<string[]> {
   const manager = getCliCommandManager();
-  await manager.discoverAndLoad(program);
+  await manager.discoverAndLoad(program, requested);
 
   // Every discovered project command, not only the ones loaded in full.
   // Whichever command argv names is loaded; the rest are registered as

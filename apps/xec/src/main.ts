@@ -43,16 +43,7 @@ export function createProgram(): Command {
     .option('--cwd <path>', 'Set current working directory')
     .option('--no-color', 'Disable colored output')
     .option('-e, --eval <code>', 'Evaluate code')
-    .option('--repl', 'Start interactive REPL')
-    .hook('preAction', (thisCommand) => {
-      const opts = thisCommand.opts();
-      if (opts['cwd']) {
-        process.chdir(opts['cwd']);
-      }
-      if (opts['noColor']) {
-        process.env['NO_COLOR'] = '1';
-      }
-    });
+    .option('--repl', 'Start interactive REPL');
 
   return program;
 }
@@ -127,10 +118,11 @@ function describeCommand(program: Command, entry: CommandManifestEntry): void {
   stub.action(async () => {
     const module = await import(pathToFileURL(join(__dirname, './commands', `${entry.module}.js`)).href);
     const fresh = createProgram();
+    for (const [name, value] of Object.entries(program.opts())) fresh.setOptionValue(name, value);
     if (typeof module.default === 'function') {
       module.default(fresh);
     }
-    await fresh.parseAsync(process.argv);
+    await fresh.parseAsync(program.args, { from: 'user' });
   });
 }
 
@@ -138,7 +130,7 @@ export async function loadCommands(program: Command, requested?: string): Promis
   await registerBuiltInCommands(program, requested);
 
   // Load dynamic commands using the new loader
-  const dynamicCommandNames = await loadDynamicCommands(program);
+  const dynamicCommandNames = await loadDynamicCommands(program, requested);
 
   // Return dynamic command names for later use
   return dynamicCommandNames;
@@ -232,72 +224,48 @@ export async function run(argv: string[] = process.argv): Promise<void> {
     return;
   }
 
-  // From here on, user code may load — dynamic commands, scripts, eval,
-  // REPL — and user code may import '@xec-sh/core' in a project that never
-  // installed it. Registered once, before the first such import.
-  registerSelfResolution();
-
-  // Load all commands first (built-in and dynamic) BEFORE processing arguments
-  // The command word tells us which command to actually load. Scanning past
-  // root flags and their values matters: `xec --cwd /x config get k` names
-  // config, not /x.
-  const argsForScan = argv.slice(2);
-  const scanIndex = findCommandWordIndex(argsForScan);
-  const scannedToken = argsForScan[scanIndex];
-  const requestedCommand =
-    scannedToken === '--' || scannedToken?.startsWith('-') ? undefined : scannedToken;
-  const dynamicCommandNames = await loadCommands(program, requestedCommand);
-  getExecutionSignal()?.throwIfAborted();
-
-  // Customize help output with dynamic commands info
-  customizeHelp(program, dynamicCommandNames);
-
-  // Build command registry for validation
-  const commandRegistry = registerCliCommands(program);
-  // Include dynamic command names in the command list
-  const commandNames = program.commands.map(cmd => cmd.name())
-    .concat(program.commands.flatMap(cmd => cmd.aliases() || []))
-    .concat(dynamicCommandNames);
+  // Resolve the dispatch boundary once. Discovery, shorthands and command
+  // loaders must agree that a root option's value is not a command name.
+  const args = argv.slice(2);
+  const commandWordIndex = findCommandWordIndex(args);
+  const rootRegion = args.slice(0, commandWordIndex);
+  const commandWordToken = args[commandWordIndex];
+  const commandWord =
+    commandWordToken === '--' || commandWordToken?.startsWith('-') ? undefined : commandWordToken;
 
   try {
-    // Check if this is a script execution
-    const args = argv.slice(2);
-    // Root shorthands live strictly before the command word; the same
-    // spelling after it belongs to the command being run. Without this
-    // boundary, `xec on host cmd -e KEY=VALUE` was evaluated as JavaScript
-    // and `xec on host --repl` opened the local REPL without its target.
-    const commandWordIndex = findCommandWordIndex(args);
-    const rootRegion = args.slice(0, commandWordIndex);
-    const commandWordToken = args[commandWordIndex];
-    const commandWord =
-      commandWordToken === '--' || commandWordToken?.startsWith('-') ? undefined : commandWordToken;
-
-    // Root options act on every path from here on. The commander path
-    // re-applies --cwd and --no-color in its preAction hook, which is
-    // idempotent; before this block, an eval, a task or a direct command
-    // silently kept the old directory and its colors.
-    const rootOptions = {
-      verbose: rootRegion.includes('-v') || rootRegion.includes('--verbose'),
-      quiet: rootRegion.includes('-q') || rootRegion.includes('--quiet'),
-      cwd: undefined as string | undefined,
-    };
-    const cwdFlagIndex = rootRegion.indexOf('--cwd');
-    if (cwdFlagIndex !== -1) {
-      rootOptions.cwd = rootRegion[cwdFlagIndex + 1];
-    } else {
-      const cwdInline = rootRegion.find(a => a.startsWith('--cwd='));
-      if (cwdInline) rootOptions.cwd = cwdInline.slice('--cwd='.length);
-    }
-    if (rootOptions.cwd) {
+    // Apply the root context before project discovery or module loading.
+    // Reapplying a relative cwd in preAction would resolve it a second time.
+    program.parseOptions(rootRegion);
+    const parsed = program.opts<{ verbose?: boolean; quiet?: boolean; cwd?: string; color?: boolean }>();
+    if (parsed.cwd !== undefined) {
       try {
-        process.chdir(rootOptions.cwd);
+        process.chdir(parsed.cwd);
       } catch {
-        throw new Error(`Cannot change directory to '${rootOptions.cwd}': no such directory`);
+        throw new Error(`Cannot change directory to '${parsed.cwd}': no such directory`);
       }
     }
-    if (rootRegion.includes('--no-color')) {
+    const rootOptions = {
+      verbose: parsed.verbose === true,
+      quiet: parsed.quiet === true,
+      // Execution engines must receive the resolved directory, otherwise a
+      // relative --cwd would be resolved again against the new process cwd.
+      cwd: parsed.cwd === undefined ? undefined : process.cwd(),
+    };
+    if (parsed.color === false) {
       process.env['NO_COLOR'] = '1';
     }
+
+    // User modules may import Xec even when the selected project has not
+    // installed it. Register resolution before the first such module loads.
+    registerSelfResolution();
+    const dynamicCommandNames = await loadCommands(program, commandWord);
+    getExecutionSignal()?.throwIfAborted();
+    customizeHelp(program, dynamicCommandNames);
+    const commandRegistry = registerCliCommands(program);
+    const commandNames = program.commands.map(cmd => cmd.name())
+      .concat(program.commands.flatMap(cmd => cmd.aliases() || []))
+      .concat(dynamicCommandNames);
 
     // Check for special flags first.
     //
