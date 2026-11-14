@@ -273,6 +273,7 @@ function formatEnhancedErrorAsJSON(error: EnhancedExecutionError): any {
     timestamp: new Date().toISOString(),
     context: error.context,
     suggestions: error.suggestions,
+    causes: error.causes,
     systemInfo: error.systemInfo,
     type: error.name
   };

@@ -108,7 +108,8 @@ describe('service lifecycle evidence', () => {
   });
 });
 
-describe('native service argument boundaries', () => {
+// These fixtures emulate POSIX programs inside Linux containers using native shebangs.
+describe.skipIf(process.platform === 'win32')('native service argument boundaries', () => {
   let directory: string;
   let record: string;
   let engine: ExecutionEngine;

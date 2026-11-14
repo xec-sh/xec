@@ -431,3 +431,12 @@ describe('error-handler', () => {
     });
   });
 });
+
+it('includes sanitized causes in machine-readable diagnostics', () => {
+  vi.clearAllMocks();
+  const error = new Error('release failed', { cause: new Error('missing archive token=synthetic-secret') });
+  expect(() => handleError(error, { output: 'json' })).toThrow('Process exited with code: 1');
+  const output = JSON.parse(String(mockConsoleError.mock.calls[0]?.[0]));
+  expect(output.causes).toEqual([{ name: 'Error', message: 'missing archive token=[REDACTED]' }]);
+  expect(error.cause).toMatchObject({ message: 'missing archive token=synthetic-secret' });
+});

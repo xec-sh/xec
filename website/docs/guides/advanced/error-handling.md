@@ -12,6 +12,12 @@ A command can fail before starting, exit with an error, time out, or lose its
 connection after changing remote state. Record the observed outcome and let the
 application decide which operations can safely be repeated.
 
+CLI diagnostics retain nested `Error.cause` explanations and parallel failures
+from `AggregateError`. Text output shows them without requiring verbose mode;
+JSON and YAML include a `causes` array. Both use the same credential masking.
+Cyclic references are deduplicated; a limit of 32 causes is reported explicitly
+when further entries are omitted.
+
 ## Prerequisites
 
 - Xec CLI and its public packages

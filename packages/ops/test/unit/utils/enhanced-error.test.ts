@@ -521,3 +521,29 @@ describe('Enhanced Error System', () => {
     });
   });
 });
+
+describe('error cause diagnostics', () => {
+  it('preserves nested failure explanations without mutating or exposing secrets', () => {
+    const source = new Error('npm rejected token=synthetic-secret');
+    const error = new Error('Release interrupted', { cause: new Error('Upload failed', { cause: source }) });
+    const enhanced = enhanceError(error);
+    expect(enhanced.format()).toContain('Upload failed');
+    expect(enhanced.format()).toContain('npm rejected token=[REDACTED]');
+    expect(JSON.stringify(enhanced.causes)).not.toContain('synthetic-secret');
+    expect(source.message).toContain('synthetic-secret');
+  });
+
+  it('reports parallel failures and terminates cyclic cause graphs', () => {
+    const first = new Error('first failure');
+    const second = new Error('second failure', { cause: first });
+    first.cause = second;
+    const error = enhanceError(new AggregateError([first, second], 'parallel failures'));
+    expect(error.causes.map(cause => cause.message)).toEqual(['parallel failures', 'first failure', 'second failure']);
+  });
+
+  it('explicitly bounds large error graphs', () => {
+    const error = enhanceError(new AggregateError(Array.from({ length: 40 }, (_, i) => new Error(String(i))), 'failed'));
+    expect(error.causes).toHaveLength(33);
+    expect(error.causes.at(-1)?.name).toBe('TruncatedCauses');
+  });
+});

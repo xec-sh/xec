@@ -1,6 +1,6 @@
 import type { ErrorContext, ErrorSuggestion, EnhancedErrorDetails } from '@xec-sh/core';
 
-import { ExecutionError } from '@xec-sh/core';
+import { ExecutionError, sanitizeCommandForError, sanitizeErrorForDiagnostics } from '@xec-sh/core';
 
 export type { ErrorContext, ErrorSuggestion, EnhancedErrorDetails };
 
@@ -40,6 +40,32 @@ export class EnhancedExecutionError extends ExecutionError {
     return this;
   }
 
+  /** Bounded diagnostic causes, shared by text and structured CLI output. */
+  get causes(): Array<{ name: string; message: string }> {
+    const result: Array<{ name: string; message: string }> = [];
+    const pending: unknown[] = this.cause === undefined ? [] : [this.cause];
+    const seen = new Set<unknown>();
+    let truncated = false;
+    while (pending.length && result.length < 32) {
+      const value = pending.shift();
+      if (seen.has(value)) continue;
+      seen.add(value);
+      result.push({
+        name: sanitizeCommandForError(value instanceof Error ? value.name : 'Error'),
+        message: sanitizeCommandForError(value instanceof Error ? value.message : String(value)),
+      });
+      if (value instanceof Error && value.cause !== undefined) pending.push(value.cause);
+      if (value instanceof AggregateError) {
+        for (const child of value.errors) {
+          if (pending.length >= 33) { truncated = true; break; }
+          pending.push(child);
+        }
+      }
+    }
+    if (pending.length || truncated) result.push({ name: 'TruncatedCauses', message: 'Further error causes omitted after 32 entries' });
+    return result;
+  }
+
   /**
    * Format error for display
    */
@@ -49,6 +75,7 @@ export class EnhancedExecutionError extends ExecutionError {
     // Main error message
     lines.push(`Error: ${this.message}`);
     lines.push(`Code: ${this.code}`);
+    for (const cause of this.causes) lines.push(`Caused by ${cause.name}: ${cause.message}`);
 
     // Context information
     if (Object.keys(this.context).length > 0) {
@@ -462,10 +489,13 @@ export function enhanceError(
     return error;
   }
 
+  // Preserve causes as sanitized diagnostic copies without mutating caller errors.
+  error = sanitizeErrorForDiagnostics(error);
+  let enhanced: EnhancedExecutionError;
   // Convert standard errors
   if (error.name === 'CommandError') {
     const cmdError = error as any;
-    return new EnhancedCommandError(
+    enhanced = new EnhancedCommandError(
       cmdError.command,
       cmdError.exitCode,
       cmdError.signal,
@@ -474,35 +504,33 @@ export function enhanceError(
       cmdError.duration,
       context?.adapter
     );
-  }
-
-  if (error.name === 'ConnectionError') {
+  } else if (error.name === 'ConnectionError') {
     const connError = error as any;
-    return new EnhancedConnectionError(
+    enhanced = new EnhancedConnectionError(
       connError.host,
       connError.originalError,
       connError.port,
       context?.adapter
     );
-  }
-
-  if (error.name === 'TimeoutError') {
+  } else if (error.name === 'TimeoutError') {
     const timeoutError = error as any;
-    return new EnhancedTimeoutError(
+    enhanced = new EnhancedTimeoutError(
       timeoutError.command,
       timeoutError.timeout,
       context?.adapter
     );
+  } else {
+    // Generic enhancement
+    enhanced = new EnhancedExecutionError(
+      error.message,
+      'UNKNOWN_ERROR',
+      context || {},
+      [{
+        message: 'An unexpected error occurred',
+        documentation: 'https://xec.sh/docs/projects/cli/troubleshooting'
+      }]
+    );
   }
-
-  // Generic enhancement
-  return new EnhancedExecutionError(
-    error.message,
-    'UNKNOWN_ERROR',
-    context || {},
-    [{
-      message: 'An unexpected error occurred',
-      documentation: 'https://xec.sh/docs/projects/cli/troubleshooting'
-    }]
-  );
+  enhanced.cause = error instanceof AggregateError ? error : error.cause;
+  return enhanced;
 }
