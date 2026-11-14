@@ -23,6 +23,8 @@ export interface ExecutionResult {
   stdall: string;
   exitCode: number;                     // Exit code
   signal?: string;                      // Exit signal
+  /** Cancellation was observed before local exit; completion and output cleanup are confirmed. */
+  aborted?: boolean;
 
   // Status
   ok: boolean;                          // Success status (exitCode === 0)

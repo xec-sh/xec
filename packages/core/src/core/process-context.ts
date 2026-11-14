@@ -453,7 +453,7 @@ function streamLines(promise: ProcessPromise, context: ProcessContext): AsyncIte
   });
 
   const expectedStop = (error: unknown): boolean => {
-    if (error instanceof CommandError) return !!error.signal;
+    if (error instanceof CommandError) return !!error.signal || error.aborted === true;
     if (error instanceof DockerError) return expectedStop(error.originalError);
     if (error instanceof AdapterError && error.operation !== 'terminate') return expectedStop(error.originalError);
     if (error instanceof ExecutionError) return typeof error.details?.['signal'] === 'string';
@@ -698,7 +698,7 @@ export class ProcessPromiseBuilder {
         }
 
         return executionPromise!.then(result => {
-          if (result.exitCode !== 0 && !context.state.modifications.nothrow) {
+          if (!result.ok && !context.state.modifications.nothrow) {
             const globalNothrow = throwingDisabled(context.engine);
             if (!globalNothrow) {
               result.throwIfFailed();

@@ -38,16 +38,17 @@ export class ExecutionResultImpl implements ExecutionResult {
      * does not, so without this `buffer()` returned U+FFFD replacement
      * characters re-encoded as UTF-8 rather than what the command wrote.
      */
-    private readonly rawStdout?: Buffer
+    private readonly rawStdout?: Buffer,
+    public readonly aborted?: boolean
   ) {
     // A process killed by a signal reports no exit code, and coalescing that
     // to 0 made an OOM kill or an orchestrator SIGTERM indistinguishable from
     // success. A signal is never success.
-    this.ok = exitCode === 0 && !signal;
+    this.ok = exitCode === 0 && !signal && !aborted;
     this.stdall = stdall ?? stdout + stderr;
 
     if (!this.ok) {
-      this.cause = signal ? `signal: ${signal}` : `exitCode: ${exitCode}`;
+      this.cause = aborted ? 'aborted' : signal ? `signal: ${signal}` : `exitCode: ${exitCode}`;
     }
   }
 
@@ -75,6 +76,7 @@ export class ExecutionResultImpl implements ExecutionResult {
       stderr: this.stderr,
       exitCode: this.exitCode,
       signal: this.signal,
+      ...(this.aborted ? { aborted: true } : {}),
       command: this.command,
       duration: this.duration,
       startedAt: this.startedAt.toISOString(),
@@ -86,7 +88,7 @@ export class ExecutionResultImpl implements ExecutionResult {
   }
 
   throwIfFailed(): void {
-    if (this.exitCode !== 0) {
+    if (!this.ok) {
       throw new CommandError(
         this.command,
         this.exitCode,
@@ -94,7 +96,8 @@ export class ExecutionResultImpl implements ExecutionResult {
         this.stdout,
         this.stderr,
         this.duration,
-        this.callSite
+        this.callSite,
+        this.aborted
       );
     }
   }

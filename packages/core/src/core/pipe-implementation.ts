@@ -36,9 +36,9 @@ export async function executePipe(
   const sourceResult = await source;
 
   // Check for errors
-  if (throwOnError && sourceResult.exitCode !== 0) {
+  if (throwOnError && !sourceResult.ok) {
     throw new CommandError(sourceResult.command, sourceResult.exitCode, sourceResult.signal,
-      sourceResult.stdout, sourceResult.stderr, sourceResult.duration);
+      sourceResult.stdout, sourceResult.stderr, sourceResult.duration, '', sourceResult.aborted);
   }
 
   // Handle different target types

@@ -50,6 +50,20 @@ describe('native line iterator lifetime and backpressure', () => {
     expect(alive(pid)).toBe(false);
   });
 
+  it('distinguishes a confirmed cancellation from a normal exit code 1', async () => {
+    // Windows taskkill yields code 1 with no exit signal. A cooperative POSIX
+    // process gives the same result, so both branches are exercised natively.
+    const command = run('process.on("SIGTERM",()=>process.exit(1));process.stdout.write("ready\\n");setInterval(()=>{},1000)');
+    for await (const line of command) { expect(line).toBe('ready'); break; }
+    await expect(command).rejects.toMatchObject({ exitCode: 1, aborted: true });
+    expect(alive(command.pid)).toBe(false);
+
+    const failed = run('process.stdout.write("last\\n");process.exitCode=1');
+    const lines: string[] = [];
+    await expect((async () => { for await (const line of failed) lines.push(line); })()).rejects.toMatchObject({ exitCode: 1, aborted: undefined });
+    expect(lines).toEqual(['last']);
+  });
+
   it('pauses a fast producer while the consumer holds one line', async () => {
     const marker = join(directory, 'producer-finished');
     const command = run(`

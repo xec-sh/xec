@@ -34,6 +34,7 @@ interface ProcessResult {
   rawStdout?: Buffer;
   exitCode: number | null;
   signal: string | null;
+  aborted?: boolean;
 }
 
 /**
@@ -85,6 +86,7 @@ export class LocalAdapter extends BaseAdapter {
         originalCommand: mergedCommand,
         stdall: result.stdall,
         rawStdout: result.rawStdout,
+        aborted: result.aborted,
       };
 
       if (mergedCommand.nothrow) {
@@ -305,6 +307,7 @@ export class LocalAdapter extends BaseAdapter {
       child.once('close', () => { processClosed = true; resolve(); });
     });
     let stopping = false;
+    let aborted = false;
     let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
     let forceTimer: ReturnType<typeof setTimeout> | undefined;
     let closeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -398,7 +401,8 @@ export class LocalAdapter extends BaseAdapter {
             stdall: Buffer.concat(interleaved).toString(command.encoding ?? this.config.encoding),
             rawStdout: stdoutHandler.getRawIfLossy() ?? undefined,
             exitCode,
-            signal: exitSignal
+            signal: exitSignal,
+            aborted: aborted || undefined
           });
         }
       };
@@ -530,7 +534,12 @@ export class LocalAdapter extends BaseAdapter {
         }
       }
 
-      detachAbort = this.setupAbortSignal(command.signal, () => requestTermination());
+      detachAbort = this.setupAbortSignal(command.signal, () => {
+        // taskkill on Windows reports exit code 1 without a POSIX signal.
+        // Record cancellation separately; never invent an exit signal.
+        if (child.exitCode == null && child.signalCode == null) aborted = true;
+        requestTermination();
+      });
       const timeout = Number(command.timeout ?? this.config.defaultTimeout);
       if (timeout > 0 && !stopping) {
         timeoutTimer = setTimeout(() => {

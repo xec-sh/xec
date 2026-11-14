@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawn } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
+import { spawn, spawnSync } from 'node:child_process';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BIN = path.join(ROOT, 'bin/xec');
@@ -48,6 +48,22 @@ describe('the entry point ends the process', () => {
         resolve({ code, signal, stdout, stderr, gaveUp });
       });
     });
+
+  it.each(['18.20.0', '20.19.0', '22.17.9'])('rejects Node %s before loading the CLI', async version => {
+    const { engines } = JSON.parse(await readFile(path.join(ROOT, 'package.json'), 'utf8'));
+    const preload = `Object.defineProperty(process.versions,'node',{value:${JSON.stringify(version)}})`;
+    const result = spawnSync(process.execPath, ['--import', `data:text/javascript,${encodeURIComponent(preload)}`, BIN, '--version'], { encoding: 'utf8', timeout: 5000 });
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe('');
+    expect(result.stderr).toContain(`Xec requires Node.js ${engines.node}`);
+  });
+
+  it.each(['22.18.0', '23.0.0', '24.13.0'])('accepts the supported Node version %s', version => {
+    const preload = `Object.defineProperty(process.versions,'node',{value:${JSON.stringify(version)}})`;
+    const result = spawnSync(process.execPath, ['--import', `data:text/javascript,${encodeURIComponent(preload)}`, BIN, '--version'], { encoding: 'utf8', timeout: 5000 });
+    expect(result.status).toBe(0);
+    expect(result.stdout.trim()).toMatch(/^\d+\.\d+\.\d+/);
+  });
 
   it('stops on Ctrl+C, through the shim users invoke', async () => {
     const result = await runUntilExit(BIN, ['run', '-e', 'await sleep(20000)'], 1500);

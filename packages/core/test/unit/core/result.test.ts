@@ -160,14 +160,15 @@ describe('ExecutionResult', () => {
       }
     });
 
-    it('should not throw when exit code is 0 even with signal', () => {
+    it('reports a signalled result as failure even when its exit code is zero', () => {
       const result = createMockExecutionResult({
         exitCode: 0,
         signal: 'SIGTERM',
-        stdout: 'Process terminated gracefully'
+        stdout: 'Interrupted process'
       });
 
-      expect(() => result.throwIfFailed()).not.toThrow();
+      expect(result.ok).toBe(false);
+      expect(() => result.throwIfFailed()).toThrow(CommandError);
     });
 
     it('should throw with detailed error information', () => {

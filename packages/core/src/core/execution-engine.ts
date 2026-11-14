@@ -1166,6 +1166,8 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     }
     const adapter = await this.selectAdapter({ command: '', ...this.currentConfig, ...asyncLocalStorage.getStore() });
     const windows = adapter instanceof LocalAdapter && os.platform() === 'win32';
+    const windowsPath = path.win32.parse(command);
+    const windowsPattern = windowsPath.dir ? `${windowsPath.dir}:${windowsPath.base}` : command;
     // On a remote target, kubectl's exit 1 can mean transport refusal rather
     // than an absent executable. A successful shell observation acknowledges
     // found/missing; a failed transport cannot be interpreted as absence.
@@ -1174,7 +1176,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     try {
       result = await this.execute({
         command: windows ? 'where.exe' : 'sh',
-        args: windows ? [command] : ['-c', lookup, 'xec-which', command],
+        args: windows ? [windowsPattern] : ['-c', lookup, 'xec-which', command],
         shell: false,
         throwOnNonZeroExit: true,
         nothrow: false,

@@ -50,7 +50,7 @@ export class LocalCommandSession {
       nothrow: undefined,
     }).then(result => {
       if (this.failure !== undefined) throw this.failure;
-      if (command.throwOnNonZeroExit && result.exitCode !== 0 && !(this.stopping && result.signal)) {
+      if (command.throwOnNonZeroExit && !result.ok && !(this.stopping && (result.signal || result.aborted))) {
         throw options.onNonZero?.(result) ?? new ExecutionError(
           `Command exited with code ${result.exitCode}: ${result.stderr}`,
           'COMMAND_FAILED', { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode },

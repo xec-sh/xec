@@ -612,6 +612,11 @@ command output is still subject to `maxBuffer`. A normal nonzero exit is reporte
 after all output lines have been delivered, unless `.nothrow()` was requested.
 Breaking the loop stops that command and awaits its completion; failure to
 confirm cleanup still rejects instead of reporting a successful stop.
+Local cancellation is recorded as `aborted: true` on the result and `CommandError`
+after process exit and output cleanup are confirmed. This remains distinct from
+an ordinary failure on Windows, where stopping a process tree may produce exit
+code 1 without a POSIX signal. Native exit codes and signals remain unchanged;
+`ok` is false for an aborted command, even if its shutdown handler exits zero.
 
 A `ProcessPromise` is async-iterable, streaming lines as they arrive rather
 than waiting for the command to finish — the right tool for a follow-style

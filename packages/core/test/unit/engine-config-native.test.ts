@@ -7,7 +7,7 @@ import { LocalAdapter } from '../../src/adapters/local/index.js';
 import { ExecutionEngine } from '../../src/core/execution-engine.js';
 import { TimeoutError, MaxBufferExceededError } from '../../src/core/error.js';
 
-const probe = 'process.stdout.write(JSON.stringify({cwd:process.cwd(),value:process.env["XEC_CONFIG_NATIVE"]??null,extra:process.env.XEC_CONFIG_EXTRA??null}))';
+const probe = 'process.stdout.write(JSON.stringify({cwd:require("node:fs").realpathSync.native(process.cwd()),value:process.env["XEC_CONFIG_NATIVE"]??null,extra:process.env.XEC_CONFIG_EXTRA??null}))';
 const command = { command: process.execPath, args: ['-e', probe], shell: false };
 
 describe('engine configuration through native execution', () => {

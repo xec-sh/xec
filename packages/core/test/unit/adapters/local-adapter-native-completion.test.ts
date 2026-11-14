@@ -3,6 +3,7 @@ import type { ProcessHandle } from '../../../src/types/process-handle.js';
 import { Writable } from 'node:stream';
 
 import { LocalAdapter } from '../../../src/adapters/local/index.js';
+import { LocalCommandSession } from '../../../src/adapters/local/command-session.js';
 
 const command = (body: string) => ({ command: process.execPath, args: ['-e', body], shell: false, timeout: 3000 });
 const alive = (pid: number): boolean => {
@@ -23,6 +24,36 @@ describe('local native completion', () => {
     await adapter.execute({ ...command('process.stdout.write("complete")'), stdout: sink });
     expect(output.join('')).toBe('complete');
     expect(flushed).toBe(true);
+  });
+
+  it('preserves cancellation after native exit without inventing a signal', async () => {
+    const adapter = new LocalAdapter({ forceImplementation: 'node' });
+    for (const code of [0, 1]) {
+      const controller = new AbortController();
+      const result = await adapter.execute({
+        ...command(`process.on('SIGTERM',()=>process.exit(${code}));process.stdout.write('ready');setInterval(()=>{},1000)`),
+        signal: controller.signal, throwOnNonZeroExit: false,
+        onSpawn: child => child.stdout!.once('data', () => controller.abort()),
+      });
+      expect(result).toMatchObject({ aborted: true, ok: false, cause: 'aborted' });
+      expect(result.toMetadata()).toMatchObject({ aborted: true });
+      expect(() => result.throwIfFailed()).toThrow(/cancelled/);
+      if (process.platform !== 'win32') expect(result.exitCode).toBe(code);
+      expect(result.signal).toBeUndefined();
+    }
+  });
+
+  it('joins a stopped CLI session even when termination has no POSIX signal', async () => {
+    const adapter = new LocalAdapter({ forceImplementation: 'node' });
+    let ready!: () => void;
+    const output = new Promise<void>(resolve => { ready = resolve; });
+    const session = new LocalCommandSession(adapter, {
+      ...command('process.on("SIGTERM",()=>process.exit(1));process.stdout.write("ready\\n");setInterval(()=>{},1000)'),
+      maxBuffer: 1024, throwOnNonZeroExit: true,
+    }, { onStdout: () => ready() });
+    await output;
+    await expect(session.stop()).resolves.toBeUndefined();
+    await expect(session.result).resolves.toMatchObject({ exitCode: 1, aborted: true });
   });
 
   it('publishes stdin before feeding the configured command input', async () => {

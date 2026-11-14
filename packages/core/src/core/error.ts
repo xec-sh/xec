@@ -52,7 +52,8 @@ export class CommandError extends ExecutionError {
     public readonly stderr: string,
     public readonly duration: number,
     /** Where the caller wrote this command, if it was captured. */
-    public readonly callSite: string = ''
+    public readonly callSite: string = '',
+    public readonly aborted?: boolean
   ) {
     // Sanitize command for error message to avoid exposing sensitive paths
     const sanitizedCommand = sanitizeCommandForError(command);
@@ -69,13 +70,14 @@ export class CommandError extends ExecutionError {
     // The frame turns "which of these fourteen commands failed?" into a click.
     const at = callSite ? `\n    at ${callSite}` : '';
 
-    super(`Command failed with exit code ${code}: ${sanitizedCommand}${detail}${at}`, 'COMMAND_FAILED', {
+    super(`${aborted ? 'Command cancelled' : 'Command failed'} with exit code ${code}: ${sanitizedCommand}${detail}${at}`, 'COMMAND_FAILED', {
       exitCode,
       signal,
       stdout: safeStdout,
       stderr: safeStderr,
       duration,
-      callSite
+      callSite,
+      ...(aborted ? { aborted: true } : {})
     }, 'command-failed');
     this.name = 'CommandError';
     this.command = sanitizedCommand;

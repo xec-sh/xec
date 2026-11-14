@@ -41,7 +41,7 @@ describe('Additional README Examples', () => {
   it('should work with which utility method', async () => {
     const path = await $.which('echo');
     expect(path).toBeTruthy();
-    expect(path).toMatch(/echo$/);
+    expect(path).toMatch(/[/\\]echo(?:\.exe)?$/i);
   });
 
   it('should work with isCommandAvailable method', async () => {
