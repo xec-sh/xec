@@ -112,3 +112,26 @@ test('visual evidence covers coherent light/dark themes, mobile and file-tree do
   await expect(page.locator('.lumen-section-nav a[aria-current="location"]')).toHaveAttribute('href', '#matrix-builds');
   await page.screenshot({ path: info.outputPath('documentation-toc.png') });
 });
+
+for (const route of [
+  '/docs/introduction',
+  '/docs/introduction/core-concepts',
+  '/docs/introduction/ecosystem',
+  '/docs/introduction/architecture',
+  '/docs/core/execution-engine/overview',
+  '/docs/core/execution-engine/adapters/concept',
+]) {
+  test(`Lumen renders every diagram on ${route}`, async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    await page.goto(route);
+    const diagrams = page.locator('.lumen-diagram-mermaid');
+    expect(await diagrams.count()).toBeGreaterThan(0);
+    for (const diagram of await diagrams.all()) {
+      await diagram.scrollIntoViewIfNeeded();
+      await expect(diagram.locator('.lumen-diagram-content svg')).toBeVisible();
+      await expect(diagram.getByRole('alert')).toHaveCount(0);
+    }
+    expect(errors).toEqual([]);
+  });
+}

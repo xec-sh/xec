@@ -76,6 +76,15 @@ jobs:
       - name: Verify navigation and interactions
         run: pnpm --dir website test:browser
 
+      - name: Upload website acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: website-acceptance
+          path: ./website/test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Upload artifact
         if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3

@@ -56,6 +56,7 @@ test('the exact homepage pipeline coordinates a real isolated package', async (t
       name: 'xec-site-fixture',
       private: true,
       version: '1.0.0',
+      type: 'module',
       scripts: { typecheck: 'node check.js types', test: 'node check.js test', build: 'node check.js build' },
     })
   );
@@ -65,7 +66,23 @@ test('the exact homepage pipeline coordinates a real isolated package', async (t
   );
   await writeFile(
     join(cwd, 'check.js'),
-    "const fs = require('node:fs');const stage = process.argv[2];if(stage==='build' && (!fs.existsSync('types.ok') || !fs.existsSync('test.ok'))) throw Error('Build started before checks');fs.writeFileSync(stage+'.ok', 'passed');\n"
+    `import { existsSync, writeFileSync } from 'node:fs';
+import { setTimeout as wait } from 'node:timers/promises';
+const stage = process.argv[2];
+writeFileSync(stage + '.started', 'started');
+if (stage === 'types' || stage === 'test') {
+  const other = stage === 'types' ? 'test' : 'types';
+  const deadline = Date.now() + 10000;
+  while (!existsSync(other + '.started')) {
+    if (Date.now() >= deadline) throw Error('Independent checks did not start concurrently');
+    await wait(25);
+  }
+}
+if (stage === 'build' && (!existsSync('types.ok') || !existsSync('test.ok'))) {
+  throw Error('Build started before checks');
+}
+writeFileSync(stage + '.ok', 'passed');
+`
   );
   await writeFile(join(cwd, 'check.ts'), examples.find((example) => example.id === 'pipeline').code);
   await run(cwd, ['run', 'check.ts']);

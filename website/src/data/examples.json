@@ -12,7 +12,7 @@
     "label": "SSH",
     "file": "inspect.ts",
     "code": "import { $ } from '@xec-sh/core';\n\nconst remote = $.ssh({\n  host: 'build.example.com',\n  username: 'deploy',\n});\nconst result = await remote`uname -a`.timeout('15s');\nconsole.log(result.stdout);",
-    "note": "Replace the host and configure trusted host keys and authentication. SSH runs through Xec\u2019s Node.js transport.",
+    "note": "Replace the host and configure trusted host keys and authentication. SSH runs through Xec’s Node.js transport.",
     "href": "/docs/targets/ssh/connection-config"
   },
   {
@@ -35,7 +35,7 @@
     "id": "pipeline",
     "label": "Pipeline",
     "file": "check.ts",
-    "code": "import { Pipeline } from '@xec-sh/ops';\n\nconst result = await Pipeline.create('verify')\n  .step('install', { run: 'pnpm install --frozen-lockfile' })\n  .step('types', { run: 'pnpm typecheck', dependsOn: ['install'] })\n  .step('tests', { run: 'pnpm test', dependsOn: ['install'] })\n  .step('build', { run: 'pnpm build', dependsOn: ['types', 'tests'] })\n  .run();\n\nif (!result.success) throw new Error('Verification failed');",
+    "code": "import { Pipeline } from '@xec-sh/ops';\n\nconst result = await Pipeline.create('verify')\n  .step('install', { run: 'pnpm install --frozen-lockfile' })\n  .step('types', { run: 'pnpm typecheck', dependsOn: ['install'] })\n  .step('tests', { run: 'pnpm test', dependsOn: ['install'] })\n  .step('build', { run: 'pnpm build', dependsOn: ['types', 'tests'] })\n  .run({}, { concurrency: 2 });\n\nif (!result.success) throw new Error('Verification failed');",
     "note": "Ready steps can run concurrently; dependencies gate execution. Package-level build graphs and artifact caches can remain in Turbo.",
     "href": "/docs/ops/pipeline"
   },
