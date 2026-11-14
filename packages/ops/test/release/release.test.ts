@@ -280,6 +280,49 @@ describe('release inventory, refs and sealed artifacts', () => {
     expect(await releaseCommand(root, 'git', ['status', '--porcelain'])).toBe('');
     await expect(readdir(join(root, '.release-artifacts'))).rejects.toMatchObject({ code: 'ENOENT' });
   });
+  it.each([false, true])('bounds long UTF-8 notes without losing inventory or the full history link (baseline=%s)', async selectedBase => {
+    const root = await repository();
+    const base = await releaseCommand(root, 'git', ['rev-parse', 'HEAD']);
+    await releaseCommand(root, 'git', ['commit', '--allow-empty', '-m', 'release candidate']);
+    const head = await releaseCommand(root, 'git', ['rev-parse', 'HEAD']);
+    const history = Array.from({ length: 2_000 }, (_, index) => `${index.toString(16).padStart(40, '0')}\tchange ${index}: Привет 🚀 ` + 'detail '.repeat(20)).join('\n');
+    const run: ReleaseCommand = (cwd, executable, args, options) => executable === 'git' && args[0] === 'log'
+      ? Promise.resolve(history) : releaseCommand(cwd, executable, args, options);
+    const notes = await releaseNotes(root, '1.0.0-rc.1', 'fixture/repository', { from: selectedBase ? base : undefined, run });
+    expect(Buffer.byteLength(notes, 'utf8')).toBeLessThanOrEqual(125_000);
+    expect(notes).toContain('change 0: Привет 🚀');
+    expect(notes).not.toContain('change 1999:');
+    expect(notes).not.toContain('\uFFFD');
+    expect(notes).toMatch(/Showing \d+ of 2000 commits/);
+    expect(notes).toContain(selectedBase ? `/compare/${base}...${head}` : `/commits/${head}`);
+    expect(notes).toContain('## Packages\n\n- @fixture/a@1.0.0-rc.1\n- @fixture/b@1.0.0-rc.1');
+    const entries = notes.split('\n').filter(line => line.startsWith('- change '));
+    expect(entries.every(line => /\/commit\/[a-f0-9]{40}\)\)$/.test(line))).toBe(true);
+  });
+  it('links the full history when even one commit cannot fit without cutting its content', async () => {
+    const root = await repository();
+    const head = await releaseCommand(root, 'git', ['rev-parse', 'HEAD']);
+    const run: ReleaseCommand = (cwd, executable, args, options) => executable === 'git' && args[0] === 'log'
+      ? Promise.resolve(`${head}\t${'x'.repeat(125_001)}`) : releaseCommand(cwd, executable, args, options);
+    const notes = await releaseNotes(root, '1.0.0-rc.1', 'fixture/repository', { run });
+    expect(Buffer.byteLength(notes, 'utf8')).toBeLessThanOrEqual(125_000);
+    expect(notes).toContain('Showing 0 of 1 commits');
+    expect(notes).toContain(`/commits/${head}`);
+    expect(notes).toContain('@fixture/b@1.0.0-rc.1');
+  });
+  it('admits a caller-supplied body at the exact byte limit to ordinary tag verification', async () => {
+    let calls = 0;
+    const run: ReleaseCommand = async () => { calls++; throw Error('tag verification reached'); };
+    await expect(createGithubRelease('/unused', '1.0.0', 'fixture/repository', 'é'.repeat(62_500), run)).rejects.toThrow('tag verification reached');
+    expect(calls).toBe(1);
+  });
+  it('refuses oversized caller-supplied GitHub notes before any remote action', async () => {
+    let calls = 0;
+    const run: ReleaseCommand = async () => { calls++; throw Error('unexpected remote action'); };
+    await expect(createGithubRelease('/unused', '1.0.0', 'fixture/repository', 'x'.repeat(125_001), run)).rejects.toThrow('125000');
+    await expect(createGithubRelease('/unused', '1.0.0', 'fixture/repository', '🚀'.repeat(31_251), run)).rejects.toThrow('125000');
+    expect(calls).toBe(0);
+  });
   it('uses only the caller-selected published commit as the release notes baseline', async () => {
     const root = await repository();
     const base = await releaseCommand(root, 'git', ['rev-parse', 'HEAD']);

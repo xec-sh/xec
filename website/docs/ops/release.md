@@ -80,7 +80,10 @@ checkout of its release commit; it completes GitHub without republishing npm.
 `--notes-from <full-commit>` selects the published ancestor used as the release
 notes baseline. Xec verifies that it is a full commit and an ancestor; the caller
 is responsible for choosing the published baseline. Without it, notes explicitly
-contain the complete committed history, not a guessed release delta.
+cover committed history, not a guessed release delta. Long histories retain the
+newest complete commit entries within GitHub’s body limit, keep the source and
+full package inventory, and link to the complete history at the exact commit or
+comparison range. Caller-supplied oversized notes fail before remote writes.
 `--skip-npm` and `--skip-github` are explicit stage selections. `--offline` makes
 the isolated dependency installation use the existing pnpm store. `--yes` accepts
 the displayed execution plan in noninteractive use; it bypasses no checks.
