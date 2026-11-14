@@ -1,9 +1,9 @@
 import { LocalAdapter } from '../local/index.js';
-import { findDockerPath } from './docker-utils.js';
 import { splitLines } from '../../utils/line-split.js';
 import { LocalCommandSession } from '../local/command-session.js';
 import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
 import { Command, DockerAdapterOptions } from '../../types/command.js';
+import { findDockerPath, parseContainerReference } from './docker-utils.js';
 import { ExecutionResult, ExecutionResultImpl } from '../../core/result.js';
 import { DockerError, AdapterError, CommandError, TimeoutError, sanitizeCommandForError } from '../../core/error.js';
 
@@ -906,16 +906,7 @@ export class DockerAdapter extends BaseAdapter {
     const result = await this.executeDockerCommand(
       ['ps', '-a', '--no-trunc', '--format', '{{json .}}'], { ...this.managementOptions(), signal });
     if (result.exitCode !== 0) throw new DockerError(container, 'inspect', new Error(result.stderr));
-    const matches: string[] = [];
-    for (const line of splitLines(result.stdout.trim()).filter(Boolean)) {
-      const row = JSON.parse(line) as { ID?: unknown; Names?: unknown };
-      if (typeof row.ID !== 'string' || !/^[a-f0-9]{64}$/.test(row.ID) || typeof row.Names !== 'string') {
-        throw new DockerError(container, 'inspect', new Error('Malformed Docker container inventory'));
-      }
-      if (row.ID.startsWith(container) || row.Names.split(',').includes(container)) matches.push(row.ID);
-    }
-    if (matches.length > 1) throw new DockerError(container, 'inspect', new Error('Ambiguous container reference'));
-    return matches[0] ?? null;
+    return parseContainerReference(result.stdout, container);
   }
 
   /** Idempotent removal, acknowledged only by a successful absence observation. */

@@ -7,6 +7,8 @@ import { randomUUID } from 'node:crypto';
 
 import { ProgressReporter } from '../../../src/utils/progress.js';
 import { LocalAdapter } from '../../../src/adapters/local/index.js';
+import { sanitizeCommandForError } from '../../../src/core/error.js';
+import { ExecutionEngine } from '../../../src/core/execution-engine.js';
 
 const secret = 'synthetic-progress-credential';
 const diagnostics = (events: ProgressEvent[]) => inspect(events, { depth: null });
@@ -101,4 +103,57 @@ describe('progress diagnostics', () => {
     expect(inspect(log.mock.calls)).toContain('[REDACTED]');
     expect(inspect(error.mock.calls)).toContain('[REDACTED]');
   });
+
+  it('preserves exact API data per command without changing shared redaction defaults', async () => {
+    const engine = new ExecutionEngine();
+    const { events, progress } = collect();
+    const output = JSON.stringify({ token: secret });
+    const script = 'process.stdout.write(JSON.stringify({token:process.argv[2]}));process.stderr.write("token="+process.argv[2])';
+    try {
+      const api = engine.with({ redactOutput: false, progress });
+      const result = await api.run`${process.execPath} -e ${script} -- --token ${secret}`;
+      expect(result.stdout).toBe(output);
+      expect(result.stderr).toBe(`token=${secret}`);
+      expect(result.json()).toEqual({ token: secret });
+      expect(result.stdall).toContain(output);
+      expect(diagnostics(events)).not.toContain(secret);
+      const masked = await engine.run`${process.execPath} -e ${script} -- --token ${secret}`;
+      expect(masked.stdout).not.toContain(secret);
+      expect(masked.stderr).not.toContain(secret);
+    } finally { await engine.dispose(); }
+  });
+
+  it('redacts failure objects even when the API result preserves raw output', async () => {
+    const engine = new ExecutionEngine();
+    const script = 'process.stdout.write("token="+process.argv[2]);process.stderr.write("password="+process.argv[2]);process.exitCode=7';
+    try {
+      const result = await engine.with({ redactOutput: false }).run`${process.execPath} -e ${script} -- --token ${secret}`.nothrow();
+      expect(result.stdout).toBe(`token=${secret}`);
+      expect(result.stderr).toBe(`password=${secret}`);
+      let failure: unknown;
+      try { result.throwIfFailed(); } catch (error) { failure = error; }
+      expect(failure).toMatchObject({ exitCode: 7, stdout: expect.stringContaining('[REDACTED]'), stderr: expect.stringContaining('[REDACTED]') });
+      expect(inspect(failure, { depth: null })).not.toContain(secret);
+      expect(result.stdout).toContain(secret);
+    } finally { await engine.dispose(); }
+  });
+
+  it('sanitizes JSON decoding diagnostics while retaining the failed source result', async () => {
+    const engine = new ExecutionEngine();
+    try {
+      const result = await engine.with({ redactOutput: false }).run`${process.execPath} -e ${'process.stdout.write("{token="+process.argv[2])'} -- --token ${secret}`;
+      expect(result.stdout).toContain(secret);
+      let failure: unknown;
+      try { result.json(); } catch (error) { failure = error; }
+      expect(failure).toBeInstanceOf(Error);
+      expect(inspect(failure, { depth: null })).not.toContain(secret);
+    } finally { await engine.dispose(); }
+  });
+
+
+  it.each(['token', 'api-key', 'access_token', 'auth-token', 'password', 'client-secret'])('masks both CLI forms of --%s', flag => {
+    expect(sanitizeCommandForError(`client --${flag} ${secret}`)).toBe(`client --${flag} [REDACTED]`);
+    expect(sanitizeCommandForError(`client --${flag}="${secret} with space"`)).toBe(`client --${flag}=[REDACTED]`);
+  });
+
 });

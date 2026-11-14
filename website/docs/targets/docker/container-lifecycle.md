@@ -64,7 +64,6 @@ const worker = $.docker()
   .healthcheck(['CMD', 'curl', '-f', 'http://localhost:3000/health'], {
     interval: '30s', timeout: '5s', retries: 3,
   })
-  .autoRemove()
   .pull();                            // pull the image before running
 
 await worker.start();
@@ -80,7 +79,7 @@ await cache.exec`redis-cli ping`;   // same container again
 await cache.stop();                 // also removes it (autoRemove)
 ```
 
-Without a name (or without calling `.start()` first), `.exec()` instead runs a fresh, one-off `docker run --rm ... sh -c '<command>'` — a new container per call:
+Before `.start()` assigns a name, an unnamed builder's `.exec()` runs a fresh, one-off `docker run --rm ... sh -c '<command>'` — a new container per call:
 
 ```typescript
 const run = $.docker().ephemeral('node:22-alpine').volume('./app', '/app').workdir('/app');
@@ -88,9 +87,9 @@ await run.exec`npm test`;   // its own container, removed when it exits
 await run.exec`npm test`;   // a *different* container, not the same one
 ```
 
-For repeated commands against the same container, name it and start it once; for one-shot commands, skip both.
+For repeated commands, call `.start()` once. An unnamed service receives a generated name available through `.build().name`. Later execution and cleanup address that service. Calling `.start()` on an existing stopped service starts its recorded Docker identity. A named builder requires its target to exist before `.exec()` can run.
 
-`status()` on both builders reports Docker inspect state. A running container has `running: true`. Read `healthy` for the configured health check result.
+`status()` reports the observed Docker state. The ephemeral builder derives `running`, `healthy` and published `endpoints` from the same inspection, including image-defined health checks and dynamically allocated ports. An optional `lifecycle({ healthCheck })` callback supplies application readiness. Failed inventory reads and malformed replies reject. Confirmed absence produces `info() === null` and `isRunning() === false`.
 
 ## Executing Commands
 
@@ -110,7 +109,7 @@ const result2 = await app.exec(['npm', 'run', 'build']);
 
 ## Waiting for Readiness
 
-`.waitForReady(timeout?)` (default 30000ms) is the builder-level check: it polls `isRunning()`, and if a `.healthcheck()` was configured, also waits for it to report healthy. Without a healthcheck configured, "running" is enough.
+`.waitForReady(timeout?)` defaults to 30000ms. The ephemeral builder observes the running state and the container health check, including checks inherited from its image. A supplied lifecycle `healthCheck` callback provides application readiness. A container with no health check is ready once running. The persistent builder waits for the running state.
 
 The lower-level `DockerAdapter.waitForHealthy(container, timeout?)` is stricter — it polls `docker inspect`'s `State.Health.Status` directly and only resolves on `"healthy"`. If the container has no `HEALTHCHECK` (set on the image or passed to `runContainer`), health status is never reported and this call just runs out the clock and throws.
 
@@ -125,7 +124,7 @@ await docker.waitForHealthy('my-app', 60000);
 
 ## The Adapter Underneath
 
-Both builders shell out through `DockerAdapter`, reachable directly via `$.getAdapter('docker')`. It's lower-level — plain container names and option objects, no chaining — but has a couple of things the builders don't: `getStats()`, and two-step create/start instead of only the combined `run`.
+Named `.exec()` calls use `DockerAdapter`, reachable directly via `$.getAdapter('docker')`. Lifecycle commands use the configured host execution engine and the same container identity parser as the adapter. It's lower-level — plain container names and option objects, no chaining — but has a couple of things the builders don't: `getStats()`, and two-step create/start instead of only the combined `run`.
 
 ```typescript
 const docker = $.getAdapter('docker') as import('@xec-sh/core').DockerAdapter;
@@ -154,12 +153,14 @@ console.log(stats.CPUPerc, stats.MemUsage);
 Configured once via `configure({ adapters: { docker: { autoCreate: {...} } } })` (see [Adapter Configuration](./overview.md#adapter-configuration)): the first exec against a container name that doesn't exist yet transparently creates and starts one from `autoCreate.image`, and `dispose()` removes every container it created this way if `autoCreate.autoRemove` is set.
 
 ```typescript
-// dispose() lives on the adapter, not on `$` or the per-target engine
+// Dispose the adapter when its work is complete. Engine disposal also releases its adapters.
 const docker = $.getAdapter('docker') as import('@xec-sh/core').DockerAdapter;
 await docker.dispose();
 ```
 
 ## Error Handling
+
+A refused stop or removal rejects and keeps its failure available to the caller. `afterStop` runs only after an acknowledged stop or confirmed absence. Removal resolves the immutable container ID before mutation and verifies absence afterward. A replacement with the same name is reported explicitly.
 
 ```typescript
 import { DockerError } from '@xec-sh/core';

@@ -126,6 +126,10 @@ export interface ContainerRuntimeInfo {
   networks: string[];
   created: Date;
   started?: Date;
+  /** Observed Docker health-check state, when the container has one. */
+  health?: string;
+  /** Published addresses observed in Docker inspect, including allocated ports. */
+  endpoints?: string[];
   ip?: string;
   volumes?: string[];
   labels?: Record<string, string>;

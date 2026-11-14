@@ -1,7 +1,7 @@
 import type { ExecutionResult } from '../types/result.js';
 
-import { CommandError } from './error.js';
 import { splitLines } from '../utils/line-split.js';
+import { CommandError, sanitizeCommandForError, sanitizeErrorForDiagnostics } from './error.js';
 
 export type { ExecutionResult } from '../types/result.js';
 
@@ -108,7 +108,10 @@ export class ExecutionResultImpl implements ExecutionResult {
     try {
       return JSON.parse(text);
     } catch (error) {
-      throw new Error(`Failed to parse JSON: ${error instanceof Error ? error.message : String(error)}\nOutput: ${text}`, { cause: error });
+      const failure = sanitizeErrorForDiagnostics(error instanceof Error ? error : new Error(String(error)));
+      // The original parser error may quote secrets from the payload; retain its sanitized cause.
+      // eslint-disable-next-line preserve-caught-error
+      throw new Error(`Failed to parse JSON: ${failure.message}\nOutput: ${sanitizeCommandForError(text)}`, { cause: failure });
     }
   }
 

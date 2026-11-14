@@ -528,16 +528,16 @@ describe('the redaction rules', () => {
     };
 
     const cases: Array<{ fragment: string; parts: string[]; text: (name: string) => string }> = [
-      { fragment: 'access[_-]?token', parts: ['api', 'key'], text: n => `${n}=s3cr3t-value` },
-      { fragment: 'access[_-]?token', parts: ['access', 'token'], text: n => `${n}=s3cr3t-value` },
-      { fragment: 'access[_-]?token', parts: ['auth', 'token'], text: n => `${n}=s3cr3t-value` },
-      { fragment: 'access[_-]?token', parts: ['authentication', 'token'], text: n => `${n}=s3cr3t-value` },
-      { fragment: 'access[_-]?token', parts: ['private', 'key'], text: n => `${n}=s3cr3t-value` },
-      { fragment: 'access[_-]?token', parts: ['secret', 'key'], text: n => `${n}=s3cr3t-value` },
+      { fragment: '\\b(api[_-]?key', parts: ['api', 'key'], text: n => `${n}=s3cr3t-value` },
+      { fragment: '\\b(api[_-]?key', parts: ['access', 'token'], text: n => `${n}=s3cr3t-value` },
+      { fragment: '\\b(api[_-]?key', parts: ['auth', 'token'], text: n => `${n}=s3cr3t-value` },
+      { fragment: '\\b(api[_-]?key', parts: ['authentication', 'token'], text: n => `${n}=s3cr3t-value` },
+      { fragment: '\\b(api[_-]?key', parts: ['private', 'key'], text: n => `${n}=s3cr3t-value` },
+      { fragment: '\\b(api[_-]?key', parts: ['secret', 'key'], text: n => `${n}=s3cr3t-value` },
       { fragment: 'aws[_-]?access', parts: ['aws', 'access', 'key', 'id'], text: n => `${n}=s3cr3t-value` },
       { fragment: 'aws[_-]?access', parts: ['aws', 'secret', 'access', 'key'], text: n => `${n}=s3cr3t-value` },
       { fragment: 'github[_-]?token', parts: ['github', 'token'], text: n => `${n}=s3cr3t-value` },
-      { fragment: '--client[_-]?secret', parts: ['client', 'secret'], text: n => `app --${n} s3cr3t-value` },
+      { fragment: '(--(?:password|passwd|pwd', parts: ['client', 'secret'], text: n => `app --${n} s3cr3t-value` },
       { fragment: '\\b(secret|client[_-]?secret)', parts: ['client', 'secret'], text: n => `${n}=s3cr3t-value` },
     ];
 
@@ -578,7 +578,7 @@ describe('the redaction rules', () => {
     });
 
     it('the password flag rule catches its flag on its own', () => {
-      hiddenBy('(--password)', 'mysql --password s3cr3t-value', 's3cr3t-value');
+      hiddenBy('(--(?:password|passwd|pwd', 'mysql --password s3cr3t-value', 's3cr3t-value');
     });
 
     it('the url rule catches credentials on its own', () => {
@@ -621,7 +621,7 @@ describe('the redaction rules', () => {
     };
 
     const rules: Array<[string, (value: string) => string]> = [
-      ['access[_-]?token', v => `api_key=${v}`],
+      ['\\b(api[_-]?key', v => `api_key=${v}`],
       ['aws[_-]?access', v => `aws_access_key_id=${v}`],
       ['github[_-]?token', v => `github_token=${v}`],
       ['\\b(token)', v => `token=${v}`],
@@ -645,9 +645,9 @@ describe('the redaction rules', () => {
     }
 
     it('a flag consumes its quoted value whole', () => {
-      expect(only('(--password)')('mysql --password "s3cr3t value"'))
+      expect(only('(--(?:password|passwd|pwd')('mysql --password "s3cr3t value"'))
         .toBe(`mysql --password ${DEFAULT_REDACTION}`);
-      expect(only('--client[_-]?secret')("app --secret 's3cr3t value'"))
+      expect(only('(--(?:password|passwd|pwd')("app --secret 's3cr3t value'"))
         .toBe(`app --secret ${DEFAULT_REDACTION}`);
     });
 

@@ -7,6 +7,7 @@ import { rm, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { DockerAdapter } from '../../src/adapters/docker/index.js';
 import { ExecutionEngine } from '../../src/core/execution-engine.js';
 import * as dockerUtils from '../../src/adapters/docker/docker-utils.js';
+import { DockerContainer } from '../../src/adapters/docker/docker-api.js';
 import { TimeoutError, MaxBufferExceededError } from '../../src/core/error.js';
 
 // Execute only this private fake binary through the ordinary Docker APIs. No
@@ -15,6 +16,7 @@ describe.skipIf(process.platform === 'win32')('Docker native lifecycle', () => {
   let directory: string;
   let binary: string;
   let adapter: DockerAdapter;
+  let fluentEngine: ExecutionEngine;
   const target = { type: 'docker' as const, container: 'fixture', image: 'fixture-image', runMode: 'run' as const };
   const alive = (pid: number) => { try { process.kill(pid, 0); return true; } catch { return false; } };
   const records = async (): Promise<Array<{ pid: number; args: string[]; localEnv: string | null }>> => {
@@ -40,11 +42,16 @@ const hang = () => { process.on('SIGTERM',()=>{}); setInterval(()=>{},1000); };
 const kind = args.at(-1);
 if (args[0] === 'ps') {
   if (fs.existsSync(path.join(__dirname,'offline'))) { process.stderr.write('daemon unavailable');process.exitCode=1; }
-  else if (fs.existsSync(path.join(__dirname,'created'))) process.stdout.write(JSON.stringify({ID:'a'.repeat(64),Names:fs.readFileSync(path.join(__dirname,'created'),'utf8')}));
+  else if (fs.existsSync(path.join(__dirname,'malformed'))) process.stdout.write('invalid-json');
+  else if (fs.existsSync(path.join(__dirname,'created'))) process.stdout.write(JSON.stringify({ID:(fs.existsSync(path.join(__dirname,'replaced'))?'b':'a').repeat(64),Names:fs.readFileSync(path.join(__dirname,'created'),'utf8')}));
 } else if (args[0] === 'create') {
   fs.writeFileSync(path.join(__dirname,'created'),args[args.indexOf('--name')+1]);
 } else if (args[0] === 'inspect') {
-  process.stdout.write(JSON.stringify([{State:{Running:true},Config:{Labels:{token:'synthetic-fixture-value'}}}]));
+  const state = fs.existsSync(path.join(__dirname,'stopped')) ? 'exited' : 'running';
+  process.stdout.write(JSON.stringify([{Id:'a'.repeat(64), Name:'/fixture',
+    State:{Running:state==='running',Status:state,Health:{Status:'healthy'}},
+    Config:{Image:'fixture-image',Labels:{token:'synthetic-fixture-value'}},
+    Created:'2026-01-01T00:00:00Z',NetworkSettings:{Ports:{'80/tcp':[{HostIp:'127.0.0.1',HostPort:'32768'}],'53/udp':[{HostIp:'::1',HostPort:'32769'}]},Networks:{}}}]));
 } else if (args[0] === 'logs') {
   if (kind === 'lines') {
     const text = Buffer.from('Ж🙂\\n\\n  \\r\\nunterminated');
@@ -59,21 +66,40 @@ if (args[0] === 'ps') {
     require('node:child_process').spawn(process.execPath,['-e',"setTimeout(()=>process.stdout.write('after exit'),100)"],{stdio:['ignore',1,2]}).unref();process.exit(0);
   } else process.stdout.write(JSON.stringify(args));
 } else if (args[0] === 'run') {
-  if (kind === 'hang') hang();
+  if (args.includes('-d')) {
+    fs.writeFileSync(path.join(__dirname,'created'),args[args.indexOf('--name')+1]);
+    process.stdout.write('a'.repeat(64));
+  } else if (kind === 'hang') hang();
   else if (kind === 'iterate') { hang();process.stdout.write('ready\\n'); }
   else if (kind === 'failed') { process.stderr.write('command failed');process.exitCode=7; }
   else if (kind === 'stdin') { let data='';process.stdin.on('data',c=>data+=c);process.stdin.on('end',()=>process.stdout.write(data||'EOF')); }
   else if (kind === 'masked') process.stdout.write('password=synthetic-fixture-value');
   else process.stdout.write(JSON.stringify({args,cwd:process.cwd(),localEnv:process.env['REMOTE_ONLY']??null}));
+} else if (args[0] === 'exec') {
+  process.stdout.write(JSON.stringify({args,localEnv:process.env['REMOTE_ONLY']??null}));
+} else if (args[0] === 'stop' && fs.existsSync(path.join(__dirname,'lifecycle'))) {
+  if (fs.existsSync(path.join(__dirname,'refuse-stop'))) {process.stderr.write('stop refused');process.exitCode=7;}
+  else { fs.writeFileSync(path.join(__dirname,'stopped'),'yes'); if(fs.existsSync(path.join(__dirname,'replace-on-stop'))) fs.writeFileSync(path.join(__dirname,'replaced'),'yes'); }
+} else if (args[0] === 'start') fs.rmSync(path.join(__dirname,'stopped'),{force:true});
+else if (args[0] === 'network') {
+  if (fs.existsSync(path.join(__dirname,'offline'))) {process.stderr.write('daemon unavailable');process.exitCode=1;}
+  else process.stdout.write(JSON.stringify({Name:'fixture-network'}));
 } else if (args[0] === 'stop') hang();
 else if (args[0] === 'compose') process.stdout.write('done');
-else if (args[0] === 'rm') { process.stderr.write('cleanup refused'); process.exitCode=7; }
+else if (args[0] === 'rm') {
+  if (fs.existsSync(path.join(__dirname,'replaced')) && args.at(-1)==='a'.repeat(64)) process.stdout.write('removed original');
+  else if (fs.existsSync(path.join(__dirname,'remove-success'))) fs.rmSync(path.join(__dirname,'created'),{force:true});
+  else { process.stderr.write('cleanup refused'); process.exitCode=7; }
+}
 `, { mode: 0o700 });
     vi.spyOn(dockerUtils, 'findDockerPath').mockReturnValue(binary);
     adapter = new DockerAdapter({ managementTimeout: 3000, maxBuffer: 64 * 1024 });
+    fluentEngine = new ExecutionEngine({ defaultTimeout: 3000 });
+    fluentEngine.registerAdapter('docker', adapter);
   });
 
   afterEach(async () => {
+    await fluentEngine.dispose();
     await adapter.dispose();
     await vi.waitFor(async () => {
       for (const { pid } of await records()) expect(alive(pid), `Docker helper ${pid} survived completion`).toBe(false);
@@ -212,4 +238,129 @@ else if (args[0] === 'rm') { process.stderr.write('cleanup refused'); process.ex
     vi.mocked(dockerUtils.findDockerPath).mockReturnValue(join(directory, 'missing'));
     await expect(adapter.getLogs('anything')).rejects.toThrow(/ENOENT/);
   });
+
+  it.each(['ephemeral', 'persistent'] as const)('keeps %s management failures observable', async kind => {
+    await writeFile(join(directory, 'offline'), 'yes');
+    const fluent = kind === 'ephemeral'
+      ? fluentEngine.docker().ephemeral('fixture-image').name('fixture')
+      : fluentEngine.docker().container('fixture');
+    const afterStart = vi.fn();
+    fluent.lifecycle({ afterStart });
+    await expect(fluent.info()).rejects.toThrow('daemon unavailable');
+    await expect(fluent.isRunning()).rejects.toThrow('daemon unavailable');
+    await expect(fluent.start()).rejects.toThrow('daemon unavailable');
+    expect(afterStart).not.toHaveBeenCalled();
+    expect((await records()).every(call => call.args[0] === 'ps')).toBe(true);
+  });
+
+  it('rejects malformed observations instead of authorizing a new container', async () => {
+    await writeFile(join(directory, 'malformed'), 'yes');
+    const fluent = fluentEngine.docker().ephemeral('fixture-image').name('fixture');
+    await expect(fluent.start()).rejects.toThrow('Malformed Docker container inventory');
+    expect((await records()).map(call => call.args[0])).toEqual(['ps']);
+  });
+
+  it('restarts a stopped ephemeral service with its immutable existing identity', async () => {
+    await writeFile(join(directory, 'created'), 'fixture');
+    await writeFile(join(directory, 'lifecycle'), 'yes');
+    const fluent = fluentEngine.docker().ephemeral('fixture-image').name('fixture');
+    const afterStop = vi.fn();
+    const afterStart = vi.fn();
+    fluent.lifecycle({ afterStop, afterStart });
+    await fluent.restart();
+    const mutations = (await records()).filter(call => ['stop', 'start', 'run'].includes(call.args[0]!));
+    expect(mutations.map(call => call.args)).toEqual([
+      ['stop', '--', 'a'.repeat(64)], ['start', '--', 'a'.repeat(64)],
+    ]);
+    expect(afterStop).toHaveBeenCalledOnce();
+    expect(afterStart).toHaveBeenCalledOnce();
+    expect((await fluent.info())?.labels?.['token']).toBe('synthetic-fixture-value');
+    expect((await fluent.status()).endpoints).toEqual(['127.0.0.1:32768', '[::1]:32769/udp']);
+  });
+
+  it('does not report successful stop or removal after a refused operation', async () => {
+    await writeFile(join(directory, 'created'), 'fixture');
+    await writeFile(join(directory, 'lifecycle'), 'yes');
+    await writeFile(join(directory, 'refuse-stop'), 'yes');
+    const fluent = fluentEngine.with({ nothrow: true, throwOnNonZeroExit: false }).docker().ephemeral('fixture-image').name('fixture');
+    const afterStop = vi.fn();
+    fluent.lifecycle({ afterStop });
+    await expect(fluent.stop()).rejects.toThrow('stop refused');
+    expect(afterStop).not.toHaveBeenCalled();
+    await expect(fluent.remove()).rejects.toThrow('cleanup refused');
+    expect((await records()).find(call => call.args[0] === 'rm')?.args).toEqual(['rm', '-f', '--', 'a'.repeat(64)]);
+  });
+
+  it('acknowledges absence before and after idempotent removal', async () => {
+    const fluent = fluentEngine.docker().ephemeral('fixture-image').name('fixture');
+    expect(await fluent.info()).toBeNull();
+    await fluent.remove();
+    expect((await records()).some(call => call.args[0] === 'rm')).toBe(false);
+    await writeFile(join(directory, 'created'), 'fixture');
+    await writeFile(join(directory, 'remove-success'), 'yes');
+    await fluent.remove();
+    expect(await fluent.info()).toBeNull();
+    expect((await records()).filter(call => call.args[0] === 'rm')).toHaveLength(1);
+  });
+
+  it.each(['ephemeral', 'persistent'] as const)('routes named %s exec through the Docker adapter with its environment', async kind => {
+    await writeFile(join(directory, 'created'), 'fixture');
+    const fluent = (kind === 'ephemeral'
+      ? fluentEngine.docker().ephemeral('fixture-image').name('fixture')
+      : fluentEngine.docker().container('fixture'))
+      .env({ REMOTE_ONLY: 'container-only' }).workdir('/workspace').user('1000');
+    const literal = 'space ; $(echo unsafe)';
+    const result = await fluent.exec`printf ${literal}`;
+    const observed = JSON.parse(result.stdout);
+    expect(observed.args).toEqual(expect.arrayContaining(['-e', 'REMOTE_ONLY=container-only', '-w', '/workspace', '-u', '1000']));
+    expect(observed.localEnv).toBeNull();
+    expect(observed.args.slice(-3)).toEqual(['sh', '-c', "printf 'space ; $(echo unsafe)'"]);
+  });
+
+  it('keeps unnamed exec settings and replaces its configured command exactly once', async () => {
+    const fluent = fluentEngine.docker().ephemeral('fixture-image')
+      .memory('64m').cpus('0.5').command('this must not execute');
+    const result = await fluent.exec`printf ${'literal ; data'}`;
+    const observed = JSON.parse(result.stdout);
+    expect(observed.args).toEqual(expect.arrayContaining(['-m', '64m', '--cpus', '0.5', '--rm']));
+    expect(observed.args).not.toContain('-d');
+    expect(observed.args).not.toContain('this must not execute');
+    expect(observed.args.slice(-3)).toEqual(['sh', '-c', "printf 'literal ; data'"]);
+  });
+
+  it('retains a generated service name for subsequent management', async () => {
+    const fluent = fluentEngine.docker().ephemeral('fixture-image').command(['sleep', '10']);
+    await fluent.start();
+    expect(fluent.build().name).toMatch(/^xec-[a-f0-9-]+$/);
+    expect(await readFile(join(directory, 'created'), 'utf8')).toBe(fluent.build().name);
+  });
+
+  it('distinguishes network absence from a failed inventory read', async () => {
+    expect(await fluentEngine.docker().network('fixture-network').exists()).toBe(true);
+    expect(await fluentEngine.docker().network('absent').exists()).toBe(false);
+    await writeFile(join(directory, 'offline'), 'yes');
+    await expect(fluentEngine.docker().network('fixture-network').exists()).rejects.toThrow('daemon unavailable');
+  });
+
+
+  it('never removes a replacement container that appears during a persistent stop', async () => {
+    await writeFile(join(directory, 'created'), 'fixture');
+    await writeFile(join(directory, 'lifecycle'), 'yes');
+    await writeFile(join(directory, 'replace-on-stop'), 'yes');
+    const service = fluentEngine.docker().container('fixture');
+    await expect(service.remove()).rejects.toThrow('replaced during removal');
+    const mutations = (await records()).filter(({ args }) => ['stop', 'rm'].includes(args[0]!));
+    expect(mutations.map(({ args }) => args.at(-1))).toEqual(['a'.repeat(64), 'a'.repeat(64)]);
+  });
+
+  it('preserves executable argument boundaries in the DockerContainer API', async () => {
+    const container = new DockerContainer(fluentEngine, adapter, {
+      name: 'fixture', image: 'fixture-image', command: ['sleep', '10'],
+    });
+    await container.start();
+    const literal = 'space ; $(echo unsafe)';
+    const result = await container.execRaw('printf', ['%s', literal]);
+    expect(JSON.parse(result.stdout).args.slice(-3)).toEqual(['printf', '%s', literal]);
+  });
+
 });

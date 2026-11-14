@@ -1,44 +1,48 @@
-import * as path from 'path';
-import * as fs from 'fs/promises';
+import { tmpdir } from 'node:os';
+import * as path from 'node:path';
+import * as fs from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 
-import { $ } from '../../src/index.js';
+import { $, DockerAdapter, DockerContainer, ExecutionEngine } from '../../src/index.js';
+
+const runId = randomUUID();
+let workspace: string;
+const engine = new ExecutionEngine();
+const adapter = new DockerAdapter();
+engine.registerAdapter('docker', adapter);
+const owned = new Set<DockerContainer>();
+function createContainer(config: ConstructorParameters<typeof DockerContainer>[2]) {
+  const container = new DockerContainer(engine, adapter, {
+    ...config, labels: { ...config.labels, 'xec-test-run': runId },
+  });
+  owned.add(container);
+  return container;
+}
 
 describe('Docker Enhanced API Integration Tests', () => {
-  // Check if Docker is available by running a simple command
-  const checkDocker = async () => {
-    try {
-      const result = await $`docker version --format json`;
-      return result.exitCode === 0;
-    } catch {
-      return false;
+  const testOrSkip = process.env['CI'] === 'true' ? it.skip : it;
+  beforeAll(async () => { workspace = await fs.mkdtemp(path.join(tmpdir(), 'xec-docker-api-')); });
+  afterEach(async () => {
+    for (const container of owned) {
+      if (!container.removed && (await adapter.listContainers(true)).includes(container.name)) {
+        const observation = await container.inspect();
+        expect(observation.Config.Labels['xec-test-run']).toBe(runId);
+        await container.remove(true);
+      }
     }
-  };
-
-  // Use a function to determine skip status dynamically
-  const testOrSkip = process.env['CI'] ? it.skip : it;
-
-  // Clean up any leftover containers before and after tests
-  beforeAll(async () => {
-    if (await checkDocker()) {
-      await $`docker ps -a | grep xec-test | awk '{print $1}' | xargs -r docker rm -f || true`;
-    }
+    owned.clear();
   });
-
-  afterAll(async () => {
-    if (await checkDocker()) {
-      await $`docker ps -a | grep xec-test | awk '{print $1}' | xargs -r docker rm -f || true`;
-    }
-  });
+  afterAll(async () => { await engine.dispose(); await fs.rm(workspace, { recursive: true, force: true }); });
 
   describe('Container Lifecycle Management', () => {
     testOrSkip('should create, start, execute, and remove a container', async () => {
-      const container = await $.docker({
+      const container = await createContainer({
         image: 'alpine:latest',
-        name: 'xec-test-lifecycle',
+        name: `xec-test-lifecycle-${runId}`,
         command: 'sleep 3600'  // Keep container running
       }).start();
 
-      expect(container.name).toBe('xec-test-lifecycle');
+      expect(container.name).toBe(`xec-test-lifecycle-${runId}`);
       expect(container.started).toBe(true);
 
       // Execute command in container
@@ -60,7 +64,7 @@ describe('Docker Enhanced API Integration Tests', () => {
     }, 30000);
 
     testOrSkip('should handle container with auto-generated name', async () => {
-      const container = await $.docker({
+      const container = await createContainer({
         image: 'alpine:latest',
         command: 'sleep 3600'  // Keep container running
       }).start();
@@ -71,9 +75,9 @@ describe('Docker Enhanced API Integration Tests', () => {
     }, 20000);
 
     testOrSkip('should restart a container', async () => {
-      const container = await $.docker({
+      const container = await createContainer({
         image: 'alpine:latest',
-        name: 'xec-test-restart',
+        name: `xec-test-restart-${runId}`,
         command: 'sh -c "echo Started at $(date); sleep 3600"'
       }).start();
 
@@ -98,9 +102,9 @@ describe('Docker Enhanced API Integration Tests', () => {
 
   describe('Container Configuration', () => {
     testOrSkip('should create container with environment variables', async () => {
-      const container = await $.docker({
+      const container = await createContainer({
         image: 'alpine:latest',
-        name: 'xec-test-env',
+        name: `xec-test-env-${runId}`,
         command: 'sleep 3600',  // Keep container running
         env: {
           TEST_VAR: 'test_value',
@@ -118,28 +122,30 @@ describe('Docker Enhanced API Integration Tests', () => {
     }, 20000);
 
     testOrSkip('should create container with port mapping', async () => {
-      const container = await $.docker({
+      const container = await createContainer({
         image: 'nginx:alpine',
-        name: 'xec-test-ports',
-        ports: { '8888': '80' }
+        name: `xec-test-ports-${runId}`,
+        ports: { '127.0.0.1:': '80' }
       }).start();
 
       // Check if port is mapped
-      const ps = await $`docker ps --filter name=xec-test-ports --format "table {{.Ports}}"`;
-      expect(ps.stdout).toContain('8888->80');
+      const info = await container.inspect();
+      expect(info.NetworkSettings.Ports['80/tcp']).toEqual([expect.objectContaining({
+        HostIp: '127.0.0.1', HostPort: expect.stringMatching(/^[1-9]\d*$/),
+      })]);
 
       await container.remove(true);
     }, 20000);
 
     testOrSkip('should create container with volumes', async () => {
       // Create a temporary directory
-      const tempDir = `/tmp/xec-test-${Date.now()}`;
+      const tempDir = path.join(workspace, 'volume');
       await fs.mkdir(tempDir, { recursive: true });
       await fs.writeFile(path.join(tempDir, 'test.txt'), 'Hello from host');
 
-      const container = await $.docker({
+      const container = await createContainer({
         image: 'alpine:latest',
-        name: 'xec-test-volumes',
+        name: `xec-test-volumes-${runId}`,
         command: 'sleep 3600',  // Keep container running
         volumes: {
           [tempDir]: '/data'
@@ -162,9 +168,9 @@ describe('Docker Enhanced API Integration Tests', () => {
     }, 20000);
 
     testOrSkip('should create container with working directory and user', async () => {
-      const container = await $.docker({
+      const container = await createContainer({
         image: 'alpine:latest',
-        name: 'xec-test-workdir',
+        name: `xec-test-workdir-${runId}`,
         command: 'sleep 3600',  // Keep container running
         workdir: '/tmp',
         user: 'nobody'
@@ -182,9 +188,9 @@ describe('Docker Enhanced API Integration Tests', () => {
 
   describe('Container Logs', () => {
     testOrSkip('should get container logs', async () => {
-      const container = await $.docker({
+      const container = await createContainer({
         image: 'alpine:latest',
-        name: 'xec-test-logs',
+        name: `xec-test-logs-${runId}`,
         command: 'sh -c "echo Line1; echo Line2; echo Line3"'
       }).start();
 
@@ -200,9 +206,9 @@ describe('Docker Enhanced API Integration Tests', () => {
     }, 20000);
 
     testOrSkip('should stream container logs', async () => {
-      const container = await $.docker({
+      const container = await createContainer({
         image: 'alpine:latest',
-        name: 'xec-test-stream',
+        name: `xec-test-stream-${runId}`,
         command: ['sh', '-c', 'for i in 1 2 3; do echo "Log $i"; sleep 1; done']
       }).start();
 
@@ -229,9 +235,9 @@ describe('Docker Enhanced API Integration Tests', () => {
     }, 20000);
 
     testOrSkip('should follow container logs with timeout', async () => {
-      const container = await $.docker({
+      const container = await createContainer({
         image: 'alpine:latest',
-        name: 'xec-test-follow',
+        name: `xec-test-follow-${runId}`,
         command: 'sh -c "while true; do echo Following $(date); sleep 1; done"'
       }).start();
 
@@ -263,10 +269,10 @@ describe('Docker Enhanced API Integration Tests', () => {
     testOrSkip('should wait for container to be healthy', async () => {
       // Note: This test requires a container that has health checks
       // Using a simple HTTP server that becomes healthy after startup
-      const container = await $.docker({
+      const container = await createContainer({
         image: 'nginx:alpine',
-        name: 'xec-test-health',
-        ports: { '8889': '80' },
+        name: `xec-test-health-${runId}`,
+        ports: { '127.0.0.1:': '80' },
         healthcheck: {
           test: 'wget --no-verbose --tries=1 --spider http://localhost:80 || exit 1',
           interval: '2s',
@@ -280,8 +286,10 @@ describe('Docker Enhanced API Integration Tests', () => {
       await container.waitForHealthy(30000);
 
       // Verify it's accessible
-      const testAccess = await $`curl -s -o /dev/null -w "%{http_code}" http://localhost:8889 || echo "000"`;
-      expect(['200', '000']).toContain(testAccess.stdout.trim()); // May fail if port not ready
+      const info = await container.inspect();
+      const port = info.NetworkSettings.Ports['80/tcp'][0].HostPort;
+      const response = await fetch(`http://127.0.0.1:${port}`, { signal: AbortSignal.timeout(5000) });
+      expect(response.status).toBe(200);
 
       await container.remove(true);
     }, 40000);
@@ -289,14 +297,14 @@ describe('Docker Enhanced API Integration Tests', () => {
 
   describe('Container File Operations', () => {
     testOrSkip('should copy files to and from container', async () => {
-      const container = await $.docker({
+      const container = await createContainer({
         image: 'alpine:latest',
-        name: 'xec-test-copy',
+        name: `xec-test-copy-${runId}`,
         command: 'sleep 3600'  // Keep container running
       }).start();
 
       // Create a test file
-      const testFile = `/tmp/xec-copy-test-${Date.now()}.txt`;
+      const testFile = path.join(workspace, 'copy-source.txt');
       await fs.writeFile(testFile, 'Test content for copy');
 
       // Copy to container (use home directory to avoid permission issues)
@@ -310,7 +318,7 @@ describe('Docker Enhanced API Integration Tests', () => {
       await container.exec`echo "Added in container" >> /root/copied.txt`;
 
       // Copy back from container
-      const outputFile = `/tmp/xec-copy-back-${Date.now()}.txt`;
+      const outputFile = path.join(workspace, 'copy-target.txt');
       await container.copyFrom('/root/copied.txt', outputFile);
 
       // Verify copied back file
@@ -327,9 +335,9 @@ describe('Docker Enhanced API Integration Tests', () => {
 
   describe('Container Networking', () => {
     testOrSkip('should get container IP address', async () => {
-      const container = await $.docker({
+      const container = await createContainer({
         image: 'alpine:latest',
-        name: 'xec-test-ip',
+        name: `xec-test-ip-${runId}`,
         command: 'sleep 3600'  // Keep container running
       }).start();
 
@@ -341,33 +349,33 @@ describe('Docker Enhanced API Integration Tests', () => {
 
     testOrSkip('should work with custom networks', async () => {
       // Create network
-      await $`docker network create xec-test-net || true`;
+      await $`docker network create ${`xec-test-net-${runId}`}`;
 
       try {
-        const container = await $.docker({
+        const container = await createContainer({
           image: 'alpine:latest',
-          name: 'xec-test-custom-net',
+          name: `xec-test-custom-net-${runId}`,
           command: 'sleep 3600',  // Keep container running
-          network: 'xec-test-net'
+          network: `xec-test-net-${runId}`
         }).start();
 
-        const ip = await container.getIpAddress('xec-test-net');
+        const ip = await container.getIpAddress(`xec-test-net-${runId}`);
         expect(ip).toBeTruthy();
         expect(ip).toMatch(/^\d+\.\d+\.\d+\.\d+$/);
 
         await container.remove(true);
       } finally {
         // Cleanup network
-        await $`docker network rm xec-test-net || true`;
+        await $`docker network rm ${`xec-test-net-${runId}`}`;
       }
     }, 20000);
   });
 
   describe('Container Stats and Inspection', () => {
     testOrSkip('should get container stats', async () => {
-      const container = await $.docker({
+      const container = await createContainer({
         image: 'alpine:latest',
-        name: 'xec-test-stats',
+        name: `xec-test-stats-${runId}`,
         command: 'sleep 3600'
       }).start();
 
@@ -387,9 +395,9 @@ describe('Docker Enhanced API Integration Tests', () => {
     }, 20000);
 
     testOrSkip('should inspect container', async () => {
-      const container = await $.docker({
+      const container = await createContainer({
         image: 'alpine:latest',
-        name: 'xec-test-inspect',
+        name: `xec-test-inspect-${runId}`,
         command: 'sleep 3600',  // Keep container running
         labels: {
           'test-label': 'test-value'
@@ -407,9 +415,9 @@ describe('Docker Enhanced API Integration Tests', () => {
 
   describe('Error Handling', () => {
     testOrSkip('should handle errors when container operations fail', async () => {
-      const container = await $.docker({
+      const container = await createContainer({
         image: 'alpine:latest',
-        name: 'xec-test-errors',
+        name: `xec-test-errors-${runId}`,
         command: 'sleep 3600'  // Keep container running
       }).start();
 
@@ -427,35 +435,24 @@ describe('Docker Enhanced API Integration Tests', () => {
     }, 20000);
 
     testOrSkip('should handle non-existent image gracefully', async () => {
-      const container = $.docker({
+      const container = createContainer({
         image: 'non-existent-image-xec-test:latest',
-        name: 'xec-test-no-image'
+        name: `xec-test-no-image-${runId}`
       });
 
       await expect(container.start()).rejects.toThrow();
     }, 20000);
   });
 
-  describe('Backward Compatibility', () => {
+  describe('Existing container target', () => {
     testOrSkip('should work with existing containers using direct execution', async () => {
-      // Create container using regular docker
-      await $`docker run -d --name xec-test-existing alpine:latest sleep 3600`;
-
-      try {
-        // Use enhanced API with existing container
-        const existing = $.docker({
-          name: 'xec-test-existing',
-          image: 'alpine' // Required but not used for existing
-        });
-
-        // Direct execution on existing container
-        const result = await existing`echo "Working with existing container"`;
-        expect(result.exitCode).toBe(0);
-        expect(result.stdout).toContain('Working with existing container');
-      } finally {
-        // Cleanup
-        await $`docker stop xec-test-existing && docker rm xec-test-existing`;
-      }
+      const container = await createContainer({
+        image: 'alpine:latest', name: `xec-test-existing-${runId}`, command: 'sleep 3600',
+      }).start();
+      const existing = $.docker(container.name);
+      const result = await existing`echo "Working with existing container"`;
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('Working with existing container');
     }, 20000);
   });
 });

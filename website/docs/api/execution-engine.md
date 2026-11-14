@@ -75,6 +75,18 @@ try {
 
 Adapter configuration is fixed when an engine is constructed. `config.set({ adapters: ... })` rejects before applying any part of the update. Create an engine with the required adapter settings to change connection pools, cluster identity or transport policy; `config.set()` does not silently reconfigure shared connections. Per-command settings remain available through `.with()` and `execute()`.
 
+### Exact API payloads
+
+Captured output is redacted by default. For structured API data, use a per-command `redactOutput: false` snapshot. This preserves exact `stdout`, `stderr`, `stdall` and decoded JSON. Error objects, diagnostic events and progress messages retain credential masking. The parent engine keeps its existing defaults. Native process streams and caller-supplied writable destinations carry their original bytes.
+
+```typescript
+import { $ } from '@xec-sh/core';
+
+const response = await $.with({ redactOutput: false })`docker inspect my-app`;
+const containers = response.json<unknown[]>();
+console.log(containers.length);
+```
+
 ### Methods
 
 #### execute()
@@ -353,6 +365,18 @@ type ProcessHandle = Awaited<ProcessPromise['spawned']>;
 (`.stdout(stream)`, see below) that set where output goes. To read the live
 streams of a running command, use `.child.stdout` / `.child.stderr`, or
 await `.spawned` first.
+
+### Exact API payloads
+
+Captured output is redacted by default. For structured API data, use a per-command `redactOutput: false` snapshot. This preserves exact `stdout`, `stderr`, `stdall` and decoded JSON. Error objects, diagnostic events and progress messages retain credential masking. The parent engine keeps its existing defaults. Native process streams and caller-supplied writable destinations carry their original bytes.
+
+```typescript
+import { $ } from '@xec-sh/core';
+
+const response = await $.with({ redactOutput: false })`docker inspect my-app`;
+const containers = response.json<unknown[]>();
+console.log(containers.length);
+```
 
 ### Methods
 

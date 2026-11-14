@@ -140,6 +140,12 @@ export interface Command {
   stdin?: string | Buffer | Readable;   // Input data
   stdout?: StreamOption;
   stderr?: StreamOption;
+  /**
+   * Redact captured stdout/stderr/stdall (default true). Set false when parsing
+   * exact API payloads. Error objects, events and progress remain sanitized.
+   * Native streams and caller-supplied Writable destinations retain their bytes.
+   */
+  redactOutput?: boolean;
 
   // Execution options
   shell?: string | boolean;             // Use shell

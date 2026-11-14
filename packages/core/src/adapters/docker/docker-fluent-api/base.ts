@@ -16,7 +16,9 @@ import type {
   DockerPersistentConfig
 } from './types.js';
 
-import { findDockerPath } from '../docker-utils.js';
+import { randomUUID } from 'node:crypto';
+
+import { findDockerPath, parseContainerReference } from '../docker-utils.js';
 import { escapeUnix, interpolateForShell } from '../../../utils/shell-escape.js';
 
 /**
@@ -26,6 +28,10 @@ import { escapeUnix, interpolateForShell } from '../../../utils/shell-escape.js'
  */
 function isTemplateStringsArray(value: unknown): value is TemplateStringsArray {
   return Array.isArray(value) && 'raw' in value && Array.isArray((value as TemplateStringsArray).raw);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**
@@ -154,7 +160,7 @@ export abstract class BaseDockerFluentAPI<T extends DockerContainerConfig> {
    * be interpreted by the host shell.
    */
   protected dockerCommand(args: string[]): ProcessPromise {
-    return this.engine.run`${[findDockerPath(), ...args]}`;
+    return this.engine.with({ nothrow: false, throwOnNonZeroExit: true, redactOutput: false }).run`${[findDockerPath(), ...args]}`;
   }
 
   /**
@@ -169,20 +175,110 @@ export abstract class BaseDockerFluentAPI<T extends DockerContainerConfig> {
     return this.exec(strings, ...values);
   }
 
-  /**
-   * Get container runtime info
-   */
-  abstract info(): Promise<ContainerRuntimeInfo | null>;
+  protected get containerReference(): string | undefined {
+    return this.config.container ?? this.config.name;
+  }
 
-  /**
-   * Check if container is running
-   */
-  abstract isRunning(): Promise<boolean>;
+  protected async resolveContainer(): Promise<string | null> {
+    const reference = this.containerReference;
+    if (!reference) return null;
+    const result = await this.dockerCommand(['ps', '-a', '--no-trunc', '--format', '{{json .}}']);
+    return parseContainerReference(result.stdout, reference);
+  }
 
-  /**
-   * Get logs
-   */
-  abstract logs(options?: LogOptions): Promise<string>;
+  /** Return absence only after a successful inventory read. */
+  async info(): Promise<ContainerRuntimeInfo | null> {
+    const id = await this.resolveContainer();
+    if (!id) return null;
+    const result = await this.dockerCommand(['inspect', '--type', 'container', id]);
+    const records = result.json<unknown>();
+    if (!Array.isArray(records) || records.length !== 1) throw new Error('Invalid Docker inspect response');
+    const data: unknown = records[0];
+    if (!isRecord(data) || !isRecord(data['Config']) || !isRecord(data['State']) ||
+      !isRecord(data['NetworkSettings']) || data['Id'] !== id || typeof data['Name'] !== 'string' ||
+      typeof data['Config']['Image'] !== 'string' || typeof data['State']['Status'] !== 'string' ||
+      typeof data['Created'] !== 'string') throw new Error('Invalid Docker inspect response');
+    const created = new Date(data['Created']);
+    if (!Number.isFinite(created.getTime())) throw new Error('Invalid Docker creation date');
+    const startedAt = data['State']['StartedAt'];
+    const started = typeof startedAt === 'string' ? new Date(startedAt) : undefined;
+    if (started && !Number.isFinite(started.getTime())) throw new Error('Invalid Docker start date');
+    const health = data['State']['Health'];
+    if (health !== undefined && (!isRecord(health) ||
+      !['starting', 'healthy', 'unhealthy'].includes(String(health['Status'])))) {
+      throw new Error('Invalid Docker health state');
+    }
+    const mounts: unknown = data['Mounts'] ?? [];
+    if (!Array.isArray(mounts)) throw new Error('Invalid Docker mounts');
+    const volumes = mounts.map((mount: unknown) => {
+      if (!isRecord(mount) || typeof mount['Source'] !== 'string' || typeof mount['Destination'] !== 'string') {
+        throw new Error('Invalid Docker mount');
+      }
+      return `${mount['Source']}:${mount['Destination']}`;
+    });
+    const labels = data['Config']['Labels'];
+    if (labels != null && (!isRecord(labels) || Object.values(labels).some(value => typeof value !== 'string'))) {
+      throw new Error('Invalid Docker labels');
+    }
+    const ports = data['NetworkSettings']['Ports'] ?? {};
+    const networks = data['NetworkSettings']['Networks'] ?? {};
+    if (!isRecord(ports) || !isRecord(networks)) throw new Error('Invalid Docker networking state');
+    const endpoints: string[] = [];
+    for (const [port, bindings] of Object.entries(ports)) {
+      if (bindings === null) continue;
+      if (!Array.isArray(bindings)) throw new Error('Invalid Docker port bindings');
+      for (const binding of bindings as unknown[]) {
+        if (!isRecord(binding) || typeof binding['HostIp'] !== 'string' || typeof binding['HostPort'] !== 'string' ||
+          !/^[0-9]+$/.test(binding['HostPort'])) throw new Error('Invalid Docker port binding');
+        const host = binding['HostIp'].includes(':') ? `[${binding['HostIp']}]` : binding['HostIp'];
+        const protocol = port.split('/')[1] ?? 'tcp';
+        endpoints.push(`${host}:${binding['HostPort']}${protocol === 'tcp' ? '' : `/${protocol}`}`);
+      }
+    }
+    return {
+      id, name: data['Name'].replace(/^\//, ''), image: data['Config']['Image'],
+      status: data['State']['Status'], created, started,
+      health: isRecord(health) ? String(health['Status']) : undefined,
+      ports: Object.keys(ports), networks: Object.keys(networks), volumes, endpoints,
+      ip: typeof data['NetworkSettings']['IPAddress'] === 'string' ? data['NetworkSettings']['IPAddress'] : undefined,
+      labels: labels == null ? undefined : Object.fromEntries(Object.entries(labels).map(([key, value]) => [key, String(value)])),
+    };
+  }
+
+  async isRunning(): Promise<boolean> {
+    return (await this.info())?.status === 'running';
+  }
+
+  async logs(options?: LogOptions): Promise<string> {
+    const reference = this.containerReference;
+    if (!reference) throw new Error('Container name is required for logs');
+    const args = ['logs'];
+    if (options?.follow) args.push('-f');
+    if (options?.timestamps) args.push('-t');
+    if (options?.tail !== undefined) args.push('--tail', String(options.tail));
+    if (options?.since !== undefined) args.push('--since', options.since);
+    if (options?.until !== undefined) args.push('--until', options.until);
+    if (options?.details) args.push('--details');
+    args.push('--', reference);
+    return (await this.dockerCommand(args)).stdout;
+  }
+
+  protected async removeContainer(force: boolean, stopFirst = false): Promise<void> {
+    const reference = this.containerReference;
+    if (!reference) throw new Error('Container name is required for removal');
+    const id = await this.resolveContainer();
+    if (!id) return;
+    if (stopFirst) {
+      await this.executeHook('beforeStop');
+      await this.dockerCommand(['stop', '--', id]);
+      await this.executeHook('afterStop');
+    }
+    const result = await this.dockerCommand(['rm', ...(force ? ['-f'] : []), '--', id]).nothrow();
+    const remaining = await this.resolveContainer();
+    if (remaining === null) return;
+    result.throwIfFailed();
+    throw new Error(`Container ${reference} is still present or was replaced during removal`);
+  }
 }
 
 /**
@@ -374,7 +470,7 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
   /**
    * Build Docker run arguments
    */
-  protected buildRunArgs(): string[] {
+  protected buildRunArgs(command = this.config.command): string[] {
     const args: string[] = ['run'];
 
     // Detached mode by default for service containers
@@ -537,11 +633,11 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
     if (Array.isArray(entrypoint)) args.push(...entrypoint.slice(1));
 
     // Command
-    if (this.config.command) {
-      if (typeof this.config.command === 'string') {
-        args.push(...this.config.command.split(' '));
+    if (command) {
+      if (typeof command === 'string') {
+        args.push('sh', '-c', command);
       } else {
-        args.push(...this.config.command);
+        args.push(...command);
       }
     }
 
@@ -561,7 +657,7 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
     // Validate port format
     if (this.config.ports) {
       for (const port of this.config.ports) {
-        if (!port.match(/^\d+:\d+(\/\w+)?$/)) {
+        if (!/^(?:(?:\[[0-9a-fA-F:]+\]|[0-9.]+):)?(?:\d*(?:-\d+)?:)?\d+(?:-\d+)?(?:\/(?:tcp|udp|sctp))?$/.test(port)) {
           errors.push(`Invalid port format: ${port}`);
         }
       }
@@ -594,21 +690,17 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
    * Start container
    */
   async start(): Promise<void> {
+    this.build();
+    this.config.name ??= `xec-${randomUUID()}`;
     await this.executeHook('beforeStart');
-
-    if (await this.isRunning()) {
-      console.log(`[xec-core] Container ${this.config.name || 'ephemeral'} is already running`);
-      return;
+    const info = await this.info();
+    if (info?.status === 'running') return;
+    if (info) {
+      await this.dockerCommand(['start', '--', info.id]);
+    } else {
+      if (this.config.pull) await this.dockerCommand(['pull', this.config.image!]);
+      await this.dockerCommand(this.buildRunArgs());
     }
-
-    // Pull image if requested
-    if (this.config.pull) {
-      await this.dockerCommand(['pull', this.config.image!]);
-    }
-
-    // Build and execute run command
-    await this.dockerCommand(this.buildRunArgs());
-
     await this.executeHook('afterStart');
     await this.executeHook('onReady');
   }
@@ -617,14 +709,10 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
    * Stop container
    */
   async stop(): Promise<void> {
+    if (!this.config.name) throw new Error('Container name is required to stop');
     await this.executeHook('beforeStop');
-
-    const name = this.config.name;
-    if (!name) {
-      throw new Error('Container name is required to stop');
-    }
-
-    await this.dockerCommand(['stop', name]).nothrow();
+    const id = await this.resolveContainer();
+    if (id) await this.dockerCommand(['stop', '--', id]);
     await this.executeHook('afterStop');
   }
 
@@ -640,12 +728,7 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
    * Remove container
    */
   async remove(): Promise<void> {
-    const name = this.config.name;
-    if (!name) {
-      throw new Error('Container name is required to remove');
-    }
-
-    await this.dockerCommand(['rm', '-f', name]).nothrow();
+    await this.removeContainer(true);
   }
 
   /**
@@ -657,40 +740,18 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
 
     return {
       running,
-      healthy: running && await this.isHealthy(),
+      healthy: running && await this.isHealthy(info),
       containers: info ? [info] : [],
-      endpoints: this.getEndpoints()
+      endpoints: info?.endpoints ?? []
     };
   }
 
   /**
    * Check if container is healthy
    */
-  private async isHealthy(): Promise<boolean> {
-    if (!this.config.name || !this.config.healthcheck) {
-      return true; // No health check defined
-    }
-
-    try {
-      const result = await this.dockerCommand(['inspect', '--format={{.State.Health.Status}}', this.config.name]).nothrow();
-      return result.stdout.trim() === 'healthy';
-    } catch {
-      return false;
-    }
-  }
-
-  /**
-   * Get container endpoints
-   */
-  private getEndpoints(): string[] {
-    const endpoints: string[] = [];
-    if (this.config.ports) {
-      for (const port of this.config.ports) {
-        const [hostPort] = port.split(':');
-        endpoints.push(`localhost:${hostPort}`);
-      }
-    }
-    return endpoints;
+  private async isHealthy(info: ContainerRuntimeInfo | null): Promise<boolean> {
+    if (this.hooks.healthCheck) return this.hooks.healthCheck();
+    return info?.status === 'running' && (info.health === undefined || info.health === 'healthy');
   }
 
   /**
@@ -700,111 +761,22 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
   exec(command: string | string[]): Promise<ExecutionResult>;
   exec(strings: TemplateStringsArray, ...values: unknown[]): ProcessPromise;
   exec(commandOrStrings: string | string[] | TemplateStringsArray, ...values: unknown[]): Promise<ExecutionResult> | ProcessPromise {
-    if (!this.config.name && !this.config.image) {
-      throw new Error('[xec-core] Container name or image required for execution');
-    }
-
-    // The command runs inside the container via `sh -c <script>`: template
-    // values and string[] elements are quoted for the container's POSIX
-    // shell, and the whole script travels as a single host-side token.
-    const isTemplate = isTemplateStringsArray(commandOrStrings);
-    const script = isTemplate
-      ? interpolateForShell('posix', commandOrStrings, ...values)
-      : Array.isArray(commandOrStrings)
-        ? escapeUnix(commandOrStrings)
-        : commandOrStrings;
-
-    let promise: ProcessPromise;
+    if (!this.config.name && !this.config.image) throw new Error('Container name or image required for execution');
     if (this.config.name) {
-      promise = this.dockerCommand(['exec', this.config.name, 'sh', '-c', script]);
-    } else {
-      // Run ephemeral container: replace detached mode with --rm, which
-      // must precede the image argument to be parsed as a flag.
-      const args = this.buildRunArgs();
-      const detachedIndex = args.indexOf('-d');
-      if (detachedIndex !== -1) {
-        args.splice(detachedIndex, 1);
-      }
-      if (!args.includes('--rm')) {
-        args.splice(1, 0, '--rm');
-      }
-      args.push('sh', '-c', script);
-      promise = this.dockerCommand(args);
+      const target = this.engine.docker({
+        container: this.config.name, env: this.config.env, workdir: this.config.workdir, user: this.config.user,
+      });
+      return isTemplateStringsArray(commandOrStrings)
+        ? target.run(commandOrStrings, ...values)
+        : Array.isArray(commandOrStrings) ? target.run`${commandOrStrings}` : target.exec(commandOrStrings);
     }
-
-    return isTemplate ? promise : promise.then(result => result);
-  }
-
-  /**
-   * Get container info
-   */
-  async info(): Promise<ContainerRuntimeInfo | null> {
-    if (!this.config.name) {
-      return null;
-    }
-
-    try {
-      const result = await this.dockerCommand(['inspect', this.config.name]).nothrow();
-      if (result.exitCode !== 0) {
-        return null;
-      }
-
-      const data = JSON.parse(result.stdout)[0];
-      return {
-        id: data.Id,
-        name: data.Name.replace(/^\//, ''),
-        image: data.Config.Image,
-        status: data.State.Status,
-        ports: Object.keys(data.NetworkSettings.Ports || {}),
-        networks: Object.keys(data.NetworkSettings.Networks || {}),
-        created: new Date(data.Created),
-        started: data.State.StartedAt ? new Date(data.State.StartedAt) : undefined,
-        ip: data.NetworkSettings.IPAddress,
-        volumes: data.Mounts?.map((m: any) => `${m.Source}:${m.Destination}`),
-        labels: data.Config.Labels
-      };
-    } catch {
-      return null;
-    }
-  }
-
-  /**
-   * Check if container is running
-   */
-  async isRunning(): Promise<boolean> {
-    if (!this.config.name) {
-      return false;
-    }
-
-    try {
-      const result = await this.engine.run`${[findDockerPath(), 'ps', '--format', '{{.Names}}']} | grep -w ${this.config.name}`.nothrow();
-      return result.exitCode === 0;
-    } catch {
-      return false;
-    }
-  }
-
-  /**
-   * Get container logs
-   */
-  async logs(options?: LogOptions): Promise<string> {
-    if (!this.config.name) {
-      throw new Error('Container name is required for logs');
-    }
-
-    const args = ['logs'];
-
-    if (options?.follow) args.push('-f');
-    if (options?.timestamps) args.push('-t');
-    if (options?.tail) args.push('--tail', String(options.tail));
-    if (options?.since) args.push('--since', options.since);
-    if (options?.until) args.push('--until', options.until);
-    if (options?.details) args.push('--details');
-
-    args.push(this.config.name);
-
-    const result = await this.dockerCommand(args);
-    return result.stdout;
+    const script = isTemplateStringsArray(commandOrStrings)
+      ? interpolateForShell('posix', commandOrStrings, ...values)
+      : Array.isArray(commandOrStrings) ? escapeUnix(commandOrStrings) : commandOrStrings;
+    const args = this.buildRunArgs(['sh', '-c', script]);
+    args.splice(args.indexOf('-d'), 1);
+    if (!args.includes('--rm')) args.splice(1, 0, '--rm');
+    return this.engine.run`${[findDockerPath(), ...args]}`;
   }
 
   /**
@@ -815,17 +787,8 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
     const interval = 1000;
 
     while (Date.now() - startTime < timeout) {
-      if (await this.isRunning()) {
-        if (this.config.healthcheck) {
-          // Wait for health check
-          if (await this.isHealthy()) {
-            return;
-          }
-        } else {
-          // Just check if running
-          return;
-        }
-      }
+      const info = await this.info();
+      if (info?.status === 'running' && await this.isHealthy(info)) return;
 
       await new Promise(resolve => setTimeout(resolve, interval));
     }
@@ -915,15 +878,12 @@ export class DockerPersistentFluentAPI extends BaseDockerFluentAPI<DockerPersist
    * Start container (if stopped)
    */
   async start(): Promise<void> {
+    this.build();
     await this.executeHook('beforeStart');
-
-    if (await this.isRunning()) {
-      console.log(`[xec-core] Container ${this.config.container} is already running`);
-      return;
-    }
-
-    await this.dockerCommand(['start', this.config.container!]);
-
+    const info = await this.info();
+    if (!info) throw new Error(`Container ${this.config.container} does not exist`);
+    if (info.status === 'running') return;
+    await this.dockerCommand(['start', '--', info.id]);
     await this.executeHook('afterStart');
     await this.executeHook('onReady');
   }
@@ -932,8 +892,10 @@ export class DockerPersistentFluentAPI extends BaseDockerFluentAPI<DockerPersist
    * Stop container
    */
   async stop(): Promise<void> {
+    this.build();
     await this.executeHook('beforeStop');
-    await this.dockerCommand(['stop', this.config.container!]);
+    const id = await this.resolveContainer();
+    if (id) await this.dockerCommand(['stop', '--', id]);
     await this.executeHook('afterStop');
   }
 
@@ -941,18 +903,16 @@ export class DockerPersistentFluentAPI extends BaseDockerFluentAPI<DockerPersist
    * Restart container
    */
   async restart(): Promise<void> {
-    await this.dockerCommand(['restart', this.config.container!]);
+    const id = await this.resolveContainer();
+    if (!id) throw new Error(`Container ${this.config.container} does not exist`);
+    await this.dockerCommand(['restart', '--', id]);
   }
 
   /**
    * Remove container
    */
   async remove(): Promise<void> {
-    if (!this.config.container) {
-      throw new Error('Container name is required for removal');
-    }
-    await this.stop();
-    await this.dockerCommand(['rm', this.config.container]);
+    await this.removeContainer(false, true);
   }
 
   /**
@@ -975,100 +935,15 @@ export class DockerPersistentFluentAPI extends BaseDockerFluentAPI<DockerPersist
   exec(command: string | string[]): Promise<ExecutionResult>;
   exec(strings: TemplateStringsArray, ...values: unknown[]): ProcessPromise;
   exec(commandOrStrings: string | string[] | TemplateStringsArray, ...values: unknown[]): Promise<ExecutionResult> | ProcessPromise {
-    const container = this.config.container;
-    if (!container) {
-      throw new Error('[xec-core] Container name required for persistent API');
-    }
-
-    // The command runs inside the container via `sh -c <script>`: template
-    // values and string[] elements are quoted for the container's POSIX
-    // shell, and the whole script travels as a single host-side token.
-    const isTemplate = isTemplateStringsArray(commandOrStrings);
-    const script = isTemplate
-      ? interpolateForShell('posix', commandOrStrings, ...values)
-      : Array.isArray(commandOrStrings)
-        ? escapeUnix(commandOrStrings)
-        : commandOrStrings;
-
-    const execArgs: string[] = ['exec'];
-    if (isTemplate) {
-      if (this.config.env) {
-        for (const [key, value] of Object.entries(this.config.env)) {
-          execArgs.push('-e', `${key}=${value}`);
-        }
-      }
-      if (this.config.workdir) {
-        execArgs.push('-w', this.config.workdir);
-      }
-      if (this.config.user) {
-        execArgs.push('-u', this.config.user);
-      }
-    }
-    execArgs.push(container, 'sh', '-c', script);
-
-    const promise = this.dockerCommand(execArgs);
-    return isTemplate ? promise : promise.then(result => result);
+    if (!this.config.container) throw new Error('Container name required for execution');
+    const target = this.engine.docker({
+      container: this.config.container, env: this.config.env, workdir: this.config.workdir, user: this.config.user,
+    });
+    return isTemplateStringsArray(commandOrStrings)
+      ? target.run(commandOrStrings, ...values)
+      : Array.isArray(commandOrStrings) ? target.run`${commandOrStrings}` : target.exec(commandOrStrings);
   }
 
-  /**
-   * Get container info
-   */
-  async info(): Promise<ContainerRuntimeInfo | null> {
-    try {
-      const result = await this.dockerCommand(['inspect', this.config.container!]).nothrow();
-      if (result.exitCode !== 0) {
-        return null;
-      }
-
-      const data = JSON.parse(result.stdout)[0];
-      return {
-        id: data.Id,
-        name: data.Name.replace(/^\//, ''),
-        image: data.Config.Image,
-        status: data.State.Status,
-        ports: Object.keys(data.NetworkSettings.Ports || {}),
-        networks: Object.keys(data.NetworkSettings.Networks || {}),
-        created: new Date(data.Created),
-        started: data.State.StartedAt ? new Date(data.State.StartedAt) : undefined,
-        ip: data.NetworkSettings.IPAddress,
-        volumes: data.Mounts?.map((m: any) => `${m.Source}:${m.Destination}`),
-        labels: data.Config.Labels
-      };
-    } catch {
-      return null;
-    }
-  }
-
-  /**
-   * Check if container is running
-   */
-  async isRunning(): Promise<boolean> {
-    try {
-      const result = await this.engine.run`${[findDockerPath(), 'ps', '--format', '{{.Names}}']} | grep -w ${this.config.container}`.nothrow();
-      return result.exitCode === 0;
-    } catch {
-      return false;
-    }
-  }
-
-  /**
-   * Get container logs
-   */
-  async logs(options?: LogOptions): Promise<string> {
-    const args = ['logs'];
-
-    if (options?.follow) args.push('-f');
-    if (options?.timestamps) args.push('-t');
-    if (options?.tail) args.push('--tail', String(options.tail));
-    if (options?.since) args.push('--since', options.since);
-    if (options?.until) args.push('--until', options.until);
-    if (options?.details) args.push('--details');
-
-    args.push(this.config.container!);
-
-    const result = await this.dockerCommand(args);
-    return result.stdout;
-  }
 
   /**
    * Wait for container to be ready

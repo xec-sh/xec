@@ -6,6 +6,7 @@ import type { ExecutionResult } from '../../../types/result.js';
 import type { ProcessPromise, ExecutionEngine } from '../../../core/execution-engine.js';
 
 import { DockerBuildFluentAPI } from './build.js';
+import { findDockerPath } from '../docker-utils.js';
 // Import for internal use
 import { DockerEphemeralFluentAPI, DockerPersistentFluentAPI } from './base.js';
 
@@ -414,12 +415,16 @@ export class DockerNetworkFluentAPI {
    * Check if network exists
    */
   async exists(): Promise<boolean> {
-    try {
-      await this.inspect();
-      return true;
-    } catch {
-      return false;
+    const result = await this.engine.with({ nothrow: false, throwOnNonZeroExit: true, redactOutput: false }).run`${[findDockerPath(), 'network', 'ls', '--format', '{{json .}}']}`;
+    let found = false;
+    for (const line of result.stdout.split(/\r?\n/).filter(entry => entry.trim())) {
+      const row: unknown = JSON.parse(line);
+      if (!row || typeof row !== 'object' || !('Name' in row) || typeof row.Name !== 'string') {
+        throw new Error('Invalid Docker network inventory');
+      }
+      if (row.Name === this.name) found = true;
     }
+    return found;
   }
 }
 

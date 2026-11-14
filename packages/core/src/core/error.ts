@@ -57,11 +57,10 @@ export class CommandError extends ExecutionError {
     // Sanitize command for error message to avoid exposing sensitive paths
     const sanitizedCommand = sanitizeCommandForError(command);
 
-    // The head of stderr is the diagnosis; without it the message names the
-    // command and the code but not the reason, and the first thing every
-    // caller does is print error.stderr by hand. stderr reaches this point
-    // already masked by the adapter, so no secret enters the message.
-    const stderrHead = stderr.trim().split('\n').slice(0, 5).join('\n');
+    // API callers may request exact payloads. Diagnostics always redact them.
+    const safeStdout = maskCommand(stdout);
+    const safeStderr = maskCommand(stderr);
+    const stderrHead = safeStderr.trim().split('\n').slice(0, 5).join('\n');
     const detail = stderrHead ? `\n${stderrHead}` : '';
 
     const meaning = explainExitCode(exitCode);
@@ -73,12 +72,15 @@ export class CommandError extends ExecutionError {
     super(`Command failed with exit code ${code}: ${sanitizedCommand}${detail}${at}`, 'COMMAND_FAILED', {
       exitCode,
       signal,
-      stdout,
-      stderr,
+      stdout: safeStdout,
+      stderr: safeStderr,
       duration,
       callSite
     }, 'command-failed');
     this.name = 'CommandError';
+    this.command = sanitizedCommand;
+    this.stdout = safeStdout;
+    this.stderr = safeStderr;
   }
 }
 

@@ -6,6 +6,8 @@ import { platform } from 'node:os';
 import { existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 
+import { DockerError } from '../../core/error.js';
+
 /**
  * Cache for Docker executable path
  */
@@ -82,4 +84,24 @@ export function clearDockerPathCache(): void {
 export function getDockerCommand(...args: string[]): string {
   const dockerPath = findDockerPath();
   return [dockerPath, ...args].join(' ');
+}
+
+/** Resolve a name or unique ID prefix from a successfully read Docker inventory. */
+export function parseContainerReference(output: string, container: string): string | null {
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/.test(container)) {
+    throw new DockerError(container, 'inspect', new Error('Invalid container name or ID'));
+  }
+  const matches: string[] = [];
+  for (const line of output.split(/\r?\n/).filter(entry => entry.trim())) {
+    let row: unknown;
+    try { row = JSON.parse(line); }
+    catch { throw new DockerError(container, 'inspect', new Error('Malformed Docker container inventory')); }
+    if (!row || typeof row !== 'object' || !('ID' in row) || !('Names' in row) ||
+      typeof row.ID !== 'string' || !/^[a-f0-9]{64}$/.test(row.ID) || typeof row.Names !== 'string') {
+      throw new DockerError(container, 'inspect', new Error('Malformed Docker container inventory'));
+    }
+    if (row.ID.startsWith(container) || row.Names.split(',').includes(container)) matches.push(row.ID);
+  }
+  if (matches.length > 1) throw new DockerError(container, 'inspect', new Error('Ambiguous container reference'));
+  return matches[0] ?? null;
 }

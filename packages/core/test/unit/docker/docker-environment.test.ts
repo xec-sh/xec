@@ -31,8 +31,9 @@ describe('Docker fluent command isolation', () => {
   it('reports an ephemeral running container from Docker inspect state', async () => {
     const engine = new ExecutionEngine();
     const adapter = new MockAdapter();
+    adapter.mockSuccess(/ps/, JSON.stringify({ ID: 'a'.repeat(64), Names: 'fixture' }));
     adapter.mockSuccess(/inspect/, JSON.stringify([{
-      Id: 'fixture', Name: '/fixture', Config: { Image: 'alpine' },
+      Id: 'a'.repeat(64), Name: '/fixture', Config: { Image: 'alpine' },
       State: { Status: 'running' }, NetworkSettings: { Ports: {}, Networks: {} },
       Created: '2026-01-01T00:00:00Z',
     }]));
