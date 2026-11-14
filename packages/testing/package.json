@@ -1,6 +1,6 @@
 {
   "name": "@xec-sh/testing",
-  "version": "0.11.5",
+  "version": "0.12.0",
   "description": "Docker, SSH, and kind test fixtures for Xec integration tests",
   "type": "module",
   "main": "./dist/index.js",
