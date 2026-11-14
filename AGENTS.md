@@ -44,26 +44,17 @@ xec/
 ## 🏗 Architecture
 
 ### Dependency Graph
-```
-┌──────────────────┐
-│  @xec-sh/cli     │  Thin CLI wrapper
-└────────┬─────────┘
-         │
-┌────────▼─────────┐
-│  @xec-sh/ops     │  DevOps operations library
-└────────┬─────────┘  (deploy, pipeline, workflow, health, discovery)
-         │
-┌────────▼─────────┐
-│  @xec-sh/core    │  Shell execution engine
-└────────┬─────────┘  (SSH, Docker, K8s adapters)
-         │
-┌────────┴────┬────────────┬──────────────┐
-│ @xec-sh/kit │ @xec-sh/   │ @xec-sh/     │
-│ TUI/CLI     │  loader    │  testing     │
-│ components  │ Scripts &  │ Test utils   │
-└─────────────┘ modules    └──────────────┘
-                └──────────┘
-```
+
+Workspace runtime dependencies are declared in each package's `package.json`:
+
+| Package | Workspace runtime dependencies |
+| --- | --- |
+| `@xec-sh/cli` | `core`, `ops`, `loader`, `kit` |
+| `@xec-sh/ops` | `core`, `loader`, `kit` |
+| `@xec-sh/loader` | `kit` |
+| `@xec-sh/core` | None; `ssh2` is an external runtime dependency |
+| `@xec-sh/kit` | None; `sisteransi` is an external runtime dependency |
+| `@xec-sh/testing` | None; Vitest is a required peer supplied by the test runner |
 
 ### Core Components
 
@@ -707,17 +698,13 @@ XECSH_NO_COLOR=true          # Disable colored output
 - Provably correct through types
 
 ### @xec-sh/cli
-- Depends only on @xec-sh/core
+- Depends on `@xec-sh/core`, `@xec-sh/ops`, `@xec-sh/loader`, and `@xec-sh/kit`; external dependencies are listed in `apps/xec/package.json`.
 - User-friendly error messages with suggestions
 - Interactive prompts when appropriate
 - Respect NO_COLOR and CI environment
-- **Fast startup**. Measured 2026-08-04: `xec --help` takes ~400-500 ms, against
-  a ~45 ms floor for an empty `node -e ""` on the same machine. The dominant
-  cost is that `main.ts` eagerly imports `@xec-sh/ops`, pulling the whole
-  config and secrets machinery in just to print help. Target: **under 150 ms**,
-  reached by loading `ops` lazily. The previous target of <50 ms was
-  unreachable by construction — Node itself costs that much before any code
-  of ours runs.
+- **Startup**: keep optional operations lazy. Record the commit, runtime, machine,
+  cold/warm cache state, and sample count when measuring `xec --help`; historical
+  timing figures are not a current-release guarantee.
 - Progressive enhancement based on TTY capabilities
 
 ### @xec-sh/testing
@@ -757,11 +744,11 @@ describe('execution performance', () => {
 });
 ```
 
-### Performance Targets
+### Historical Performance Observations
 
-Measured 2026-08-04 on the built `dist`, not estimated. Where a target was
-unreachable by construction it has been replaced with the measured number and
-the reason, rather than left as an aspiration nobody checks.
+The measurements below describe the 2026-08-04 build and machine, not the current
+release. Reproduce them against the intended commit and runtime before using
+them as a regression baseline. Unmeasured thresholds are targets, not results.
 
 - **Command creation**: ~6µs, of which ~3µs is the call-site capture that
   makes failures name the caller's line (`captureCallSite: false` removes it)
@@ -924,7 +911,7 @@ docker rm -f $(docker ps -aq --filter "label=xecsh-test")
 ### Performance Metrics
 - **Operations/second**: >10K for simple commands
 - **Memory overhead**: <5MB per command
-- **Startup time**: ~70ms measured (`xec --help`); Node's own floor is ~28ms
+- **Startup time**: report fresh `xec --help` measurements with their baseline; see the historical observations above.
 - **Connection pooling efficiency**: >90%
 
 ### Reliability Metrics
@@ -1051,6 +1038,6 @@ Every line of code should embody this philosophy. We're not just building a comm
 - **Performance matters** - Measure, optimize, verify
 - **Security first** - Never compromise on security
 
-**Last Updated**: 2026-08-06
-**Version**: 0.10.1 (0.11.0 in preparation)
+**Dependency metadata audited**: 2026-11-14
+**Version**: Read the public package manifests; the release command owns version updates.
 **Status**: Living Document
