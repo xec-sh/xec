@@ -21,19 +21,14 @@ export const SELECT_INSTRUCTIONS = ['↑/↓ to navigate', 'Enter: confirm'];
 
 type Primitive = Readonly<string | boolean | number>;
 
-export type Option<Value> = Value extends Primitive
-  ? {
-      value: Value;
-      label?: string;
-      hint?: string;
-      disabled?: boolean;
-    }
-  : {
-      value: Value;
-      label: string;
-      hint?: string;
-      disabled?: boolean;
-    };
+export type Option<Value> = {
+  value: Value;
+  hint?: string;
+  disabled?: boolean;
+} & (
+  | { label: string }
+  | { value: Extract<Value, Primitive>; label?: string }
+);
 
 export interface SelectOptions<Value> extends CommonOptions {
   message: string;

@@ -1,11 +1,13 @@
 import * as yaml from 'js-yaml';
 import { Command } from 'commander';
+import { getExecutionSignal } from '@xec-sh/core';
 import { join, resolve, dirname } from 'node:path';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { log, box, text, note, prism, intro, outro, cancel, select, confirm, spinner, isCancel, password } from '@xec-sh/kit';
 import { isTrusted, listTrusted, revokeTrust, sortConfigKeys , getDefaultConfig, mergeWithDefaults, ConfigurationManager, usesCommandSubstitution } from '@xec-sh/ops';
 
 import { BaseCommand } from '../utils/command-base.js';
+import { canPrompt, isPlainOutput } from '../utils/plain-mode.js';
 import { ConfigFileEditor } from '../utils/config-file-editor.js';
 import { promptForConfigTrust } from '../utils/config-trust-prompt.js';
 
@@ -71,7 +73,19 @@ export class ConfigCommand extends BaseCommand {
     // Standard flags may ride on the group (`config --dry-run set …`) or on
     // the leaf (`config set … --dry-run`); either placement must reach the
     // handlers before they run.
-    cmd.hook('preAction', (_group, invoked) => this.adoptCommonOptions(invoked));
+    cmd.hook('preAction', (_group, invoked) => {
+      this.adoptCommonOptions(invoked);
+      const parent = invoked.parent?.name();
+      const interactive = invoked === cmd ||
+        (parent === 'targets' && ['add', 'edit'].includes(invoked.name())) ||
+        (['targets', 'vars', 'tasks'].includes(parent ?? '') && invoked.name() === 'delete' && invoked.opts()['force'] !== true) ||
+        (parent === 'defaults' && invoked.name() !== 'view') ||
+        (parent === 'tasks' && invoked.name() === 'create') ||
+        (parent === 'vars' && invoked.name() === 'set' && invoked.args[1] === undefined);
+      if (interactive && (!canPrompt() || this.options.quiet || this.machineFormat() !== null)) {
+        throw new Error('This configuration editor requires an interactive terminal. Use config set with explicit values for non-interactive edits.');
+      }
+    });
 
     return cmd;
   }
@@ -82,7 +96,7 @@ export class ConfigCommand extends BaseCommand {
     // If no subcommand specified, show interactive mode. Where no terminal
     // exists there is nobody to drive a menu: print the usage and fail,
     // instead of the old silent success that did nothing.
-    if (process.stdin.isTTY) {
+    if (canPrompt() && !this.options.quiet && this.machineFormat() === null) {
       await this.interactiveMode();
     } else {
       this.groupCommand?.outputHelp();
@@ -223,16 +237,17 @@ export class ConfigCommand extends BaseCommand {
       .option('--dry-run', 'Preview the change without writing the configuration file')
       .action(async (name) => {
         await this.ensureInitialized();
-        await this.editTargetWithName(name);
+        await this.editTarget(name);
       });
 
     targets
       .command('delete <name>')
       .description('Delete target')
+      .option('-f, --force', 'Confirm deletion of the named item without prompting')
       .option('--dry-run', 'Preview the change without writing the configuration file')
-      .action(async (name) => {
+      .action(async (name, options) => {
         await this.ensureInitialized();
-        await this.deleteTargetWithName(name);
+        await this.deleteTarget(name, options.force);
       });
   }
 
@@ -255,16 +270,17 @@ export class ConfigCommand extends BaseCommand {
       .option('--dry-run', 'Preview the change without writing the configuration file')
       .action(async (key, value) => {
         await this.ensureInitialized();
-        await this.setVarWithKeyValue(key, value);
+        await this.setVar(key, value);
       });
 
     vars
       .command('delete <key>')
       .description('Delete variable')
+      .option('-f, --force', 'Confirm deletion of the named item without prompting')
       .option('--dry-run', 'Preview the change without writing the configuration file')
-      .action(async (key) => {
+      .action(async (key, options) => {
         await this.ensureInitialized();
-        await this.deleteVarWithKey(key);
+        await this.deleteVar(key, options.force);
       });
 
     vars
@@ -273,7 +289,7 @@ export class ConfigCommand extends BaseCommand {
       .option('--dry-run', 'Preview the change without writing the configuration file')
       .action(async (file) => {
         await this.ensureInitialized();
-        await this.importVarsFromFile(file);
+        await this.importVars(file);
       });
 
     vars
@@ -281,7 +297,7 @@ export class ConfigCommand extends BaseCommand {
       .description('Export variables to file')
       .action(async (file) => {
         await this.ensureInitialized();
-        await this.exportVarsToFile(file);
+        await this.exportVars(file);
       });
   }
 
@@ -303,7 +319,7 @@ export class ConfigCommand extends BaseCommand {
       .description('View task details')
       .action(async (name) => {
         await this.ensureInitialized();
-        await this.viewTaskWithName(name);
+        await this.viewTask(name);
       });
 
     tasks
@@ -318,10 +334,11 @@ export class ConfigCommand extends BaseCommand {
     tasks
       .command('delete <name>')
       .description('Delete task')
+      .option('-f, --force', 'Confirm deletion of the named item without prompting')
       .option('--dry-run', 'Preview the change without writing the configuration file')
-      .action(async (name) => {
+      .action(async (name, options) => {
         await this.ensureInitialized();
-        await this.deleteTaskWithName(name);
+        await this.deleteTask(name, options.force);
       });
 
     tasks
@@ -397,6 +414,7 @@ export class ConfigCommand extends BaseCommand {
 
     while (true) {
       const action = await select({
+        signal: getExecutionSignal(),
         message: 'What would you like to do?',
         options: [
           { value: 'view', label: '📖 View configuration' },
@@ -443,6 +461,7 @@ export class ConfigCommand extends BaseCommand {
           break;
         case 'doctor': {
           const showDefaults = await confirm({
+            signal: getExecutionSignal(),
             message: 'Show all possible configuration options with default values?',
             initialValue: false
           });
@@ -630,6 +649,7 @@ export class ConfigCommand extends BaseCommand {
   private async manageTargets(): Promise<void> {
     while (true) {
       const action = await select({
+        signal: getExecutionSignal(),
         message: 'Target management',
         options: [
           { value: 'list', label: 'List all targets' },
@@ -714,6 +734,7 @@ export class ConfigCommand extends BaseCommand {
 
   private async addTarget(): Promise<void> {
     const targetType = await select({
+      signal: getExecutionSignal(),
       message: 'Select target type',
       options: [
         { value: 'ssh', label: '🖥️  SSH Host' },
@@ -725,6 +746,7 @@ export class ConfigCommand extends BaseCommand {
     if (isCancel(targetType)) return;
 
     const name = await text({
+      signal: getExecutionSignal(),
       message: 'Target name',
       placeholder: 'my-target',
       validate: (value) => {
@@ -782,6 +804,7 @@ export class ConfigCommand extends BaseCommand {
 
   private async promptSSHConfig(currentConfig?: any): Promise<any> {
     const host = await text({
+      signal: getExecutionSignal(),
       message: 'SSH host',
       placeholder: 'example.com',
       initialValue: currentConfig?.host || '',
@@ -791,6 +814,7 @@ export class ConfigCommand extends BaseCommand {
     if (isCancel(host)) return null;
 
     const port = await text({
+      signal: getExecutionSignal(),
       message: 'SSH port',
       placeholder: '22',
       initialValue: currentConfig?.port?.toString() || '',
@@ -800,6 +824,7 @@ export class ConfigCommand extends BaseCommand {
     if (isCancel(port)) return null;
 
     const username = await text({
+      signal: getExecutionSignal(),
       message: 'SSH username',
       placeholder: 'user',
       initialValue: currentConfig?.username || '',
@@ -813,6 +838,7 @@ export class ConfigCommand extends BaseCommand {
       currentConfig?.password ? 'password' : 'key';
 
     const authMethod = await select({
+      signal: getExecutionSignal(),
       message: 'Authentication method',
       options: [
         { value: 'key', label: '🔑 SSH Key' },
@@ -832,6 +858,7 @@ export class ConfigCommand extends BaseCommand {
 
     if (authMethod === 'key') {
       const privateKey = await text({
+        signal: getExecutionSignal(),
         message: 'Path to SSH private key',
         placeholder: '~/.ssh/id_rsa',
         initialValue: currentConfig?.privateKey || '',
@@ -842,10 +869,12 @@ export class ConfigCommand extends BaseCommand {
       config.privateKey = privateKey;
 
       const passphrase = await password({
+        signal: getExecutionSignal(),
         message: 'SSH key passphrase (optional)',
       }) as string;
 
-      if (passphrase && !isCancel(passphrase)) {
+      if (isCancel(passphrase)) return null;
+      if (passphrase) {
         log.warn('⚠️  Passphrase will be stored in plain text. Consider using the secrets command instead.');
         config.passphrase = passphrase;
       }
@@ -859,14 +888,17 @@ export class ConfigCommand extends BaseCommand {
 
   private async promptDockerConfig(currentConfig?: any): Promise<any> {
     const useContainer = await confirm({
+      signal: getExecutionSignal(),
       message: 'Use existing container?',
       initialValue: !!currentConfig?.container,
     });
 
+    if (isCancel(useContainer)) return null;
     const config: any = { type: 'docker' };
 
-    if (useContainer) {
+    if (useContainer === true) {
       const container = await text({
+        signal: getExecutionSignal(),
         message: 'Container name or ID',
         placeholder: 'my-container',
         initialValue: currentConfig?.container || '',
@@ -877,6 +909,7 @@ export class ConfigCommand extends BaseCommand {
       config.container = container;
     } else {
       const image = await text({
+        signal: getExecutionSignal(),
         message: 'Docker image',
         placeholder: 'ubuntu:latest',
         initialValue: currentConfig?.image || '',
@@ -887,12 +920,14 @@ export class ConfigCommand extends BaseCommand {
       config.image = image;
 
       const workdir = await text({
+        signal: getExecutionSignal(),
         message: 'Working directory (optional)',
         placeholder: '/app',
         initialValue: currentConfig?.workdir || '',
       }) as string;
 
-      if (workdir && !isCancel(workdir)) {
+      if (isCancel(workdir)) return null;
+      if (workdir) {
         config.workdir = workdir;
       }
     }
@@ -902,6 +937,7 @@ export class ConfigCommand extends BaseCommand {
 
   private async promptK8sConfig(currentConfig?: any): Promise<any> {
     const pod = await text({
+      signal: getExecutionSignal(),
       message: 'Pod name',
       placeholder: 'my-pod',
       initialValue: currentConfig?.pod || '',
@@ -911,6 +947,7 @@ export class ConfigCommand extends BaseCommand {
     if (isCancel(pod)) return null;
 
     const namespace = await text({
+      signal: getExecutionSignal(),
       message: 'Namespace',
       placeholder: 'default',
       initialValue: currentConfig?.namespace || '',
@@ -920,6 +957,7 @@ export class ConfigCommand extends BaseCommand {
     if (isCancel(namespace)) return null;
 
     const container = await text({
+      signal: getExecutionSignal(),
       message: 'Container name (for multi-container pods)',
       placeholder: 'main',
       initialValue: currentConfig?.container || '',
@@ -931,23 +969,35 @@ export class ConfigCommand extends BaseCommand {
       namespace,
     };
 
-    if (container && !isCancel(container)) {
+    if (isCancel(container)) return null;
+    if (container) {
       config.container = container;
     }
 
     const context = await text({
+      signal: getExecutionSignal(),
       message: 'Kubernetes context (optional)',
       placeholder: 'default',
     }) as string;
 
-    if (context && !isCancel(context)) {
+    if (isCancel(context)) return null;
+    if (context) {
       config.context = context;
     }
 
     return config;
   }
 
-  private async editTarget(): Promise<void> {
+  private resolveTargetName(requested: string, targets: readonly string[]): string {
+    const matches = targets.filter(target =>
+      target === requested || target.slice(target.indexOf('.') + 1) === requested
+    );
+    if (matches.length === 0) throw new Error(`Target '${requested}' not found`);
+    if (matches.length > 1) throw new Error(`Target '${requested}' is ambiguous. Use one of ${matches.join(', ')}.`);
+    return matches[0]!;
+  }
+
+  private async editTarget(requested?: string): Promise<void> {
     const config = await this.editableConfig();
     const allTargets: string[] = [];
 
@@ -968,19 +1018,22 @@ export class ConfigCommand extends BaseCommand {
       }
     }
 
-    if (allTargets.length === 0) {
+    if (allTargets.length === 0 && requested === undefined) {
       log.warn('No targets configured');
       return;
     }
 
-    const target = await select({
+    const target = requested === undefined ? await select({
+      signal: getExecutionSignal(),
       message: 'Select target to edit',
       options: allTargets.map(t => ({ value: t, label: t })),
-    }) as string;
+    }) : this.resolveTargetName(requested, allTargets);
 
     if (isCancel(target)) return;
 
-    const [type, name] = target.split('.');
+    const separator = target.indexOf('.');
+    const type = target.slice(0, separator);
+    const name = target.slice(separator + 1);
 
     if (!name) {
       log.error('Invalid target format');
@@ -1007,6 +1060,7 @@ export class ConfigCommand extends BaseCommand {
     });
 
     const edit = await confirm({
+      signal: getExecutionSignal(),
       message: 'Edit this target?',
     });
 
@@ -1048,7 +1102,7 @@ export class ConfigCommand extends BaseCommand {
     await this.commit(`Target '${target}' updated`);
   }
 
-  private async deleteTarget(): Promise<void> {
+  private async deleteTarget(requested?: string, force = false): Promise<void> {
     const config = await this.editableConfig();
     const allTargets: string[] = [];
 
@@ -1069,25 +1123,28 @@ export class ConfigCommand extends BaseCommand {
       }
     }
 
-    if (allTargets.length === 0) {
+    if (allTargets.length === 0 && requested === undefined) {
       log.warn('No targets configured');
       return;
     }
 
-    const target = await select({
+    const target = requested === undefined ? await select({
+      signal: getExecutionSignal(),
       message: 'Select target to delete',
       options: allTargets.map(t => ({ value: t, label: t })),
-    }) as string;
+    }) : this.resolveTargetName(requested, allTargets);
 
     if (isCancel(target)) return;
 
-    const confirmResult = await confirm({
-      message: `Are you sure you want to delete '${target}'?`,
-    });
+    if (!force) {
+      const approved = await confirm({
+      signal: getExecutionSignal(), message: `Delete target '${target}'?` });
+      if (approved !== true) return;
+    }
 
-    if (!confirmResult || isCancel(confirmResult)) return;
-
-    const [type, name] = target.split('.');
+    const separator = target.indexOf('.');
+    const type = target.slice(0, separator);
+    const name = target.slice(separator + 1);
 
     if (!name) {
       log.error('Invalid target format');
@@ -1114,6 +1171,7 @@ export class ConfigCommand extends BaseCommand {
   private async manageVars(): Promise<void> {
     while (true) {
       const action = await select({
+        signal: getExecutionSignal(),
         message: 'Variable management',
         options: [
           { value: 'list', label: 'List all variables' },
@@ -1178,8 +1236,9 @@ export class ConfigCommand extends BaseCommand {
     });
   }
 
-  private async setVar(): Promise<void> {
-    const name = await text({
+  private async setVar(requested?: string, suppliedValue?: string): Promise<void> {
+    const name = requested ?? await text({
+      signal: getExecutionSignal(),
       message: 'Variable name',
       placeholder: 'MY_VAR',
       validate: (value) => {
@@ -1187,11 +1246,16 @@ export class ConfigCommand extends BaseCommand {
         if (!/^[A-Z][A-Z0-9_]*$/.test(value)) return 'Variable names should be UPPER_SNAKE_CASE';
         return undefined;
       },
-    }) as string;
+    });
 
     if (isCancel(name)) return;
 
+    if (!/^[A-Z][A-Z0-9_]*$/.test(name)) throw new Error('Variable names should be UPPER_SNAKE_CASE');
+
+    let value = suppliedValue;
+    if (value === undefined) {
     const isSecret = await confirm({
+      signal: getExecutionSignal(),
       message: 'Is this a secret value?',
     });
 
@@ -1203,13 +1267,16 @@ export class ConfigCommand extends BaseCommand {
       return;
     }
 
-    const value = await text({
+    const answer = await text({
+      signal: getExecutionSignal(),
       message: 'Variable value',
       placeholder: 'value',
       validate: (v) => v ? undefined : 'Value is required',
-    }) as string;
+    });
 
-    if (isCancel(value)) return;
+    if (isCancel(answer)) return;
+    value = answer;
+    }
 
     const config = await this.editableConfig();
     if (!config.vars) config.vars = {};
@@ -1218,27 +1285,29 @@ export class ConfigCommand extends BaseCommand {
     await this.commit(`Variable '${name}' set`);
   }
 
-  private async deleteVar(): Promise<void> {
+  private async deleteVar(requested?: string, force = false): Promise<void> {
     const config = await this.editableConfig();
     const vars = config.vars || {};
 
-    if (Object.keys(vars).length === 0) {
+    if (Object.keys(vars).length === 0 && requested === undefined) {
       log.info('No variables configured');
       return;
     }
 
-    const name = await select({
+    const name = requested ?? await select({
+      signal: getExecutionSignal(),
       message: 'Select variable to delete',
       options: Object.keys(vars).map(v => ({ value: v, label: v })),
-    }) as string;
-
-    if (isCancel(name)) return;
-
-    const confirmResult = await confirm({
-      message: `Delete variable '${name}'?`,
     });
 
-    if (!confirmResult || isCancel(confirmResult)) return;
+    if (isCancel(name)) return;
+    if (!Object.hasOwn(vars, name)) throw new Error(`Variable '${name}' not found`);
+
+    if (!force) {
+      const approved = await confirm({
+      signal: getExecutionSignal(), message: `Delete variable '${name}'?` });
+      if (approved !== true) return;
+    }
 
     delete config.vars![name];
     await this.commit(`Variable '${name}' deleted`);
@@ -1247,11 +1316,12 @@ export class ConfigCommand extends BaseCommand {
   private async importVars(file?: string): Promise<void> {
     let envFile = file;
     if (!envFile) {
-      if (!process.stdin.isTTY) {
+      if (!canPrompt()) {
         log.error('No file given and no terminal to ask for one');
         process.exit(1);
       }
       const answer = await text({
+        signal: getExecutionSignal(),
         message: 'Path to .env file',
         placeholder: '.env',
         defaultValue: '.env',
@@ -1295,7 +1365,7 @@ export class ConfigCommand extends BaseCommand {
     await this.commit(`Imported ${Object.keys(vars).length} variables from ${envFile}`);
   }
 
-  private async exportVars(): Promise<void> {
+  private async exportVars(file?: string): Promise<void> {
     const config = await this.configManager.load();
     const vars = config.vars || {};
 
@@ -1304,7 +1374,8 @@ export class ConfigCommand extends BaseCommand {
       return;
     }
 
-    const envFile = await text({
+    const envFile = file ?? await text({
+      signal: getExecutionSignal(),
       message: 'Output .env file',
       placeholder: '.env',
       defaultValue: '.env',
@@ -1328,6 +1399,7 @@ export class ConfigCommand extends BaseCommand {
   private async manageTasks(): Promise<void> {
     while (true) {
       const action = await select({
+        signal: getExecutionSignal(),
         message: 'Task management',
         options: [
           { value: 'list', label: 'List all tasks' },
@@ -1393,21 +1465,23 @@ export class ConfigCommand extends BaseCommand {
     });
   }
 
-  private async viewTask(): Promise<void> {
+  private async viewTask(requested?: string): Promise<void> {
     const config = await this.configManager.load();
     const tasks = config.tasks || {};
 
-    if (Object.keys(tasks).length === 0) {
+    if (Object.keys(tasks).length === 0 && requested === undefined) {
       log.info('No tasks configured');
       return;
     }
 
-    const name = await select({
+    const name = requested ?? await select({
+      signal: getExecutionSignal(),
       message: 'Select task to view',
       options: Object.keys(tasks).map(t => ({ value: t, label: t })),
-    }) as string;
+    });
 
     if (isCancel(name)) return;
+    if (!Object.hasOwn(tasks, name)) throw new Error(`Task '${name}' not found`);
 
     const taskConfig = yaml.dump(tasks[name], { indent: 2 });
     box(taskConfig, `⚡ Task: ${name}`, {
@@ -1420,6 +1494,7 @@ export class ConfigCommand extends BaseCommand {
 
   private async createTask(): Promise<void> {
     const name = await text({
+      signal: getExecutionSignal(),
       message: 'Task name',
       placeholder: 'my-task',
       validate: (value) => {
@@ -1432,6 +1507,7 @@ export class ConfigCommand extends BaseCommand {
     if (isCancel(name)) return;
 
     const description = await text({
+      signal: getExecutionSignal(),
       message: 'Task description',
       placeholder: 'Describe what this task does',
     }) as string;
@@ -1439,6 +1515,7 @@ export class ConfigCommand extends BaseCommand {
     if (isCancel(description)) return;
 
     const taskType = await select({
+      signal: getExecutionSignal(),
       message: 'Task type',
       options: [
         { value: 'command', label: 'Shell command' },
@@ -1461,6 +1538,7 @@ export class ConfigCommand extends BaseCommand {
       case 'command':
         {
           const cmd = await text({
+            signal: getExecutionSignal(),
             message: 'Command to run',
             placeholder: 'echo "Hello, World!"',
             validate: (value) => value ? undefined : 'Command is required',
@@ -1473,6 +1551,7 @@ export class ConfigCommand extends BaseCommand {
       case 'script':
         {
           const script = await text({
+            signal: getExecutionSignal(),
             message: 'Script file path',
             placeholder: './scripts/my-script.sh',
             validate: (value) => value ? undefined : 'Script path is required',
@@ -1501,27 +1580,29 @@ export class ConfigCommand extends BaseCommand {
     log.info(`Edit tasks in: ${configPath}`);
   }
 
-  private async deleteTask(): Promise<void> {
+  private async deleteTask(requested?: string, force = false): Promise<void> {
     const config = await this.editableConfig();
     const tasks = config.tasks || {};
 
-    if (Object.keys(tasks).length === 0) {
+    if (Object.keys(tasks).length === 0 && requested === undefined) {
       log.info('No tasks configured');
       return;
     }
 
-    const name = await select({
+    const name = requested ?? await select({
+      signal: getExecutionSignal(),
       message: 'Select task to delete',
       options: Object.keys(tasks).map(t => ({ value: t, label: t })),
-    }) as string;
-
-    if (isCancel(name)) return;
-
-    const confirmResult = await confirm({
-      message: `Delete task '${name}'?`,
     });
 
-    if (!confirmResult || isCancel(confirmResult)) return;
+    if (isCancel(name)) return;
+    if (!Object.hasOwn(tasks, name)) throw new Error(`Task '${name}' not found`);
+
+    if (!force) {
+      const approved = await confirm({
+      signal: getExecutionSignal(), message: `Delete task '${name}'?` });
+      if (approved !== true) return;
+    }
 
     delete config.tasks![name];
     await this.commit(`Task '${name}' deleted`);
@@ -1586,6 +1667,7 @@ export class ConfigCommand extends BaseCommand {
   private async manageDefaults(): Promise<void> {
     while (true) {
       const action = await select({
+        signal: getExecutionSignal(),
         message: 'Defaults management',
         options: [
           { value: 'view', label: 'View current defaults' },
@@ -1628,6 +1710,7 @@ export class ConfigCommand extends BaseCommand {
   private async manageCustomParameters(): Promise<void> {
     while (true) {
       const action = await select({
+        signal: getExecutionSignal(),
         message: 'Custom parameter management',
         options: [
           { value: 'list', label: '📋 List custom parameters' },
@@ -1698,6 +1781,7 @@ export class ConfigCommand extends BaseCommand {
 
   private async setCustomParameter(): Promise<void> {
     const key = await text({
+      signal: getExecutionSignal(),
       message: 'Parameter key (use dot notation for nested values)',
       placeholder: 'myapp.config.port',
       validate: (value) => {
@@ -1713,6 +1797,7 @@ export class ConfigCommand extends BaseCommand {
     if (isCancel(key)) return;
 
     const valueType = await select({
+      signal: getExecutionSignal(),
       message: 'Value type',
       options: [
         { value: 'string', label: 'String' },
@@ -1731,6 +1816,7 @@ export class ConfigCommand extends BaseCommand {
       case 'string':
         {
           const stringValue = await text({
+            signal: getExecutionSignal(),
             message: 'Value',
             placeholder: 'my-value',
           }) as string;
@@ -1742,6 +1828,7 @@ export class ConfigCommand extends BaseCommand {
       case 'number':
         {
           const numberValue = await text({
+            signal: getExecutionSignal(),
             message: 'Value',
             placeholder: '8080',
             validate: (value) => {
@@ -1757,6 +1844,7 @@ export class ConfigCommand extends BaseCommand {
       case 'boolean':
         {
           const boolValue = await confirm({
+            signal: getExecutionSignal(),
             message: 'Value',
           });
           if (isCancel(boolValue)) return;
@@ -1767,6 +1855,7 @@ export class ConfigCommand extends BaseCommand {
       case 'json':
         {
           const jsonValue = await text({
+            signal: getExecutionSignal(),
             message: 'JSON value',
             placeholder: '{"key": "value"}',
             validate: (value) => {
@@ -1830,6 +1919,7 @@ export class ConfigCommand extends BaseCommand {
     }
 
     const key = await select({
+      signal: getExecutionSignal(),
       message: 'Select parameter to view',
       options: customKeys.map(k => ({ value: k, label: k })),
     });
@@ -1863,6 +1953,7 @@ export class ConfigCommand extends BaseCommand {
     }
 
     const key = await select({
+      signal: getExecutionSignal(),
       message: 'Select parameter to delete',
       options: customKeys.map(k => ({ value: k, label: k })),
     });
@@ -1870,6 +1961,7 @@ export class ConfigCommand extends BaseCommand {
     if (isCancel(key) || !key) return;
 
     const confirmResult = await confirm({
+      signal: getExecutionSignal(),
       message: `Delete parameter '${key}'?`,
     });
 
@@ -1894,6 +1986,7 @@ export class ConfigCommand extends BaseCommand {
     }
 
     const format = await select({
+      signal: getExecutionSignal(),
       message: 'Export format',
       options: [
         { value: 'yaml', label: 'YAML' },
@@ -1904,6 +1997,7 @@ export class ConfigCommand extends BaseCommand {
     if (isCancel(format)) return;
 
     const filename = await text({
+      signal: getExecutionSignal(),
       message: 'Output filename',
       placeholder: format === 'json' ? 'custom-params.json' : 'custom-params.yaml',
       defaultValue: format === 'json' ? 'custom-params.json' : 'custom-params.yaml',
@@ -1948,35 +2042,35 @@ export class ConfigCommand extends BaseCommand {
     if (!config.targets.defaults.ssh) config.targets.defaults.ssh = {};
 
     const port = await text({
+      signal: getExecutionSignal(),
       message: 'Default SSH port',
       placeholder: '22',
       defaultValue: '22',
     }) as string;
 
-    if (!isCancel(port)) {
-      config.targets.defaults.ssh.port = parseInt(port);
-    }
+    if (isCancel(port)) return;
+    config.targets.defaults.ssh.port = parseInt(port);
 
     // Note: SSH username and private key are configured per target, not as defaults
     // Only connection-related settings are part of SSH defaults
 
     const keepAlive = await confirm({
+      signal: getExecutionSignal(),
       message: 'Enable SSH keep alive?',
     });
 
-    if (!isCancel(keepAlive)) {
-      config.targets.defaults.ssh.keepAlive = keepAlive;
-    }
+    if (isCancel(keepAlive)) return;
+    config.targets.defaults.ssh.keepAlive = keepAlive;
 
     const keepAliveInterval = await text({
+      signal: getExecutionSignal(),
       message: 'Keep alive interval (ms)',
       placeholder: '30000',
       defaultValue: '30000',
     }) as string;
 
-    if (!isCancel(keepAliveInterval)) {
-      config.targets.defaults.ssh.keepAliveInterval = parseInt(keepAliveInterval);
-    }
+    if (isCancel(keepAliveInterval)) return;
+    config.targets.defaults.ssh.keepAliveInterval = parseInt(keepAliveInterval);
 
     await this.commit('SSH defaults updated');
   }
@@ -1988,20 +2082,24 @@ export class ConfigCommand extends BaseCommand {
     if (!config.targets.defaults.docker) config.targets.defaults.docker = {};
 
     const workdir = await text({
+      signal: getExecutionSignal(),
       message: 'Default working directory',
       placeholder: '/app',
     }) as string;
 
-    if (workdir && !isCancel(workdir)) {
+    if (isCancel(workdir)) return;
+    if (workdir) {
       config.targets.defaults.docker.workdir = workdir;
     }
 
     const user = await text({
+      signal: getExecutionSignal(),
       message: 'Default user',
       placeholder: 'root',
     }) as string;
 
-    if (user && !isCancel(user)) {
+    if (isCancel(user)) return;
+    if (user) {
       config.targets.defaults.docker.user = user;
     }
 
@@ -2015,23 +2113,14 @@ export class ConfigCommand extends BaseCommand {
     if (!config.targets.defaults.kubernetes) config.targets.defaults.kubernetes = {};
 
     const namespace = await text({
+      signal: getExecutionSignal(),
       message: 'Default namespace',
       placeholder: 'default',
       defaultValue: 'default',
     }) as string;
 
-    if (!isCancel(namespace)) {
-      config.targets.defaults.kubernetes.namespace = namespace;
-    }
-
-    const context = await text({
-      message: 'Default context',
-      placeholder: 'Current context',
-    }) as string;
-
-    if (context && !isCancel(context)) {
-      // Note: context is not part of KubernetesDefaults
-    }
+    if (isCancel(namespace)) return;
+    config.targets.defaults.kubernetes.namespace = namespace;
 
     await this.commit('Kubernetes defaults updated');
   }
@@ -2041,6 +2130,7 @@ export class ConfigCommand extends BaseCommand {
     if (!config.commands) config.commands = {};
 
     const cmd = await select({
+      signal: getExecutionSignal(),
       message: 'Select command to configure defaults for',
       options: [
         { value: 'exec', label: 'exec' },
@@ -2062,36 +2152,36 @@ export class ConfigCommand extends BaseCommand {
       case 'logs':
         {
           const tail = await text({
+            signal: getExecutionSignal(),
             message: 'Default number of lines to tail',
             placeholder: '50',
             defaultValue: '50',
           }) as string;
-          if (!isCancel(tail)) {
-            if (!config.commands['logs']) config.commands['logs'] = {};
-            config.commands['logs']['tail'] = tail;
-          }
+          if (isCancel(tail)) return;
+          if (!config.commands['logs']) config.commands['logs'] = {};
+          config.commands['logs']['tail'] = tail;
 
           const timestamps = await confirm({
+            signal: getExecutionSignal(),
             message: 'Show timestamps by default?',
           });
-          if (!isCancel(timestamps)) {
-            if (!config.commands['logs']) config.commands['logs'] = {};
-            config.commands['logs']['timestamps'] = timestamps;
-          }
+          if (isCancel(timestamps)) return;
+          if (!config.commands['logs']) config.commands['logs'] = {};
+          config.commands['logs']['timestamps'] = timestamps;
           break;
         }
 
       case 'exec':
         {
           const shell = await text({
+            signal: getExecutionSignal(),
             message: 'Default shell',
             placeholder: '/bin/sh',
             defaultValue: '/bin/sh',
           }) as string;
-          if (!isCancel(shell)) {
-            if (!config.commands['exec']) config.commands['exec'] = {};
-            config.commands['exec']['shell'] = shell;
-          }
+          if (isCancel(shell)) return;
+          if (!config.commands['exec']) config.commands['exec'] = {};
+          config.commands['exec']['shell'] = shell;
           break;
         }
 
@@ -2099,12 +2189,12 @@ export class ConfigCommand extends BaseCommand {
       case 'sync':
         {
           const recursive = await confirm({
+            signal: getExecutionSignal(),
             message: 'Recursive by default?',
           });
-          if (!isCancel(recursive)) {
-            if (!config.commands[cmd]) config.commands[cmd] = {};
-            config.commands[cmd]['recursive'] = recursive;
-          }
+          if (isCancel(recursive)) return;
+          if (!config.commands[cmd]) config.commands[cmd] = {};
+          config.commands[cmd]['recursive'] = recursive;
           break;
         }
     }
@@ -2114,6 +2204,7 @@ export class ConfigCommand extends BaseCommand {
 
   private async resetDefaults(): Promise<void> {
     const confirmResult = await confirm({
+      signal: getExecutionSignal(),
       message: 'Reset all defaults to system values?',
     });
 
@@ -2185,13 +2276,10 @@ export class ConfigCommand extends BaseCommand {
   }
 
   private async runDoctor(options?: { defaults?: boolean }): Promise<void> {
-    const s = spinner();
-    s.start('🏥 Running configuration doctor...');
-
     let config = await this.editableConfig();
     const recommendations: string[] = [];
     const defaultConfig = getDefaultConfig();
-    const interactive = process.stdin.isTTY;
+    const interactive = canPrompt() && !this.options.quiet && this.machineFormat() === null;
 
     // The doctor fixes what it diagnoses. Warning about the version format
     // on every invocation while "✅ Added defaults" left it untouched was
@@ -2209,6 +2297,7 @@ export class ConfigCommand extends BaseCommand {
     if (!config.name) {
       if (interactive) {
         const answer = await text({
+          signal: getExecutionSignal(),
           message: 'Project name',
           placeholder: defaultConfig.name || 'my-project',
         });
@@ -2222,10 +2311,12 @@ export class ConfigCommand extends BaseCommand {
 
     if (!config.description && interactive) {
       const answer = await text({
+        signal: getExecutionSignal(),
         message: 'Project description',
         placeholder: defaultConfig.description || 'Describe your project',
       });
-      if (!isCancel(answer) && answer) {
+      if (isCancel(answer)) return;
+      if (answer) {
         config.description = answer as string;
         recommendations.push('Added project description');
       }
@@ -2236,7 +2327,7 @@ export class ConfigCommand extends BaseCommand {
     // user's few real settings under dozens of restated defaults. They are
     // written only when explicitly requested:
     if (options?.defaults) {
-      log.info('📋 Adding all default values to configuration...');
+      if (this.machineFormat() === null && !this.options.quiet) log.info('📋 Adding all default values to configuration...');
       config = mergeWithDefaults(config, defaultConfig);
     }
 
@@ -2245,50 +2336,49 @@ export class ConfigCommand extends BaseCommand {
     // and reorder their keys for no gain.
     const editor = this.fileEditor!;
     editor.apply(this.fileSnapshot!, config);
-    if (editor.dirty) {
+    const changed = editor.dirty;
+    if (changed) {
       if (this.isDryRun()) {
-        log.info(`Dry run: would update ${editor.filePath}`);
+        if (this.machineFormat() === null && !this.options.quiet) log.info(`Dry run: would update ${editor.filePath}`);
       } else {
         await editor.save();
       }
     }
 
-    // Stop spinner
-    s.stop('Configuration check complete');
+    const validation = await this.validateConfig(this.machineFormat() === null);
+    this.emitResult({ recommendations, changed, dryRun: this.isDryRun(), validation }, () => {
+      if (this.options.quiet) return;
+      // Report results
+      if (recommendations.length > 0) {
+        const content = recommendations.map(rec => `✅ ${rec}`).join('\n');
+        box(content, '🏥 Doctor Improvements', {
+          width: 'auto',
+          contentAlign: 'left',
+          contentPadding: 1,
+          rounded: true,
+          formatBorder: (text_) => prism.green(text_)
+        });
+      }
 
-    // Report results
-    if (recommendations.length > 0) {
-      const content = recommendations.map(rec => `✅ ${rec}`).join('\n');
-      box(content, '🏥 Doctor Improvements', {
-        width: 'auto',
-        contentAlign: 'left',
-        contentPadding: 1,
-        rounded: true,
-        formatBorder: (text_) => prism.green(text_)
-      });
-    }
-
-    // Validate before declaring health — the old order printed
-    // "Configuration is healthy!" and a box of errors on the same screen.
-    const valid = await this.validateConfig();
-
-    if (recommendations.length === 0 && valid) {
-      note('Configuration is healthy! No changes needed.', '🏥 Doctor', {
-        format: (line) => prism.green(line)
-      });
-    }
+      if (recommendations.length === 0 && validation.valid && validation.warnings.length === 0) {
+        note('Configuration is healthy! No changes needed.', '🏥 Doctor', {
+          format: (line) => prism.green(line)
+        });
+      }
+    });
   }
 
-  private async validateConfig(): Promise<boolean> {
-    const s = spinner();
-    s.start('Validating configuration...');
-
+  private async validateConfig(report = true): Promise<{ valid: boolean; errors: string[]; warnings: string[] }> {
+    const indicator = spinner({
+      enabled: !this.options.quiet && !isPlainOutput() && this.machineFormat() === null,
+      output: process.stderr,
+      signal: getExecutionSignal(),
+    });
+    indicator.start('Validating configuration...');
+    const errors: string[] = [];
+    const warnings: string[] = [];
     try {
       const config = await this.configManager.load();
-
-      // Basic validation
-      const errors: string[] = [];
-      const warnings: string[] = [];
 
       // Check project name
       if (!config.name) {
@@ -2341,9 +2431,18 @@ export class ConfigCommand extends BaseCommand {
         }
       }
 
-      // Stop spinner
-      s.stop('Validation complete');
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : String(error));
+    }
 
+    const validation = { valid: errors.length === 0, errors, warnings };
+    if (validation.valid) indicator.stop('Validation complete');
+    else {
+      indicator.error('Validation failed');
+      process.exitCode = 1;
+    }
+    if (report) this.emitResult(validation, () => {
+      if (this.options.quiet) return;
       // Report results
       if (errors.length > 0) {
         const content = errors.map(error => `❌ ${error}`).join('\n');
@@ -2371,18 +2470,8 @@ export class ConfigCommand extends BaseCommand {
         });
       }
 
-      // A validation that reports errors and exits 0 cannot gate anything.
-      if (errors.length > 0) {
-        process.exitCode = 1;
-        return false;
-      }
-      return true;
-    } catch (error) {
-      s.stop('Validation failed');
-      log.error(`Failed to validate configuration: ${error}`);
-      process.exitCode = 1;
-      return false;
-    }
+    });
+    return validation;
   }
 
 
@@ -2448,59 +2537,6 @@ export class ConfigCommand extends BaseCommand {
       log.info(`Configuration saved to: ${editor.filePath}`);
     }
     log.success(sentence);
-  }
-  // Wrapper methods for CLI commands with parameters
-  private async editTargetWithName(name: string): Promise<void> {
-    // Set the target name for editing
-    const config = await this.configManager.load();
-    const allTargets = [
-      ...Object.keys(config.targets?.hosts || {}),
-      ...Object.keys(config.targets?.containers || {}),
-      ...Object.keys(config.targets?.pods || {})
-    ];
-    if (!allTargets.includes(name)) {
-      console.error(prism.red(`Target '${name}' not found`));
-      process.exit(1);
-    }
-    await this.editTarget();
-  }
-
-  private async deleteTargetWithName(name: string): Promise<void> {
-    const config = await this.configManager.load();
-    const allTargets = [
-      ...Object.keys(config.targets?.hosts || {}),
-      ...Object.keys(config.targets?.containers || {}),
-      ...Object.keys(config.targets?.pods || {})
-    ];
-    if (!allTargets.includes(name)) {
-      console.error(prism.red(`Target '${name}' not found`));
-      process.exit(1);
-    }
-    await this.deleteTarget();
-  }
-
-  private async setVarWithKeyValue(key: string, value?: string): Promise<void> {
-    await this.setVar();
-  }
-
-  private async deleteVarWithKey(key: string): Promise<void> {
-    await this.deleteVar();
-  }
-
-  private async importVarsFromFile(file: string): Promise<void> {
-    await this.importVars();
-  }
-
-  private async exportVarsToFile(file: string): Promise<void> {
-    await this.exportVars();
-  }
-
-  private async viewTaskWithName(name: string): Promise<void> {
-    await this.viewTask();
-  }
-
-  private async deleteTaskWithName(name: string): Promise<void> {
-    await this.deleteTask();
   }
 }
 

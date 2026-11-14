@@ -883,7 +883,7 @@ export class WatchCommand extends ConfigAwareCommand {
             return;
           }
 
-          if ((selectedTask as any).custom) {
+          if (typeof selectedTask === 'object') {
             const customTaskInput = await InteractiveHelpers.inputText(
               'Enter custom task name:',
               {
@@ -897,7 +897,7 @@ export class WatchCommand extends ConfigAwareCommand {
             );
             task = customTaskInput || undefined;
           } else {
-            task = selectedTask as string;
+            task = selectedTask;
           }
         }
 

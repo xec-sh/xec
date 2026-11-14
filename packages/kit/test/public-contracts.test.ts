@@ -1,3 +1,5 @@
+import type { Option, SelectOptions, MultiSelectOptions } from '../src/index.js';
+
 import { tmpdir } from 'node:os';
 import { sep, join } from 'node:path';
 import { Readable } from 'node:stream';
@@ -9,6 +11,7 @@ import { MockReadable, MockWritable } from './test-utils.js';
 import {
   path,
   text,
+  table,
   group,
   select,
   isCancel,
@@ -200,5 +203,72 @@ describe('accessible prompt safety', () => {
     await result;
     expect(output.buffer.join('')).toContain('Name');
     expect(output.buffer.join('')).not.toMatch(/[\x00-\x09\x0b-\x1f\x7f-\x9f]/);
+  });
+});
+
+
+describe('typed choice construction', () => {
+  it('accepts ordinary generic mapped options with an explicit label', () => {
+    function choices<T>(items: readonly T[]): Option<T>[] {
+      return items.map(value => ({ value, label: String(value) }));
+    }
+    function single<T>(items: readonly T[]): SelectOptions<T> {
+      return { message: 'Choose', options: choices(items) };
+    }
+    function multiple<T>(items: readonly T[]): MultiSelectOptions<T> {
+      return { message: 'Choose', options: choices(items) };
+    }
+    const values = ['one', 'two'] as const;
+    expectTypeOf(single(values)).toEqualTypeOf<SelectOptions<'one' | 'two'>>();
+    expectTypeOf(multiple(values)).toEqualTypeOf<MultiSelectOptions<'one' | 'two'>>();
+    const object = { id: 'one' };
+    expect(single([object]).options[0]?.value).toBe(object);
+  });
+
+  it('requires labels for object options even in a union with primitive values', () => {
+    type Choice = 'automatic' | { id: string };
+    const primitive: Option<Choice> = { value: 'automatic' };
+    const object: Option<Choice> = { value: { id: 'one' }, label: 'One' };
+    // @ts-expect-error object values require a visible label.
+    const missing: Option<Choice> = { value: { id: 'one' } };
+    expect(primitive.value).toBe('automatic');
+    expect(object.label).toBe('One');
+    expect(missing.label).toBeUndefined();
+  });
+});
+
+
+describe('static table accessibility uses the shared output policy', () => {
+  it.each(['call', 'settings', 'environment'] as const)('preserves table text and strips terminal controls through %s', (source) => {
+    if (source === 'settings') updateSettings({ accessible: true });
+    if (source === 'environment') vi.stubEnv('ACCESSIBLE', '1');
+    const output = new MockWritable();
+    table({
+      data: [{ name: '界👩🏽‍💻', status: 'ready' }],
+      columns: [{ key: 'name', header: 'Name' }, { key: 'status', header: 'Status' }],
+      headerStyle: text => `\x1b[31m${text}\x1b[0m\x1b]52;c;clipboard\x07`,
+      accessible: source === 'call' ? true : undefined,
+      output,
+    });
+    const rendered = output.buffer.join('');
+    expect(rendered).toContain('Name');
+    expect(rendered).toContain('界👩🏽‍💻');
+    expect(rendered).toContain('ready');
+    expect(rendered).not.toContain('\x1b');
+    expect(rendered).not.toContain('\x07');
+    expect(rendered).not.toContain('clipboard');
+  });
+
+  it('honors an explicit false override for trusted header styles', () => {
+    vi.stubEnv('ACCESSIBLE', '1');
+    const output = new MockWritable();
+    table({
+      data: [{ value: 0 }],
+      columns: [{ key: 'value', header: 'Value' }],
+      headerStyle: text => `\x1b[31m${text}\x1b[0m`,
+      accessible: false,
+      output,
+    });
+    expect(output.buffer.join('')).toContain('\x1b[31m');
   });
 });

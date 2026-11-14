@@ -2,9 +2,11 @@ import fs from 'fs-extra';
 import path from 'node:path';
 import * as yaml from 'js-yaml';
 import { Command } from 'commander';
+import { getExecutionSignal } from '@xec-sh/core';
 import { sortConfigKeys , getDefaultConfig, ConfigurationManager } from '@xec-sh/ops';
 import { log, text, prism, intro, outro, select, confirm, spinner } from '@xec-sh/kit';
 
+import { canPrompt } from '../utils/plain-mode.js';
 import { InteractiveHelpers } from '../utils/interactive-helpers.js';
 import { BaseCommand, CommandOptions } from '../utils/command-base.js';
 
@@ -30,7 +32,8 @@ interface NewOptions extends CommandOptions {
  * never sets CI still has nobody to answer a prompt.
  */
 function isNonInteractive(): boolean {
-  return Boolean(process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) || !process.stdin.isTTY;
+  const disabled = process.env['XEC_NO_INTERACTIVE'];
+  return !canPrompt() || (disabled !== undefined && !['', '0', 'false'].includes(disabled));
 }
 
 // Artifact types
@@ -980,7 +983,9 @@ docs:
 };
 
 async function getArtifactType(): Promise<ArtifactType> {
+  if (isNonInteractive()) throw new Error('Specify the artifact type and name for non-interactive scaffolding.');
   const type = await select({
+    signal: getExecutionSignal(),
     message: 'What would you like to create?',
     options: [
       { value: 'project', label: '📁 Project - Initialize a new Xec project' },
@@ -1068,6 +1073,7 @@ async function createProject(name: string, options: NewOptions) {
       }
 
       const shouldContinue = await confirm({
+        signal: getExecutionSignal(),
         message: 'Xec is already initialized in this directory. Reinitialize?',
         initialValue: false
       });
@@ -1092,6 +1098,7 @@ async function createProject(name: string, options: NewOptions) {
         }
 
         const shouldContinue = await confirm({
+          signal: getExecutionSignal(),
           message: `Directory ${name} is not empty. Continue?`,
           initialValue: false
         });
@@ -1112,6 +1119,7 @@ async function createProject(name: string, options: NewOptions) {
         projectDescription = 'An Xec automation project';
       } else {
         const result = await text({
+          signal: getExecutionSignal(),
           message: 'Project description:',
           defaultValue: 'An Xec automation project'
         });
@@ -1450,6 +1458,7 @@ For more information, see [Xec Documentation](https://xec.sh/docs).
 
     if (!(isNonInteractive())) {
       const result = await confirm({
+        signal: getExecutionSignal(),
         message: 'Initialize git repository?',
         initialValue: true
       });
@@ -1515,6 +1524,7 @@ async function createScript(name: string, options: NewOptions) {
     }
 
     const shouldOverwrite = await confirm({
+      signal: getExecutionSignal(),
       message: `Script ${fileName} already exists. Overwrite?`,
       initialValue: false
     });
@@ -1534,6 +1544,7 @@ async function createScript(name: string, options: NewOptions) {
       scriptDescription = `Custom script ${name}`;
     } else {
       const result = await text({
+        signal: getExecutionSignal(),
         message: 'Script description:',
         defaultValue: `Custom script ${name}`
       });
@@ -1595,6 +1606,7 @@ async function createCommand(name: string, options: NewOptions) {
     }
 
     const shouldOverwrite = await confirm({
+      signal: getExecutionSignal(),
       message: `Command ${fileName} already exists. Overwrite?`,
       initialValue: false
     });
@@ -1614,6 +1626,7 @@ async function createCommand(name: string, options: NewOptions) {
       commandDescription = `Custom command ${name}`;
     } else {
       const result = await text({
+        signal: getExecutionSignal(),
         message: 'Command description:',
         defaultValue: `Custom command ${name}`
       });
@@ -1673,6 +1686,7 @@ async function createTask(name: string, options: NewOptions) {
       taskDescription = `Task ${name}`;
     } else {
       const result = await text({
+        signal: getExecutionSignal(),
         message: 'Task description:',
         defaultValue: `Task ${name}`
       });
@@ -1695,6 +1709,7 @@ async function createTask(name: string, options: NewOptions) {
     complexity = 'simple';
   } else {
     const result = await select({
+      signal: getExecutionSignal(),
       message: 'Task complexity:',
       options: [
         { value: 'simple', label: 'Simple - Single command' },
@@ -1758,6 +1773,7 @@ async function createProfile(name: string, options: NewOptions) {
       profileDescription = `${name} environment profile`;
     } else {
       const result = await text({
+        signal: getExecutionSignal(),
         message: 'Profile description:',
         defaultValue: `${name} environment profile`
       });
@@ -1808,6 +1824,7 @@ async function createExtension(name: string, options: NewOptions) {
     }
 
     const shouldContinue = await confirm({
+      signal: getExecutionSignal(),
       message: `Directory ${name} already exists. Continue?`,
       initialValue: false
     });
@@ -1827,6 +1844,7 @@ async function createExtension(name: string, options: NewOptions) {
       extensionDescription = `Xec extension ${name}`;
     } else {
       const result = await text({
+        signal: getExecutionSignal(),
         message: 'Extension description:',
         defaultValue: `Xec extension ${name}`
       });
@@ -2089,19 +2107,21 @@ export class NewCommand extends BaseCommand {
       let artifactName: string | undefined;
 
       // If no arguments and we have package.json but no .xec, suggest initialization
-      if (!type && hasPackageJson && !hasXecConfig) {
+      if (!type && hasPackageJson && !hasXecConfig && !isNonInteractive()) {
         const packageJson = await fs.readJson(currentPackageJsonPath);
 
         intro(prism.bold('🎯 Initialize Xec in existing project'));
         log.info(prism.dim(`Found Node.js project: ${packageJson.name}`));
 
         const shouldInit = await confirm({
+          signal: getExecutionSignal(),
           message: 'Initialize Xec in this project?',
           initialValue: true
         });
 
-        if (InteractiveHelpers.isCancelled(shouldInit) || !shouldInit) {
-          // Fall back to regular artifact selection
+        if (InteractiveHelpers.isCancelled(shouldInit)) return;
+        if (!shouldInit) {
+          // Declining initialization permits choosing another artifact.
           artifactType = await getArtifactType();
         } else {
           artifactType = 'project';
@@ -2135,6 +2155,7 @@ export class NewCommand extends BaseCommand {
         } else {
           // Ask for project name if creating new directory
           artifactName = await text({
+            signal: getExecutionSignal(),
             message: 'Project name:',
             defaultValue: 'my-xec-project',
             validate: (value) => validateName(value || '', artifactType)
@@ -2147,6 +2168,7 @@ export class NewCommand extends BaseCommand {
       } else if (!artifactName) {
         const defaultName = `my-${artifactType}`;
         artifactName = await text({
+          signal: getExecutionSignal(),
           message: `${artifactType.charAt(0).toUpperCase() + artifactType.slice(1)} name:`,
           defaultValue: defaultName,
           validate: (value) => validateName(value || '', artifactType)

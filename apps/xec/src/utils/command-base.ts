@@ -5,8 +5,8 @@ import * as jsYaml from 'js-yaml';
 import { Command } from 'commander';
 import { access } from 'node:fs/promises';
 import { $, getExecutionSignal } from '@xec-sh/core';
+import { log, prism, type SpinnerResult, spinner as kitSpinner } from '@xec-sh/kit';
 import { handleError , TaskManager , TargetResolver, OutputFormatter, validateOptions, ConfigurationManager } from '@xec-sh/ops';
-import { log, prism, text as kitText, select as kitSelect, spinner as kitSpinner, confirm as kitConfirm, multiselect as kitMultiselect } from '@xec-sh/kit';
 
 import { isPlainOutput } from './plain-mode.js';
 import { promptForConfigTrust } from './config-trust-prompt.js';
@@ -114,7 +114,7 @@ export interface ConfigAwareOptions {
 
 export abstract class BaseCommand {
   protected formatter: OutputFormatter;
-  protected currentSpinner: any;
+  protected currentSpinner: SpinnerResult | null = null;
   protected options: CommandOptions = {
     verbose: false,
     quiet: false,
@@ -590,10 +590,11 @@ export abstract class BaseCommand {
     // writes frames and cursor codes that a parser then has to survive —
     // and in machine mode it lands on stdout, in front of the document the
     // caller asked for.
-    if (this.options.quiet || isPlainOutput() || this.machineFormat() !== null) {
-      return;
-    }
-    this.currentSpinner = kitSpinner();
+    this.currentSpinner = kitSpinner({
+      enabled: !this.options.quiet && !isPlainOutput() && this.machineFormat() === null,
+      output: process.stderr,
+      signal: getExecutionSignal(),
+    });
     this.currentSpinner.start(message);
   }
 
@@ -654,61 +655,13 @@ export abstract class BaseCommand {
       columns: headers ? headers.map(h => ({ header: h })) : Object.keys(rows[0] || {}).map(k => ({ header: k })),
       rows: rows.map(row => {
         if (headers) {
-          return headers.map(h => row[h] || '');
+          return headers.map(h => row[h] ?? '');
         } else {
           return Object.values(row);
         }
       })
     };
     this.formatter.table(tableData);
-  }
-
-  protected async confirm(message: string, initial = false): Promise<boolean> {
-    if (this.options.quiet) return Promise.resolve(initial);
-
-    const result = await kitConfirm({ message, initialValue: initial });
-
-    if (typeof result === 'symbol') {
-      // User cancelled, return initial value
-      return initial;
-    }
-    return result;
-  }
-
-  protected async prompt(message: string, initial?: string): Promise<string> {
-    if (this.options.quiet) return Promise.resolve(initial || '');
-
-    const result = await kitText({ message, initialValue: initial });
-
-    if (typeof result === 'symbol') {
-      // User cancelled, return initial value or empty string
-      return initial || '';
-    }
-    return result;
-  }
-
-  protected async select(message: string, options: Array<{ value: string; label: string; hint?: string }>): Promise<string> {
-    if (this.options.quiet) return Promise.resolve(options[0]?.value || '');
-
-    const result = await kitSelect({ message, options });
-
-    if (typeof result === 'symbol') {
-      // User cancelled, return first option or empty string
-      return options[0]?.value || '';
-    }
-    return result;
-  }
-
-  protected async multiselect(message: string, options: Array<{ value: string; label: string; hint?: string }>): Promise<string[]> {
-    if (this.options.quiet) return Promise.resolve([]);
-
-    const result = await kitMultiselect({ message, options });
-
-    if (typeof result === 'symbol') {
-      // User cancelled, return empty array
-      return [];
-    }
-    return result;
   }
 
   protected intro(message: string): void {

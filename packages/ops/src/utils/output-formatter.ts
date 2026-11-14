@@ -1,21 +1,5 @@
 import * as jsYaml from 'js-yaml';
-import { prism } from '@xec-sh/kit';
-
-// Simple table renderer — replaces external 'table' package
-function renderTable(data: string[][], config?: { columns?: Record<number, { alignment?: string; width?: number }> }): string {
-  if (data.length === 0) return '';
-  const colWidths = data[0]!.map((_, i) => Math.max(...data.map(row => String(row[i] ?? '').length)));
-  return data.map(row =>
-    row.map((cell, i) => {
-      const width = config?.columns?.[i]?.width ?? colWidths[i]!;
-      const str = String(cell ?? '');
-      const align = config?.columns?.[i]?.alignment ?? 'left';
-      if (align === 'right') return str.padStart(width);
-      if (align === 'center') return str.padStart(Math.floor((width + str.length) / 2)).padEnd(width);
-      return str.padEnd(width);
-    }).join('  ')
-  ).join('\n');
-}
+import { prism, table, spinner, type SpinnerResult, type SpinnerOptions } from '@xec-sh/kit';
 
 export type OutputFormat = 'text' | 'json' | 'yaml' | 'csv';
 
@@ -28,15 +12,7 @@ export interface TableColumn {
 
 export interface TableData {
   columns: TableColumn[];
-  rows: string[][];
-}
-
-export interface Spinner {
-  start(): void;
-  stop(): void;
-  succeed(message?: string): void;
-  fail(message?: string): void;
-  update(message: string): void;
+  rows: unknown[][];
 }
 
 export class OutputFormatter {
@@ -141,7 +117,7 @@ export class OutputFormatter {
         const jsonData = data.rows.map(row => {
           const obj: any = {};
           data.columns.forEach((col, index) => {
-            obj[col.header] = row[index] || '';
+            obj[col.header] = row[index] ?? '';
           });
           return obj;
         });
@@ -152,7 +128,7 @@ export class OutputFormatter {
         const yamlData = data.rows.map(row => {
           const obj: any = {};
           data.columns.forEach((col, index) => {
-            obj[col.header] = row[index] || '';
+            obj[col.header] = row[index] ?? '';
           });
           return obj;
         });
@@ -292,50 +268,22 @@ export class OutputFormatter {
     }
   }
 
-  /**
-   * Legacy table method for backward compatibility
-   */
-  simpleTable(data: any[], columns?: string[]): void {
+  /** Output records using the shared table and serialization paths. */
+  simpleTable(data: Record<string, unknown>[], columns?: string[]): void {
     if (this.quiet) return;
-
-    if (this.format === 'json') {
-      this.json(data);
+    if (this.format === 'json' || this.format === 'yaml') {
+      this.output(data);
       return;
     }
-
-    if (this.format === 'yaml') {
-      this.yaml(data);
-      return;
-    }
-
     if (data.length === 0) {
       this.info('No data to display');
       return;
     }
-
-    // Determine columns
-    const cols = columns || Object.keys(data[0]);
-
-    // Calculate column widths
-    const widths: Record<string, number> = {};
-    for (const col of cols) {
-      widths[col] = col.length;
-      for (const row of data) {
-        const value = String(row[col] ?? '');
-        widths[col] = Math.max(widths[col], value.length);
-      }
-    }
-
-    // Print header
-    const header = cols.map(col => col.padEnd(widths[col] || 0)).join('  ');
-    console.log(header);
-    console.log(cols.map(col => '-'.repeat(widths[col] || 0)).join('  '));
-
-    // Print rows
-    for (const row of data) {
-      const line = cols.map(col => String(row[col] ?? '').padEnd(widths[col] || 0)).join('  ');
-      console.log(line);
-    }
+    const keys = columns ?? Object.keys(data[0]!);
+    this.table({
+      columns: keys.map(header => ({ header })),
+      rows: data.map(row => keys.map(key => row[key] ?? '')),
+    });
   }
 
   /**
@@ -354,13 +302,13 @@ export class OutputFormatter {
     console.log(jsYaml.dump(data, { lineWidth: -1, noRefs: true }));
   }
 
-  /**
-   * Create spinner
-   */
-  spinner(message: string): Spinner {
-    return new CLISpinner(message, {
-      quiet: this.quiet,
-      colors: this.colors,
+  /** Create a Kit indicator using this formatter's output policy. */
+  spinner(options: SpinnerOptions = {}): SpinnerResult {
+    return spinner({
+      ...options,
+      output: options.output ?? process.stderr,
+      enabled: !this.quiet && this.format === 'text' && options.enabled !== false,
+      accessible: options.accessible ?? (this.colors ? undefined : true),
     });
   }
 
@@ -396,41 +344,20 @@ export class OutputFormatter {
   }
 
   private outputTable(data: TableData): void {
-    const tableData = [
-      data.columns.map(col => prism.bold(col.header)),
-      ...data.rows
-    ];
-
-    const config = {
-      border: {
-        topBody: `─`,
-        topJoin: `┬`,
-        topLeft: `┌`,
-        topRight: `┐`,
-        bottomBody: `─`,
-        bottomJoin: `┴`,
-        bottomLeft: `└`,
-        bottomRight: `┘`,
-        bodyLeft: `│`,
-        bodyRight: `│`,
-        bodyJoin: `│`,
-        joinBody: `─`,
-        joinLeft: `├`,
-        joinRight: `┤`,
-        joinJoin: `┼`
-      },
-      columnDefault: {
-        paddingLeft: 1,
-        paddingRight: 1,
-      },
-      columns: data.columns.map(col => ({
-        width: col.width,
-        alignment: col.align || 'left',
-        wrapWord: col.wrap !== false,
+    if (data.columns.length === 0) return;
+    table({
+      data: data.rows.map(row => Object.fromEntries(row.map((value, index) => [String(index), value]))),
+      columns: data.columns.map((column, index) => ({
+        key: String(index),
+        header: column.header,
+        width: column.width,
+        align: column.align,
       })),
-    };
-
-    console.log(renderTable(tableData, config));
+      borders: 'none',
+      compact: true,
+      wordWrap: data.columns.some(column => column.wrap !== false) ? 'wrap' : 'truncate',
+      accessible: !this.colors || undefined,
+    });
   }
 
   private outputCsv(data: any[]): void {
@@ -443,72 +370,5 @@ export class OutputFormatter {
       // Convert to CSV format
       console.log(JSON.stringify(data));
     }
-  }
-}
-
-/**
- * CLI Spinner implementation
- */
-class CLISpinner implements Spinner {
-  private frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-  private currentFrame = 0;
-  private interval?: NodeJS.Timeout;
-  private isSpinning = false;
-
-  constructor(
-    private message: string,
-    private config: { quiet: boolean; colors: boolean }
-  ) { }
-
-  start(): void {
-    if (this.config.quiet || this.isSpinning) return;
-
-    this.isSpinning = true;
-    this.interval = setInterval(() => {
-      const frame = this.frames[this.currentFrame];
-      const text = this.config.colors
-        ? prism.cyan(`${frame} ${this.message}`)
-        : `${frame} ${this.message}`;
-
-      process.stdout.write(`\r${text}`);
-      this.currentFrame = (this.currentFrame + 1) % this.frames.length;
-    }, 80);
-  }
-
-  stop(): void {
-    if (this.interval) {
-      clearInterval(this.interval);
-      this.interval = undefined;
-    }
-    if (this.isSpinning) {
-      process.stdout.write('\r' + ' '.repeat(this.message.length + 3) + '\r');
-      this.isSpinning = false;
-    }
-  }
-
-  succeed(message?: string): void {
-    this.stop();
-    if (!this.config.quiet) {
-      const text = message || this.message;
-      const formatted = this.config.colors
-        ? prism.green(`✓ ${text}`)
-        : `✓ ${text}`;
-      console.log(formatted);
-    }
-  }
-
-  fail(message?: string): void {
-    this.stop();
-    if (!this.config.quiet) {
-      const text = message || this.message;
-      const formatted = this.config.colors
-        ? prism.red(`✗ ${text}`)
-        : `✗ ${text}`;
-      console.log(formatted);
-    }
-  }
-
-  update(message: string): void {
-    this.message = message;
   }
 }

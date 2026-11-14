@@ -2,17 +2,16 @@ import os from 'node:os';
 import fs from 'fs-extra';
 import { glob } from 'glob';
 import path from 'node:path';
-import { $ } from '@xec-sh/core';
 import { Command } from 'commander';
 // table rendering handled by output-formatter
-import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
-import { exec } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { ModuleLoader } from '@xec-sh/loader';
-import { prism, select, confirm } from '@xec-sh/kit';
+import { $, getExecutionSignal } from '@xec-sh/core';
+import { prism, table, select, confirm, isCancel } from '@xec-sh/kit';
 import { formatBytes , TaskManager , TargetResolver , getModuleCacheDir , ConfigurationManager , VariableInterpolator } from '@xec-sh/ops';
 
+import { canPrompt } from '../utils/plain-mode.js';
 import { discoverAllCommands } from '../utils/cli-command-manager.js';
 import { BaseCommand, CommandOptions, serializeOutput, type ConfigAwareOptions } from '../utils/command-base.js';
 
@@ -58,7 +57,7 @@ export class InspectCommand extends BaseCommand {
         },
         {
           flags: '--validate',
-          description: 'Validate configuration and connectivity'
+          description: 'Validate configured target definitions'
         },
         {
           flags: '-e, --explain',
@@ -228,10 +227,14 @@ class ProjectInspector {
   }
 
   async runInteractive(): Promise<void> {
+    if (!canPrompt() || this.options.quiet || (this.options.output && this.options.output !== 'text') || ['json', 'yaml'].includes(this.options.format ?? '')) {
+      throw new Error('Interactive inspection requires a terminal. Specify a category, for example xec inspect tasks --output json.');
+    }
     console.log(prism.bold('\n🔍 Xec Project Inspector\n'));
 
     while (true) {
       const choice = await select({
+        signal: getExecutionSignal(),
         message: 'What would you like to inspect?',
         options: [
           { value: 'tasks', label: '📋 Tasks - Executable tasks and workflows' },
@@ -241,19 +244,19 @@ class ProjectInspector {
           { value: 'commands', label: '⌘  Commands - Dynamic and built-in CLI commands' },
           { value: 'system', label: '💻 System - Version and environment information' },
           { value: 'cache', label: '📦 Cache - Module cache information' },
-          { value: 'validate', label: '✅ Validate - Check configuration and connectivity' },
+          { value: 'validate', label: '✅ Validate - Check configuration and target definitions' },
           { value: 'exit', label: '❌ Exit' },
         ],
       });
 
-      if (choice === 'exit') break;
+      if (isCancel(choice) || choice === 'exit') return;
 
       if (choice === 'validate') {
         await this.runValidation();
         continue;
       }
 
-      await this.inspectInteractive(choice as InspectType);
+      if (!await this.inspectInteractive(choice as InspectType)) return;
     }
   }
 
@@ -343,7 +346,7 @@ class ProjectInspector {
         };
 
         if (this.options.validate && name) {
-          // Validate target connectivity
+          // Resolve the configured target definition
           result.metadata!['validation'] = await this.validateTarget(fullName);
         }
 
@@ -574,47 +577,42 @@ class ProjectInspector {
         loadavg: os.loadavg(),
       };
 
-      // Platform-specific information - skip in test environment to avoid command execution issues
-      const isTestEnv = process.env['NODE_ENV'] === 'test' || process.env['JEST_WORKER_ID'] !== undefined;
-
-      if (!isTestEnv) {
-        if (process.platform === 'darwin') {
-          try {
-            const result = await $`sw_vers`;
-            const lines = result.lines();
-            lines.forEach(line => {
-              const [key, value] = line.split(':').map(s => s.trim());
-              if (key === 'ProductName') osData.productName = value;
-              if (key === 'ProductVersion') osData.productVersion = value;
-              if (key === 'BuildVersion') osData.buildVersion = value;
-            });
-          } catch {
-            // Silently ignore if sw_vers is not available
-          }
-        } else if (process.platform === 'linux') {
-          try {
-            const osRelease = await fs.readFile('/etc/os-release', 'utf-8');
-            const lines = osRelease.split('\n');
-            lines.forEach(line => {
-              const [key, value] = line.split('=');
-              if (key === 'PRETTY_NAME') osData.distro = value?.replace(/"/g, '');
-              if (key === 'VERSION_ID') osData.distroVersion = value?.replace(/"/g, '');
-            });
-          } catch {
-            // Silently ignore if /etc/os-release is not available
-          }
-        } else if (process.platform === 'win32') {
-          try {
-            const result = await $`wmic os get Caption,Version /value`;
-            const lines = result.lines();
-            lines.forEach(line => {
-              const [key, value] = line.split('=');
-              if (key === 'Caption') osData.caption = value?.trim();
-              if (key === 'Version') osData.winVersion = value?.trim();
-            });
-          } catch {
-            // Silently ignore if wmic is not available
-          }
+      if (process.platform === 'darwin') {
+        try {
+          const result = await $`sw_vers`;
+          const lines = result.lines();
+          lines.forEach(line => {
+            const [key, value] = line.split(':').map(s => s.trim());
+            if (key === 'ProductName') osData.productName = value;
+            if (key === 'ProductVersion') osData.productVersion = value;
+            if (key === 'BuildVersion') osData.buildVersion = value;
+          });
+        } catch {
+          // Silently ignore if sw_vers is not available
+        }
+      } else if (process.platform === 'linux') {
+        try {
+          const osRelease = await fs.readFile('/etc/os-release', 'utf-8');
+          const lines = osRelease.split('\n');
+          lines.forEach(line => {
+            const [key, value] = line.split('=');
+            if (key === 'PRETTY_NAME') osData.distro = value?.replace(/"/g, '');
+            if (key === 'VERSION_ID') osData.distroVersion = value?.replace(/"/g, '');
+          });
+        } catch {
+          // Silently ignore if /etc/os-release is not available
+        }
+      } else if (process.platform === 'win32') {
+        try {
+          const result = await $`wmic os get Caption,Version /value`;
+          const lines = result.lines();
+          lines.forEach(line => {
+            const [key, value] = line.split('=');
+            if (key === 'Caption') osData.caption = value?.trim();
+            if (key === 'Version') osData.winVersion = value?.trim();
+          });
+        } catch {
+          // Silently ignore if wmic is not available
         }
       }
 
@@ -716,43 +714,32 @@ class ProjectInspector {
         versions: {},
       };
 
-      // Skip tool checking in test environment to avoid command execution issues
-      const isTestEnv = process.env['NODE_ENV'] === 'test' || process.env['JEST_WORKER_ID'] !== undefined;
+      // Check for common development tools
+      const tools = [
+        { name: 'node', cmd: 'node --version' },
+        { name: 'bun', cmd: 'bun --version' },
+        { name: 'deno', cmd: 'deno --version' },
+        { name: 'git', cmd: 'git --version' },
+        { name: 'docker', cmd: 'docker --version' },
+        { name: 'kubectl', cmd: 'kubectl version --client' },
+        { name: 'npm', cmd: 'npm --version' },
+        { name: 'yarn', cmd: 'yarn --version' },
+        { name: 'pnpm', cmd: 'pnpm --version' },
+        { name: 'python', cmd: 'python3 --version' },
+        { name: 'go', cmd: 'go version' },
+        { name: 'rust', cmd: 'rustc --version' },
+        { name: 'java', cmd: 'java -version 2>&1' },
+      ];
 
-      if (!isTestEnv) {
-        // Check for common development tools
-        const tools = [
-          { name: 'node', cmd: 'node --version' },
-          { name: 'bun', cmd: 'bun --version' },
-          { name: 'deno', cmd: 'deno --version' },
-          { name: 'git', cmd: 'git --version' },
-          { name: 'docker', cmd: 'docker --version' },
-          { name: 'kubectl', cmd: 'kubectl version --client' },
-          { name: 'npm', cmd: 'npm --version' },
-          { name: 'yarn', cmd: 'yarn --version' },
-          { name: 'pnpm', cmd: 'pnpm --version' },
-          { name: 'python', cmd: 'python3 --version' },
-          { name: 'go', cmd: 'go version' },
-          { name: 'rust', cmd: 'rustc --version' },
-          { name: 'java', cmd: 'java -version 2>&1' },
-        ];
-
-        for (const tool of tools) {
-          try {
-            const result = await $.cd(os.homedir()).raw`${tool.cmd}`;
-            toolsData.versions[tool.name] = result.lines().join('; ');
-            toolsData.installed[tool.name] = true;
-          } catch {
-            // Mark as not installed but don't throw errors
-            toolsData.installed[tool.name] = false;
-          }
+      for (const tool of tools) {
+        try {
+          const result = await $.cd(os.homedir()).raw`${tool.cmd}`;
+          toolsData.versions[tool.name] = result.lines().join('; ');
+          toolsData.installed[tool.name] = true;
+        } catch {
+          // Mark as not installed but don't throw errors
+          toolsData.installed[tool.name] = false;
         }
-      } else {
-        // In test environment, add some mock data
-        toolsData.installed.node = true;
-        toolsData.versions.node = process.version;
-        toolsData.installed.npm = true;
-        toolsData.versions.npm = '10.0.0';
       }
 
       results.push({
@@ -819,12 +806,12 @@ class ProjectInspector {
     return results;
   }
 
-  private async inspectInteractive(type: InspectType): Promise<void> {
+  private async inspectInteractive(type: InspectType): Promise<boolean> {
     const results = await this.getInspectionResults(type);
 
     if (results.length === 0) {
       console.log(prism.yellow('\nNo items found.\n'));
-      return;
+      return true;
     }
 
     const choices = results.map(r => ({
@@ -832,30 +819,21 @@ class ProjectInspector {
       label: this.formatItemLabel(r),
     }));
 
-    try {
-      const selected = await select({
-        message: `Select ${type} to inspect:`,
-        options: choices,
-      });
+    const selected = await select({
+      signal: getExecutionSignal(),
+      message: `Select ${type} to inspect:`,
+      options: choices,
+    });
+    if (isCancel(selected)) return false;
+    this.displayDetailedResult(selected);
 
-      this.displayDetailedResult(selected as InspectionResult);
-
-      if (this.options.explain && (selected as InspectionResult).type === 'task') {
-        const explain = await confirm({
-          message: 'Show execution plan?',
-        });
-
-        if (explain) {
-          await this.showTaskExplanation((selected as InspectionResult).name);
-        }
-      }
-    } catch (error: any) {
-      // User cancelled selection
-      if (error.message === 'Cancelled') {
-        return;
-      }
-      throw error;
+    if (this.options.explain && selected.type === 'task') {
+      const explain = await confirm({
+      signal: getExecutionSignal(), message: 'Show execution plan?' });
+      if (isCancel(explain)) return false;
+      if (explain === true) await this.showTaskExplanation(selected.name);
     }
+    return true;
   }
 
   private async getInspectionResults(type: InspectType): Promise<InspectionResult[]> {
@@ -943,17 +921,15 @@ class ProjectInspector {
 
   private displayTable(results: InspectionResult[], type: string): void {
     const headers = this.getTableHeaders(type);
-    const data = [headers];
-
-    for (const result of results) {
-      data.push(this.formatTableRow(result, type));
-    }
-
-    // Simple table output
-    const output = data.map((row: string[]) => row.map((cell) =>
-      String(cell ?? '').padEnd(20)
-    ).join(' ')).join('\n');
-    console.log(output);
+    table({
+      columns: headers.map((header, index) => ({ key: String(index), header })),
+      data: results.map(result => Object.fromEntries(
+        this.formatTableRow(result, type).map((cell, index) => [String(index), cell])
+      )),
+      borders: 'none',
+      compact: true,
+      wordWrap: 'wrap',
+    });
 
     if (this.options.verbose) {
       console.log(prism.dim(`\nTotal: ${results.length} ${type === 'all' ? 'items' : type}`));
@@ -1233,7 +1209,7 @@ class ProjectInspector {
     console.log(configValid ? prism.green('  ✓ Valid') : prism.red('  ✗ Invalid'));
 
     // Validate targets
-    console.log(prism.cyan('\nTarget Connectivity:'));
+    console.log(prism.cyan('\nTarget Definitions:'));
     const targets = await this.inspectTargets();
     for (const target of targets) {
       const validation = await this.validateTarget(target.name);
@@ -1307,7 +1283,6 @@ class ProjectInspector {
   private async validateTarget(targetName: string): Promise<{ valid: boolean; message: string }> {
     try {
       const target = await this.targetResolver.resolve(targetName);
-      // Basic validation - in real implementation would test connectivity
       return {
         valid: true,
         message: `Type: ${target.type}, configured correctly`
@@ -1322,9 +1297,7 @@ class ProjectInspector {
 
   private async validateConfiguration(): Promise<boolean> {
     try {
-      // In real implementation, would perform schema validation
-      const config = this.configManager.getConfig();
-      return !!config;
+      return (await this.configManager.validate()).length === 0;
     } catch {
       return false;
     }
@@ -1629,15 +1602,10 @@ class ProjectInspector {
     const total = os.totalmem();
     const free = os.freemem();
 
-    // Skip detailed memory checking in test environment to avoid command execution issues
-    const isTestEnv = process.env['NODE_ENV'] === 'test' || process.env['JEST_WORKER_ID'] !== undefined;
-
     // On macOS, get more accurate memory info including inactive memory
-    if (process.platform === 'darwin' && !isTestEnv) {
+    if (process.platform === 'darwin') {
       try {
-        const execAsync = promisify(exec);
-        // Use vm_stat to get detailed memory information
-        const { stdout } = await execAsync('vm_stat');
+        const { stdout } = await $`vm_stat`;
         const lines = stdout.split('\n');
         const firstLine = lines[0] || '';
         const pageSizeMatch = firstLine.match(/page size of (\d+) bytes/);
@@ -1676,7 +1644,7 @@ class ProjectInspector {
           availablePercent: (available / total * 100).toFixed(2),
         };
       } catch {
-        // Fallback to Node.js values if vm_stat fails - silently ignore in tests
+        // Use portable OS counters when detailed memory statistics are unavailable.
       }
     }
 

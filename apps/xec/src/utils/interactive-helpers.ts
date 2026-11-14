@@ -1,7 +1,7 @@
-import type { PodConfig, HostConfig, TargetType, ResolvedTarget, ContainerConfig } from '@xec-sh/ops';
+import type { PodConfig, HostConfig, ResolvedTarget, ContainerConfig } from '@xec-sh/ops';
 
 import { getExecutionSignal } from '@xec-sh/core';
-import { ConfigurationManager } from '@xec-sh/ops';
+import { TargetResolver, ConfigurationManager } from '@xec-sh/ops';
 import {
   log,
   text,
@@ -10,10 +10,12 @@ import {
   outro,
   select,
   confirm,
-  spinner,
   isCancel,
-  multiselect
+  multiselect,
+  type CANCEL_SYMBOL
 } from '@xec-sh/kit';
+
+import { canPrompt } from './plain-mode.js';
 
 export interface InteractiveOptions {
   interactive?: boolean;
@@ -31,7 +33,6 @@ export class InteractiveHelpers {
   private static cancellation: AbortSignal | undefined;
   private static onCancel = () => {
     InteractiveHelpers.cancelled = true;
-    outro(prism.gray('Cancelled'));
   };
   private static configManager: ConfigurationManager | null = null;
 
@@ -51,67 +52,41 @@ export class InteractiveHelpers {
     this.cancellation?.addEventListener('abort', this.onCancel, { once: true });
   }
 
-  static isCancelled(value: any): boolean {
+  static isCancelled(value: unknown): boolean {
     return isCancel(value) || this.cancelled;
   }
 
+  private static requireInteractive(): void {
+    this.cancellation?.throwIfAborted();
+    if (this.cancelled) throw new DOMException('Interactive operation cancelled', 'AbortError');
+    if (!canPrompt()) throw new Error('Interactive selection requires a terminal. Supply command arguments for non-interactive use.');
+  }
+
+  private static answer<T>(value: T | typeof CANCEL_SYMBOL): T {
+    if (isCancel(value) || this.cancelled || this.cancellation?.aborted) {
+      this.cancelled = true;
+      throw new DOMException('Interactive operation cancelled', 'AbortError');
+    }
+    return value;
+  }
+
   static async selectTarget(options: TargetSelectorOptions): Promise<ResolvedTarget | ResolvedTarget[] | null> {
+    this.requireInteractive();
     const configManager = await this.getConfigManager();
     const config = configManager.getConfig();
-    const targets: ResolvedTarget[] = [];
+    const resolver = new TargetResolver(config, { autoDetect: false });
+    const targets = (await resolver.list()).filter(target =>
+      options.type === undefined || options.type === 'all' || target.type === options.type
+    );
 
-    // Gather targets based on type
-    if (config.targets) {
-      for (const [name, targetConfig] of Object.entries(config.targets)) {
-        if (!targetConfig || !targetConfig.type) continue;
-
-        const targetType = targetConfig.type as TargetType;
-
-        // Filter by type if specified
-        if (options.type && options.type !== 'all') {
-          // Map legacy types to new types
-          const typeMap: Record<string, TargetType> = {
-            'ssh': 'ssh',
-            'docker': 'docker',
-            'kubernetes': 'kubernetes',
-            'local': 'local'
-          };
-
-          if (targetType !== typeMap[options.type]) {
-            continue;
-          }
-        }
-
-        targets.push({
-          id: `targets.${name}`,
-          type: targetType,
-          name,
-          config: targetConfig as any,
-          source: 'configured',
-        });
-      }
-    }
-
-    // Add local target if not already present and requested
-    if ((options.type === 'all' || options.type === 'local') &&
-      !targets.some(t => t.type === 'local')) {
-      targets.push({
-        id: 'local',
-        type: 'local',
-        name: 'local',
-        config: { type: 'local' },
-        source: 'configured',
-      });
-    }
-
-    const targetOptions = targets.map(target => ({
+    const targetOptions: Array<{ value: ResolvedTarget | 'custom'; label: string }> = targets.map(target => ({
       value: target,
       label: `${this.getTargetIcon(target.type)} ${target.id} ${prism.gray(`(${target.type})`)}`,
     }));
 
     if (options.allowCustom) {
       targetOptions.push({
-        value: { custom: true } as any,
+        value: 'custom',
         label: prism.cyan('→ Enter custom target...'),
       });
     }
@@ -122,54 +97,53 @@ export class InteractiveHelpers {
     }
 
     if (options.allowMultiple) {
-      const selected = await multiselect({
+      const selected = this.answer(await multiselect({
+        signal: this.cancellation,
         message: options.message,
         options: targetOptions,
         required: true,
-      });
-
-      if (this.isCancelled(selected)) return null;
+      }));
 
       // Handle custom target selection
-      if (Array.isArray(selected) && selected.some((t: any) => typeof t === 'object' && t && 'custom' in t && t.custom)) {
+      if (selected.includes('custom')) {
         const customTarget = await this.enterCustomTarget();
         if (!customTarget) return null;
-        return [customTarget];
+        return [...selected.filter((target): target is ResolvedTarget => target !== 'custom'), customTarget];
       }
 
-      return selected as ResolvedTarget[];
+      return selected.filter((target): target is ResolvedTarget => target !== 'custom');
     } else {
-      const selected = await select({
+      const selected = this.answer(await select({
+        signal: this.cancellation,
         message: options.message,
         options: targetOptions,
-      });
-
-      if (this.isCancelled(selected)) return null;
+      }));
 
       // Handle custom target selection
-      if (typeof selected === 'object' && selected && 'custom' in selected && selected.custom) {
+      if (selected === 'custom') {
         return await this.enterCustomTarget();
       }
 
-      return selected as ResolvedTarget;
+      return selected;
     }
   }
 
   static async enterCustomTarget(): Promise<ResolvedTarget | null> {
-    const targetType = await select({
+    this.requireInteractive();
+    const targetType = this.answer(await select({
+      signal: this.cancellation,
       message: 'Select target type:',
       options: [
         { value: 'ssh', label: '🖥️  SSH Host' },
         { value: 'docker', label: '🐳 Docker Container' },
         { value: 'kubernetes', label: '☸️  Kubernetes Pod' },
       ],
-    });
+    }));
 
-    if (this.isCancelled(targetType)) return null;
-
-    switch (targetType as 'ssh' | 'docker' | 'kubernetes') {
+    switch (targetType) {
       case 'ssh': {
-        const hostInput = await text({
+        const hostInput = this.answer(await text({
+          signal: this.cancellation,
           message: 'Enter SSH host:',
           placeholder: 'user@hostname or hostname',
           validate: (value) => {
@@ -178,9 +152,7 @@ export class InteractiveHelpers {
             }
             return undefined;
           },
-        });
-
-        if (this.isCancelled(hostInput)) return null;
+        }));
 
         const hostStr = String(hostInput);
         const [user, host] = hostStr.includes('@')
@@ -201,7 +173,8 @@ export class InteractiveHelpers {
       }
 
       case 'docker': {
-        const container = await text({
+        const container = this.answer(await text({
+          signal: this.cancellation,
           message: 'Enter container name or ID:',
           placeholder: 'myapp',
           validate: (value) => {
@@ -210,9 +183,7 @@ export class InteractiveHelpers {
             }
             return undefined;
           },
-        });
-
-        if (this.isCancelled(container)) return null;
+        }));
 
         const containerStr = String(container);
 
@@ -229,15 +200,15 @@ export class InteractiveHelpers {
       }
 
       case 'kubernetes': {
-        const namespace = await text({
+        const namespace = this.answer(await text({
+          signal: this.cancellation,
           message: 'Enter namespace:',
           placeholder: 'default',
           initialValue: 'default',
-        });
+        }));
 
-        if (this.isCancelled(namespace)) return null;
-
-        const pod = await text({
+        const pod = this.answer(await text({
+          signal: this.cancellation,
           message: 'Enter pod name:',
           placeholder: 'myapp-pod',
           validate: (value) => {
@@ -246,9 +217,7 @@ export class InteractiveHelpers {
             }
             return undefined;
           },
-        });
-
-        if (this.isCancelled(pod)) return null;
+        }));
 
         const namespaceStr = String(namespace);
         const podStr = String(pod);
@@ -289,45 +258,50 @@ export class InteractiveHelpers {
   }
 
   static async confirmAction(message: string, defaultValue = false): Promise<boolean> {
-    const result = await confirm({
+    this.requireInteractive();
+    const result = this.answer(await confirm({
+      signal: this.cancellation,
       message,
       initialValue: defaultValue,
-    });
-
-    return !this.isCancelled(result) && (result as boolean);
+    }));
+    return result === true;
   }
 
   static async selectFromList<T>(
     message: string,
     items: T[],
     getLabelFn: (item: T) => string,
+    allowCustom?: false
+  ): Promise<T | null>;
+  static async selectFromList<T>(
+    message: string,
+    items: T[],
+    getLabelFn: (item: T) => string,
+    allowCustom: true
+  ): Promise<T | { custom: true } | null>;
+  static async selectFromList<T>(
+    message: string,
+    items: T[],
+    getLabelFn: (item: T) => string,
     allowCustom = false
-  ): Promise<T | null> {
-    if (items.length === 0) {
+  ): Promise<T | { custom: true } | null> {
+    this.requireInteractive();
+    if (items.length === 0 && !allowCustom) {
       log.warning('No items available');
       return null;
     }
-
-    const options: Array<{ value: T | { custom: boolean }, label: string }> = items.map(item => ({
+    const options: Array<{ value: T | { custom: true }; label: string }> = items.map(item => ({
       value: item,
       label: getLabelFn(item),
     }));
-
     if (allowCustom) {
-      options.push({
-        value: { custom: true },
-        label: prism.cyan('→ Enter custom value...'),
-      });
+      options.push({ value: { custom: true }, label: 'Enter custom value…' });
     }
-
-    const selected = await select({
+    return this.answer(await select({
+      signal: this.cancellation,
       message,
-      options: options as any,
-    });
-
-    if (this.isCancelled(selected)) return null;
-
-    return selected as T;
+      options,
+    }));
   }
 
   static async inputText(
@@ -338,16 +312,16 @@ export class InteractiveHelpers {
       validate?: (value: string | undefined) => string | undefined;
     } = {}
   ): Promise<string | null> {
-    const result = await text({
+    this.requireInteractive();
+    const result = this.answer(await text({
+      signal: this.cancellation,
       message,
       placeholder: options.placeholder,
       initialValue: options.initialValue,
       validate: options.validate,
-    });
+    }));
 
-    if (this.isCancelled(result)) return null;
-
-    return result as string;
+    return result;
   }
 
   static async selectMultiple<T>(
@@ -356,6 +330,7 @@ export class InteractiveHelpers {
     getLabelFn: (item: T) => string,
     required = true
   ): Promise<T[] | null> {
+    this.requireInteractive();
     if (items.length === 0) {
       log.warning('No items available');
       return null;
@@ -366,26 +341,34 @@ export class InteractiveHelpers {
       label: getLabelFn(item),
     }));
 
-    const selected = await multiselect({
+    const selected = this.answer(await multiselect({
+      signal: this.cancellation,
       message,
-      options: options as any,
+      options,
       required,
-    });
+    }));
 
-    if (this.isCancelled(selected)) return null;
-
-    return selected as T[];
+    return selected;
   }
 
   static startInteractiveMode(title: string): void {
     this.setupCancelHandlers();
+    try {
+      this.requireInteractive();
+    } catch (error) {
+      this.cancellation?.removeEventListener('abort', this.onCancel);
+      this.cancellation = undefined;
+      throw error;
+    }
     intro(prism.bgBlue(` ${title} `));
   }
 
   static endInteractiveMode(message?: string): void {
     this.cancellation?.removeEventListener('abort', this.onCancel);
     this.cancellation = undefined;
-    if (message) {
+    if (this.cancelled) {
+      outro(prism.gray('Cancelled'));
+    } else if (message) {
       outro(prism.green(message));
     } else {
       outro(prism.green('✓ Done!'));
@@ -393,6 +376,10 @@ export class InteractiveHelpers {
   }
 
   static showError(message: string): void {
+    if (this.cancelled) {
+      this.endInteractiveMode();
+      return;
+    }
     log.error(prism.red(message));
   }
 
@@ -408,9 +395,5 @@ export class InteractiveHelpers {
     log.warning(prism.yellow(message));
   }
 
-  static createSpinner(message: string): any {
-    const s = spinner();
-    s.start(message);
-    return s;
-  }
+
 }

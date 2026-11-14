@@ -114,8 +114,11 @@ updateSettings({
   // Defaults already include vim keys (h/j/k/l) and Escape = cancel.
   aliases: { w: 'up', s: 'down' },
 
-  // Spinner end-state messages
-  messages: { cancel: 'Aborted', error: 'Broke' },
+  // Shared lifecycle and validation messages
+  messages: { cancel: 'Aborted', error: 'Failed', validating: 'Checking…' },
+
+  // Append-only terminal output
+  accessible: true,
 
   // The vertical guide bar on the left of prompts
   withGuide: false,
@@ -130,7 +133,9 @@ updateSettings({
 });
 ```
 
-Actions: `up`, `down`, `left`, `right`, `space`, `enter`, `cancel`.
+Supported actions are `up`, `down`, `left`, `right`, `space`, `enter`, and `cancel`.
+
+`isAccessible(accessible?)` resolves the per-call override, then `settings.accessible`, then `ACCESSIBLE`. Prompt and indicator rendering share this decision. An explicit `false` overrides an enabled environment value. [Prompt accessibility](./prompts.md#accessible-output) describes input requirements.
 
 ## See Also
 

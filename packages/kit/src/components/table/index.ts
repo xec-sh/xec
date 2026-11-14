@@ -8,8 +8,9 @@ import type { TableOptions, VirtualTableOptions } from './types.js';
 import { renderTable } from './table-renderer.js';
 import InteractiveTablePrompt from './interactive-table.js';
 import { runValidation } from '../../core/utils/validation.js';
-import { settings, type CANCEL_SYMBOL } from '../../core/index.js';
+import { sanitizeTerminalText } from '../../prism/utils/ansi.js';
 import { renderInteractiveTable } from './interactive-renderer.js';
+import { settings, isAccessible, type CANCEL_SYMBOL } from '../../core/index.js';
 
 function validateTableOptions<T>(options: TableOptions<T> & Partial<VirtualTableOptions<T>>): void {
   if (!Array.isArray(options.data)) throw new TypeError('Table data must be an array');
@@ -84,7 +85,7 @@ export function table<T = any>(options: TableOptions<T>): void {
 
   // Render and output
   const rendered = renderTable(options.data, tableOptions);
-  output.write(rendered + '\n');
+  output.write((isAccessible(options.accessible) ? sanitizeTerminalText(rendered, false) : rendered) + '\n');
 }
 
 /**

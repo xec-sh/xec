@@ -5,7 +5,7 @@ description: Text, selection, confirmation and date prompts with validation and 
 
 # Prompts
 
-Every prompt returns a promise. On Ctrl-C or Escape it resolves with a cancel symbol instead of throwing — always check with `isCancel` before using the value.
+Every prompt returns a promise. Ctrl-C, Escape, and an aborted `signal` resolve with `CANCEL_SYMBOL`. Check with `isCancel` before using the value. Errors from rendering, callbacks, or streams reject the promise after terminal cleanup.
 
 ```typescript
 import { text, isCancel } from '@xec-sh/kit';
@@ -91,7 +91,7 @@ const color = await select({
 });
 ```
 
-An option is `{ value, label?, hint?, disabled? }`; without `label` the value is shown. `maxItems` caps the visible window; longer lists scroll. `initialValue` pre-selects. `showInstructions: false` hides the keyboard hint footer.
+Options accept readonly arrays and preserve literal value types. A string, number, or boolean can use its value as the label. Objects require an explicit `label`. Generic helpers can always supply `{ value, label }`. Disabled choices are excluded from submission and cursor movement. `maxItems` caps the visible window. `initialValue` pre-selects an enabled option. `showInstructions: false` hides the keyboard hint footer.
 
 ## multiselect
 
@@ -138,7 +138,22 @@ const pkg = await autocomplete({
 });
 ```
 
-`autocompleteMultiselect` is the same with multiple selection.
+`autocompleteMultiselect` provides the same search with multiple selection. `autocomplete({ completeOnTab: true, ... })` copies the focused choice into the search field on Tab. The public `path` prompt enables completion by default. Zero, false, and empty-string choices remain valid option values.
+
+## path
+
+```typescript
+import { path, isCancel } from '@xec-sh/kit';
+
+const directory = await path({
+  message: 'Select a directory',
+  root: process.cwd(),
+  directory: true,
+});
+if (!isCancel(directory)) console.log(directory);
+```
+
+Type a path to narrow the choices, use Tab to complete the focused entry, and Enter to submit.
 
 ## selectKey
 
@@ -176,7 +191,7 @@ Options: `format`, `initialValue`, `defaultValue`, `minDate`, `maxDate`, `valida
 Run several prompts in sequence and collect the answers into one object. Each entry receives the earlier `results`.
 
 ```typescript
-import { group, text, select, cancel } from '@xec-sh/kit';
+import { group, text, select, cancel, isCancel } from '@xec-sh/kit';
 
 const answers = await group(
   {
@@ -185,18 +200,19 @@ const answers = await group(
     entry: ({ results }) => text({ message: `Entry point for ${results.name}?` }),
   },
   {
-    onCancel: () => {
-      cancel('Cancelled.');
-      process.exit(0);
+    onCancel: ({ results }) => {
+      cancel(`Cancelled after ${Object.keys(results).length} answers`);
     },
   }
 );
-// answers: { name: string, kind: 'lib' | 'app', entry: string }
+if (!isCancel(answers)) console.log(answers.name, answers.kind, answers.entry);
 ```
+
+Cancellation stops the group before subsequent prompts. `onCancel` receives partial completed `results` and the exact cancellation symbol as `reason`. The group awaits an asynchronous callback, then returns `CANCEL_SYMBOL`. The caller owns any process termination.
 
 ## Validation
 
-`text`, `multiline`, `password` and `date` take a `validate` option: either a function returning an error `string`/`Error` (or `undefined` to accept), or any synchronous [Standard Schema](https://standardschema.dev) validator — zod, valibot, arktype:
+`text`, `multiline`, `password` and `date` take a `validate` option: either a function returning an error `string`/`Error` (or `undefined` to accept), or a [Standard Schema](https://standardschema.dev) validator such as Zod, Valibot, or ArkType.
 
 ```typescript
 import { text } from '@xec-sh/kit';
@@ -219,7 +235,23 @@ const name = await text({
 });
 ```
 
-Async schemas are rejected with a `TypeError` — validation runs on submit, synchronously.
+Validation runs on submission and accepts asynchronous callbacks and schemas. The prompt displays `settings.messages.validating` while awaiting a result. Cancellation remains available, and a late result cannot reopen a completed prompt.
+
+```typescript
+import { text } from '@xec-sh/kit';
+import { stat } from 'node:fs/promises';
+
+const file = await text({
+  message: 'Existing file',
+  async validate(value) {
+    try {
+      return (await stat(value)).isFile() ? undefined : 'Select a file';
+    } catch {
+      return 'File is unavailable';
+    }
+  },
+});
+```
 
 ## Cancellation
 
@@ -230,13 +262,26 @@ import { text, isCancel } from '@xec-sh/kit';
 
 const value = await text({ message: 'Name?' });
 if (isCancel(value)) {
-  // value is symbol here; the prompt rendered its cancelled state already
+  // value has the exact type typeof CANCEL_SYMBOL
   process.exit(0);
 }
 // value is string here
 ```
 
-Prompts also accept an `AbortSignal` (`signal` option) for programmatic cancellation, and `input`/`output` streams for testing.
+Prompts accept an `AbortSignal` through `signal` and custom `input`/`output` streams. Terminal mode, cursor visibility, and owned listeners are restored on every completion path. A signal already aborted before invocation returns cancellation without taking terminal ownership.
+
+## Accessible output
+
+`accessible: true` renders append-only prompt updates. It removes terminal-control sequences and preserves ordinary text for terminal readers and transcripts. The same resolver is used by prompts, indicators, logs, and streams.
+
+```typescript
+import { text, isAccessible, updateSettings } from '@xec-sh/kit';
+
+updateSettings({ accessible: true });
+const name = await text({ message: 'Name?', accessible: isAccessible() });
+```
+
+The per-call option takes precedence over global settings, followed by the `ACCESSIBLE` environment variable. Explicit `false` disables that preference. Empty, `0`, and `false` environment values are treated as disabled. Interactive prompts still need input. Command-line applications should select an explicit non-interactive path for CI and pipes.
 
 ## Keyboard
 
