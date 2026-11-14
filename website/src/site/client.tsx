@@ -15,7 +15,8 @@ import { OpenSearch, SearchPage, SearchTrigger, ThemeSelector } from './controls
 const islands = { DocSectionNav, MermaidDiagram, SearchTrigger, SearchPage, ThemeSelector, ExecutionExplorer };
 function Content() {
   const { theme } = usePrismContext();
-  const [searchOpen, setSearchOpen] = useState(false);
+  const searchRoute = location.pathname.replace(/\/$/, '') === '/search';
+  const [searchOpen, setSearchOpen] = useState(searchRoute);
   useEffect(() => {
     document.documentElement.dataset.xecTheme = theme.palette.mode;
     document.documentElement.style.colorScheme = theme.palette.mode;
@@ -48,6 +49,7 @@ function Content() {
               open
               onClose={() => setSearchOpen(false)}
               pagefindUrl="/pagefind/pagefind.js"
+              initialQuery={searchRoute ? (new URLSearchParams(location.search).get('q') ?? '').slice(0, 256) : ''}
               maxResults={12}
             />
           </div>

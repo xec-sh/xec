@@ -54,6 +54,16 @@ test('search loads the generated local index and restores focus on Escape', asyn
   await expect(page.getByRole('button', { name: 'Search documentation' })).toBeFocused();
 });
 
+test('published search URLs open the shared search with their query', async ({ page }) => {
+  await page.goto('/search?q=Pipeline');
+  await expect(page.getByRole('searchbox', { name: 'Search query' })).toHaveValue('Pipeline');
+  await expect(page.locator('.lumen-search-result-link').first()).toBeVisible();
+  await expect(page.locator('.lumen-search-results')).toContainText(/Pipeline/i);
+  await page.getByRole('searchbox', { name: 'Search query' }).press('Escape');
+  await expect(page.getByRole('searchbox', { name: 'Search query' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Search Xec documentation');
+});
+
 test('documentation retains navigation, syntax highlighting and current-section tracking', async ({ page }) => {
   await page.goto('/docs/ops/pipeline');
   await expect(page.locator('.lumen-doc h1')).toHaveText('Pipeline Engine');
