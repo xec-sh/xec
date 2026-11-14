@@ -3,11 +3,11 @@ title: Parallel Execution
 description: Running commands concurrently across environments
 ---
 
-# Parallel Execution
+# Parallel Execution {#parallel-execution}
 
 Execute commands concurrently across multiple environments, maximizing throughput and reducing total execution time.
 
-## Overview
+## Overview {#overview}
 
 Parallel execution (`packages/core/src/utils/parallel.ts`) provides:
 
@@ -16,7 +16,7 @@ Parallel execution (`packages/core/src/utils/parallel.ts`) provides:
 - **Result aggregation** with error handling
 - **Progress tracking** for long-running operations
 
-## The Real API
+## The Real API {#the-real-api}
 
 `parallel(commands, options)` runs lazy commands with a concurrency limit and returns ordered `results`, `succeeded`, `failed` and elapsed `duration`. A signalled or nonzero result enters `failed`, including when `.nothrow()` is enabled. A rejected command enters `failed` as an error.
 
@@ -30,9 +30,9 @@ if (outcomes.failed.length) throw new AggregateError(outcomes.failed, 'Tool chec
 
 `$.parallel` offers `all`, `settled`, `race`, `map`, `filter`, `some` and `every`. The map and filter callbacks return a command. `$.batch` accepts `concurrency` and `onProgress`.
 
-## Basic Parallel Execution
+## Basic Parallel Execution {#basic-parallel-execution}
 
-### Promise.all Pattern
+### Promise.all Pattern {#promiseall-pattern}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -43,7 +43,7 @@ console.log(results.map(result => result.stdout.trim()));
 
 `ProcessPromise` is a lazy thenable accepted by native promise combinators. `Promise.all` rejects when an input rejects while the other commands can continue running.
 
-### Promise.allSettled for Resilience
+### Promise.allSettled for Resilience {#promiseallsettled-for-resilience}
 
 ```typescript
 // Continue even if some fail
@@ -68,9 +68,9 @@ console.log(`${successes.length} succeeded, ${failures.length} failed`);
 `parallel()` and `$.parallel.settled()` above give you this same
 succeeded/failed split without the `Promise.allSettled` unwrapping step.
 
-## Concurrency Control
+## Concurrency Control {#concurrency-control}
 
-### Limiting Parallelism
+### Limiting Parallelism {#limiting-parallelism}
 
 ```typescript
 import { $, parallel } from '@xec-sh/core';
@@ -84,9 +84,9 @@ if (outcomes.failed.length) throw new AggregateError(outcomes.failed, 'File meas
 
 `timeout` is a per-command deadline in milliseconds (`0` disables it). It combines with the command’s existing cancellation signal and the surrounding `within()` scope. Keep `ProcessPromise` inputs lazy so the scheduler can apply its limit and deadline before execution. A command explicitly started elsewhere already owns its running lifetime.
 
-## Map-Reduce Pattern
+## Map-Reduce Pattern {#map-reduce-pattern}
 
-### Parallel Map
+### Parallel Map {#parallel-map}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -96,7 +96,7 @@ const outcomes = await $.parallel.map(files, file => $`wc -c ${file}`, { maxConc
 console.log(outcomes);
 ```
 
-### Reduce with Parallelism
+### Reduce with Parallelism {#reduce-with-parallelism}
 
 ```typescript
 import { $, parallel } from '@xec-sh/core';
@@ -108,7 +108,7 @@ const total = outcomes.succeeded.reduce((bytes, result) => bytes + Number(result
 console.log(total);
 ```
 
-## Progress Tracking
+## Progress Tracking {#progress-tracking}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -123,9 +123,9 @@ const outcomes = await $.batch(checks, {
 if (outcomes.failed.length) throw new AggregateError(outcomes.failed, 'Checks failed');
 ```
 
-## Error Handling in Parallel
+## Error Handling in Parallel {#error-handling-in-parallel}
 
-### Partial Failure Handling
+### Partial Failure Handling {#partial-failure-handling}
 
 ```typescript
 import { $, parallel } from '@xec-sh/core';
@@ -139,7 +139,7 @@ outcomes.results.forEach((outcome, index) => console.log(hosts[index], outcome))
 if (outcomes.failed.length) throw new AggregateError(outcomes.failed, 'Some services are unavailable');
 ```
 
-### Fast-Fail vs Fail-Safe
+### Fast-Fail vs Fail-Safe {#fast-fail-vs-fail-safe}
 
 With finite concurrency, `stopOnError: true` stops scheduling new work after an observed failure. Already-started commands finish. `stopOnError: false` is the default and collects every outcome. Unlimited concurrency submits all commands before observing results, so use a finite limit when stopping further work matters.
 
@@ -153,24 +153,24 @@ const outcomes = await parallel([$`pnpm test:unit`, $`pnpm test:integration`], {
 if (outcomes.failed.length) throw new AggregateError(outcomes.failed, 'Test sequence stopped');
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### Do's ✅
+### Do's ✅ {#dos-}
 
 Keep commands lazy until the limiter schedules them. Select a limit appropriate for target resources, retain input-to-result identity and report all observed failures. Use task dependencies for operations that require ordering.
 
-### Don'ts ❌
+### Don'ts ❌ {#donts-}
 
 Avoid starting every command before passing it to the limiter. A failed promise does not cancel sibling operations. Inspect the state of started mutations before retrying a batch.
 
-## Implementation Details
+## Implementation Details {#implementation-details}
 
 Parallel execution is implemented in:
 - `packages/core/src/utils/parallel.ts` - `parallel()`, `ParallelEngine` (`$.parallel`)
 - `packages/core/src/utils/parallel-default.ts` - the standalone `parallel()` export bound to the default `$`
 - `packages/core/src/utils/retry-adapter.ts` - the standalone `retry()` export and `RetryError`
 
-## See Also
+## See Also {#see-also}
 
 - [Performance Optimization](/docs/core/execution-engine/performance/optimization)
 - [Connection Reuse](/docs/core/execution-engine/performance/connection-reuse)

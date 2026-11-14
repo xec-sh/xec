@@ -3,7 +3,7 @@ title: config
 description: Inspect and edit project configuration, targets, variables, and tasks
 ---
 
-# config
+# config {#config}
 
 `xec config` edits the project configuration through the same loader, schema, and target definitions used by execution. Changes preserve comments and unrelated settings in the project file.
 
@@ -13,7 +13,7 @@ xec conf [command]
 xec cfg [command]
 ```
 
-## Read configuration
+## Read configuration {#read-configuration}
 
 ```bash
 xec config list
@@ -25,7 +25,7 @@ xec config view --defaults
 
 `list` reads the resolved configuration. `--path` selects a nested subtree. `--json` is also accepted by `list`. `get` selects one value with dot notation. `view --defaults` distinguishes inherited defaults in the human-readable view.
 
-## Edit values
+## Edit values {#edit-values}
 
 ```bash
 xec config set name example
@@ -42,13 +42,13 @@ xec config set vars.REGION eu-central-1 --dry-run
 xec config --dry-run unset vars.OLD_REGION
 ```
 
-## Interactive editing
+## Interactive editing {#interactive-editing}
 
 Run `xec config` in a terminal to browse targets, variables, tasks, defaults, and custom settings. The interactive editor uses Kit prompts. Cancellation ends the current edit before it is committed.
 
 Interactive commands require both terminal input and output. CI, redirected input, `--quiet`, and machine-output modes require explicit arguments for operations that support them.
 
-## Targets
+## Targets {#targets}
 
 ```bash
 xec config targets list
@@ -62,7 +62,7 @@ xec config targets delete hosts.staging --force
 
 `delete` asks for confirmation. `--force` explicitly confirms deletion of the named definition for automation. `add`, `edit`, and `delete` support `--dry-run`.
 
-## Variables
+## Variables {#variables}
 
 ```bash
 xec config vars list
@@ -80,7 +80,7 @@ Supplying a value to `vars set` writes that value directly, including an empty s
 
 `vars delete` confirms in a terminal unless `--force` is present. `set`, `delete`, and `import` accept `--dry-run`.
 
-## Tasks
+## Tasks {#tasks}
 
 ```bash
 xec config tasks list
@@ -92,7 +92,7 @@ xec config tasks delete build --force
 
 `view` shows the named task. `create` opens an interactive definition editor. `validate` checks task forms supported by the executor. `delete` confirms the exact named task, with `--force` for automation. `create` and `delete` accept `--dry-run`.
 
-## Defaults
+## Defaults {#defaults}
 
 ```bash
 xec config defaults view
@@ -104,7 +104,7 @@ xec config defaults commands
 
 The four editors write target or command defaults after the complete prompt flow succeeds. Each accepts `--dry-run`. Ordinary configuration files can keep defaults implicit. Use `config set` for an explicit unattended change.
 
-## Validation and doctor
+## Validation and doctor {#validation-and-doctor}
 
 ```bash
 xec config validate
@@ -117,7 +117,7 @@ xec config doctor --defaults
 
 `doctor` normalizes the configuration version and proposes missing project metadata. It persists diagnosed changes. `--dry-run` previews those changes. `--defaults` additionally writes the complete default configuration into the project document.
 
-## Configuration trust
+## Configuration trust {#configuration-trust}
 
 A configuration containing command substitution can execute code during loading. Approval is associated with the reviewed file contents.
 
@@ -129,7 +129,7 @@ xec config trust --revoke
 
 `trust` finds the nearest `.xec/config.yaml` or `.xec/config.yml` without loading its commands, then requests approval. `--list` shows existing approvals. `--revoke` removes approval for the selected project configuration.
 
-## Related guides
+## Related guides {#related-guides}
 
 - [Configuration files](../../configuration/config-file.md)
 - [Configuration validation](../../configuration/advanced/validation.md)

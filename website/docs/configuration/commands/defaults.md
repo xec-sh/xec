@@ -3,11 +3,11 @@ title: Command Defaults
 description: Configuring default options for Xec built-in commands
 ---
 
-# Command Defaults
+# Command Defaults {#command-defaults}
 
 Xec allows you to configure default options for built-in commands through the `commands` section of your configuration. This enables consistent behavior across your project without repeatedly specifying the same options.
 
-## Overview
+## Overview {#overview}
 
 Command defaults apply to Xec's built-in commands:
 - `xec in` - Execute in single target
@@ -18,7 +18,7 @@ Command defaults apply to Xec's built-in commands:
 - `xec logs` - View logs
 - `xec run` - Run tasks
 
-## Configuration Structure
+## Configuration Structure {#configuration-structure}
 
 ```yaml
 commands:
@@ -42,9 +42,9 @@ commands:
     follow: true
 ```
 
-## Command-Specific Defaults
+## Command-Specific Defaults {#command-specific-defaults}
 
-### `in` Command Defaults
+### `in` Command Defaults {#in-command-defaults}
 
 Execute commands in a single target:
 
@@ -83,7 +83,7 @@ xec in hosts.production "npm run build"
 xec in hosts.production --timeout 60000 "long-task"
 ```
 
-### `on` Command Defaults
+### `on` Command Defaults {#on-command-defaults}
 
 Execute on multiple targets:
 
@@ -118,7 +118,7 @@ xec on "hosts.*" "uptime"
 xec on --no-parallel "hosts.*" "deploy"
 ```
 
-### `copy` Command Defaults
+### `copy` Command Defaults {#copy-command-defaults}
 
 File transfer settings:
 
@@ -165,7 +165,7 @@ xec copy ./dist hosts.production:/var/www
 xec copy --no-compress large-file.zip hosts.backup:/backup/
 ```
 
-### `forward` Command Defaults
+### `forward` Command Defaults {#forward-command-defaults}
 
 Port forwarding configuration:
 
@@ -203,7 +203,7 @@ xec forward hosts.database 5432
 xec forward --bind 0.0.0.0 hosts.web 8080
 ```
 
-### `watch` Command Defaults
+### `watch` Command Defaults {#watch-command-defaults}
 
 File watching settings:
 
@@ -247,7 +247,7 @@ xec watch "src/**/*.js" "npm test"
 xec watch --interval 5 "**/*.py" "python test.py"
 ```
 
-### `logs` Command Defaults
+### `logs` Command Defaults {#logs-command-defaults}
 
 Log viewing configuration:
 
@@ -288,7 +288,7 @@ xec logs hosts.production
 xec logs --follow containers.app
 ```
 
-### `run` Command Defaults
+### `run` Command Defaults {#run-command-defaults}
 
 Task execution defaults:
 
@@ -324,7 +324,7 @@ xec run deploy
 xec run --timeout 7200000 long-task
 ```
 
-## Global Command Options
+## Global Command Options {#global-command-options}
 
 Some options apply to all commands:
 
@@ -348,7 +348,7 @@ commands:
     debug: false
 ```
 
-## Profile-Specific Defaults
+## Profile-Specific Defaults {#profile-specific-defaults}
 
 Override command defaults per profile:
 
@@ -372,7 +372,7 @@ profiles:
         progress: false  # No progress in CI
 ```
 
-## Environment-Specific Defaults
+## Environment-Specific Defaults {#environment-specific-defaults}
 
 ```yaml
 commands:
@@ -386,7 +386,7 @@ commands:
     follow: ${env.LOG_FOLLOW:false}
 ```
 
-## Command Aliases
+## Command Aliases {#command-aliases}
 
 Create command shortcuts:
 
@@ -407,7 +407,7 @@ Usage:
 xec deploy  # Expands to: xec run deploy --profile production
 ```
 
-## Conditional Defaults
+## Conditional Defaults {#conditional-defaults}
 
 Set defaults based on conditions:
 
@@ -421,7 +421,7 @@ commands:
     concurrency: ${vars.environment === 'production' ? 10 : 3}
 ```
 
-## Command Hooks
+## Command Hooks {#command-hooks}
 
 Execute commands before/after built-in commands:
 
@@ -442,7 +442,7 @@ commands:
         - command: verify-transfer
 ```
 
-## Validation
+## Validation {#validation}
 
 Xec validates command configurations:
 
@@ -457,9 +457,9 @@ commands:
     # tail: -1  # Invalid: must be positive
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### 1. Set Sensible Defaults
+### 1. Set Sensible Defaults {#1-set-sensible-defaults}
 
 ```yaml
 commands:
@@ -472,7 +472,7 @@ commands:
     progress: true  # User feedback
 ```
 
-### 2. Environment-Aware Defaults
+### 2. Environment-Aware Defaults {#2-environment-aware-defaults}
 
 ```yaml
 profiles:
@@ -486,7 +486,7 @@ profiles:
         color: false     # No ANSI colors
 ```
 
-### 3. Document Custom Defaults
+### 3. Document Custom Defaults {#3-document-custom-defaults}
 
 ```yaml
 commands:
@@ -499,7 +499,7 @@ commands:
     chunkSize: 131072  # 128KB chunks
 ```
 
-### 4. Use Profiles for Variations
+### 4. Use Profiles for Variations {#4-use-profiles-for-variations}
 
 ```yaml
 # Base defaults
@@ -516,7 +516,7 @@ profiles:
         level: debug
 ```
 
-### 5. Keep Defaults Minimal
+### 5. Keep Defaults Minimal {#5-keep-defaults-minimal}
 
 ```yaml
 # Good - only essential defaults
@@ -534,9 +534,9 @@ commands:
     # ... many more
 ```
 
-## Examples
+## Examples {#examples}
 
-### Development Configuration
+### Development Configuration {#development-configuration}
 
 ```yaml
 commands:
@@ -556,7 +556,7 @@ commands:
     initialRun: true
 ```
 
-### Production Configuration
+### Production Configuration {#production-configuration}
 
 ```yaml
 commands:
@@ -579,7 +579,7 @@ commands:
     format: json  # Structured logging
 ```
 
-### CI/CD Configuration
+### CI/CD Configuration {#cicd-configuration}
 
 ```yaml
 commands:
@@ -601,9 +601,9 @@ commands:
     verbose: true  # Full output in CI
 ```
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### Defaults Not Applied
+### Defaults Not Applied {#defaults-not-applied}
 
 ```bash
 # Check loaded configuration
@@ -616,7 +616,7 @@ xec config get commands.in
 xec --debug in hosts.production "echo test"
 ```
 
-### Override Not Working
+### Override Not Working {#override-not-working}
 
 ```bash
 # Command-line overrides always win
@@ -630,7 +630,7 @@ xec in --timeout 5000 hosts.production "echo test"
 # 5. Built-in defaults
 ```
 
-### Invalid Configuration
+### Invalid Configuration {#invalid-configuration}
 
 ```yaml
 # Check for type errors
@@ -641,13 +641,13 @@ commands:
     defaultTimeout: 30000
 ```
 
-## Next Steps
+## Next Steps {#next-steps}
 
 - [Command Reference](../../commands/overview.md) - Individual command docs
 - [Configuration Overview](../overview.md) - Configuration basics
 - [Best Practices](../advanced/best-practices.md) - Configuration patterns
 
-## See Also
+## See Also {#see-also}
 
 - [in Command](../../commands/built-in/in.md) - Single target execution
 - [on Command](../../commands/built-in/on.md) - Multiple target execution

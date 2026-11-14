@@ -4,30 +4,30 @@ description: How Xec compares to similar tools and when to use each
 keywords: [comparison, alternatives, ansible, terraform, fabric, zx, shelljs]
 ---
 
-# Comparison with Other Tools
+# Comparison with Other Tools {#comparison-with-other-tools}
 
 Understanding how Xec compares to other tools helps you choose the right solution for your needs.
 
-## Quick Comparison Matrix
+## Quick Comparison Matrix {#quick-comparison-matrix}
 
-| Feature | Xec | SSH/Shell | Ansible | Terraform | Docker/K8s CLI | zx/shelljs | Fabric |
-|---------|-----|-----------|---------|-----------|----------------|------------|---------|
-| **Multi-environment execution** | ✅ | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| **TypeScript native** | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
-| **Template literal syntax** | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
-| **Connection pooling** | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ | ✅ |
-| **Declarative config** | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ |
-| **Imperative scripting** | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| **Built-in parallelism** | ✅ | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| **Type safety** | ✅ | ❌ | ❌ | Partial | ❌ | ✅ | ❌ |
-| **No agent required** | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ |
-| **Learning curve** | Low | Low | High | High | Medium | Low | Medium |
+Choose by responsibility rather than counting checkmarks. Xec provides typed execution and orchestration; it can call an existing tool without taking ownership of that tool's state model.
 
-## Detailed Comparisons
+| Responsibility | Xec's role | Complementary tool |
+| --- | --- | --- |
+| Scripts and project commands | TypeScript execution, targets, dynamic CLI and Kit prompts | Native shell for small local commands |
+| Package build graph and artifact reuse | Coordinate checks and invoke the repository's build command | [Turbo](https://turborepo.com/docs/crafting-your-repository/caching) fingerprints inputs and restores cached task outputs |
+| Host configuration | Run typed operational workflows and explicit verification | [Ansible](https://docs.ansible.com/ansible/latest/getting_started/index.html) manages desired state through inventories and modules |
+| Infrastructure provisioning | Invoke planning/apply steps and application-specific checks | [Terraform](https://developer.hashicorp.com/terraform/intro) owns resource state and provisioning plans |
+| Containers and pods | Provide consistent execution/results, transfer and forwarding APIs | Docker and Kubernetes still own container/cluster state |
+| Application lifecycle | Run deployment hooks and inspect their outcome | A process supervisor or platform owns long-running services |
 
-## Xec vs SSH/Shell Scripts
+Xec's `Pipeline` matrix expands parameters on the current executor. It does not provision operating systems or install Node versions. Its `cache` field is reserved; use the build tool's artifact cache. Command result caching is available separately in Core and requires an appropriate invalidation policy.
 
-### Traditional Shell Scripts
+## Detailed Comparisons {#detailed-comparisons}
+
+## Xec vs SSH/Shell Scripts {#xec-vs-sshshell-scripts}
+
+### Traditional Shell Scripts {#traditional-shell-scripts}
 ```bash
 # Shell script
 ssh user@server1 "cd /app && git pull && npm install"
@@ -35,7 +35,7 @@ ssh user@server2 "cd /app && git pull && npm install"
 docker exec container1 "python manage.py migrate"
 ```
 
-### Xec Approach
+### Xec Approach {#xec-approach}
 ```typescript
 // Xec script
 import { $, parallel } from '@xec-sh/core';
@@ -60,9 +60,9 @@ await $.docker({ container: 'container1' })`python manage.py migrate`;
 - Type safety and IDE support desired
 - Connection pooling needed
 
-## Xec vs Ansible
+## Xec vs Ansible {#xec-vs-ansible}
 
-### Ansible Playbook
+### Ansible Playbook {#ansible-playbook}
 ```yaml
 # ansible-playbook.yml
 - hosts: webservers
@@ -76,7 +76,7 @@ await $.docker({ container: 'container1' })`python manage.py migrate`;
         path: /app
 ```
 
-### Xec Equivalent
+### Xec Equivalent {#xec-equivalent}
 ```typescript
 // Xec script
 import { $, parallel } from '@xec-sh/core';
@@ -88,6 +88,8 @@ await parallel(webservers.map(host => $.ssh(host)`
   npm install
 `));
 ```
+
+Ansible normally controls managed hosts from its control node; it does not require a permanently installed Ansible agent.
 
 **When to use Ansible:**
 - Large-scale configuration management
@@ -101,9 +103,9 @@ await parallel(webservers.map(host => $.ssh(host)`
 - Simpler deployment workflows
 - Faster execution without agent overhead
 
-## Xec vs Terraform
+## Xec vs Terraform {#xec-vs-terraform}
 
-### Terraform Configuration
+### Terraform Configuration {#terraform-configuration}
 ```hcl
 # main.tf
 resource "null_resource" "deploy" {
@@ -117,7 +119,7 @@ resource "null_resource" "deploy" {
 }
 ```
 
-### Xec Approach
+### Xec Approach {#xec-approach-1}
 ```typescript
 // Xec script
 await $.ssh('server')`
@@ -139,9 +141,9 @@ await $.ssh('server')`
 - Post-provisioning configuration
 - Imperative task automation
 
-## Xec vs Docker/Kubernetes CLI
+## Xec vs Docker/Kubernetes CLI {#xec-vs-dockerkubernetes-cli}
 
-### Traditional CLI Commands
+### Traditional CLI Commands {#traditional-cli-commands}
 ```bash
 # Docker commands
 docker exec app-container npm run migrate
@@ -152,7 +154,7 @@ kubectl exec -it app-pod -- npm run migrate
 kubectl logs -f app-pod
 ```
 
-### Xec Unified Approach
+### Xec Unified Approach {#xec-unified-approach}
 ```typescript
 // Xec - same API for both
 await $.docker({ container: 'app-container' })`npm run migrate`;
@@ -174,9 +176,9 @@ const k8sLogs = await $.k8s().pod('app-pod').logs();
 - Cross-environment consistency
 - Programmatic log processing
 
-## Xec vs zx/shelljs
+## Xec vs zx/shelljs {#xec-vs-zxshelljs}
 
-### zx Script
+### zx Script {#zx-script}
 
 <!-- doc-check: skip — comparison uses zx, which is not an Xec workspace dependency -->
 ```javascript
@@ -188,7 +190,7 @@ await $`npm run build`;
 // No built-in remote execution
 ```
 
-### Xec Script
+### Xec Script {#xec-script}
 ```typescript
 // Xec script
 import { $ } from '@xec-sh/core';
@@ -211,9 +213,9 @@ await $.docker({ container: 'container' })`npm run migrate`;
 - Connection pooling and advanced features
 - Enterprise deployment workflows
 
-## Xec vs Fabric (Python)
+## Xec vs Fabric (Python) {#xec-vs-fabric-python}
 
-### Fabric Script
+### Fabric Script {#fabric-script}
 ```python
 # fabfile.py
 from fabric import Connection
@@ -226,7 +228,7 @@ def deploy(c):
 # Run with: fab -H server1,server2 deploy
 ```
 
-### Xec Script
+### Xec Script {#xec-script-1}
 ```typescript
 // deploy.ts
 import { $, parallel } from '@xec-sh/core';
@@ -254,9 +256,9 @@ async function deploy(servers: string[]) {
 - Type safety requirements
 - Cross-environment execution
 
-## Xec vs GitHub Actions / CI/CD
+## Xec vs GitHub Actions / CI/CD {#xec-vs-github-actions--cicd}
 
-### GitHub Actions
+### GitHub Actions {#github-actions}
 ```yaml
 # .github/workflows/deploy.yml
 jobs:
@@ -269,7 +271,7 @@ jobs:
       - run: ssh user@server 'deploy.sh'
 ```
 
-### Xec in CI/CD
+### Xec in CI/CD {#xec-in-cicd}
 ```yaml
 # Using Xec in GitHub Actions
 jobs:
@@ -292,9 +294,9 @@ jobs:
 - Local and CI/CD execution
 - Multi-environment deployments
 
-## Xec vs Make
+## Xec vs Make {#xec-vs-make}
 
-### Makefile
+### Makefile {#makefile}
 ```makefile
 deploy:
 	ssh server1 'cd /app && git pull && npm install'
@@ -302,7 +304,7 @@ deploy:
 	docker exec container 'npm run migrate'
 ```
 
-### Xec Task
+### Xec Task {#xec-task}
 ```yaml
 # .xec/config.yaml
 tasks:
@@ -325,9 +327,9 @@ tasks:
 - Need for programming logic
 - Modern async execution
 
-## Decision Matrix
+## Decision Matrix {#decision-matrix}
 
-### Choose Xec when you need:
+### Choose Xec when you need: {#choose-xec-when-you-need}
 
 ✅ **Multi-environment execution** - Local, SSH, Docker, Kubernetes
 ✅ **TypeScript/JavaScript** - Native language support
@@ -337,7 +339,7 @@ tasks:
 ✅ **Unified API** - Same code for all environments
 ✅ **Developer experience** - Great IDE support and debugging
 
-### Consider alternatives when:
+### Consider alternatives when: {#consider-alternatives-when}
 
 ❌ **Infrastructure provisioning** - Use Terraform/Pulumi
 ❌ **Configuration management** - Use Ansible/Puppet/Chef
@@ -346,9 +348,9 @@ tasks:
 ❌ **Kubernetes-only** - Use Helm/Kustomize
 ❌ **CI/CD only** - Use native CI/CD features
 
-## Migration Paths
+## Migration Paths {#migration-paths}
 
-### From Shell Scripts to Xec
+### From Shell Scripts to Xec {#from-shell-scripts-to-xec}
 ```bash
 # Before: shell script
 ssh user@server "deploy.sh"
@@ -357,7 +359,7 @@ ssh user@server "deploy.sh"
 await $.ssh('server')`deploy.sh`;
 ```
 
-### From Ansible to Xec
+### From Ansible to Xec {#from-ansible-to-xec}
 ```yaml
 # Before: Ansible
 - command: deploy.sh
@@ -372,7 +374,7 @@ const servers = ['deploy@web-1', 'deploy@web-2'];
 await parallel(servers.map(host => $.ssh(host)`deploy.sh`));
 ```
 
-### From zx to Xec
+### From zx to Xec {#from-zx-to-xec}
 ```javascript
 // Before: zx (local only)
 await $`deploy.sh`;
@@ -382,14 +384,14 @@ await $`deploy.sh`;
 await $.ssh('deploy@web-1')`deploy.sh`;
 ```
 
-## Performance Comparison
+## Performance Comparison {#performance-comparison}
 
 Measure tools against the same command, target, connection reuse policy and output
 volume. This project does not publish a reproducible cross-tool memory or latency
 benchmark here. Connection pooling can reduce repeated SSH setup cost; it does not
 make arbitrary commands faster, and deployment tools have different semantics.
 
-## Summary
+## Summary {#summary}
 
 Xec fills a unique niche in the automation tool ecosystem:
 
@@ -400,7 +402,7 @@ Xec fills a unique niche in the automation tool ecosystem:
 
 Choose Xec when you need a modern, type-safe approach to multi-environment command execution with the flexibility of imperative programming and the convenience of declarative configuration.
 
-## Related Documentation
+## Related Documentation {#related-documentation}
 
 - [When to Use Xec](./when-to-use.md) - Detailed use cases
 - [Migration Guides](../migration/from-shell-scripts.md) - Migrating from other tools

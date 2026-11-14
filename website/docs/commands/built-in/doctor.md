@@ -3,17 +3,17 @@ title: doctor
 description: Check the environment xec runs in
 ---
 
-# doctor
+# doctor {#doctor}
 
 Report on the machine and project xec is about to run in.
 
-## Synopsis
+## Synopsis {#synopsis}
 
 ```bash
 xec doctor [options]
 ```
 
-## Description
+## Description {#description}
 
 Everything this command reports has caused a confusing failure somewhere
 else: a docker daemon that is not running, a Node too old for the type
@@ -27,14 +27,14 @@ Asking directly is cheaper than working backwards from a stack trace. For
 an agent, which cannot look at the machine, it is the only way to find out
 what is available before choosing how to do something.
 
-## Options
+## Options {#options}
 
 - `--deep` - Also contact the docker daemon and read the current
   Kubernetes context. Left out by default because both can hang on a bad
   configuration, while finding a binary and asking its version cannot.
 - `-o, --output <format>` - `text` (default), `json`, `yaml`, `csv`
 
-## Examples
+## Examples {#examples}
 
 ```bash
 # Report on this machine and project
@@ -47,7 +47,7 @@ xec doctor -o json
 xec doctor && ./deploy.sh
 ```
 
-## Output
+## Output {#output}
 
 ```console
 $ xec doctor
@@ -85,14 +85,14 @@ stderr with the rest of the narration.
 Nothing here names a secret or prints one. A diagnostic you have to redact
 before pasting into an issue is not a diagnostic.
 
-## Exit Codes
+## Exit Codes {#exit-codes}
 
 - `0` - No check failed. Warnings do not fail: they describe something
   absent that is not always needed, so a missing `kubectl` does not block
   `xec doctor && ./deploy.sh` on a machine with no clusters.
 - `1` - At least one check failed.
 
-## Related Commands
+## Related Commands {#related-commands}
 
 - [new](new.md) - Create the project `doctor` reports as missing
 - [secrets](secrets.md) - The store `doctor` checks is excluded from git

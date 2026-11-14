@@ -3,11 +3,11 @@ title: Configuration File Structure
 description: Complete reference for the .xec/config.yaml file format
 ---
 
-# Configuration File Structure
+# Configuration File Structure {#configuration-file-structure}
 
 The `.xec/config.yaml` file is the heart of Xec's configuration system. This document provides a comprehensive reference for all configuration options and their usage.
 
-## File Format
+## File Format {#file-format}
 
 Xec configuration files use YAML format with the following conventions:
 
@@ -16,7 +16,7 @@ Xec configuration files use YAML format with the following conventions:
 - **2-space** indentation (recommended)
 - **Comments** supported with `#`
 
-## File Location
+## File Location {#file-location}
 
 Xec first determines the project root by walking up from the current directory, taking the first of:
 
@@ -42,7 +42,7 @@ xec config validate
 xec config view
 ```
 
-## Root Structure
+## Root Structure {#root-structure}
 
 ```yaml
 # Configuration version (required)
@@ -85,7 +85,7 @@ extensions:
   # Extension configurations...
 ```
 
-## Version Field
+## Version Field {#version-field}
 
 The `version` field specifies the configuration format version:
 
@@ -99,7 +99,7 @@ version: "1.0"  # Current version
 
 Future versions will maintain backward compatibility or provide migration tools.
 
-## Project Metadata
+## Project Metadata {#project-metadata}
 
 Optional fields for project identification:
 
@@ -110,12 +110,12 @@ description: |
   the e-commerce platform backend services.
 ```
 
-### Fields
+### Fields {#fields}
 
 - **name** (string): Project identifier
 - **description** (string): Human-readable description
 
-## Variables Section
+## Variables Section {#variables-section}
 
 Global variables for reuse throughout configuration:
 
@@ -143,7 +143,7 @@ vars:
   connection_string: "postgres://${database.host}:${database.port}/${database.name}"
 ```
 
-### Variable Types
+### Variable Types {#variable-types}
 
 - **Strings**: Text values
 - **Numbers**: Integer or float
@@ -151,7 +151,7 @@ vars:
 - **Objects**: Nested structures
 - **Arrays**: Lists of values
 
-### Variable Interpolation
+### Variable Interpolation {#variable-interpolation}
 
 Variables can reference other variables. The supported reference forms are `${vars.name}` (or bare `${name}`), `${env.NAME}`, `${params.name}` (inside tasks), `${secrets.name}` / `${secret:name}`, and `${cmd:command}`:
 
@@ -171,7 +171,7 @@ vars:
   path_with_default: "${env.CUSTOM_PATH:/default/path}"
 ```
 
-### Command Substitution
+### Command Substitution {#command-substitution}
 
 `${cmd:command}` executes a shell command **at configuration load time** and substitutes its trimmed stdout. Keep these commands fast and side-effect free — they run every time the configuration is loaded, and their output is never written back to disk by `xec config set`:
 
@@ -184,7 +184,7 @@ vars:
 
 If the command fails, configuration loading fails with a descriptive error.
 
-## Targets Section
+## Targets Section {#targets-section}
 
 Define execution environments:
 
@@ -248,7 +248,7 @@ targets:
       container: app
 ```
 
-## Tasks Section
+## Tasks Section {#tasks-section}
 
 Define reusable automation workflows:
 
@@ -302,7 +302,7 @@ tasks:
     command: curl -f http://localhost/health
 ```
 
-## Profiles Section
+## Profiles Section {#profiles-section}
 
 Environment-specific configurations:
 
@@ -347,7 +347,7 @@ profiles:
           host: prod-db.example.com
 ```
 
-## Commands Section
+## Commands Section {#commands-section}
 
 Configure defaults for built-in commands:
 
@@ -388,7 +388,7 @@ commands:
     prefix: true
 ```
 
-## Scripts Section
+## Scripts Section {#scripts-section}
 
 Configure script execution environment:
 
@@ -404,7 +404,7 @@ scripts:
 The schema also accepts `scripts.globals` and `scripts.sandbox` keys, but they are only validated — **no sandboxing or global-module auto-loading is enforced at runtime**. Do not rely on `sandbox` for security isolation.
 :::
 
-## Secrets Section
+## Secrets Section {#secrets-section}
 
 Configure secret management. The supported providers are `local`, `env`, and `git`:
 
@@ -429,13 +429,13 @@ secrets:
 `vault`, `aws-secrets`, `1password`, and `dotenv` are declared in the provider type but **not implemented** — selecting them fails with a configuration error listing the supported providers.
 :::
 
-## Extensions Section
+## Extensions Section {#extensions-section}
 
 :::warning Not implemented
 The configuration schema accepts an `extensions:` array (each entry with a `source` and optional `tasks`/`config`), and it passes validation — but **nothing loads extensions at runtime**. The section currently has no effect. To extend Xec, use [custom commands](../commands/custom/creating-commands.md) in `.xec/commands/` instead.
 :::
 
-## Complete Example
+## Complete Example {#complete-example}
 
 Here's a complete configuration example:
 
@@ -551,7 +551,7 @@ secrets:
     storageDir: ~/.xec/secrets
 ```
 
-## Schema Validation
+## Schema Validation {#schema-validation}
 
 Xec validates the merged configuration on load:
 
@@ -563,7 +563,7 @@ xec config validate
 XEC_CONFIG=custom-config.yaml xec config validate
 ```
 
-## Configuration Precedence
+## Configuration Precedence {#configuration-precedence}
 
 Configuration sources are merged in this order — later sources override earlier ones:
 
@@ -576,9 +576,9 @@ Configuration sources are merged in this order — later sources override earlie
 
 Task parameters (`${params.name}`) are not part of this merge — they are supplied per task invocation and live in their own namespace.
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### 1. Use Version Control
+### 1. Use Version Control {#1-use-version-control}
 
 ```bash
 # Always version your configuration
@@ -586,7 +586,7 @@ git add .xec/config.yaml
 git commit -m "Add production deployment configuration"
 ```
 
-### 2. Separate Environments
+### 2. Separate Environments {#2-separate-environments}
 
 ```yaml
 # Use profiles for different environments
@@ -597,7 +597,7 @@ profiles:
     vars: { debug: false }
 ```
 
-### 3. Keep Secrets Secure
+### 3. Keep Secrets Secure {#3-keep-secrets-secure}
 
 ```yaml
 # Never hardcode secrets
@@ -605,7 +605,7 @@ password: ${secrets.db_password}  # Good
 password: "mypassword123"         # Bad
 ```
 
-### 4. Use Descriptive Names
+### 4. Use Descriptive Names {#4-use-descriptive-names}
 
 ```yaml
 tasks:
@@ -613,7 +613,7 @@ tasks:
   deploy: # Good - descriptive
 ```
 
-### 5. Document Complex Tasks
+### 5. Document Complex Tasks {#5-document-complex-tasks}
 
 ```yaml
 tasks:
@@ -624,9 +624,9 @@ tasks:
       Requirements: 5GB free space
 ```
 
-## Migration Guide
+## Migration Guide {#migration-guide}
 
-### From v0.x to v1.0
+### From v0.x to v1.0 {#from-v0x-to-v10}
 
 ```yaml
 # Old format (v0.x)
@@ -641,7 +641,7 @@ targets:
       host: example.com
 ```
 
-## Next Steps
+## Next Steps {#next-steps}
 
 - [Defining Targets](./targets/overview.md) - Configure execution environments
 - [Creating Tasks](./tasks/overview.md) - Build automation workflows
@@ -649,7 +649,7 @@ targets:
 - [Variable System](./variables/overview.md) - Dynamic configuration
 - [Best Practices](./advanced/best-practices.md) - Configuration patterns
 
-## See Also
+## See Also {#see-also}
 
 - [Configuration Commands](../commands/built-in/config.md) - CLI configuration management
 - [Troubleshooting](./advanced/troubleshooting.md) - Common issues

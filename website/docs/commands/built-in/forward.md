@@ -3,27 +3,27 @@ title: forward
 description: Forward ports from remote targets to the local machine
 ---
 
-# forward
+# forward {#forward}
 
 Forward ports between local system and remote targets (SSH hosts, Docker containers, Kubernetes pods).
 
-## Synopsis
+## Synopsis {#synopsis}
 
 ```bash
 xec forward [options] <target> <port-mapping>
 xec fwd [options] <target> <port-mapping>  # Alias
 ```
 
-## Description
+## Description {#description}
 
 The `forward` command establishes port forwarding tunnels between your local machine and remote targets. It supports SSH port forwarding, Docker container port mapping, and Kubernetes pod port forwarding.
 
-## Arguments
+## Arguments {#arguments}
 
 - `<target>` - Target to forward from (SSH host, Docker container, or Kubernetes pod)
 - `<port-mapping>` - Port mapping specification (see Port Mapping Format below)
 
-### Port Mapping Format
+### Port Mapping Format {#port-mapping-format}
 
 Port mappings can be specified as:
 - `PORT` - Forward same port number (local:PORT → remote:PORT)
@@ -32,14 +32,14 @@ Port mappings can be specified as:
 - `PORT1,PORT2` - Forward multiple ports (comma-separated)
 - `LOCAL1:REMOTE1,LOCAL2:REMOTE2` - Multiple custom mappings
 
-## Options
+## Options {#options}
 
-### Common Options
+### Common Options {#common-options}
 
 - `-o, --output <format>` - Output format: `text` (default), `json`, `yaml`, `csv`
 - `-c, --config <path>` - Path to configuration file
 
-### General Options
+### General Options {#general-options}
 
 - `-p, --profile <profile>` - Configuration profile to use
 - `-i, --interactive` - Interactive mode for setting up port forwarding
@@ -50,9 +50,9 @@ Port mappings can be specified as:
 - `-q, --quiet` - Suppress output
 - `--dry-run` - Preview port forwarding without establishing
 
-## Examples
+## Examples {#examples}
 
-### Basic Port Forwarding
+### Basic Port Forwarding {#basic-port-forwarding}
 
 Forward common service ports:
 
@@ -67,7 +67,7 @@ xec forward containers.mysql 3306
 xec forward pods.redis 6379
 ```
 
-### Custom Port Mapping
+### Custom Port Mapping {#custom-port-mapping}
 
 Map to different local ports:
 
@@ -82,7 +82,7 @@ xec forward hosts.database 15432:5432
 xec forward hosts.server 8080:80,8443:443
 ```
 
-### Auto Port Selection
+### Auto Port Selection {#auto-port-selection}
 
 Let Xec choose available local ports:
 
@@ -94,7 +94,7 @@ xec forward hosts.api 0:3000
 xec forward containers.app 0:8080,0:9090
 ```
 
-### Different Bind Addresses
+### Different Bind Addresses {#different-bind-addresses}
 
 Control local bind address:
 
@@ -109,7 +109,7 @@ xec forward --bind 192.168.1.100 containers.api 3000
 xec forward hosts.db 5432
 ```
 
-### Background Mode
+### Background Mode {#background-mode}
 
 Run port forwarding in background:
 
@@ -122,7 +122,7 @@ xec forward --background hosts.db 5432
 xec forward --background hosts.cache 6379
 ```
 
-### Interactive Mode
+### Interactive Mode {#interactive-mode}
 
 Use interactive prompts for configuration:
 
@@ -138,9 +138,9 @@ xec forward -i
 # - Additional options
 ```
 
-## Target Types
+## Target Types {#target-types}
 
-### SSH Hosts
+### SSH Hosts {#ssh-hosts}
 
 Forward ports through SSH tunnels:
 
@@ -155,7 +155,7 @@ xec forward hosts.gateway 80,443,3306
 xec forward hosts.bastion 22222:22
 ```
 
-### Docker Containers
+### Docker Containers {#docker-containers}
 
 Forward ports from Docker containers:
 
@@ -170,7 +170,7 @@ xec forward containers.stack 3000,3001,3002
 xec forward containers.db 27017
 ```
 
-### Kubernetes Pods
+### Kubernetes Pods {#kubernetes-pods}
 
 Forward ports from Kubernetes pods:
 
@@ -185,9 +185,9 @@ xec forward pods.backend 8080
 xec forward pods.monitoring 9090,9093,3000
 ```
 
-## Advanced Usage
+## Advanced Usage {#advanced-usage}
 
-### Multiple Port Forwarding
+### Multiple Port Forwarding {#multiple-port-forwarding}
 
 Forward multiple ports simultaneously:
 
@@ -202,7 +202,7 @@ xec forward containers.stack 8080:80,8443:443,13306:3306
 xec forward pods.services 0:9090,8080:8080,0:3000
 ```
 
-### Tunnel Chains
+### Tunnel Chains {#tunnel-chains}
 
 Create complex forwarding scenarios:
 
@@ -217,7 +217,7 @@ xec forward hosts.docker-host 8080:80
 xec forward hosts.k8s-bastion 6443:6443
 ```
 
-### Service Discovery
+### Service Discovery {#service-discovery}
 
 Use with service discovery patterns:
 
@@ -232,7 +232,7 @@ xec forward pods.monitoring 3000,9090,9093,8086
 xec forward containers.dev 3000,3001,4200,8080
 ```
 
-## Configuration
+## Configuration {#configuration}
 
 Set default forward options in `.xec/config.yaml`:
 
@@ -254,15 +254,15 @@ commands:
     background: false
 ```
 
-## Network Security
+## Network Security {#network-security}
 
-### Bind Address Security
+### Bind Address Security {#bind-address-security}
 
 - `127.0.0.1` (default) - Local access only
 - `0.0.0.0` - Network accessible (use with caution)
 - Specific IP - Bind to specific network interface
 
-### Firewall Considerations
+### Firewall Considerations {#firewall-considerations}
 
 ```bash
 # Local-only (safe default)
@@ -275,9 +275,9 @@ xec forward --bind 0.0.0.0 hosts.api 8080
 netstat -an | grep LISTEN
 ```
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### Common Issues
+### Common Issues {#common-issues}
 
 **Port already in use:**
 ```bash
@@ -302,7 +302,7 @@ sudo xec forward hosts.web 80
 - Check firewall rules
 - Confirm target configuration
 
-### Debugging
+### Debugging {#debugging}
 
 ```bash
 # Verbose output for debugging
@@ -316,7 +316,7 @@ ps aux | grep "xec forward"
 netstat -an | grep LISTEN
 ```
 
-## Cleanup
+## Cleanup {#cleanup}
 
 Port forwards are automatically cleaned up when:
 - Process is terminated (Ctrl+C)
@@ -335,27 +335,27 @@ kill <pid>
 pkill -f "xec forward"
 ```
 
-## Performance Considerations
+## Performance Considerations {#performance-considerations}
 
 - SSH forwarding adds encryption overhead
 - Docker forwarding uses socat for efficiency
 - Kubernetes forwarding uses native kubectl
 - Multiple ports share the same tunnel when possible
 
-## Limitations
+## Limitations {#limitations}
 
 - Reverse forwarding (`-r`) is available for SSH targets only
 - UDP forwarding not supported
 - Dynamic port forwarding (SOCKS) not available
 - Maximum 65535 ports per target
 
-## Related Commands
+## Related Commands {#related-commands}
 
 - [on](on.md) - Execute commands on SSH hosts
 - [in](in.md) - Execute commands in containers/pods
 - [copy](copy.md) - Transfer files to/from targets
 
-## Exit Codes
+## Exit Codes {#exit-codes}
 
 - `0` - Success, forwarding established
 - `1` - General error

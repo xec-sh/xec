@@ -5,11 +5,11 @@ title: DAG Workflow Engine
 description: Asynchronous tasks with validated dependencies, data passing and cancellation
 ---
 
-# Workflow Engine
+# Workflow Engine {#workflow-engine}
 
 `Workflow` runs asynchronous tasks, passes their return values to dependents, and reports each task's outcome. It validates duplicate names, unknown dependencies, cycles, timeouts and retry policies before invoking any task.
 
-## Basic Workflow
+## Basic Workflow {#basic-workflow}
 
 ```typescript
 import { Workflow } from '@xec-sh/ops';
@@ -51,13 +51,13 @@ console.log(result.tasks);
 
 All commands started with `ctx.exec` belong to the task attempt. Completion waits for them, including a command whose promise was accidentally not awaited. An unexpected command failure invalidates that attempt; use an explicit nonthrowing command when failure is an expected result.
 
-## Data Passing
+## Data Passing {#data-passing}
 
 `ctx.taskOutput(name)` returns a successful task's value as `unknown`. Narrow it to the contract shared by those tasks. `ctx.vars` is the run's shared application state; `ctx.env` exposes the environment and declared overrides. These do not replace dependency declarations.
 
 A failed task blocks its descendants. An independent branch can still finish. A false `when` condition produces a skipped task without treating it as a failure.
 
-## Parallel Execution
+## Parallel Execution {#parallel-execution}
 
 Ready tasks with `parallel: true` execute concurrently; other ready tasks execute sequentially. Declaring a dependency prevents a task from starting before its inputs have settled.
 
@@ -73,7 +73,7 @@ const result = await Workflow.create('checks')
 console.log(result.summary);
 ```
 
-## Conditional Execution
+## Conditional Execution {#conditional-execution}
 
 ```typescript
 import { Workflow } from '@xec-sh/ops';
@@ -84,9 +84,9 @@ await Workflow.create('preview')
   }).run({ env: { INSPECT: 'true' } });
 ```
 
-## Error Handling
+## Error Handling {#error-handling}
 
-### Global Failure Handler
+### Global Failure Handler {#global-failure-handler}
 
 A configured `onFailure` handler runs once after tasks settle. It has a fresh bounded cleanup scope, so cancellation of the original run does not prevent the requested cleanup. A failure of this handler is recorded as `failureHandlerError`; it does not replace the original task error.
 
@@ -101,11 +101,11 @@ const result = await Workflow.create('release')
 console.log(result.failureHandlerError);
 ```
 
-### Continue on Error
+### Continue on Error {#continue-on-error}
 
 `continueOnError: true` allows dependents to proceed after a failed task. Its result remains `status: 'failed'` with `continued: true`; the summary still counts the failure. A run can succeed with these explicitly tolerated failures. Cancellation is never treated as a tolerated failure.
 
-### Retry
+### Retry {#retry}
 
 `retry` is the maximum number of attempts, including the first. A retry starts only after the preceding callback and its commands have finished. Set it only for operations that are safe to repeat.
 
@@ -121,6 +121,6 @@ await Workflow.create('network-check')
   .run();
 ```
 
-## Cancellation
+## Cancellation {#cancellation}
 
 Pass `signal` to `run`. Core commands inherit it and the attempt deadline. Function tasks must pass `ctx.signal` to their own asynchronous work and finish their cleanup before returning. A timeout does not make unfinished JavaScript disappear: the runner waits for the callback, and does not start a retry while it is still running.

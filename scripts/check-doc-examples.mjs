@@ -36,7 +36,7 @@ const COMPILED = new Set(['ts', 'typescript', 'js', 'javascript', 'tsx', 'jsx'])
 /** Walk for markdown, skipping build output. */
 function* markdownUnder(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (entry.name === 'node_modules' || entry.name === 'build' || entry.name === '.docusaurus') continue;
+    if (entry.name === 'node_modules' || entry.name === 'build' || entry.name === '.lumen') continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) yield* markdownUnder(full);
     else if (/\.mdx?$/.test(entry.name)) yield full;
@@ -82,21 +82,6 @@ function blocksIn(source) {
   return blocks;
 }
 
-/** Code blocks inside a .tsx page, which holds them as template literals. */
-function blocksInPage(source) {
-  const blocks = [];
-  const pattern = /<code>\{`([\s\S]*?)`\}<\/code>/g;
-  let match;
-  while ((match = pattern.exec(source)) !== null) {
-    const code = match[1].replace(/\\`/g, '`').replace(/\\\\/g, '\\');
-    // Shell and install lines are not TypeScript.
-    if (/^\s*(npm|pnpm|yarn|xec|curl|docker|kubectl)\b/m.test(code) && !/\b(const|await|import)\b/.test(code)) continue;
-    const line = source.slice(0, match.index).split('\n').length;
-    blocks.push({ lang: 'ts', line, code });
-  }
-  return blocks;
-}
-
 async function main() {
   const onlyIndex = process.argv.indexOf('--only');
   const only = onlyIndex === -1 ? null : process.argv[onlyIndex + 1];
@@ -111,8 +96,8 @@ async function main() {
     for (const file of markdownUnder(path.join(ROOT, 'website/docs'))) {
       sources.push({ file, blocks: blocksIn(await readFile(file, 'utf8')) });
     }
-    const page = path.join(ROOT, 'website/src/pages/index.tsx');
-    sources.push({ file: page, blocks: blocksInPage(await readFile(page, 'utf8')) });
+    const examples = path.join(ROOT, 'website/src/data/examples.json');
+    sources.push({ file: examples, blocks: JSON.parse(await readFile(examples, 'utf8')).map((example, index) => ({ lang: 'ts', line: index + 1, code: example.code })) });
   }
 
   const work = sources

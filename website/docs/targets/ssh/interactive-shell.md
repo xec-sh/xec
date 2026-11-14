@@ -4,7 +4,7 @@ description: Use the existing Xec NodeSSH connection for pinned interactive PTYs
 sidebar_position: 8
 ---
 
-# Interactive SSH shells
+# Interactive SSH shells {#interactive-ssh-shells}
 
 Import the existing SSH implementation directly when building an interactive terminal:
 
@@ -14,7 +14,7 @@ import { NodeSSH, sshHostFingerprint } from '@xec-sh/core/ssh';
 
 This entry exports the same `NodeSSH` class used by the SSH adapter. It does not introduce another SSH transport. Normal command execution, connection pooling, SFTP and tunnels continue to use the existing adapter.
 
-## Pin the host before sending credentials
+## Pin the host before sending credentials {#pin-the-host-before-sending-credentials}
 
 `NodeSSH.probeHostKey({ host, port?, timeoutMs?, signal? })` observes a SHA256 host fingerprint without authenticating. The observed value is untrusted until compared with an independent source. `sshHostFingerprint(rawPublicKey)` computes the same OpenSSH-format fingerprint from a binary public key; an authorized key text line must first be decoded from base64.
 
@@ -58,7 +58,7 @@ Require both configuration values before using this example. In particular, an a
 
 A mismatched pin fails before authentication with `EHOSTKEY`. `expectedHostFingerprint` cannot be combined with a custom `hostVerifier`; it hashes the raw key regardless of an inherited `hostHash` setting. Existing adapter users can retain `hostKeyChecking` and `knownHostsPath`: trust policy participates in the pool key and is preserved on reconnect.
 
-## Lifecycle and byte handling
+## Lifecycle and byte handling {#lifecycle-and-byte-handling}
 
 `connect` accepts an abort signal for connection setup. `requestShell` accepts its own `{ timeoutMs, signal }`; its default timeout is 15 seconds. A timeout, abort or closed connection rejects the request, removes its listeners and destroys a channel that arrives late. These options bound setup; the caller owns the lifetime of an already established shell.
 

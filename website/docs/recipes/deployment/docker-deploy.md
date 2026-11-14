@@ -7,17 +7,17 @@ source_files:
   - packages/ops/src/config/target-resolver.ts
 ---
 
-# Docker Container Deployment
+# Docker Container Deployment {#docker-container-deployment}
 
-## Problem
+## Problem {#problem}
 
 Deploy an exact container image while preserving persistent data and retaining a usable recovery image.
 
-## Solution
+## Solution {#solution}
 
 Let Docker Compose own the service declaration and Xec own command execution and acceptance. Use a recorded image digest, a named Compose project and a real application healthcheck. A running container is not automatically healthy.
 
-## Quick Example
+## Quick Example {#quick-example}
 
 ```typescript
 const image = process.env.APP_IMAGE;
@@ -30,9 +30,9 @@ await docker`npm run verify:container-release -- ${image}`;
 
 The project provides `verify:container-release`, which checks the serving application identity and behavior. [Compose’s wait option](https://docs.docker.com/reference/cli/docker/compose/up/) uses the service’s declared health contract.
 
-## Complete Docker Deployment Recipes
+## Complete Docker Deployment Recipes {#complete-docker-deployment-recipes}
 
-### Configuration
+### Configuration {#configuration}
 
 ```yaml
 # compose.production.yaml — the Node application exposes /health.
@@ -56,7 +56,7 @@ services:
 
 Add reviewed volumes, limits and application secrets to the project’s declaration. Do not put a database password or a mutable `latest` image in a reusable example.
 
-### Multi-Stage Docker Build and Deploy
+### Multi-Stage Docker Build and Deploy {#multi-stage-docker-build-and-deploy}
 
 Build once with the application’s multi-stage Dockerfile, then publish that artifact. The source commit is used as a tag for discovery; resolve and record the registry digest before deployment.
 
@@ -72,7 +72,7 @@ console.log(`Published ${image}; resolve its registry digest for APP_IMAGE`);
 
 The Dockerfile and lockfile own dependency installation and build inputs. Xec does not generate a second application build process.
 
-### Blue-Green Deployment
+### Blue-Green Deployment {#blue-green-deployment}
 
 Blue-green requires two independent service slots, a reviewed traffic switch and draining. Keep those definitions in the application’s orchestrator. The following Deployer hooks coordinate an existing slot protocol; Xec’s strategy name alone does not create a load balancer.
 
@@ -94,11 +94,11 @@ if (!result.success) throw new Error(JSON.stringify(result));
 
 The named package scripts must implement durable slot identity, readiness, routing, draining and recovery. Keep the previous slot until application acceptance succeeds.
 
-### Docker Registry Management
+### Docker Registry Management {#docker-registry-management}
 
 Authenticate using the CI runner’s credential mechanism, then use the pinned repository reference. Do not echo passwords or embed them in a shell command. Image retirement is a separate retention policy; do not prune all host images or delete the previous accepted digest as part of deployment.
 
-### Container Monitoring and Logging
+### Container Monitoring and Logging {#container-monitoring-and-logging}
 
 ```typescript
 await $`docker compose --project-name myapp -f compose.production.yaml ps`;
@@ -107,7 +107,7 @@ await $`docker compose --project-name myapp -f compose.production.yaml logs --ta
 
 Use the [health-check recipe](../maintenance/health-checks.md) for explicit readiness and the [logging recipe](../maintenance/log-aggregation.md) for source attribution.
 
-## Usage Examples
+## Usage Examples {#usage-examples}
 
 ```bash
 APP_IMAGE=registry.example.com/myapp@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234567 xec run scripts/deploy-container.ts
@@ -115,13 +115,13 @@ APP_IMAGE=registry.example.com/myapp@sha256:0123456789abcdef0123456789abcdef0123
 
 Save the quick example under that path and replace the illustrative digest with the accepted registry digest.
 
-## Best Practices
+## Best Practices {#best-practices}
 
 Keep image identity, Compose project name and volume ownership explicit. Check schema compatibility before replacing the application. Preserve the previous digest. `up` may replace containers; it is not inherently a no-pause operation.
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### Container Won't Start
+### Container Won't Start {#container-wont-start}
 
 ```bash
 docker compose --project-name myapp -f compose.production.yaml ps
@@ -130,15 +130,15 @@ docker compose --project-name myapp -f compose.production.yaml logs --tail 100 a
 
 Check the exact image digest, command, environment and declared healthcheck before changing restart policy.
 
-### High Memory Usage
+### High Memory Usage {#high-memory-usage}
 
 Inspect the target container’s metrics and configured limits. Do not terminate another project’s containers to make a test pass.
 
-### Network Issues
+### Network Issues {#network-issues}
 
 Check the declared networks, loopback publications and target listener. A Docker network connection and an HTTP health response establish different conditions.
 
-## Related Topics
+## Related Topics {#related-topics}
 
 - [Node.js Deployment](node-app-deploy.md)
 - [Kubernetes Deployment](k8s-deploy.md)

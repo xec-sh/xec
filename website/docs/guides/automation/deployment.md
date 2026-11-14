@@ -4,11 +4,11 @@ title: Deployment Automation
 description: Automate deployments across environments with Xec
 ---
 
-# Deployment Automation
+# Deployment Automation {#deployment-automation}
 
 Deployment automation with Xec's execution engine: deploy applications reliably across local, remote, containerized, and cloud environments.
 
-## Overview
+## Overview {#overview}
 
 Xec transforms deployment automation by providing:
 - **Unified deployment API** across all environments
@@ -17,9 +17,9 @@ Xec transforms deployment automation by providing:
 - **Staged deployment** strategies with application health checks
 - **Multi-environment** orchestration
 
-## Basic Deployment Patterns
+## Basic Deployment Patterns {#basic-deployment-patterns}
 
-### Simple File-Based Deployment
+### Simple File-Based Deployment {#simple-file-based-deployment}
 
 ```typescript
 // deploy/simple-deploy.ts
@@ -66,7 +66,7 @@ async function simpleDeploy() {
 await simpleDeploy();
 ```
 
-### Git-Based Deployment
+### Git-Based Deployment {#git-based-deployment}
 
 ```typescript
 // deploy/git-deploy.ts
@@ -123,9 +123,9 @@ await gitDeploy({
 });
 ```
 
-## Zero-Downtime Deployments
+## Zero-Downtime Deployments {#zero-downtime-deployments}
 
-### Blue-Green Deployment
+### Blue-Green Deployment {#blue-green-deployment}
 
 ```typescript
 // deploy/blue-green.ts
@@ -281,7 +281,7 @@ const deployment = new BlueGreenDeployment(server, {
 await deployment.deploy();
 ```
 
-### Rolling Deployment
+### Rolling Deployment {#rolling-deployment}
 
 ```typescript
 // deploy/rolling-deploy.ts
@@ -426,9 +426,9 @@ const deployment = new RollingDeployment(
 await deployment.deploy();
 ```
 
-## Container Deployments
+## Container Deployments {#container-deployments}
 
-### Docker Deployment
+### Docker Deployment {#docker-deployment}
 
 ```typescript
 // deploy/docker-deploy.ts
@@ -491,7 +491,7 @@ async function dockerDeploy() {
 await dockerDeploy();
 ```
 
-### Docker Compose Deployment
+### Docker Compose Deployment {#docker-compose-deployment}
 
 ```typescript
 // deploy/compose-deploy.ts
@@ -534,7 +534,7 @@ async function composeDeploy() {
 await composeDeploy();
 ```
 
-### Kubernetes Deployment
+### Kubernetes Deployment {#kubernetes-deployment}
 
 ```typescript
 // deploy/k8s-deploy.ts
@@ -635,9 +635,9 @@ const deployment = new KubernetesDeployment('production', 'myapp', 'myapp');
 await deployment.deploy('myapp:v1.2.3');
 ```
 
-## Cloud Platform Deployments
+## Cloud Platform Deployments {#cloud-platform-deployments}
 
-### AWS ECS Deployment
+### AWS ECS Deployment {#aws-ecs-deployment}
 
 ```typescript
 // deploy/aws-ecs.ts
@@ -703,7 +703,7 @@ async function ecsDeploy() {
 await ecsDeploy();
 ```
 
-### Google Cloud Run Deployment
+### Google Cloud Run Deployment {#google-cloud-run-deployment}
 
 ```typescript
 // deploy/gcloud-run.ts
@@ -753,7 +753,7 @@ async function cloudRunDeploy() {
 await cloudRunDeploy();
 ```
 
-### Azure App Service Deployment
+### Azure App Service Deployment {#azure-app-service-deployment}
 
 ```typescript
 // deploy/azure-app.ts
@@ -805,9 +805,9 @@ async function azureAppDeploy() {
 await azureAppDeploy();
 ```
 
-## Deployment Strategies
+## Deployment Strategies {#deployment-strategies}
 
-### Canary Deployment
+### Canary Deployment {#canary-deployment}
 
 ```typescript
 // deploy/canary.ts
@@ -917,7 +917,7 @@ const canary = new CanaryDeployment({
 await canary.deploy();
 ```
 
-### Feature Flag Deployment
+### Feature Flag Deployment {#feature-flag-deployment}
 
 ```typescript
 // deploy/feature-flag.ts
@@ -970,9 +970,9 @@ async function featureFlagDeploy() {
 await featureFlagDeploy();
 ```
 
-## Rollback Strategies
+## Rollback Strategies {#rollback-strategies}
 
-### Automated Rollback
+### Automated Rollback {#automated-rollback}
 
 ```typescript
 // deploy/auto-rollback.ts
@@ -1112,9 +1112,9 @@ const deployment = new AutoRollbackDeployment({
 await deployment.deploy();
 ```
 
-## Deployment Configuration
+## Deployment Configuration {#deployment-configuration}
 
-### Environment-Based Config
+### Environment-Based Config {#environment-based-config}
 
 ```typescript
 // deploy/config.ts
@@ -1181,9 +1181,9 @@ await $.exec(config.buildCommand);
 await server.cd(config.deployPath)`sh -c ${config.startCommand}`;
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### 1. Pre-Deployment Checks
+### 1. Pre-Deployment Checks {#1-pre-deployment-checks}
 
 ```typescript
 async function preDeploymentChecks() {
@@ -1208,7 +1208,7 @@ async function preDeploymentChecks() {
 }
 ```
 
-### 2. Deployment Notifications
+### 2. Deployment Notifications {#2-deployment-notifications}
 
 ```typescript
 async function notifyDeployment(status: 'started' | 'success' | 'failed', details?: any) {
@@ -1228,7 +1228,7 @@ async function notifyDeployment(status: 'started' | 'success' | 'failed', detail
 }
 ```
 
-### 3. Deployment Logging
+### 3. Deployment Logging {#3-deployment-logging}
 
 ```typescript
 class DeploymentLogger {
@@ -1253,9 +1253,9 @@ class DeploymentLogger {
 }
 ```
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### Common Issues
+### Common Issues {#common-issues}
 
 1. **Permission Denied**
 
@@ -1288,14 +1288,14 @@ class DeploymentLogger {
    Apply the project's retention policy while preserving the active release and
    the verified rollback release.
 
-## Next Steps
+## Next Steps {#next-steps}
 
 - Explore [test automation](./testing.md)
 - Learn about [server management](../infrastructure/server-management.md)
 - Master [container orchestration](../infrastructure/container-orchestration.md)
 - Implement [error handling](../advanced/error-handling.md)
 
-## Summary
+## Summary {#summary}
 
 You've learned how to:
 - ✅ Implement basic file and Git-based deployments

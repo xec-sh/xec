@@ -5,11 +5,11 @@ keywords: [kubernetes, k8s, file-transfer, kubectl-cp, copy, upload, download]
 sidebar_position: 6
 ---
 
-# File Operations
+# File Operations {#file-operations}
 
 File transfer runs through `kubectl cp`, in both directions, via a pod handle.
 
-## Copy To / From a Pod
+## Copy To / From a Pod {#copy-to--from-a-pod}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -35,7 +35,7 @@ cluster context — the same calls work against `$.ssh(...)` and
 `$.docker(...)` engines. See the
 [K8s adapter](../../core/execution-engine/adapters/k8s-adapter.md) page.
 
-## Copying to a Specific Container
+## Copying to a Specific Container {#copying-to-a-specific-container}
 
 `copyTo`/`copyFrom` accept a third `container` argument. Xec passes it as a
 separate `kubectl cp -c` option; it never becomes part of a filename. The pod
@@ -65,7 +65,7 @@ await k8s.copyFiles('./nginx.conf', 'multi-container-pod:/etc/nginx/nginx.conf',
 });
 ```
 
-## Configuration Deployment
+## Configuration Deployment {#configuration-deployment}
 
 A typical backup-then-deploy-then-validate sequence, using only `copyTo`/`copyFrom`/`exec`/`nothrow`:
 
@@ -85,7 +85,7 @@ async function deployConfig(podName: string, configDir: string) {
 }
 ```
 
-## Log and Backup Collection
+## Log and Backup Collection {#log-and-backup-collection}
 
 ```typescript
 async function collectLogs(podName: string, remoteFiles: string[], localDir: string) {
@@ -106,7 +106,7 @@ async function backupDatabase(dbPod: string) {
 }
 ```
 
-## Error Handling and Retries
+## Error Handling and Retries {#error-handling-and-retries}
 
 ```typescript
 import type { K8sPod } from '@xec-sh/core';
@@ -131,7 +131,7 @@ async function robustCopy(
 }
 ```
 
-## Integrity Verification
+## Integrity Verification {#integrity-verification}
 
 ```typescript
 import type { K8sPod } from '@xec-sh/core';
@@ -149,7 +149,7 @@ async function verifiedCopyTo(pod: K8sPod, localPath: string, remotePath: string
 }
 ```
 
-## Permissions
+## Permissions {#permissions}
 
 `copyTo`/`copyFrom` preserve no permission metadata beyond what `kubectl cp` itself does — set permissions explicitly afterward if they matter:
 
@@ -161,7 +161,7 @@ await pod.exec`chown app:app /tmp/new-config.json && chmod 600 /tmp/new-config.j
 await pod.exec`mv /tmp/new-config.json /app/config/secure-config.json`;
 ```
 
-## Performance Notes
+## Performance Notes {#performance-notes}
 
 - Many small files are slow over `kubectl cp` (one tar stream per call). Archive locally, copy the single archive, and extract inside the pod instead:
 

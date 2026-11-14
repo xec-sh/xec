@@ -5,13 +5,13 @@ keywords: [kubernetes, k8s, logs, streaming, follow, tail]
 sidebar_position: 5
 ---
 
-# Log Streaming
+# Log Streaming {#log-streaming}
 
 Pod handles run `kubectl logs` with the namespace, context and kubeconfig selected
 on `$.k8s(...)`. One-shot retrieval returns text; streaming exposes a handle with
 observable completion and awaited shutdown.
 
-## Static Retrieval
+## Static Retrieval {#static-retrieval}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -27,7 +27,7 @@ const previous = await pod.logs({ previous: true, tail: 200 });
 `pod.logs()` does not follow. A nonzero kubectl exit rejects with
 `ExecutionError` and `code: 'KUBERNETES_ERROR'`.
 
-## Real-Time Streaming
+## Real-Time Streaming {#real-time-streaming}
 
 ```typescript
 const pod = $.k8s({ namespace: 'production' }).pod('web-server');
@@ -66,7 +66,7 @@ const stream = await pod.follow(line => process.stdout.write(line), {
 await stream.stop();
 ```
 
-## Deadlines and Cancellation
+## Deadlines and Cancellation {#deadlines-and-cancellation}
 
 Follow streams have no deadline by default. `timeout` is in milliseconds; `0`
 disables it. Non-follow streams use the adapter's configured deadline. `maxBuffer`
@@ -93,7 +93,7 @@ Pass the owning operation's `AbortSignal` when embedding this API. In an Xec CLI
 script, `getExecutionSignal()` exposes the command's cooperative cancellation
 scope; do not install competing process signal handlers.
 
-## Container-Specific Streaming
+## Container-Specific Streaming {#container-specific-streaming}
 
 ```typescript
 const multiPod = $.k8s({ namespace: 'production' }).pod('multi-container-pod');
@@ -107,7 +107,7 @@ try {
 }
 ```
 
-## Low-Level Adapter Form
+## Low-Level Adapter Form {#low-level-adapter-form}
 
 ```typescript
 import { KubernetesAdapter } from '@xec-sh/core';
@@ -124,7 +124,7 @@ try {
 }
 ```
 
-## Multiple Pods
+## Multiple Pods {#multiple-pods}
 
 There is no built-in aggregation. Own each stream, attach completion handlers and
 await all shutdowns. The `finally` block also covers a later stream failing to
@@ -148,7 +148,7 @@ async function streamAll(pods: string[], namespace: string, signal: AbortSignal)
 }
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
 - Bound `tail` to limit the initial history delivered before following.
 - Observe `completion`; receiving a handle is not proof that a stream stays healthy.

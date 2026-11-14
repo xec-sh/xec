@@ -4,19 +4,19 @@ description: Comprehensive overview of Xec's command system architecture and cap
 keywords: [commands, cli, architecture, built-in, custom, dynamic]
 ---
 
-# Command System Overview
+# Command System Overview {#command-system-overview}
 
-## Overview
+## Overview {#overview}
 
 Xec provides a powerful and extensible command system that supports both built-in commands and custom user-defined commands. This section covers the complete command reference for the Xec CLI.
 
 The CLI entry point lives in `apps/xec/src/main.ts`. Built-in commands are the modules in `apps/xec/src/commands/`, each registering itself with the commander program. Dynamic commands are loaded by `loadDynamicCommands()` from `apps/xec/src/utils/cli-command-manager.ts`, and built-ins share `apps/xec/src/utils/command-base.ts`. Project commands register with the public Commander program instead of importing that private base class.
 
-## Command Types
+## Command Types {#command-types}
 
 Xec supports three types of commands:
 
-### 1. Built-in Commands
+### 1. Built-in Commands {#1-built-in-commands}
 
 Core commands that are included with Xec:
 
@@ -35,15 +35,15 @@ Core commands that are included with Xec:
 - **[secrets](built-in/secrets.md)** - Manage secrets and credentials
 - **[watch](built-in/watch.md)** - Watch files for changes and execute commands
 
-### 2. Dynamic Commands
+### 2. Dynamic Commands {#2-dynamic-commands}
 
 Commands loaded from `.xec/commands/` directory that extend Xec's functionality.
 
-### 3. Script and Task Execution
+### 3. Script and Task Execution {#3-script-and-task-execution}
 
 Direct execution of JavaScript/TypeScript files as Xec scripts (`xec ./script.ts`), and execution of tasks defined in configuration by name (`xec deploy`).
 
-## Command Structure
+## Command Structure {#command-structure}
 
 All Xec commands follow a consistent structure:
 
@@ -51,7 +51,7 @@ All Xec commands follow a consistent structure:
 xec [global-options] <command> [command-options] [arguments]
 ```
 
-### Global Options
+### Global Options {#global-options}
 
 Options that apply to all commands:
 
@@ -64,7 +64,7 @@ Options that apply to all commands:
 
 Options such as `--dry-run`, `--profile`, or config-file selection are **per-subcommand**, not global — check `xec <command> --help` for what each command supports. The configuration file location is controlled by the `XEC_CONFIG` environment variable rather than a global flag.
 
-## Command Resolution
+## Command Resolution {#command-resolution}
 
 When you run `xec <something>`, the CLI resolves it in the following order:
 
@@ -75,7 +75,7 @@ When you run `xec <something>`, the CLI resolves it in the following order:
 5. **Built-in and dynamic commands** - Resolved by commander, including aliases
 6. **Unknown command** - Prints an error with "did you mean" typo suggestions
 
-## Target Selection
+## Target Selection {#target-selection}
 
 Many commands operate on targets (local, SSH, Docker, Kubernetes). The target selection pattern is:
 
@@ -91,7 +91,7 @@ Target patterns can be:
 - `hosts.*` - All SSH hosts (wildcard)
 - `{hosts.web1,hosts.web2}` - Multiple targets (brace expansion)
 
-## Configuration Integration
+## Configuration Integration {#configuration-integration}
 
 Commands respect configuration from:
 
@@ -100,11 +100,11 @@ Commands respect configuration from:
 3. Environment variables (`XEC_*`)
 4. Command-line options (highest priority)
 
-## Error Handling
+## Error Handling {#error-handling}
 
 Errors are handled by `handleError()` from `@xec-sh/ops`, which prints an actionable message and exits with a code based on the error type:
 
-### Exit Codes
+### Exit Codes {#exit-codes}
 
 | Code | Error Type |
 |------|------------|
@@ -125,13 +125,13 @@ Errors are handled by `handleError()` from `@xec-sh/ops`, which prints an action
 | 130 | Cancelled by `SIGINT` after cleanup |
 | 143 | Cancelled by `SIGTERM` after cleanup |
 
-### Error Features
+### Error Features {#error-features}
 - Clear error messages with context
 - Stack traces with `--verbose` flag
 - Suggestions for common issues
 - Colored output for error types
 
-## Command Development
+## Command Development {#command-development}
 
 Create a `.xec/commands/` file that exports `command(program)`, `setup(program)`
 or a default registration function. Register the command's arguments, options
@@ -141,9 +141,9 @@ There is no requirement to subclass or import Xec's private CLI implementation.
 
 See [Creating Custom Commands](custom/creating-commands.md) for detailed guide.
 
-## Common Patterns
+## Common Patterns {#common-patterns}
 
-### Dry Run Mode
+### Dry Run Mode {#dry-run-mode}
 
 Several commands support `--dry-run` to preview actions:
 
@@ -151,7 +151,7 @@ Several commands support `--dry-run` to preview actions:
 xec copy --dry-run source.txt hosts.* /tmp/
 ```
 
-### Parallel Execution
+### Parallel Execution {#parallel-execution}
 
 Commands that operate on multiple targets execute in parallel:
 
@@ -161,7 +161,7 @@ xec on "hosts.*" "uptime"  # Runs on all hosts in parallel
 
 SSH connections are reused via the connection pool, and output streams are merged in real time.
 
-### Streaming Output
+### Streaming Output {#streaming-output}
 
 Commands that produce continuous output support streaming:
 
@@ -169,7 +169,7 @@ Commands that produce continuous output support streaming:
 xec logs containers.app --follow
 ```
 
-### Interactive Mode
+### Interactive Mode {#interactive-mode}
 
 Some commands provide interactive prompts when options are missing:
 
@@ -177,7 +177,7 @@ Some commands provide interactive prompts when options are missing:
 xec new  # Prompts for artifact type
 ```
 
-## Next Steps
+## Next Steps {#next-steps}
 
 - [Built-in Commands Reference](built-in/run.md) - Detailed documentation for each command
 - [Custom Commands](custom/creating-commands.md) - Create your own commands

@@ -5,13 +5,13 @@ keywords: [ssh, connection, configuration, pooling, timeout, keepalive]
 sidebar_position: 3
 ---
 
-# SSH Connection Configuration
+# SSH Connection Configuration {#ssh-connection-configuration}
 
-## Overview
+## Overview {#overview}
 
 Two different levels of configuration exist. Per-command options (`host`, `username`, `privateKey`, `hostKeyChecking`, ...) are covered in [Authentication](./authentication.md) and go on every `$.ssh({...})` call. This page covers the other level: adapter-wide settings — connection pool sizing, SFTP concurrency, sudo defaults — that apply to every SSH connection the process makes and are configured once, not per call.
 
-## Connection Pooling
+## Connection Pooling {#connection-pooling}
 
 Pooling is on by default. Calls to the same host through the same `$.ssh(...)` context reuse one underlying connection:
 
@@ -23,7 +23,7 @@ await web`df -h`;    // reuses it
 
 Connections are pooled by username, host, port, **and** a fingerprint of the credentials (key/passphrase/password, hashed — never stored or logged in the clear). Two calls with different credentials for the same `user@host` get separate connections rather than silently sharing one.
 
-### Pool Defaults
+### Pool Defaults {#pool-defaults}
 
 | Setting | Default | Meaning |
 |---|---|---|
@@ -39,7 +39,7 @@ Connections are pooled by username, host, port, **and** a fingerprint of the cre
 
 Keep-alive uses SSH transport requests. It does not execute shell commands on the remote host.
 
-### Applying Adapter-Wide Configuration
+### Applying Adapter-Wide Configuration {#applying-adapter-wide-configuration}
 
 There is no per-target pool configuration in `.xec/config.yaml` — the CLI's target resolver (`apps/xec/src/utils/command-base.ts`) only forwards `host`, `username`, `port`, `privateKey`, `password`, `passphrase`, `hostKeyChecking`, `knownHostsPath`, and `env` from a configured target into `$.ssh(...)`. Pool, SFTP, and sudo settings are configured in code, once, for the whole process:
 
@@ -73,14 +73,14 @@ const highTraffic = new SSHAdapter({
 $.registerAdapter('ssh', highTraffic);
 ```
 
-### Pool Behavior
+### Pool Behavior {#pool-behavior}
 
 1. A checked-out connection is tested with `.isConnected()`; if dead and `autoReconnect` is on, the adapter retries the connection (up to `maxReconnectAttempts`, delay growing with each attempt) before falling back to opening a fresh one.
 2. A connection failure before command dispatch can be retried. Once a command may have reached the server, an interrupted reply is reported to the caller so it can reconcile effects before retrying.
 3. A background sweep runs every 60 seconds, closing connections that are idle past `idleTimeout`, older than `maxLifetime`, or found dead — connections with an in-flight command are never evicted mid-use.
 4. If the pool is at `maxConnections` when a new connection is needed, the least-recently-used idle connection is evicted to make room.
 
-### Metrics
+### Metrics {#metrics}
 
 ```typescript
 import { $, SSHAdapter } from '@xec-sh/core';
@@ -96,7 +96,7 @@ const metrics = adapter.getConnectionPoolMetrics();
 //   averageUseCount, lastCleanup }
 ```
 
-## Timeouts
+## Timeouts {#timeouts}
 
 There are two independent timeouts:
 
@@ -117,7 +117,7 @@ There are two independent timeouts:
 
 A command that times out removes its connection from the pool (it may be mid-write on a channel the caller no longer owns) rather than returning it for reuse.
 
-## SFTP Concurrency
+## SFTP Concurrency {#sftp-concurrency}
 
 File transfer (`uploadFile`, `downloadFile`, `uploadDirectory`) uses SFTP, which can be disabled or tuned:
 
@@ -130,7 +130,7 @@ $.registerAdapter('ssh', adapter);
 
 With `sftp.enabled: false`, `uploadFile`/`downloadFile`/`uploadDirectory` throw an `AdapterError` instead of connecting.
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
 | Symptom | Likely cause | What to change |
 |---|---|---|
@@ -139,7 +139,7 @@ With `sftp.enabled: false`, `uploadFile`/`downloadFile`/`uploadDirectory` throw 
 | Pool exhausted / commands queue up | `maxConnections` too low for the fan-out | Raise `connectionPool.maxConnections` |
 | Every command opens a new connection | Pooling disabled, distinct connection settings, or an unhealthy connection | Inspect pool settings and keep authentication and endpoint options stable |
 
-## Related Documentation
+## Related Documentation {#related-documentation}
 
 - [SSH Overview](./overview.md) - fundamentals and command execution
 - [Authentication](./authentication.md) - per-command connection and auth options

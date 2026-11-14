@@ -8,15 +8,15 @@ source_files:
   - apps/xec/src/commands/run.ts
 ---
 
-# Migrating from Gulp/Grunt to Xec
+# Migrating from Gulp/Grunt to Xec {#migrating-from-gulpgrunt-to-xec}
 
-## Overview
+## Overview {#overview}
 
 This guide helps you migrate from JavaScript task runners like Gulp and Grunt to Xec's modern execution system. While Gulp and Grunt revolutionized front-end build tooling, Xec provides a more comprehensive solution with TypeScript support, multi-environment execution, and better performance.
 
-## Why Migrate from Gulp/Grunt?
+## Why Migrate from Gulp/Grunt? {#why-migrate-from-gulpgrunt}
 
-### Gulp/Grunt Limitations
+### Gulp/Grunt Limitations {#gulpgrunt-limitations}
 
 **Gulp Example:**
 <!-- doc-check: skip — Gulp or Grunt comparison uses its original task runner and plugins, not Xec -->
@@ -88,7 +88,7 @@ module.exports = function(grunt) {
 - Callback hell in complex workflows
 - Maintenance burden of plugins
 
-### Xec Advantages
+### Xec Advantages {#xec-advantages}
 
 ```typescript
 // scripts/build.ts
@@ -119,9 +119,9 @@ await Promise.all([buildStyles(), buildScripts()]);
 - Modern async/await patterns
 - Integrated file watching
 
-## Core Concepts Mapping
+## Core Concepts Mapping {#core-concepts-mapping}
 
-### Gulp/Grunt → Xec
+### Gulp/Grunt → Xec {#gulpgrunt--xec}
 
 | Gulp/Grunt Concept | Xec Equivalent | Description |
 |--------------------|----------------|-------------|
@@ -134,9 +134,9 @@ await Promise.all([buildStyles(), buildScripts()]);
 | gulp.parallel() | Promise.all() | Parallel execution |
 | Plugins | Direct tools | No wrapper needed |
 
-## Common Task Migrations
+## Common Task Migrations {#common-task-migrations}
 
-### 1. Style Processing
+### 1. Style Processing {#1-style-processing}
 
 **Gulp:**
 <!-- doc-check: skip — Gulp or Grunt comparison uses its original task runner and plugins, not Xec -->
@@ -185,7 +185,7 @@ if (import.meta.url.split('?')[0] === pathToFileURL(__filename).href) {
 }
 ```
 
-### 2. JavaScript Bundling
+### 2. JavaScript Bundling {#2-javascript-bundling}
 
 **Grunt:**
 <!-- doc-check: skip — Gulp or Grunt comparison uses its original task runner and plugins, not Xec -->
@@ -238,7 +238,7 @@ export async function bundleScripts() {
 }
 ```
 
-### 3. Image Optimization
+### 3. Image Optimization {#3-image-optimization}
 
 **Gulp:**
 <!-- doc-check: skip — Gulp or Grunt comparison uses its original task runner and plugins, not Xec -->
@@ -290,7 +290,7 @@ export async function optimizeImages() {
 }
 ```
 
-### 4. File Watching
+### 4. File Watching {#4-file-watching}
 
 **Gulp:**
 <!-- doc-check: skip — Gulp or Grunt comparison uses its original task runner and plugins, not Xec -->
@@ -335,7 +335,7 @@ await Promise.all([
 console.log('👀 Watching for changes...');
 ```
 
-### 5. Clean Task
+### 5. Clean Task {#5-clean-task}
 
 **Grunt:**
 <!-- doc-check: skip — Gulp or Grunt comparison uses its original task runner and plugins, not Xec -->
@@ -373,9 +373,9 @@ export async function clean() {
 }
 ```
 
-## Complex Workflow Migration
+## Complex Workflow Migration {#complex-workflow-migration}
 
-### Gulp Workflow Example
+### Gulp Workflow Example {#gulp-workflow-example}
 
 <!-- doc-check: skip — Gulp or Grunt comparison uses its original task runner and plugins, not Xec -->
 ```javascript
@@ -448,7 +448,7 @@ gulp.task('build', (callback) => {
 gulp.task('default', ['watch']);
 ```
 
-### Migrated to Xec
+### Migrated to Xec {#migrated-to-xec}
 
 ```yaml
 # .xec/config.yaml
@@ -589,7 +589,7 @@ if (isWatch) {
 }
 ```
 
-## Stream Processing Alternative
+## Stream Processing Alternative {#stream-processing-alternative}
 
 If you prefer Gulp's streaming approach, you can create similar patterns:
 
@@ -607,9 +607,9 @@ await pipeline(
 );
 ```
 
-## Plugin Replacement Guide
+## Plugin Replacement Guide {#plugin-replacement-guide}
 
-### Common Gulp/Grunt Plugins → Direct Tools
+### Common Gulp/Grunt Plugins → Direct Tools {#common-gulpgrunt-plugins--direct-tools}
 
 | Gulp/Grunt Plugin | Xec Replacement | Command Example |
 |-------------------|-----------------|-----------------|
@@ -624,15 +624,15 @@ await pipeline(
 | browser-sync | browser-sync | `browser-sync start` |
 | gulp-sourcemaps | Built into tools | `esbuild --sourcemap` |
 
-## Migration Strategy
+## Migration Strategy {#migration-strategy}
 
-### Phase 1: Assessment
+### Phase 1: Assessment {#phase-1-assessment}
 1. List all Gulp/Grunt tasks
 2. Identify plugin dependencies
 3. Map to equivalent CLI tools
 4. Plan migration order
 
-### Phase 2: Parallel Implementation
+### Phase 2: Parallel Implementation {#phase-2-parallel-implementation}
 ```json
 // package.json - Keep both during transition
 {
@@ -644,7 +644,7 @@ await pipeline(
 }
 ```
 
-### Phase 3: Incremental Migration
+### Phase 3: Incremental Migration {#phase-3-incremental-migration}
 
 **Week 1-2: Core Tasks**
 - Build tasks
@@ -661,14 +661,14 @@ await pipeline(
 - Parallel execution
 - Error handling
 
-### Phase 4: Cleanup
+### Phase 4: Cleanup {#phase-4-cleanup}
 - Remove Gulp/Grunt dependencies
 - Delete old config files
 - Update documentation
 
-## Performance Comparison
+## Performance Comparison {#performance-comparison}
 
-### Build Time Improvements
+### Build Time Improvements {#build-time-improvements}
 
 ```typescript
 import { performance } from 'node:perf_hooks';
@@ -682,9 +682,9 @@ console.log(`Build completed in ${(performance.now() - started) / 1000}s`);
 // Compare on the same inputs, tool versions and cache state; no speedup is guaranteed.
 ```
 
-## Advanced Features After Migration
+## Advanced Features After Migration {#advanced-features-after-migration}
 
-### 1. Multi-Environment Builds
+### 1. Multi-Environment Builds {#1-multi-environment-builds}
 
 ```typescript
 // Build for different environments
@@ -698,7 +698,7 @@ if (env === 'production') {
 }
 ```
 
-### 2. Conditional Processing
+### 2. Conditional Processing {#2-conditional-processing}
 
 ```typescript
 // Let the bundler own dependency invalidation; Xec owns the surrounding steps.
@@ -706,7 +706,7 @@ await $`npm run build`;
 await $`npm run verify:assets`;
 ```
 
-### 3. Remote Execution
+### 3. Remote Execution {#3-remote-execution}
 
 ```typescript
 // Build locally, deploy remotely
@@ -715,24 +715,24 @@ await $.ssh('staging-server')`docker build -t app .`;
 await $.ssh('staging-server')`docker run -d app`;
 ```
 
-## Common Migration Issues
+## Common Migration Issues {#common-migration-issues}
 
-### 1. Plugin Dependencies
+### 1. Plugin Dependencies {#1-plugin-dependencies}
 - Gulp/Grunt plugins may have unique features
 - Research CLI alternatives or Node packages
 - Some functionality may need custom implementation
 
-### 2. Configuration Complexity
+### 2. Configuration Complexity {#2-configuration-complexity}
 - Gulp/Grunt configs can be very complex
 - Break down into smaller, focused scripts
 - Use TypeScript for better organization
 
-### 3. Streaming vs Promises
+### 3. Streaming vs Promises {#3-streaming-vs-promises}
 - Gulp uses streams extensively
 - Xec uses promises/async-await
 - Can use Node streams when needed
 
-## Summary
+## Summary {#summary}
 
 Migrating from Gulp/Grunt to Xec provides:
 - ✅ Direct tool usage (no plugin overhead)

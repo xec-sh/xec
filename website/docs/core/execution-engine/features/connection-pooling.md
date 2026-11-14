@@ -3,11 +3,11 @@ title: Connection Pooling
 description: SSH connection pooling and reuse in the execution engine
 ---
 
-# Connection Pooling
+# Connection Pooling {#connection-pooling}
 
 Connection pooling is a critical performance optimization feature in the Xec execution engine, particularly for SSH connections where establishing new connections is expensive.
 
-## Overview
+## Overview {#overview}
 
 Connection pooling (`packages/core/src/adapters/ssh/index.ts`) provides:
 
@@ -17,9 +17,9 @@ Connection pooling (`packages/core/src/adapters/ssh/index.ts`) provides:
 - **Keepalive pings** to detect a dead connection before it's reused
 - **Metrics** on connections created, destroyed, reused and currently active
 
-## SSH Connection Pooling
+## SSH Connection Pooling {#ssh-connection-pooling}
 
-### Basic Usage
+### Basic Usage {#basic-usage}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -37,7 +37,7 @@ await remote`free -h`;
 await remote`df -h`;
 ```
 
-### Pool Configuration
+### Pool Configuration {#pool-configuration}
 
 Pool behavior is adapter configuration, not a per-target option — there is
 no `pool` field on `$.ssh(options)`. Configure it when the engine is built,
@@ -75,7 +75,7 @@ $.registerAdapter('ssh', new SSHAdapter({
 There is no separate `min` (a floor of pre-created connections) — the pool
 only grows on demand, up to `maxConnections`.
 
-### Pool Metrics
+### Pool Metrics {#pool-metrics}
 
 ```typescript
 import { SSHAdapter } from '@xec-sh/core';
@@ -97,7 +97,7 @@ on the SSH context — connections are created lazily on first use per host,
 and released when the engine is disposed (`$.dispose()` or
 `await dispose()` for the global engine).
 
-## Connection Lifecycle Events
+## Connection Lifecycle Events {#connection-lifecycle-events}
 
 There is no `connection:state` event and no manual connection state
 enum — but the engine does emit real events for the SSH connection
@@ -127,7 +127,7 @@ $.on('ssh:pool-cleanup', ({ cleaned, remaining, reason }) => {
 });
 ```
 
-### Health Checks
+### Health Checks {#health-checks}
 
 There is no configurable validation strategy (`validateOnBorrow`, a custom
 validator function, and so on) — keepalive is the health check, and a
@@ -135,7 +135,7 @@ connection that fails it is evicted and replaced automatically the next
 time it's needed. `keepAlive`/`keepAliveInterval` (shown above) are the only
 two knobs.
 
-## Multi-Host Pooling
+## Multi-Host Pooling {#multi-host-pooling}
 
 Each host gets its own connections within the pool automatically — there is
 one pool per adapter instance, keyed by host, not one pool per `$.ssh()`
@@ -156,9 +156,9 @@ await Promise.all(
 );
 ```
 
-## Performance Optimization
+## Performance Optimization {#performance-optimization}
 
-### Connection Reuse Patterns
+### Connection Reuse Patterns {#connection-reuse-patterns}
 
 ```typescript
 // Good: reuse one context for batch operations
@@ -183,7 +183,7 @@ Creating a context with `$.ssh({...})` is cheap either way — it doesn't
 open a connection by itself, only running a command against it does, and
 the pool is what decides whether that reuses an existing connection.
 
-## Connection Multiplexing
+## Connection Multiplexing {#connection-multiplexing}
 
 `SSHAdapterConfig` has a `multiplexing` field
 (`{ enabled, controlPath?, controlPersist? }`, mirroring OpenSSH's
@@ -191,7 +191,7 @@ the pool is what decides whether that reuses an existing connection.
 establishment — setting it has no effect yet. The connection pool described
 above is what actually avoids repeated handshakes today.
 
-## Error Handling
+## Error Handling {#error-handling}
 
 There is no `pool:error` event, no built-in retry/circuit-breaker
 configuration for the pool, and no `recreateOnError` option — a failed
@@ -214,9 +214,9 @@ try {
 Build retry behavior on top with `retry()` or `$.retry({...})`, the same as
 for any other command — see [Error Handling](/docs/core/execution-engine/features/error-handling).
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### Do's ✅
+### Do's ✅ {#dos-}
 
 ```typescript
 import { ExecutionEngine } from '@xec-sh/core';
@@ -242,7 +242,7 @@ $.on('ssh:pool-metrics', ({ metrics }) => {
 });
 ```
 
-### Don'ts ❌
+### Don'ts ❌ {#donts-}
 
 ```typescript
 import { ExecutionEngine } from '@xec-sh/core';
@@ -259,13 +259,13 @@ const oversized = new ExecutionEngine({
 process.exit(0);  // Pooled connections are not closed cleanly
 ```
 
-## Implementation Details
+## Implementation Details {#implementation-details}
 
 Connection pooling is implemented in:
 - `packages/core/src/adapters/ssh/index.ts` - `SSHAdapter`'s connection pool, keepalive and eviction
 - `packages/core/src/adapters/ssh/connection-pool-metrics.ts` - `ConnectionPoolMetricsCollector`
 
-## See Also
+## See Also {#see-also}
 
 - [SSH Adapter](/docs/core/execution-engine/adapters/ssh-adapter)
 - [Performance Optimization](/docs/core/execution-engine/performance/optimization)

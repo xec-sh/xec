@@ -7,22 +7,22 @@ source_files:
   - packages/ops/src/health/index.ts
 ---
 
-# API Mocking Recipe
+# API Mocking Recipe {#api-mocking-recipe}
 
-## Implementation Reference
+## Implementation Reference {#implementation-reference}
 
 The recipe uses Xec’s public execution API and standard Node APIs. Its Xec entry points are:
 
 - `packages/core/src/core/execution-engine.ts`
 - `packages/ops/src/health/index.ts`
 
-## Overview
+## Overview {#overview}
 
 Declare the chosen mock tool in the application lockfile and its launch commands in package.json. The examples below use project-owned mock:json, mock:wiremock, mock:express and mock:graphql scripts. They show Xec orchestration; the mock implementation and its route/schema tests belong to the application. No dependencies are installed implicitly at runtime.
 
-## JSON Server Mock
+## JSON Server Mock {#json-server-mock}
 
-### Quick JSON Server Setup
+### Quick JSON Server Setup {#quick-json-server-setup}
 
 ```typescript
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -39,7 +39,7 @@ await writeFile('.fixtures/api.json', JSON.stringify({
 await $`npm run mock:json`;
 ```
 
-### JSON Server with Docker
+### JSON Server with Docker {#json-server-with-docker}
 
 ```typescript
 // docker-compose.mock.yml belongs to the project: pin its image, publish only
@@ -48,9 +48,9 @@ await $`docker compose -f docker-compose.mock.yml up -d --wait`;
 await $`docker compose -f docker-compose.mock.yml ps`;
 ```
 
-## WireMock Setup
+## WireMock Setup {#wiremock-setup}
 
-### WireMock for Complex Mocking
+### WireMock for Complex Mocking {#wiremock-for-complex-mocking}
 
 ```typescript
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -76,9 +76,9 @@ await writeFile('.fixtures/wiremock/mappings/login.json', JSON.stringify(login, 
 await $`npm run mock:wiremock`;
 ```
 
-## Custom Express Mock Server
+## Custom Express Mock Server {#custom-express-mock-server}
 
-### Express Server with TypeScript
+### Express Server with TypeScript {#express-server-with-typescript}
 
 ```typescript
 // Keep the mock server as an ordinary application module, with declared
@@ -87,16 +87,16 @@ await $`npm run typecheck:mock`;
 await $`npm run mock:express`;
 ```
 
-### Running the Custom Server
+### Running the Custom Server {#running-the-custom-server}
 
 ```typescript
 // mock:express must bind 127.0.0.1 and honor PORT; do not expose test fixtures publicly.
 await $`npm run mock:express`.env({ HOST: '127.0.0.1', PORT: '3001' });
 ```
 
-## GraphQL Mock Server
+## GraphQL Mock Server {#graphql-mock-server}
 
-### Apollo Server Mock
+### Apollo Server Mock {#apollo-server-mock}
 
 ```typescript
 // The project's GraphQL schema/resolvers remain in a tested module. Do not
@@ -105,9 +105,9 @@ await $`npm run test:mock-schema`;
 await $`npm run mock:graphql`;
 ```
 
-## Testing with Mock APIs
+## Testing with Mock APIs {#testing-with-mock-apis}
 
-### Integration Test Example
+### Integration Test Example {#integration-test-example}
 
 ```typescript
 import { HealthChecker } from '@xec-sh/ops';
@@ -132,9 +132,9 @@ try {
 }
 ```
 
-## Mock Service Configuration
+## Mock Service Configuration {#mock-service-configuration}
 
-### Xec Configuration
+### Xec Configuration {#xec-configuration}
 
 Save the integration example as `scripts/test-api.ts`. Each server command runs in the foreground; the owner of that process also owns its shutdown. No process-name search or global `pkill` is needed.
 
@@ -152,21 +152,21 @@ tasks:
     command: xec run scripts/test-api.ts
 ```
 
-## Performance Characteristics
+## Performance Characteristics {#performance-characteristics}
 
-### Mock Server Performance
+### Mock Server Performance {#mock-server-performance}
 
 Measure the selected mock implementation with the application's real fixture shape and request concurrency.
 
-### Response Times
+### Response Times {#response-times}
 
 Use explicit readiness and request deadlines. Artificial latency should be a declared mock scenario, not a fixed sleep standing in for server acceptance.
 
-### Resource Usage
+### Resource Usage {#resource-usage}
 
 Bind mocks to loopback and clean up only owned processes and containers. Xec does not provide an application HTTP router or bundle Express, Apollo, JSON Server or WireMock.
 
-## Best Practices
+## Best Practices {#best-practices}
 
 1. **Version Control Mock Data**
    - Keep `db.json` in git
@@ -188,9 +188,9 @@ Bind mocks to loopback and clean up only owned processes and containers. Xec doe
    - Snapshot and restore capabilities
    - Clear state endpoints
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### Common Issues
+### Common Issues {#common-issues}
 
 1. **Port Conflicts**
    ```bash
@@ -213,14 +213,14 @@ Bind mocks to loopback and clean up only owned processes and containers. Xec doe
    docker run --network host ...
    ```
 
-## Related Recipes
+## Related Recipes {#related-recipes}
 
 - [Database Setup](./database-setup.md) - Database configuration
 - [Test Data](./test-data.md) - Generate test data
 - [Hot Reload](./hot-reload.md) - Development workflow
 - [GitHub Actions](../integration/github-actions.md) - CI/CD with mocks
 
-## See Also
+## See Also {#see-also}
 
 - [HTTP Operations](../../scripting/basics/command-execution.md)
 - [Docker Targets](../../targets/docker/overview.md)

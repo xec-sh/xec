@@ -3,11 +3,11 @@ title: Kubernetes Adapter
 description: Command execution in Kubernetes pods via kubectl
 ---
 
-# Kubernetes Adapter
+# Kubernetes Adapter {#kubernetes-adapter}
 
 The Kubernetes adapter enables command execution within existing Kubernetes pods, with port forwarding, log access and file copying built on top of `kubectl`.
 
-## Overview
+## Overview {#overview}
 
 The Kubernetes adapter (`packages/core/src/adapters/kubernetes/index.ts`) shells out to `kubectl` and provides:
 
@@ -22,7 +22,7 @@ ConfigMaps, Secrets or Namespaces. Everything here targets a pod that
 already exists; creating one is out of scope, the same way the SSH adapter
 doesn't provision the host it connects to.
 
-## Basic Usage
+## Basic Usage {#basic-usage}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -50,9 +50,9 @@ every other target has (`.env()`, `.cd()`, `.timeout()`, `.shell()`,
 written against a K8s target runs the same way it would against SSH, Docker
 or local.
 
-## Pod Configuration
+## Pod Configuration {#pod-configuration}
 
-### Working with Existing Pods
+### Working with Existing Pods {#working-with-existing-pods}
 
 ```typescript
 // Connect to a running pod
@@ -87,7 +87,7 @@ const staging = $.k8s({
 });
 ```
 
-## Namespace and Context
+## Namespace and Context {#namespace-and-context}
 
 There is no namespace-management API (`createNamespace`, `deleteNamespace`
 and similar don't exist) — `namespace` on a target only selects which
@@ -101,7 +101,7 @@ const defaultNs = $.k8s({ pod: 'my-pod' });
 const prodNs = $.k8s({ pod: 'app-pod', namespace: 'production' });
 ```
 
-### Moving Data Between Pods
+### Moving Data Between Pods {#moving-data-between-pods}
 
 There's no dedicated cross-namespace copy method; capture output and
 interpolate it into the next command, the same as you would locally:
@@ -116,7 +116,7 @@ ${data}
 XEC_EOF`;
 ```
 
-## Port Forwarding
+## Port Forwarding {#port-forwarding}
 
 Port forwarding is a method on a **pod**, reached through `.pod(name)` —
 there is no `$.k8s.portForward(...)`; `k8s` is a method, not a namespace, and
@@ -151,7 +151,7 @@ try {
 For more than one port on the same pod, open more than one forward — there
 is no batch/multi-port form.
 
-## Logs
+## Logs {#logs}
 
 ```typescript
 const pod = $.k8s({ namespace: 'production' }).pod('app-pod');
@@ -166,7 +166,7 @@ const nginxLogs = await pod.logs({ container: 'nginx' });
 const crashLogs = await pod.logs({ previous: true, container: 'app' });
 ```
 
-### Streaming Logs
+### Streaming Logs {#streaming-logs}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -182,7 +182,7 @@ try {
 }
 ```
 
-### Logs Across Several Pods
+### Logs Across Several Pods {#logs-across-several-pods}
 
 There's no label-based log aggregation call. List matching pods with
 `kubectl` directly, then read each one:
@@ -203,7 +203,7 @@ this (first match for a label selector, and a readiness check), reachable
 via `($.getAdapter('kubernetes'))` with a cast to `KubernetesAdapter`, but
 for anything beyond one pod, `kubectl get pods` is simpler.
 
-## File Operations
+## File Operations {#file-operations}
 
 ```typescript
 const pod = $.k8s({ namespace: 'default' }).pod('app-pod');
@@ -226,7 +226,7 @@ which carry the target's namespace, container and cluster context. Only the
 URL grammar of `$.transfer.copy()` has no Kubernetes leg — it handles
 local/SSH/Docker paths.
 
-## Multi-Container Pods
+## Multi-Container Pods {#multi-container-pods}
 
 A sidecar container — a service mesh proxy like Istio's, a logging agent,
 anything running alongside the main container in the same pod — is reached
@@ -245,7 +245,7 @@ await proxy`curl -s localhost:15000/clusters`;
 There is no dedicated "list containers in this pod" call — read it off
 `kubectl get pod` directly: `` await $`kubectl get pod app-pod -n default -o jsonpath='{.spec.containers[*].name}'` ``.
 
-## Error Handling
+## Error Handling {#error-handling}
 
 Failures throw `KubernetesError` or `CommandError`, both extending
 `ExecutionError` with a `kind` to branch on rather than a specific error
@@ -269,14 +269,14 @@ try {
 }
 ```
 
-## Implementation Details
+## Implementation Details {#implementation-details}
 
 The Kubernetes adapter is implemented in:
 - `packages/core/src/adapters/kubernetes/index.ts` — main adapter, `kubectl` invocation, port forwarding, log streaming, file copy
 - `packages/core/src/adapters/kubernetes/kubernetes-api.ts` — `K8sExecutionContext`/`K8sPod`, the fluent surface shown throughout this page
 - `packages/core/src/adapters/kubernetes/kubernetes-utils.ts` — target parsing and helpers
 
-## See Also
+## See Also {#see-also}
 
 - [SSH Adapter](/docs/core/execution-engine/adapters/ssh-adapter)
 - [Docker Adapter](/docs/core/execution-engine/adapters/docker-adapter)

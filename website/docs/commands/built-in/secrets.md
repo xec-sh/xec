@@ -3,11 +3,11 @@ title: secrets
 description: Manage secrets securely from the CLI
 ---
 
-# secrets
+# secrets {#secrets}
 
 Securely manage secrets and sensitive configuration data.
 
-## Synopsis
+## Synopsis {#synopsis}
 
 ```bash
 xec secrets [subcommand] [args...] [options]
@@ -15,13 +15,13 @@ xec secret [subcommand] [args...] [options]  # Alias
 xec s [subcommand] [args...] [options]       # Short alias
 ```
 
-## Description
+## Description {#description}
 
 The `secrets` command provides secure storage and management of sensitive data like passwords, API keys, tokens, and certificates. Secrets are encrypted at rest and can be referenced in configuration files and scripts.
 
-## Subcommands
+## Subcommands {#subcommands}
 
-### set
+### set {#set}
 
 Set a secret value. On a terminal the value is asked for with a masked
 prompt; when stdin is piped, the piped input becomes the value (minus one
@@ -48,7 +48,7 @@ xec secrets set JWT_PRIVATE_KEY < private.key
 xec secrets set API_KEY --value "sk-1234567890abcdef"
 ```
 
-### get
+### get {#get}
 
 Retrieve a secret value.
 
@@ -68,7 +68,7 @@ DB_PASS=$(xec secrets get DATABASE_PASSWORD)
 curl -H "Authorization: Bearer $(xec secrets get API_TOKEN)" https://api.example.com
 ```
 
-### list
+### list {#list}
 
 List all secret keys (values are never shown).
 
@@ -95,7 +95,7 @@ xec secrets list
 #   • JWT_PRIVATE_KEY
 ```
 
-### delete
+### delete {#delete}
 
 Delete a secret.
 
@@ -116,7 +116,7 @@ xec secrets delete OLD_API_KEY
 xec secrets delete OLD_API_KEY --force
 ```
 
-### generate
+### generate {#generate}
 
 Generate a random secret.
 
@@ -140,7 +140,7 @@ xec secrets generate API_SECRET -l 64
 xec secrets generate TEMP_TOKEN -l 16 --force
 ```
 
-### export
+### export {#export}
 
 Export secrets (WARNING: outputs plain text).
 
@@ -164,7 +164,7 @@ xec secrets export -f env
 xec secrets export --force
 ```
 
-### import
+### import {#import}
 
 Import secrets from file or stdin.
 
@@ -191,7 +191,7 @@ cat secrets.json | xec secrets import
 echo "SECRET_API_KEY=value123" | xec secrets import --format env
 ```
 
-## Interactive Mode
+## Interactive Mode {#interactive-mode}
 
 When called without arguments, the secrets command enters interactive mode:
 
@@ -201,7 +201,7 @@ xec secrets
 
 Interactive mode provides a menu-driven interface for all secret operations with enhanced security prompts and validation. It needs a terminal; in a pipe or CI it exits with an error naming the subcommands to use instead.
 
-## Non-Interactive Use
+## Non-Interactive Use {#non-interactive-use}
 
 When stdout is not a terminal (a pipe, CI, `NO_COLOR`), output is plain lines
 only — no spinners, frames or colour — so command substitution captures clean
@@ -217,9 +217,9 @@ Status messages go to stderr. Anything that would prompt — `delete` and
 `export` confirmations, `generate` over an existing key — refuses without
 `--force` instead of hanging.
 
-## Secret Storage
+## Secret Storage {#secret-storage}
 
-### Encryption
+### Encryption {#encryption}
 
 Secrets are encrypted using industry-standard encryption:
 
@@ -229,18 +229,16 @@ Secrets are encrypted using industry-standard encryption:
 - **Salt**: Unique per secret
 - **IV**: Unique per secret
 
-### Storage Location
+### Storage Location {#storage-location}
 
 Secrets belong to the project they are used from. The store lives beside
 the configuration:
 
-```
-<project>/.xec/secrets/
-├── .gitignore        # Written on first use; excludes the whole directory
-├── .index.json       # Which keys exist, not their values
-└── <sha256>.secret   # One encrypted record per key, mode 0600
-```
-
+:::filetree{title="<project>/.xec/secrets/"}
+- `.gitignore` — Written on first use; excludes the whole directory
+- `.index.json` — Which keys exist, not their values
+- `<sha256>.secret` — One encrypted record per key, mode 0600
+:::
 The `.gitignore` is inside the store deliberately. Secrets sit in the
 working tree, one `git add -A` from being published, and a credential in
 a repository's history is not removed by deleting the file afterwards —
@@ -255,7 +253,7 @@ want:
 cp -R ~/.xec/secrets/. .xec/secrets/
 ```
 
-### Provider Support
+### Provider Support {#provider-support}
 
 Three providers are implemented:
 
@@ -270,9 +268,9 @@ not implemented. Configuring one is an error rather than a silent
 fallback to `local` — a fallback would leave you believing your values
 live somewhere they do not.
 
-## Using Secrets
+## Using Secrets {#using-secrets}
 
-### On the command line
+### On the command line {#on-the-command-line}
 
 `secret://name` in `--env` reads the value here and delivers it through
 the environment of the remote process:
@@ -300,9 +298,9 @@ connecting with [REDACTED]
 A reference to a key nothing holds fails before anything runs anywhere,
 naming the key.
 
-## Using Secrets in Configuration
+## Using Secrets in Configuration {#using-secrets-in-configuration}
 
-### Variable Interpolation
+### Variable Interpolation {#variable-interpolation}
 
 Reference secrets in configuration files:
 
@@ -321,7 +319,7 @@ targets:
       passphrase: "${secret:SSH_PASSPHRASE}"
 ```
 
-### Task Parameters
+### Task Parameters {#task-parameters}
 
 Use secrets in task definitions:
 
@@ -338,7 +336,7 @@ tasks:
             myapp:latest
 ```
 
-### Script Access
+### Script Access {#script-access}
 
 Access secrets in scripts:
 
@@ -363,9 +361,9 @@ const response = await fetch('https://api.example.com/data', {
 });
 ```
 
-## Secret Validation
+## Secret Validation {#secret-validation}
 
-### Key Format
+### Key Format {#key-format}
 
 Secret keys must follow specific rules:
 
@@ -373,16 +371,16 @@ Secret keys must follow specific rules:
 - Contain only letters, numbers, hyphens, dots, and underscores
 - Examples: `API_KEY`, `database.password`, `jwt-secret`
 
-### Value Constraints
+### Value Constraints {#value-constraints}
 
 - Minimum length: 1 character
 - Maximum length: 64KB
 - Support for binary data (base64 encoded)
 - UTF-8 text encoding
 
-## Export Formats
+## Export Formats {#export-formats}
 
-### JSON Format
+### JSON Format {#json-format}
 
 ```json
 {
@@ -392,7 +390,7 @@ Secret keys must follow specific rules:
 }
 ```
 
-### Environment Format
+### Environment Format {#environment-format}
 
 ```bash
 export SECRET_DATABASE_PASSWORD="secret123"
@@ -403,9 +401,9 @@ export SECRET_JWT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----
 
 Note: Environment format prefixes keys with `SECRET_` and converts to uppercase with underscores.
 
-## Import Formats
+## Import Formats {#import-formats}
 
-### JSON Import
+### JSON Import {#json-import}
 
 ```bash
 # Create secrets.json
@@ -418,7 +416,7 @@ Note: Environment format prefixes keys with `SECRET_` and converts to uppercase 
 xec secrets import -f secrets.json
 ```
 
-### Environment Import
+### Environment Import {#environment-import}
 
 ```bash
 # Create .env file
@@ -429,9 +427,9 @@ SECRET_API_KEY=sk-1234567890abcdef
 xec secrets import -f .env --format env
 ```
 
-## Security Best Practices
+## Security Best Practices {#security-best-practices}
 
-### Secret Creation
+### Secret Creation {#secret-creation}
 
 1. **Use interactive mode** for secret input (avoids shell history)
 2. **Generate random secrets** when possible
@@ -449,23 +447,23 @@ printf '%s' "$GENERATED" | xec secrets set DATABASE_PASSWORD
 xec secrets set DATABASE_PASSWORD --value "secret123"
 ```
 
-### Secret Usage
+### Secret Usage {#secret-usage}
 
 1. **Never log secret values**
 2. **Use environment variables** in processes
 3. **Limit secret scope** to necessary components
 4. **Audit secret access**
 
-### Storage Security
+### Storage Security {#storage-security}
 
 1. **Regular backups** of encrypted secret store
 2. **Secure backup storage**
 3. **Key rotation** for long-lived secrets
 4. **Access monitoring**
 
-## Backup and Recovery
+## Backup and Recovery {#backup-and-recovery}
 
-### Manual Backup
+### Manual Backup {#manual-backup}
 
 ```bash
 # Backup encrypted secrets
@@ -475,7 +473,7 @@ cp -r ~/.xec/secrets/ ~/backups/xec-secrets-$(date +%Y%m%d)
 xec secrets export > secrets-backup.json
 ```
 
-### Recovery
+### Recovery {#recovery}
 
 ```bash
 # Restore from backup
@@ -485,16 +483,16 @@ cp -r ~/backups/xec-secrets-20231201/ ~/.xec/secrets/
 xec secrets import -f secrets-backup.json
 ```
 
-## Migration Between Systems
+## Migration Between Systems {#migration-between-systems}
 
-### Export from Source
+### Export from Source {#export-from-source}
 
 ```bash
 # On source system
 xec secrets export -f json > secrets.json
 ```
 
-### Import to Target
+### Import to Target {#import-to-target}
 
 ```bash
 # On target system
@@ -504,9 +502,9 @@ xec secrets import -f secrets.json
 cat secrets.json | xec secrets import
 ```
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### Common Issues
+### Common Issues {#common-issues}
 
 **"Permission denied" errors:**
 ```bash
@@ -529,7 +527,7 @@ xec secrets list | grep -i "partial_name"
 - Restore from backup if available
 - Re-create secrets if necessary
 
-### Debug Mode
+### Debug Mode {#debug-mode}
 
 ```bash
 # Enable debug logging
@@ -537,20 +535,20 @@ export XEC_DEBUG=secrets
 xec secrets list
 ```
 
-## Performance Considerations
+## Performance Considerations {#performance-considerations}
 
 - **Caching**: Secrets are not cached by default for security
 - **Batch operations**: Import/export for multiple secrets
 - **Network storage**: Avoid network filesystems for secret storage
 - **Key derivation**: First access may be slower due to PBKDF2
 
-## Related Commands
+## Related Commands {#related-commands}
 
 - [config](config.md) - Manage configuration with secret references
 - [run](run.md) - Execute scripts with secret access
 - [inspect](inspect.md) - Inspect configuration (secrets are masked)
 
-## Configuration
+## Configuration {#configuration}
 
 Secret behavior can be configured in `.xec/config.yaml`:
 
@@ -572,7 +570,7 @@ secrets:
     path: secret/xec
 ```
 
-## Exit Codes
+## Exit Codes {#exit-codes}
 
 - `0` - Success
 - `1` - General error

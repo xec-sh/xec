@@ -5,13 +5,13 @@ title: Philosophy & Design Principles
 description: The core principles and design philosophy behind Xec
 ---
 
-# Philosophy & Design Principles
+# Philosophy & Design Principles {#philosophy--design-principles}
 
 Xec is built on a set of core principles that guide every design decision. Understanding these principles helps you use Xec effectively and contributes to its consistent, predictable behavior.
 
-## Core Philosophy
+## Core Philosophy {#core-philosophy}
 
-### "Write Once, Execute Anywhere"
+### "Write Once, Execute Anywhere" {#write-once-execute-anywhere}
 
 The fundamental philosophy of Xec is that **command execution should be environment-agnostic**. Whether you're running a command locally, on a remote server, in a Docker container, or within a Kubernetes pod, the syntax and behavior should be identical.
 
@@ -27,9 +27,9 @@ await $.k8s({ pod: 'web', namespace: 'default' }).raw`${command}`; // Kubernetes
 
 This principle eliminates the cognitive overhead of learning different APIs for different environments.
 
-## Design Principles
+## Design Principles {#design-principles}
 
-### 1. Simplicity Without Sacrifice
+### 1. Simplicity Without Sacrifice {#1-simplicity-without-sacrifice}
 
 **Principle**: Simple things should be simple; complex things should be possible.
 
@@ -47,7 +47,7 @@ await $.cd('/specific/path').env({ CUSTOM_VAR: 'value' })
   .timeout(60000)`complex-command`.nothrow();
 ```
 
-### 2. Safety by Default
+### 2. Safety by Default {#2-safety-by-default}
 
 **Principle**: Prevent common mistakes and security vulnerabilities automatically.
 
@@ -67,7 +67,7 @@ const trustedCommand = 'printf ready';
 await $.raw`${trustedCommand}`; // Only trusted shell source belongs in raw mode
 ```
 
-### 3. Composability
+### 3. Composability {#3-composability}
 
 **Principle**: Small, focused components that combine into complete workflows.
 
@@ -89,7 +89,7 @@ const prod = $.ssh({ host: 'prod.example.com', username: 'deploy' });
 await prod`docker exec app npm test`; // Explicitly runs Docker on that SSH host
 ```
 
-### 4. Predictable Behavior
+### 4. Predictable Behavior {#4-predictable-behavior}
 
 **Principle**: Consistent behavior across all environments and contexts.
 
@@ -107,7 +107,7 @@ function report(result: ExecutionResult) {
 }
 ```
 
-### 5. Developer Ergonomics
+### 5. Developer Ergonomics {#5-developer-ergonomics}
 
 **Principle**: The API should feel natural and intuitive to JavaScript developers.
 
@@ -123,7 +123,7 @@ const branch = await $`git branch --show-current`.text();
 const files = await $`ls -1`.lines();
 ```
 
-### 6. Progressive Enhancement
+### 6. Progressive Enhancement {#6-progressive-enhancement}
 
 **Principle**: Start simple, add capabilities as needed.
 
@@ -143,7 +143,7 @@ await $.cd('/workspace').env({ DEBUG: 'true' })
   .timeout(60000)`critical-operation`.nothrow();
 ```
 
-### 7. Fail Fast, Fail Clearly
+### 7. Fail Fast, Fail Clearly {#7-fail-fast-fail-clearly}
 
 **Principle**: Errors should be detected early and reported clearly.
 
@@ -165,7 +165,7 @@ ExecutionError: Command failed with exit code 127
   Try: apt-get install npm or check your PATH variable.
 ```
 
-### 8. Resource Management
+### 8. Resource Management {#8-resource-management}
 
 **Principle**: Resources should be managed automatically and cleaned up reliably.
 
@@ -187,7 +187,7 @@ await $.docker({ image: 'alpine', autoRemove: true })`echo test`;
 // Container removed automatically after execution
 ```
 
-### 9. Extensibility
+### 9. Extensibility {#9-extensibility}
 
 **Principle**: The system should be extensible without modification.
 
@@ -217,7 +217,7 @@ New *environments* are a different matter: an adapter is part of the core
 contract, `BaseAdapter` is not exported, and adding one should be reviewed
 rather than worked around. See [Extending Xec](../core/execution-engine/api/extensions.md).
 
-### 10. Performance Consciousness
+### 10. Performance Consciousness {#10-performance-consciousness}
 
 **Principle**: Common operations should be fast; optimization should be possible.
 
@@ -247,40 +247,40 @@ for await (const line of $`tail -f app.log`) {
 }
 ```
 
-## The Xec Way
+## The Xec Way {#the-xec-way}
 
 When using Xec, embrace these patterns:
 
-### Think in Commands, Not APIs
+### Think in Commands, Not APIs {#think-in-commands-not-apis}
 Focus on what you want to execute, not how to execute it.
 
-### Compose, Don't Complicate
+### Compose, Don't Complicate {#compose-dont-complicate}
 Build complex operations from simple, tested components.
 
-### Trust the Defaults
+### Trust the Defaults {#trust-the-defaults}
 The default configuration is carefully chosen for the common case.
 
-### Handle Errors Explicitly
+### Handle Errors Explicitly {#handle-errors-explicitly}
 Use `.nothrow()` and check `.ok` rather than relying on try/catch.
 
-### Leverage Type Safety
+### Leverage Type Safety {#leverage-type-safety}
 Use TypeScript for better IDE support and compile-time checks.
 
-## Anti-Patterns to Avoid
+## Anti-Patterns to Avoid {#anti-patterns-to-avoid}
 
-### Don't Fight the Abstraction
+### Don't Fight the Abstraction {#dont-fight-the-abstraction}
 If you need low-level control, use the underlying libraries directly.
 
-### Don't Ignore Errors
+### Don't Ignore Errors {#dont-ignore-errors}
 Always handle potential failures, especially in production code.
 
-### Don't Assume Synchronous Behavior
+### Don't Assume Synchronous Behavior {#dont-assume-synchronous-behavior}
 Everything in Xec is asynchronous; always use await.
 
-### Don't Bypass Security Features
+### Don't Bypass Security Features {#dont-bypass-security-features}
 The automatic escaping exists for good reasons. Use `$.raw` only when absolutely necessary and with trusted input.
 
-## Conclusion
+## Conclusion {#conclusion}
 
 Xec's philosophy centers on making command execution **simple, safe, and consistent** across all environments. By following these principles, Xec scales from simple scripts to complex orchestration systems.
 

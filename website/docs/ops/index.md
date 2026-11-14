@@ -5,17 +5,17 @@ title: "@xec-sh/ops — DevOps Operations Library"
 description: "Deploy, pipelines, workflows, health checks, discovery — all as a library"
 ---
 
-# @xec-sh/ops
+# @xec-sh/ops {#xec-shops}
 
 The DevOps operations library. Use it standalone in any TypeScript/JavaScript project — no CLI required.
 
-## Installation
+## Installation {#installation}
 
 ```bash
 pnpm add @xec-sh/ops
 ```
 
-## Modules
+## Modules {#modules}
 
 | Module | Purpose | Key Class |
 |--------|---------|-----------|
@@ -29,7 +29,7 @@ pnpm add @xec-sh/ops
 | [Config](./config) | Configuration management | `ConfigurationManager` |
 | [Secrets](./secrets) | Encrypted secret storage | `SecretManager` |
 
-## Quick Example
+## Quick Example {#quick-example}
 
 ```typescript
 import { Deployer, HealthChecker, Pipeline } from '@xec-sh/ops';
@@ -65,7 +65,7 @@ if (!result.success) {
 }
 ```
 
-## Design Principles
+## Design Principles {#design-principles}
 
 1. **Library-first** — No CLI dependency. Import and use in any project.
 2. **Fluent API** — Chainable builders for readable configuration.
@@ -73,7 +73,7 @@ if (!result.success) {
 4. **Type-safe** — Full TypeScript with strict mode.
 5. **Customizable** — Override any default via `ConfigManagerOptions`.
 
-## Shared local build caches
+## Shared local build caches {#shared-local-build-caches}
 
 `withKernelFileLock` serializes processes using the same local lock file. It supports macOS with `lockf` and Linux with `flock`. Other platforms receive an explicit error.
 
@@ -93,7 +93,7 @@ The parent directory must belong to the current user and have private permission
 The open file descriptor holds the lock until the callback settles. Process termination releases it in the kernel. Keep the lock file in place between operations so every participant acquires the same inode. The callback's result and failure propagate to the caller.
 
 
-## Script utilities
+## Script utilities {#script-utilities}
 
 Xec scripts receive the same utilities exposed by `@xec-sh/ops`.
 

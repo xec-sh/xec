@@ -29,7 +29,7 @@ Xec is a modern, type-safe command execution system built with TypeScript. It pr
 xec/
 ├── apps/
 │   └── xec/          # CLI application (@xec-sh/cli)
-│── website/          # Documentation site (Docusaurus)
+│── website/          # Documentation site (Lumen + Prism, npm 0.4.8)
 ├── packages/
 │   ├── core/         # Shell execution engine (@xec-sh/core)
 │   ├── ops/          # DevOps operations library (@xec-sh/ops)

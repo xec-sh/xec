@@ -3,11 +3,11 @@ title: Chaining
 description: Fluent method chaining on the execution engine
 ---
 
-# Chaining
+# Chaining {#chaining}
 
 Method chaining enables fluent, readable command composition by linking multiple operations together in a single expression.
 
-## Overview
+## Overview {#overview}
 
 Chaining support (`packages/core/src/core/process-context.ts`) provides:
 
@@ -18,9 +18,9 @@ Chaining support (`packages/core/src/core/process-context.ts`) provides:
 - **Pipeline composition** for complex flows
 - **Error propagation** through the chain
 
-## Basic Chaining
+## Basic Chaining {#basic-chaining}
 
-### Method Chaining
+### Method Chaining {#method-chaining}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -42,7 +42,7 @@ There is no `.retry()` on `ProcessPromise` — retry configures the engine,
 not an already-created command, because it has to wrap `execute()` to retry
 the whole run. Apply it before the template tag: `` $.retry({ maxRetries: 3 })`command` ``.
 
-### Configuration Chaining
+### Configuration Chaining {#configuration-chaining}
 
 ```typescript
 // Build complex configurations. maxBuffer isn't a ProcessPromise method —
@@ -59,9 +59,9 @@ const result = await $.with({ maxBuffer: 50 * 1024 * 1024 })`build.sh`
   .nothrow();
 ```
 
-## Pipe Chaining
+## Pipe Chaining {#pipe-chaining}
 
-### Command Pipes
+### Command Pipes {#command-pipes}
 
 ```typescript
 // Pipe commands together
@@ -82,7 +82,7 @@ const result = await sorted
   .pipe($`head -100`);
 ```
 
-### Cross-Environment Pipes
+### Cross-Environment Pipes {#cross-environment-pipes}
 
 ```typescript
 // Pipe across different adapters
@@ -96,9 +96,9 @@ await $.k8s('pod')`kubectl logs -f`
   .pipe($.ssh('log-server')`cat >> /var/log/errors.log`);
 ```
 
-## Stream Chaining
+## Stream Chaining {#stream-chaining}
 
-### Output Stream Chains
+### Output Stream Chains {#output-stream-chains}
 
 `.stdout(stream)` takes a single `Writable` — calling it more than once
 doesn't build a pipeline, it just replaces the previous target, and the
@@ -126,7 +126,7 @@ uppercase.pipe(addTimestamp).pipe(process.stdout);
 await $`tail -f app.log`.stdout(uppercase);
 ```
 
-### Handling Both Streams
+### Handling Both Streams {#handling-both-streams}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -138,9 +138,9 @@ await $`pnpm test`
 
 These callbacks receive chunks. Use `.pipe((line: string) => ...)` for stdout lines or the process handle when a Node stream consumer is required.
 
-## Conditional Chaining
+## Conditional Chaining {#conditional-chaining}
 
-### Runtime Conditions
+### Runtime Conditions {#runtime-conditions}
 
 ```typescript
 // Conditional method application
@@ -165,7 +165,7 @@ function buildCommand(options: any) {
 }
 ```
 
-### Dynamic Chaining
+### Dynamic Chaining {#dynamic-chaining}
 
 ```typescript
 import { $, type ProcessPromise } from '@xec-sh/core';
@@ -176,9 +176,9 @@ if (process.env.VERBOSE === '1') command = command.env({ VERBOSE: '1' });
 await command.timeout(60_000);
 ```
 
-## Error Chain Handling
+## Error Chain Handling {#error-chain-handling}
 
-### Error Recovery Chains
+### Error Recovery Chains {#error-recovery-chains}
 
 ```typescript
 // Chain error handlers
@@ -203,7 +203,7 @@ await $.retry({ maxRetries: 3 })`risky-operation`
   });
 ```
 
-### Try-Chain Pattern
+### Try-Chain Pattern {#try-chain-pattern}
 
 ```typescript
 // Try multiple approaches
@@ -223,9 +223,9 @@ async function executeWithFallbacks(target: string) {
 }
 ```
 
-## Transformation Chains
+## Transformation Chains {#transformation-chains}
 
-### Output Transformations
+### Output Transformations {#output-transformations}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -241,7 +241,7 @@ const lines = await $`cat file.txt`.text()
 console.log(lines);
 ```
 
-### Data Processing Chains
+### Data Processing Chains {#data-processing-chains}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -252,9 +252,9 @@ const names = records.filter(record => record.active).map(record => record.name.
 await $.writeFile('output.json', JSON.stringify(names, null, 2));
 ```
 
-## Composition Patterns
+## Composition Patterns {#composition-patterns}
 
-### Builder Pattern
+### Builder Pattern {#builder-pattern}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -263,7 +263,7 @@ const build = $.cd('/app').env({ NODE_ENV: 'production' }).timeout('2m');
 await build`pnpm build`;
 ```
 
-### Pipeline Builder
+### Pipeline Builder {#pipeline-builder}
 
 ```typescript
 import { $, type ProcessPromise } from '@xec-sh/core';
@@ -277,9 +277,9 @@ async function runPipeline(commands: ProcessPromise[]) {
 await runPipeline([$`cat data.txt`, $`sort`, $`uniq`]);
 ```
 
-## Async Chain Operations
+## Async Chain Operations {#async-chain-operations}
 
-### Promise Chains
+### Promise Chains {#promise-chains}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -289,7 +289,7 @@ await $`git log -5 --oneline`
   .finally(() => console.log('History export finished'));
 ```
 
-### Sequential Execution
+### Sequential Execution {#sequential-execution}
 
 ```typescript
 import { $, type ExecutionResult } from '@xec-sh/core';
@@ -300,9 +300,9 @@ for (const command of commands) results.push(await $.exec(command));
 console.log(results.map(result => result.exitCode));
 ```
 
-## Advanced Chaining
+## Advanced Chaining {#advanced-chaining}
 
-### Middleware Pattern
+### Middleware Pattern {#middleware-pattern}
 
 ```typescript
 import { $, type CallableExecutionEngine } from '@xec-sh/core';
@@ -313,7 +313,7 @@ function configure(engine: CallableExecutionEngine) {
 await configure($)`node --version`;
 ```
 
-### Decorator Pattern
+### Decorator Pattern {#decorator-pattern}
 
 There is no `.on()` on `ProcessPromise` — a command has no per-instance
 event hooks. Decorate the act of running it instead, by wrapping a thunk
@@ -344,9 +344,9 @@ const decorated = withTiming(() => withLogging(() => $`long-operation`));
 await decorated();
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### Do's ✅
+### Do's ✅ {#dos-}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -356,18 +356,18 @@ if (process.env.CI) command = command.timeout('2m');
 await command;
 ```
 
-### Don'ts ❌
+### Don'ts ❌ {#donts-}
 
 Keep each returned chain value when applying configuration conditionally. Await the final command or output method, and configure retries only for operations whose effects can safely repeat.
 
-## Implementation Details
+## Implementation Details {#implementation-details}
 
 Chaining is implemented in:
 - `packages/core/src/core/process-context.ts` - `ProcessPromise` construction and its chainable methods
 - `packages/core/src/core/execution-engine.ts` - Engine-level chaining methods (`.with()`, `.retry()`, `.env()`, ...)
 - `packages/core/src/core/pipe-implementation.ts` - `.pipe()`
 
-## See Also
+## See Also {#see-also}
 
 - [Execution API](/docs/core/execution-engine/api/execution-api)
 - [Composition](/docs/core/execution-engine/api/composition)

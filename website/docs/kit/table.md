@@ -3,11 +3,11 @@ title: Tables
 description: Static table rendering, interactive navigation with sorting and filtering, data export
 ---
 
-# Tables
+# Tables {#tables}
 
 `table` renders data once. `interactiveTable` adds keyboard navigation, selection, sorting, filtering and editing.
 
-## Static Table
+## Static Table {#static-table}
 
 ```typescript
 import { table } from '@xec-sh/kit';
@@ -24,7 +24,7 @@ table({
 });
 ```
 
-### Columns
+### Columns {#columns}
 
 A column is `{ key, header }` plus:
 
@@ -56,7 +56,7 @@ table({
 });
 ```
 
-### Table Options
+### Table Options {#table-options}
 
 - `borders` - `'single'` (default), `'double'`, `'rounded'`, `'ascii'`, `'none'`
 - `width` - `'full'` (default, terminal width), `'auto'` (fit content), or a fraction greater than 0 and at most 1
@@ -72,7 +72,7 @@ Column keys must be unique. Plain headers and values are stripped of terminal co
 
 When columns exceed the output width, the table reports how many are hidden. Interactive tables keep the focused column visible as you move left or right. Resizing recalculates the layout. `width: 'auto'` renders all columns at their content widths.
 
-## Interactive Table
+## Interactive Table {#interactive-table}
 
 `interactiveTable` takes the same data and columns, renders a live view, and resolves with the selected rows — or the cancel symbol:
 
@@ -98,7 +98,7 @@ if (isCancel(picked)) process.exit(0);
 console.log(`Selected ${picked.length} rows`);
 ```
 
-### Options
+### Options {#options}
 
 - `selectable` - `'none'` (default), `'single'`, `'multiple'`; `initialSelection` pre-selects the same row objects supplied in `data`
 - `sortable` - enable sorting; `initialSort: { key, direction }` starts sorted; per-column `sortable: false` opts a column out
@@ -108,7 +108,7 @@ console.log(`Selected ${picked.length} rows`);
 - Callbacks: `onSelect(rows)`, `onNavigate(row, index)`, `onSort(key, direction)`, `onFilter(query)`
 - `validate` - a synchronous or asynchronous callback, or a Standard Schema. A returned message keeps the table open. Cancellation also works while validation is pending.
 
-### Keys
+### Keys {#keys}
 
 | Key | Action |
 |-----|--------|
@@ -124,7 +124,7 @@ console.log(`Selected ${picked.length} rows`);
 | `Enter` | Submit the selection |
 | `Ctrl+C` / `Escape` | Cancel — the promise resolves with the cancel symbol |
 
-## Export
+## Export {#export}
 
 Exporters turn `(data, columns, options?)` into a string:
 
@@ -144,7 +144,7 @@ exportToMarkdown(rows, columns);                     // | ID | Name | ...
 
 Available: `exportToCSV`, `exportToTSV`, `exportToJSON`, `exportToHTML`, `exportToMarkdown`, `exportToText`. Text formats apply column `format` functions; JSON exports raw values. `options.columns` restricts export to a subset of column keys.
 
-## Editing
+## Editing {#editing}
 
 `editable: true` opens a cell editor in place. `editableColumns` restricts which
 columns accept edits, `validateEdit` rejects a value with a message rendered
@@ -172,7 +172,7 @@ const rows = await interactiveTable({
 
 Escape leaves the editor without committing. Enter commits. Numeric and boolean cells reject invalid values. Successful edits update selection, sorting and filtering together, and keep focus on the edited row while it remains visible.
 
-## Large data
+## Large data {#large-data}
 
 The renderer draws the visible row window. Filtering and sorting operate on all loaded rows. For data that arrives in batches, `loadMore` is called
 as navigation nears the end of what is loaded while `hasMore` is true; the row
@@ -202,14 +202,14 @@ Pass the supplied signal to network requests. It aborts when the prompt complete
 
 `streamToArray` releases its reader and cancels the source when stopped early. `asyncIterableToArray` closes the iterator and observes cancellation between yields. Pass the same signal to an asynchronous producer so pending I/O can stop. `loadChunked` advances by the actual page length. `batchAsync` limits concurrency, stops admission on failure and waits for admitted operations before rejecting.
 
-## Export safety
+## Export safety {#export-safety}
 
 CSV and TSV export accept `escapeFormulas: true`, which prefixes values
 starting with `=`, `+`, `-` or `@` so a spreadsheet will not execute them.
 It is off by default — an exporter must not alter data silently — and worth
 turning on whenever the rows contain untrusted input.
 
-## See Also
+## See Also {#see-also}
 
 - [Components](./components.md)
 - [Colors & Theming](./theming.md)

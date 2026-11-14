@@ -15,14 +15,14 @@ key_functions:
 verification_date: 2026-08-05
 ---
 
-# Command Structure
+# Command Structure {#command-structure}
 
 How the CLI's built-in commands are put together and how an invocation
 reaches them. This is internals documentation — nothing here is required to
 write your own commands; for that, see
 [Creating Commands](./creating-commands.md).
 
-## Source Layout
+## Source Layout {#source-layout}
 
 - `apps/xec/src/main.ts` — program setup and invocation routing
 - `apps/xec/src/utils/command-manifest.ts` — names, descriptions and aliases
@@ -33,7 +33,7 @@ write your own commands; for that, see
 - `apps/xec/src/utils/cli-command-manager.ts` — discovery and loading of
   dynamic commands from `.xec/commands/`
 
-## The Command Manifest
+## The Command Manifest {#the-command-manifest}
 
 `xec --help` needs a name and one line of description per command — not the
 implementations. Every command module statically imports `@xec-sh/ops`, so
@@ -76,7 +76,7 @@ importing the file, and the module is imported only on invocation. That is
 why a dynamic command's description and aliases appear in `--help` without
 the file ever executing.
 
-## BaseCommand
+## BaseCommand {#basecommand}
 
 Every built-in command is a class extending `BaseCommand`
 (`apps/xec/src/utils/command-base.ts`). The constructor takes a declarative
@@ -112,7 +112,7 @@ declared arguments, aliases and custom options. `-v/--verbose` and
 `-q/--quiet` are root-program options inherited by all commands, not
 re-declared per command. Declared examples are appended to `--help` output.
 
-### From argv to execute()
+### From argv to execute() {#from-argv-to-execute}
 
 The action handler `create()` installs unpacks commander's
 `(...positionals, options, command)` call shape, merges command options
@@ -138,7 +138,7 @@ routed to `handleError()` from `@xec-sh/ops`, which prints the enhanced
 error and exits with the code from its `getExitCode()` mapping — the table
 is in the [CLI reference](../cli-reference.md#exit-codes).
 
-### Registration
+### Registration {#registration}
 
 A command module default-exports a function that registers it:
 
@@ -147,7 +147,7 @@ The built-in registration function constructs the command class and passes
 `command(program)` registration shown in [Creating Commands](./creating-commands.md)
 and do not import the internal `RunCommand` or `BaseCommand`.
 
-### Configuration-aware helpers
+### Configuration-aware helpers {#configuration-aware-helpers}
 
 `BaseCommand` carries the machinery a command needs to work with the
 project configuration; all of it is initialized on demand by
@@ -165,7 +165,7 @@ project configuration; all of it is initialized on demand by
   return `$.ssh(...)`, `$.docker(...)`, `$.k8s(...)` built from the
   target's config (including SSH host-key policy and per-target `env`).
 
-### Output and interaction helpers
+### Output and interaction helpers {#output-and-interaction-helpers}
 
 Uniform UX comes from the base class rather than each command:
 `output()`/`table()` go through the `OutputFormatter` and respect
@@ -175,7 +175,7 @@ quiet-aware; `confirm()`/`prompt()`/`select()`/`multiselect()` wrap
 (a cancelled prompt also falls back instead of throwing);
 `isDryRun()`/`isVerbose()`/`isQuiet()` read the merged options.
 
-### SubcommandBase
+### SubcommandBase {#subcommandbase}
 
 Commands that are groups of subcommands (`docker` is one) extend
 `SubcommandBase`, implement `setupSubcommands(command)`, and inherit an
@@ -184,7 +184,7 @@ Commands that are groups of subcommands (`docker` is one) extend
 `ConfigAwareCommand` is a backward-compatibility alias for `BaseCommand` —
 some modules still import it under that name.
 
-## Invocation Routing
+## Invocation Routing {#invocation-routing}
 
 `run()` in `main.ts` routes an invocation in this order — the first match
 wins, and only the last step involves commander dispatch:
@@ -206,7 +206,7 @@ wins, and only the last step involves commander dispatch:
    exits `1`.
 8. No arguments at all shows help.
 
-## Related Topics
+## Related Topics {#related-topics}
 
 - [Creating Commands](./creating-commands.md) — writing dynamic commands in
   `.xec/commands/`

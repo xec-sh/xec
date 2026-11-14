@@ -3,27 +3,27 @@ title: copy
 description: Copy files and directories between targets
 ---
 
-# copy
+# copy {#copy}
 
 Copy files and directories between targets (local, SSH hosts, Docker containers, Kubernetes pods).
 
-## Synopsis
+## Synopsis {#synopsis}
 
 ```bash
 xec copy [options] <source> <destination>
 xec cp [options] <source> <destination>  # Alias
 ```
 
-## Description
+## Description {#description}
 
 The `copy` command transfers files and directories between different targets in your Xec environment. It supports copying between any combination of local filesystem, SSH hosts, Docker containers, and Kubernetes pods.
 
-## Arguments
+## Arguments {#arguments}
 
 - `<source>` - Source path in format `[target:]path`
 - `<destination>` - Destination path in format `[target:]path`
 
-### Path Format
+### Path Format {#path-format}
 
 Paths can be specified as:
 - `path` - Local path (relative or absolute)
@@ -32,14 +32,14 @@ Paths can be specified as:
 - `containers.name:path` - Docker container path
 - `pods.name:path` - Kubernetes pod path
 
-## Options
+## Options {#options}
 
-### Common Options
+### Common Options {#common-options}
 
 - `-o, --output <format>` - Output format: `text` (default), `json`, `yaml`, `csv`
 - `-c, --config <path>` - Path to configuration file
 
-### General Options
+### General Options {#general-options}
 
 - `-p, --profile <profile>` - Configuration profile to use
 - `-i, --interactive` - Interactive mode for selecting files and options
@@ -52,9 +52,9 @@ Paths can be specified as:
 - `-q, --quiet` - Suppress output
 - `--dry-run` - Preview copy operations without executing
 
-## Examples
+## Examples {#examples}
 
-### Basic File Copy
+### Basic File Copy {#basic-file-copy}
 
 Copy a single file from local to remote:
 
@@ -69,7 +69,7 @@ xec copy containers.app:/app/data.csv ./backup/data.csv
 xec copy pods.database:/var/lib/mysql/backup.sql ./backups/
 ```
 
-### Directory Copy
+### Directory Copy {#directory-copy}
 
 Copy entire directories with `-r` flag:
 
@@ -84,7 +84,7 @@ xec copy -r hosts.backup:/var/backups/ ./local-backups/
 xec copy -r --preserve ./build/ hosts.prod:/var/www/html/
 ```
 
-### Multiple Targets
+### Multiple Targets {#multiple-targets}
 
 Copy from/to multiple targets using wildcards:
 
@@ -99,7 +99,7 @@ xec copy ./deploy.sh hosts.web-*:/tmp/deploy.sh
 xec copy containers.app:/data/* hosts.backup:/backup/app/
 ```
 
-### Cross-Target Copy
+### Cross-Target Copy {#cross-target-copy}
 
 Copy directly between different target types:
 
@@ -114,7 +114,7 @@ xec copy hosts.source:/data/* pods.processor:/input/
 xec copy pods.app:/logs/* containers.logstash:/data/
 ```
 
-### Advanced Usage
+### Advanced Usage {#advanced-usage}
 
 ```bash
 # Interactive mode - prompts for options
@@ -130,7 +130,7 @@ xec copy -f ./config.new hosts.*:/etc/app/config.json
 xec copy --dry-run -r ./dist/ containers.app:/app/
 ```
 
-## Patterns and Wildcards
+## Patterns and Wildcards {#patterns-and-wildcards}
 
 The copy command supports various pattern matching:
 
@@ -150,7 +150,7 @@ xec copy ./src/**/*.js containers.app:/app/src/
 xec copy {hosts.web1,hosts.web2}:/etc/nginx/nginx.conf ./configs/
 ```
 
-## Target Resolution
+## Target Resolution {#target-resolution}
 
 Targets are resolved from your `.xec/config.yaml`:
 
@@ -172,14 +172,14 @@ targets:
       pod: mysql-abc123
 ```
 
-## Performance Considerations
+## Performance Considerations {#performance-considerations}
 
 - Use `--parallel` for multiple file operations
 - Adjust `--max-concurrent` based on network capacity
 - Large files are streamed, not loaded into memory
 - Progress indication shown for long operations
 
-## Error Handling
+## Error Handling {#error-handling}
 
 The command handles common errors gracefully:
 
@@ -191,20 +191,20 @@ The command handles common errors gracefully:
 
 Use `-v, --verbose` for detailed error information.
 
-## Security Notes
+## Security Notes {#security-notes}
 
 - SSH key authentication preferred over passwords
 - File permissions preserved with `--preserve`
 - Temporary files cleaned up on failure
 - Sensitive data not logged in verbose mode
 
-## Related Commands
+## Related Commands {#related-commands}
 
 - [on](on.md) - Execute commands on SSH hosts
 - [in](in.md) - Execute commands in containers/pods
 - [watch](watch.md) - Watch files for changes
 
-## Configuration
+## Configuration {#configuration}
 
 Command defaults can be set in `.xec/config.yaml`:
 
@@ -216,7 +216,7 @@ commands:
     maxConcurrent: 8
 ```
 
-## Exit Codes
+## Exit Codes {#exit-codes}
 
 - `0` - Success
 - `1` - General error

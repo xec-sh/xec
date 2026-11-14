@@ -4,11 +4,11 @@ title: Test Automation
 description: Automate testing workflows with Xec's execution engine
 ---
 
-# Test Automation
+# Test Automation {#test-automation}
 
 Learn how to leverage Xec to create comprehensive test automation workflows that work across different environments and testing frameworks.
 
-## Overview
+## Overview {#overview}
 
 Xec transforms test automation by providing:
 - **Framework agnostic** - Works with any testing framework
@@ -17,9 +17,9 @@ Xec transforms test automation by providing:
 - **Real-time reporting** - Stream test results as they happen
 - **Intelligent retry** - Automatically retry flaky tests
 
-## Unit Testing Automation
+## Unit Testing Automation {#unit-testing-automation}
 
-### Basic Test Runner
+### Basic Test Runner {#basic-test-runner}
 
 ```typescript
 // test/run-tests.ts
@@ -53,7 +53,7 @@ async function runTests() {
 await runTests();
 ```
 
-### Test Suite Manager
+### Test Suite Manager {#test-suite-manager}
 
 ```typescript
 // test/test-manager.ts
@@ -149,9 +149,9 @@ const manager = new TestSuiteManager();
 await manager.run();
 ```
 
-## Integration Testing
+## Integration Testing {#integration-testing}
 
-### API Testing
+### API Testing {#api-testing}
 
 ```typescript
 // test/api-tests.ts
@@ -250,7 +250,7 @@ const apiTests = new APITestRunner('http://localhost:3000', [
 await apiTests.run();
 ```
 
-### Database Testing
+### Database Testing {#database-testing}
 
 ```typescript
 // test/db-tests.ts
@@ -381,9 +381,9 @@ const dbTests = new DatabaseTestRunner();
 await dbTests.run();
 ```
 
-## End-to-End Testing
+## End-to-End Testing {#end-to-end-testing}
 
-### Browser Testing with Playwright
+### Browser Testing with Playwright {#browser-testing-with-playwright}
 
 ```typescript
 // test/e2e-playwright.ts
@@ -473,7 +473,7 @@ const e2e = new E2ETestRunner();
 await e2e.run();
 ```
 
-### Mobile Testing
+### Mobile Testing {#mobile-testing}
 
 ```typescript
 // test/mobile-tests.ts
@@ -532,9 +532,9 @@ const mobile = new MobileTestRunner();
 await mobile.run();
 ```
 
-## Performance Testing
+## Performance Testing {#performance-testing}
 
-### Load Testing
+### Load Testing {#load-testing}
 
 ```typescript
 // test/load-test.ts
@@ -651,7 +651,7 @@ const loadTest = new LoadTestRunner({
 await loadTest.run();
 ```
 
-### Stress Testing
+### Stress Testing {#stress-testing}
 
 ```typescript
 // test/stress-test.ts
@@ -721,9 +721,9 @@ const stressTest = new StressTestRunner();
 await stressTest.run();
 ```
 
-## Security Testing
+## Security Testing {#security-testing}
 
-### Vulnerability Scanning
+### Vulnerability Scanning {#vulnerability-scanning}
 
 ```typescript
 // test/security-scan.ts
@@ -861,9 +861,9 @@ const scanner = new SecurityScanner();
 await scanner.run();
 ```
 
-## Test Data Management
+## Test Data Management {#test-data-management}
 
-### Test Data Generator
+### Test Data Generator {#test-data-generator}
 
 ```typescript
 // test/data-generator.ts
@@ -957,9 +957,9 @@ await generator.generate({
 });
 ```
 
-## Continuous Testing
+## Continuous Testing {#continuous-testing}
 
-### Watch Mode Testing
+### Watch Mode Testing {#watch-mode-testing}
 
 ```typescript
 // test/watch-tests.ts
@@ -1019,7 +1019,7 @@ const watcher = new TestWatcher();
 await watcher.start();
 ```
 
-### Test Impact Analysis
+### Test Impact Analysis {#test-impact-analysis}
 
 ```typescript
 // test/impact-analysis.ts
@@ -1085,9 +1085,9 @@ const analyzer = new TestImpactAnalyzer();
 await analyzer.analyze();
 ```
 
-## Test Reporting
+## Test Reporting {#test-reporting}
 
-### Comprehensive Test Reporter
+### Comprehensive Test Reporter {#comprehensive-test-reporter}
 
 ```typescript
 // test/reporter.ts
@@ -1273,9 +1273,9 @@ const reporter = new TestReporter();
 await reporter.generateReport();
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### 1. Test Isolation
+### 1. Test Isolation {#1-test-isolation}
 
 ```typescript
 async function isolatedTest() {
@@ -1296,7 +1296,7 @@ async function isolatedTest() {
 }
 ```
 
-### 2. Flaky Test Management
+### 2. Flaky Test Management {#2-flaky-test-management}
 
 ```typescript
 async function retryFlakyTest(testCommand: string, maxRetries = 3) {
@@ -1315,7 +1315,7 @@ async function retryFlakyTest(testCommand: string, maxRetries = 3) {
 }
 ```
 
-### 3. Test Parallelization
+### 3. Test Parallelization {#3-test-parallelization}
 
 ```typescript
 async function parallelTests() {
@@ -1341,9 +1341,9 @@ async function parallelTests() {
 }
 ```
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### Common Issues
+### Common Issues {#common-issues}
 
 1. **Test Timeouts**
    ```typescript
@@ -1363,13 +1363,13 @@ async function parallelTests() {
    await $`until pg_isready; do sleep 1; done`;
    ```
 
-## Next Steps
+## Next Steps {#next-steps}
 
 - Explore [server management](../infrastructure/server-management.md)
 - Learn about [container orchestration](../infrastructure/container-orchestration.md)
 - Implement [error handling](../advanced/error-handling.md)
 
-## Summary
+## Summary {#summary}
 
 You've learned how to:
 - ✅ Automate unit and integration testing

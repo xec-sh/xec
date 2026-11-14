@@ -4,13 +4,13 @@ sidebar_label: Concept
 description: Shared execution, lifecycle and results across Xec environments
 ---
 
-# Adapter Concept
+# Adapter Concept {#adapter-concept}
 
 An adapter connects the execution engine to an environment. Commands retain a
 common result, cancellation and diagnostic contract while each adapter owns the
 transport and process lifecycle required by its target.
 
-## Adapter System Architecture
+## Adapter System Architecture {#adapter-system-architecture}
 
 ```mermaid
 flowchart TD
@@ -21,14 +21,14 @@ flowchart TD
     Base --> Kubernetes["Kubernetes workloads"]
 ```
 
-## Base Adapter Class
+## Base Adapter Class {#base-adapter-class}
 
 `BaseAdapter` is the internal implementation shared by the concrete adapters.
 It merges command defaults, creates results, masks diagnostics and supplies
 stream handling. The public package exports the engine and concrete adapter
 classes. Configure the engine for normal command execution.
 
-### Adapter Configuration
+### Adapter Configuration {#adapter-configuration}
 
 ```typescript
 import { ExecutionEngine, createCallableEngine } from '@xec-sh/core';
@@ -46,9 +46,9 @@ try {
 }
 ```
 
-## Execution Lifecycle
+## Execution Lifecycle {#execution-lifecycle}
 
-### 1. Adapter Selection
+### 1. Adapter Selection {#1-adapter-selection}
 
 Select the environment with its target API or the command's typed adapter
 options. An ordinary `$` command uses the local adapter.
@@ -64,7 +64,7 @@ await $.with({
 await $`node --version`;
 ```
 
-### 2. Command Preparation
+### 2. Command Preparation {#2-command-preparation}
 
 Per-command values override defaults. Configuration methods return a target
 with the requested settings and retain the shared adapter resources.
@@ -76,7 +76,7 @@ const build = $.cd(process.cwd()).env({ NODE_ENV: 'production' }).timeout('5m');
 await build`npm run build`;
 ```
 
-### 3. Execution
+### 3. Execution {#3-execution}
 
 The engine invokes the selected adapter with the command, arguments and
 execution options. For a local executable, `shell: false` preserves arguments
@@ -93,7 +93,7 @@ const result = await $.exec(process.execPath, {
 console.log(result.text());
 ```
 
-### 4. Result Processing
+### 4. Result Processing {#4-result-processing}
 
 Every completed command returns `ExecutionResult`. Its `ok` property considers
 both the exit code and termination signal.
@@ -107,9 +107,9 @@ function summarize(result: ExecutionResult) {
 console.log(summarize(await $`node --version`));
 ```
 
-## Adapter Types
+## Adapter Types {#adapter-types}
 
-### LocalAdapter
+### LocalAdapter {#localadapter}
 
 The local adapter owns the operating-system process and its standard streams.
 
@@ -118,7 +118,7 @@ import { $ } from '@xec-sh/core';
 await $.local()`node --version`;
 ```
 
-### SSHAdapter
+### SSHAdapter {#sshadapter}
 
 SSH targets support connection reuse, verified host identities, transfers and
 tunnels. An application should bind credentials and host verification policy to
@@ -130,7 +130,7 @@ const remote = $.ssh({ host: 'server.example.com', username: 'deploy', hostKeyCh
 await remote`uname -s`;
 ```
 
-### DockerAdapter
+### DockerAdapter {#dockeradapter}
 
 A container target executes commands inside an existing container. The fluent
 Docker API also exposes service lifecycle and image-building operations.
@@ -141,7 +141,7 @@ await $.docker('app')`node --version`;
 console.log(await $.docker().container('app').status());
 ```
 
-### KubernetesAdapter
+### KubernetesAdapter {#kubernetesadapter}
 
 Pin cluster context and namespace alongside the pod. Pod operations share that
 target across commands, logs, file copies and port forwarding.
@@ -153,7 +153,7 @@ await target`node --version`;
 console.log(await target.pod('app-0').logs({ tail: 20 }));
 ```
 
-### Remote Docker (via SSH Composition)
+### Remote Docker (via SSH Composition) {#remote-docker-via-ssh-composition}
 
 Execute Docker commands on the remote host through its SSH target.
 
@@ -163,9 +163,9 @@ const remote = $.ssh('deploy@server.example.com');
 await remote`docker exec app node --version`;
 ```
 
-## Common Adapter Capabilities
+## Common Adapter Capabilities {#common-adapter-capabilities}
 
-### Stream Processing
+### Stream Processing {#stream-processing}
 
 Attach output callbacks before starting the command. The promise remains
 awaitable and preserves the final execution result.
@@ -175,7 +175,7 @@ import { $ } from '@xec-sh/core';
 await $`npm run build`.stdout(chunk => { process.stdout.write(chunk); });
 ```
 
-### Sensitive Data Masking
+### Sensitive Data Masking {#sensitive-data-masking}
 
 Register credentials that may appear in unlabelled output. The shared boundary
 uses registered values and recognized credential patterns in diagnostics.
@@ -186,7 +186,7 @@ const secret = process.env.SERVICE_TOKEN;
 if (!secret || !registerSecret(secret)) throw new Error('A valid SERVICE_TOKEN is required');
 ```
 
-### Timeout Handling
+### Timeout Handling {#timeout-handling}
 
 The adapter owns the command deadline, cancellation and termination reporting.
 
@@ -200,7 +200,7 @@ try {
 }
 ```
 
-### Adapter Events
+### Adapter Events {#adapter-events}
 
 Subscribe to typed events on the engine.
 
@@ -215,7 +215,7 @@ $.on('ssh:disconnect', event => {
 await $`node --version`;
 ```
 
-## Creating Your Own Adapter
+## Creating Your Own Adapter {#creating-your-own-adapter}
 
 The public `registerAdapter` method accepts the engine's adapter contract.
 `BaseAdapter` currently remains internal, so third-party implementations need a
@@ -224,9 +224,9 @@ For a target with a command-line client, use the existing local or SSH execution
 path. New in-package adapters must preserve cancellation, exact command results,
 credential masking and owned-resource cleanup through the common implementation.
 
-## Resource Management
+## Resource Management {#resource-management}
 
-### Connection Pools
+### Connection Pools {#connection-pools}
 
 One SSH adapter owns its pool. Commands targeting compatible host, account and
 credential settings reuse that pool. Configure its limits at engine creation.
@@ -245,15 +245,15 @@ try {
 }
 ```
 
-### Lazy Initialization
+### Lazy Initialization {#lazy-initialization}
 
 Creating a target context describes an operation's destination. Its connection
 is acquired when a command or target operation starts. Await all work and then
 dispose the owning engine so its transport resources can close.
 
-## Error Handling
+## Error Handling {#error-handling}
 
-### Error Types
+### Error Types {#error-types}
 
 Use exported error classes and `ExecutionError.kind` in recovery decisions.
 A remote operation can have an unknown outcome when a connection is lost after
@@ -270,7 +270,7 @@ try {
 }
 ```
 
-### Handling Strategies
+### Handling Strategies {#handling-strategies}
 
 Read-only readiness commands can use the shared bounded retry API. Verify a
 state-changing operation's durable outcome before deciding on another attempt.
@@ -283,9 +283,9 @@ await retry(() => $`curl --fail --silent --show-error --max-time 5 http://localh
 });
 ```
 
-## Performance
+## Performance {#performance}
 
-### Adapter Metrics
+### Adapter Metrics {#adapter-metrics}
 
 Collect command measurements from engine events and pool measurements from the
 SSH metrics event.
@@ -303,13 +303,13 @@ $.on('ssh:pool-metrics', event => { console.log(event.metrics); });
 await $`node --version`;
 ```
 
-### Optimizations
+### Optimizations {#optimizations}
 
 Reuse the engine, bound parallelism to available resources and keep output
 within the declared buffer limit. Cache only observations whose reuse is valid
 for the application's state and freshness requirements.
 
-## Conclusion
+## Conclusion {#conclusion}
 
 The common execution contract lets applications select their environment while
 retaining typed results, lifecycle ownership and diagnostics. Compose operations

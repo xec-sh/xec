@@ -5,13 +5,13 @@ keywords: [docker, compose, orchestration, services, multi-container]
 sidebar_position: 5
 ---
 
-# Docker Compose Integration
+# Docker Compose Integration {#docker-compose-integration}
 
-## Overview
+## Overview {#overview}
 
 Xec integrates with Docker Compose through the fluent Docker API: `$.docker().compose(file?)` returns a compose handle bound to an optional compose file (the `docker compose` CLI's own discovery applies when no file is given). All operations shell out to `docker compose`, so anything the CLI supports is available.
 
-## Getting a Compose Handle
+## Getting a Compose Handle {#getting-a-compose-handle}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -41,7 +41,7 @@ const docker = $.getAdapter('docker') as import('@xec-sh/core').DockerAdapter;
 await docker.composeUp({ file: ['docker-compose.yml', 'docker-compose.override.yml'] });
 ```
 
-## Starting and Stopping Services
+## Starting and Stopping Services {#starting-and-stopping-services}
 
 ```typescript
 const compose = $.docker().compose();
@@ -64,7 +64,7 @@ await compose.down();           // docker compose down
 await compose.down(true);       // docker compose down -v
 ```
 
-## Executing Commands in Services
+## Executing Commands in Services {#executing-commands-in-services}
 
 ```typescript
 const compose = $.docker().compose();
@@ -83,7 +83,7 @@ For interactive sessions or more control (user, workdir, streaming), target the 
 await $.docker({ container: 'myapp-web-1', user: 'node' })`npm run repl`.interactive();
 ```
 
-## Logs and Status
+## Logs and Status {#logs-and-status}
 
 ```typescript
 const compose = $.docker().compose();
@@ -107,7 +107,7 @@ for await (const line of $`docker compose logs -f --tail 100 web`) {
 }
 ```
 
-## Scaling
+## Scaling {#scaling}
 
 There is no dedicated scale method — use the CLI form:
 
@@ -115,7 +115,7 @@ There is no dedicated scale method — use the CLI form:
 await $`docker compose up -d --scale worker=5 --no-recreate`;
 ```
 
-## Configuration via Xec Targets
+## Configuration via Xec Targets {#configuration-via-xec-targets}
 
 Compose-managed containers are ordinary Docker containers, so they can be addressed as Xec targets once running:
 
@@ -134,7 +134,7 @@ xec in containers.web "npm test"
 xec logs containers.web --follow
 ```
 
-## CI/CD Example
+## CI/CD Example {#cicd-example}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -153,7 +153,7 @@ async function integrationTests() {
 }
 ```
 
-## Related Documentation
+## Related Documentation {#related-documentation}
 
 - [Docker Target Overview](./overview.md) - Docker execution basics
 - [Container Lifecycle](./container-lifecycle.md) - Container management

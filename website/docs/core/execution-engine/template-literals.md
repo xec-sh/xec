@@ -4,13 +4,13 @@ sidebar_label: Template Literals
 description: Safe command building through template literals with automatic escaping
 ---
 
-# Template Literals API
+# Template Literals API {#template-literals-api}
 
 Template literals are the primary way to build commands in Xec. This API provides safe variable injection into commands with automatic escaping, preventing injections and errors.
 
-## Basic Usage
+## Basic Usage {#basic-usage}
 
-### Simple Command Execution
+### Simple Command Execution {#simple-command-execution}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -31,7 +31,7 @@ await $`
 `;
 ```
 
-### Automatic Escaping
+### Automatic Escaping {#automatic-escaping}
 
 All values substituted through `${}` are automatically escaped:
 
@@ -72,9 +72,9 @@ Values are quoted with single quotes (POSIX shells don't expand anything
 inside single quotes), not double quotes — this matters if you're predicting
 the exact command string, e.g. for logs or tests.
 
-## Data Types and Their Handling
+## Data Types and Their Handling {#data-types-and-their-handling}
 
-### Strings
+### Strings {#strings}
 
 Strings are escaped with context awareness:
 
@@ -89,7 +89,7 @@ const quote = 'He said "Hello"';
 await $`echo ${quote}`;  // echo 'He said "Hello"' — double quotes need no escaping inside single quotes
 ```
 
-### Numbers and Boolean Values
+### Numbers and Boolean Values {#numbers-and-boolean-values}
 
 ```typescript
 const port = 3000;
@@ -101,7 +101,7 @@ await $`head -n ${count} file.txt`;       // head -n 42
 await $`./script.sh --verbose ${enabled}`; // --verbose true
 ```
 
-### Arrays
+### Arrays {#arrays}
 
 Arrays are expanded into separate arguments:
 
@@ -119,7 +119,7 @@ const empty: string[] = [];
 await $`ls ${empty} -la`;  // ls -la
 ```
 
-### Objects
+### Objects {#objects}
 
 Objects are converted to JSON:
 
@@ -137,7 +137,7 @@ await $`echo ${config}`;
 await $`echo ${config} > config.json`;
 ```
 
-### null and undefined
+### null and undefined {#null-and-undefined}
 
 `null` and `undefined` interpolate to an empty **quoted argument** (`''`) —
 they don't vanish, so they still occupy a position in `argv`:
@@ -163,7 +163,7 @@ const flags = verbose ? ['--verbose'] : [];
 await $`git status ${flags}`;
 ```
 
-### Promises and Async Values
+### Promises and Async Values {#promises-and-async-values}
 
 Template literals automatically await promise resolution:
 
@@ -189,7 +189,7 @@ const [user, host] = [
 await $`ssh ${user}@${host}`;
 ```
 
-## Raw Mode - Without Escaping
+## Raw Mode - Without Escaping {#raw-mode---without-escaping}
 
 For cases when you need to disable escaping, `$.raw` is a separate tagged
 template that skips it:
@@ -220,9 +220,9 @@ await $.raw`cat log.txt ${pipe}`;
 
 ⚠️ **Warning**: Use raw mode only with trusted data!
 
-## Complex Examples
+## Complex Examples {#complex-examples}
 
-### Dynamic Command Building
+### Dynamic Command Building {#dynamic-command-building}
 
 ```typescript
 // Conditional flags
@@ -238,7 +238,7 @@ const flags = [
 await $`npm publish ${flags}`;
 ```
 
-### Command Templating
+### Command Templating {#command-templating}
 
 ```typescript
 // Creating a reusable template
@@ -250,7 +250,7 @@ await gitCommit('Initial commit');
 await gitCommit('Add features', ['src/feature.ts', 'tests/feature.test.ts']);
 ```
 
-### Working with Paths
+### Working with Paths {#working-with-paths}
 
 ```typescript
 import * as path from 'path';
@@ -268,7 +268,7 @@ const dirs = ['src', 'tests', 'docs'].map(d => path.join(baseDir, d));
 await $`ls -la ${dirs}`;
 ```
 
-### Working with Environment
+### Working with Environment {#working-with-environment}
 
 ```typescript
 // Environment variables in commands
@@ -287,9 +287,9 @@ const host = 'localhost';
 await $`NODE_ENV=production npm start -- --port ${port} --host ${host}`;
 ```
 
-## Special Characters and Their Handling
+## Special Characters and Their Handling {#special-characters-and-their-handling}
 
-### Quotes
+### Quotes {#quotes}
 
 ```typescript
 // Single quotes — the value gets closed, escaped, and reopened
@@ -305,7 +305,7 @@ const mixed = `It's "complex"`;
 await $`echo ${mixed}`;  // echo 'It'\''s "complex"'
 ```
 
-### Shell Characters
+### Shell Characters {#shell-characters}
 
 ```typescript
 // Special characters are escaped
@@ -322,7 +322,7 @@ const shellVar = '${PATH}';
 await $`echo ${shellVar}`;  // echo '${PATH}'
 ```
 
-### Unicode and Emoji
+### Unicode and Emoji {#unicode-and-emoji}
 
 ```typescript
 // Unicode is supported
@@ -338,7 +338,7 @@ const special = '→ ← ↑ ↓ • × ÷';
 await $`echo ${special}`;
 ```
 
-## Function Interpolation
+## Function Interpolation {#function-interpolation}
 
 Call the function yourself — `${getTimestamp()}`, not `${getTimestamp}` —
 interpolation doesn't invoke a bare function reference for you; it would be
@@ -369,7 +369,7 @@ const config = {
 await $`psql ${config.getConnectionString()}`;
 ```
 
-## Nested Template Literals
+## Nested Template Literals {#nested-template-literals}
 
 ```typescript
 // Commands can be nested
@@ -384,7 +384,7 @@ const files = await $`find . -name "*.js"`.lines();
 await $`eslint ${files}`;
 ```
 
-## Multi-line Commands
+## Multi-line Commands {#multi-line-commands}
 
 ```typescript
 // Shell scripts
@@ -419,7 +419,7 @@ await $`
 `;
 ```
 
-## Error Handling in Template Literals
+## Error Handling in Template Literals {#error-handling-in-template-literals}
 
 ```typescript
 import { $, CommandError } from '@xec-sh/core';
@@ -433,9 +433,9 @@ try {
 }
 ```
 
-## Performance and Optimizations
+## Performance and Optimizations {#performance-and-optimizations}
 
-### String Reuse
+### String Reuse {#string-reuse}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -446,7 +446,7 @@ const sizes = await $.parallel.map(files, file => $`wc -c ${file}`, { maxConcurr
 console.log(sizes);
 ```
 
-### Result Caching
+### Result Caching {#result-caching}
 
 ```typescript
 // Caching expensive operations
@@ -459,7 +459,7 @@ const data1 = await getData();
 const data2 = await getData();
 ```
 
-## Debugging Template Literals
+## Debugging Template Literals {#debugging-template-literals}
 
 There is no built-in way to preview the resolved command string before
 running it — `ProcessPromise` doesn't expose the command, and calling
@@ -487,9 +487,9 @@ const file = 'test file.txt';
 await $`cat ${file}`;
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### ✅ Good Practices
+### ✅ Good Practices {#-good-practices}
 
 ```typescript
 // Use variables for readability
@@ -506,11 +506,11 @@ await $`prettier --write ${filtered}`;
 const { stdout: version } = await $`node --version`;
 ```
 
-### ❌ Avoid
+### ❌ Avoid {#-avoid}
 
 Pass values as template substitutions and use `$.exec` only for trusted complete command text. Await the final command. Supply credentials through the target environment or stdin and register secrets before execution so diagnostic output can redact them.
 
-## Conclusion
+## Conclusion {#conclusion}
 
 The Template Literals API in Xec provides:
 

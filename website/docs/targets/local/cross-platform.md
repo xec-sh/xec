@@ -4,7 +4,7 @@ description: What behaves identically on every operating system, what cannot, an
 keywords: [windows, cmd, powershell, cross-platform, portability, quoting]
 ---
 
-# Windows and cross-platform scripts
+# Windows and cross-platform scripts {#windows-and-cross-platform-scripts}
 
 Xec runs on Linux, macOS and Windows, and its unit suite runs on Windows in
 CI. This page is the line between what that guarantees and what it cannot.
@@ -13,7 +13,7 @@ The short version: **Xec normalizes command results, quoting and lifecycle, whil
 arguments is portable. One that writes shell syntax is as portable as that
 syntax.
 
-## What is identical on every platform
+## What is identical on every platform {#what-is-identical-on-every-platform}
 
 These are Xec's own behaviour, and they do not vary:
 
@@ -27,9 +27,9 @@ These are Xec's own behaviour, and they do not vary:
 | **Streams** | `stdout`, `stderr`, `buffer()` and async iteration deliver the same bytes. |
 | **Exit codes and `ok`** | A killed or failed process is never reported as a success. |
 
-## What the platform decides
+## What the platform decides {#what-the-platform-decides}
 
-### The shell
+### The shell {#the-shell}
 
 With `shell: true` — the default — commands run through `/bin/sh` on POSIX
 and `cmd.exe` on Windows. Escaping follows: values are quoted in that
@@ -50,7 +50,7 @@ happens to be installed would mean the same machine behaves differently
 before and after somebody installs Git — so the default is the platform's
 own, and switching is explicit.
 
-### What the shell does with your command
+### What the shell does with your command {#what-the-shell-does-with-your-command}
 
 This is where portability ends, and no amount of escaping changes it:
 
@@ -74,9 +74,9 @@ Mode bits (`chmod`) and POSIX signals are in the same category. Windows has
 neither: `.kill('SIGKILL')` terminates the process and reports an ordinary
 non-zero exit, with no `signal` field, because there is no signal to report.
 
-## Writing commands that work on both
+## Writing commands that work on both {#writing-commands-that-work-on-both}
 
-### Pass values as arguments, not as shell text
+### Pass values as arguments, not as shell text {#pass-values-as-arguments-not-as-shell-text}
 
 This is the whole technique. A program and its arguments are portable; a
 shell expression is not.
@@ -91,7 +91,7 @@ await $`node scripts/report.js ${outputPath}`;
 await $`node scripts/report.js > $HOME/report.txt`;
 ```
 
-### Reach for the runtime instead of shell built-ins
+### Reach for the runtime instead of shell built-ins {#reach-for-the-runtime-instead-of-shell-built-ins}
 
 Anything you would write with `echo`, `cat`, `printf` or `test` has an
 equivalent that behaves identically everywhere, because it is the same
@@ -110,7 +110,7 @@ Most of the time the answer is simply not to shell out: `node:fs`,
 `node:path` and the [script globals](../../scripting/basics/execution-context.md)
 already cover what these commands were for.
 
-### Or name a shell and mean it
+### Or name a shell and mean it {#or-name-a-shell-and-mean-it}
 
 When a script genuinely needs POSIX syntax, say so once:
 
@@ -123,14 +123,14 @@ await sh`for f in *.log; do gzip "$f"; done`;
 On Windows this requires bash to be present — Git for Windows or WSL — and
 fails clearly if it is not, which is better than differing silently.
 
-## Remote targets are not local ones
+## Remote targets are not local ones {#remote-targets-are-not-local-ones}
 
 An SSH, Docker or Kubernetes target runs commands on the *remote* host, so
 the remote's shell is what matters, not yours. Running Xec from Windows
 against a Linux server gives POSIX semantics, because that is what is at
 the other end.
 
-## See also
+## See also {#see-also}
 
 - [Shell configuration](./shell-config.md) — selecting and disabling the shell
 - [Template literals](../../core/execution-engine/template-literals.md) — how interpolation and escaping work

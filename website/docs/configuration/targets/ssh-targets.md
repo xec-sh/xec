@@ -3,11 +3,11 @@ title: SSH Targets
 description: Configuring SSH host targets for remote execution
 ---
 
-# SSH Targets
+# SSH Targets {#ssh-targets}
 
 SSH targets run commands on remote hosts. Declare them under `targets.hosts` in `.xec/config.yaml`; reference them as `hosts.<name>`.
 
-## Basic Configuration
+## Basic Configuration {#basic-configuration}
 
 ```yaml
 targets:
@@ -22,7 +22,7 @@ targets:
 xec on hosts.web-server "uptime"
 ```
 
-## Reference
+## Reference {#reference}
 
 Fields the CLI forwards to the SSH connection:
 
@@ -51,9 +51,9 @@ targets:
 
 Other keys under a host entry are accepted by the parser but do not change the connection. Connection pooling, sudo, SFTP concurrency, and keep-alive are process-wide adapter configuration in `@xec-sh/core`, not per-target YAML — see [Connection Configuration](../../targets/ssh/connection-config.md) and [Sudo & Security](../../targets/ssh/sudo-security.md).
 
-## Authentication
+## Authentication {#authentication}
 
-### Private Key
+### Private Key {#private-key}
 
 ```yaml
 targets:
@@ -67,7 +67,7 @@ targets:
 
 `privateKey` is a single path. There is no SSH agent integration: a target needs either a key or a password.
 
-### Password
+### Password {#password}
 
 ```yaml
 targets:
@@ -78,7 +78,7 @@ targets:
       password: ${secrets.legacy_password}  # never hardcode
 ```
 
-## Host Key Checking
+## Host Key Checking {#host-key-checking}
 
 `hostKeyChecking` defaults to `accept-new`: the host's key is recorded on first connection and a later mismatch is refused.
 
@@ -100,7 +100,7 @@ targets:
 
 Use `off` only for disposable hosts such as test containers.
 
-## Environment Variables
+## Environment Variables {#environment-variables}
 
 `env` is applied to every command executed on the target:
 
@@ -115,7 +115,7 @@ targets:
         API_URL: https://api.example.com
 ```
 
-## Organizing Hosts
+## Organizing Hosts {#organizing-hosts}
 
 Related hosts are separate entries; a naming convention keeps them addressable:
 
@@ -135,9 +135,9 @@ targets:
 
 Tasks can run one step across several hosts — see [Multi-Step Tasks](../tasks/multi-step-tasks.md).
 
-## Examples
+## Examples {#examples}
 
-### Production Web Server
+### Production Web Server {#production-web-server}
 
 ```yaml
 targets:
@@ -152,7 +152,7 @@ targets:
         PORT: "3000"
 ```
 
-### Development Server
+### Development Server {#development-server}
 
 ```yaml
 targets:
@@ -166,7 +166,7 @@ targets:
         DEBUG: "*"
 ```
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
 ```bash
 # Test the connection
@@ -185,19 +185,19 @@ Common failures:
 - **Host key verification failed** — the host's key changed since it was recorded. Remove the stale entry from `known_hosts`, or point `knownHostsPath` at the right file.
 - **Connection refused** — wrong `port`, or sshd not running on the target.
 
-## Security Practices
+## Security Practices {#security-practices}
 
 - Prefer key authentication over passwords.
 - Keep passwords and passphrases in [secrets](../../commands/built-in/secrets.md) (`${secrets.name}`), never in the YAML.
 - Use `hostKeyChecking: strict` for production targets.
 - Put only necessary variables in `env`; secrets do not belong there.
 
-## Next Steps
+## Next Steps {#next-steps}
 
 - [Docker Targets](./docker-targets.md) - Container configuration
 - [Kubernetes Targets](./kubernetes-targets.md) - Pod configuration
 
-## See Also
+## See Also {#see-also}
 
 - [SSH Execution](../../targets/ssh/overview.md) - The SSH adapter itself: sudo, SFTP, tunnels
 - [on Command](../../commands/built-in/on.md) - Running commands on SSH hosts

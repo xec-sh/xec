@@ -5,13 +5,13 @@ title: Quick Start
 description: Get started with Xec in 5 minutes
 ---
 
-# Quick Start
+# Quick Start {#quick-start}
 
 Get up and running with Xec in just 5 minutes. This guide covers installation, basic usage, and your first multi-environment command.
 
-## Installation
+## Installation {#installation}
 
-### Install the CLI
+### Install the CLI {#install-the-cli}
 
 ```bash
 npm install -g @xec-sh/cli
@@ -23,7 +23,7 @@ Or use npx without installation:
 npx @xec-sh/cli --help
 ```
 
-### Install the Core Library
+### Install the Core Library {#install-the-core-library}
 
 For use in Node.js projects:
 
@@ -31,9 +31,9 @@ For use in Node.js projects:
 npm install @xec-sh/core
 ```
 
-## Your First Command
+## Your First Command {#your-first-command}
 
-### Using the CLI
+### Using the CLI {#using-the-cli}
 
 Xec provides built-in commands for multi-environment execution:
 
@@ -51,14 +51,14 @@ xec in my-container "npm test"
 xec copy local.txt server.com:/remote/path/
 ```
 
-### Execute a Script
+### Execute a Script {#execute-a-script}
 
 ```bash
 echo "await $\`echo 'Hello from script'\`" > hello.js
 xec run hello.js
 ```
 
-### Using the Library
+### Using the Library {#using-the-library}
 
 Create a file `example.js`:
 
@@ -80,9 +80,9 @@ Run it:
 node example.js
 ```
 
-## Working with Different Environments
+## Working with Different Environments {#working-with-different-environments}
 
-### SSH Execution
+### SSH Execution {#ssh-execution}
 
 Connect to a remote server:
 
@@ -104,7 +104,7 @@ const uptime = await server`uptime`.text();
 console.log(`Server uptime: ${uptime}`);
 ```
 
-### Docker Execution
+### Docker Execution {#docker-execution}
 
 Run commands in containers:
 
@@ -116,7 +116,7 @@ await $.docker({ container: 'my-app' })`npm test`;
 
 // Create ephemeral container with configuration
 await $.docker({
-  image: 'node:20',
+  image: 'node:24',
   autoRemove: true,
   volumes: ['./src:/app'],
   workdir: '/app'
@@ -124,13 +124,13 @@ await $.docker({
 
 // Or use fluent API
 await $.docker()
-  .ephemeral('node:20')
+  .ephemeral('node:24')
   .volumes(['./src:/app'])
   .workdir('/app')
   .run`npm install && npm run build`;
 ```
 
-### Kubernetes Execution
+### Kubernetes Execution {#kubernetes-execution}
 
 Execute in pods:
 
@@ -149,9 +149,9 @@ const logs = await $`kubectl logs web-server -n default --tail=100`.text();
 console.log(logs);
 ```
 
-## Common Patterns
+## Common Patterns {#common-patterns}
 
-### Error Handling
+### Error Handling {#error-handling}
 
 ```javascript
 // Continue on error
@@ -168,7 +168,7 @@ try {
 }
 ```
 
-### Working with Output
+### Working with Output {#working-with-output}
 
 ```javascript
 // Get text output (trimmed stdout)
@@ -182,7 +182,7 @@ const files = await $`ls -1`.lines();
 files.forEach(file => console.log(file));
 ```
 
-### Method Chaining
+### Method Chaining {#method-chaining}
 
 ```javascript
 await $.cd('/app')                      // Set working directory
@@ -192,7 +192,7 @@ await $.cd('/app')                      // Set working directory
   .nothrow();                      // Don't throw on error
 ```
 
-### Parallel Execution
+### Parallel Execution {#parallel-execution}
 
 ```javascript
 // Run commands in parallel
@@ -212,7 +212,7 @@ const results2 = await $.parallel.all(serverCommands, {
 });
 ```
 
-## Interactive REPL Mode
+## Interactive REPL Mode {#interactive-repl-mode}
 
 Start an interactive REPL with Xec pre-loaded:
 
@@ -225,7 +225,7 @@ xec run --repl
 > files.length
 ```
 
-### Interactive Command Mode
+### Interactive Command Mode {#interactive-command-mode}
 
 Many commands support interactive mode for guided execution:
 
@@ -240,7 +240,7 @@ xec forward --interactive
 xec on --interactive
 ```
 
-## Project Configuration
+## Project Configuration {#project-configuration}
 
 Create `.xec/config.yaml` for project-specific settings:
 
@@ -279,7 +279,7 @@ Run configured tasks:
 xec run deploy
 ```
 
-## Creating Custom Commands
+## Creating Custom Commands {#creating-custom-commands}
 
 Create `.xec/commands/greet.js`:
 
@@ -303,7 +303,7 @@ Use your custom command:
 xec greet World
 ```
 
-## What's Next?
+## What's Next? {#whats-next}
 
 Now that you've seen the basics:
 
@@ -312,13 +312,12 @@ Now that you've seen the basics:
 3. **Dive into Examples** - Check out [comprehensive examples](../recipes/index.md)
 4. **Read the Configuration Guide** - Explore [configuration options](../configuration/overview.md)
 
-## Getting Help
+## Getting Help {#getting-help}
 
-- **Documentation**: [docs.xec.sh](https://docs.xec.sh)
+- **Documentation**: [xec.sh](https://xec.sh)
 - **GitHub**: [github.com/xec-sh/xec](https://github.com/xec-sh/xec)
-- **Discord**: [discord.gg/xec](https://discord.gg/xec)
 
-## Tips for Success
+## Tips for Success {#tips-for-success}
 
 1. **Start simple** - Begin with local execution before moving to remote environments
 2. **Use TypeScript** - Get full IntelliSense and type checking

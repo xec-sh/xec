@@ -5,7 +5,7 @@ keywords: [docker, container, execution, lifecycle, compose]
 sidebar_position: 1
 ---
 
-# Docker Target Overview
+# Docker Target Overview {#docker-target-overview}
 
 Docker targets run commands inside containers. Xec shells out to your local `docker` CLI (`packages/core/src/adapters/docker/`) — there's no bundled Docker Engine API client — and layers a fluent API (`$.docker()`) on top for container lifecycle, Compose, networks, volumes, and images.
 
@@ -15,7 +15,7 @@ import { $ } from '@xec-sh/core';
 await $.docker('my-app')`ls -la`;
 ```
 
-## Target Configuration
+## Target Configuration {#target-configuration}
 
 ```yaml
 # .xec/config.yaml
@@ -46,7 +46,7 @@ targets:
       # autoRemove: true
 ```
 
-## Container Execution
+## Container Execution {#container-execution}
 
 ```typescript
 // Execute in an existing container — string shorthand
@@ -80,7 +80,7 @@ await $.docker('source')`cat data.sql`
 
 Object-form targets forward their declared creation options to `docker run`, including environment, ports, network, platform, image pulling, entrypoint and labels. `workingDir` and `workdir` select the container directory. Creation-only options passed to an existing container are rejected with an explanation.
 
-## The Fluent API
+## The Fluent API {#the-fluent-api}
 
 Calling `$.docker()` with no arguments returns the fluent Docker API — the full builder surface, not just exec shortcuts:
 
@@ -111,7 +111,7 @@ if (await app.isRunning()) {
 
 See [Container Lifecycle](./container-lifecycle.md) for the full builder surface (`.ports()`, `.healthcheck()`, `.memory()`, lifecycle hooks, and what's live on a persistent vs. an ephemeral container — they don't share the same effective options).
 
-## Docker Compose
+## Docker Compose {#docker-compose}
 
 ```typescript
 const compose = $.docker().compose('docker-compose.yml');
@@ -122,7 +122,7 @@ await compose.down(true);           // also remove volumes
 
 Full reference: [Compose Integration](./compose-integration.md).
 
-## Volumes and Networks
+## Volumes and Networks {#volumes-and-networks}
 
 ```typescript
 await $.docker().volume('app-data').create({ driver: 'local' });
@@ -139,7 +139,7 @@ await $`docker cp my-app:/app/logs ./logs`;
 
 Details: [Volume Management](./volume-management.md), [Networking](./networking.md).
 
-## Image Management
+## Image Management {#image-management}
 
 ```typescript
 const docker = $.docker();
@@ -152,7 +152,7 @@ await docker.rm('old-container', true);
 await docker.rmi('my-app:old');
 ```
 
-## Adapter Configuration
+## Adapter Configuration {#adapter-configuration}
 
 Docker-adapter defaults are set once, globally, through `configure()` — not by constructing `new DockerAdapter()` yourself (that instance wouldn't be wired into `$`):
 
@@ -183,7 +183,7 @@ configure({
 
 The adapter always shells out to a local `docker` binary — it does not read `socketPath`, `host`, `port`, or `version` from this config, so those fields have no effect. To reach a remote daemon, configure it the same way you would for any other `docker` invocation (`DOCKER_HOST`, `docker context use`), not through xec.
 
-### Events
+### Events {#events}
 
 ```typescript
 const adapter = $.getAdapter('docker');
@@ -192,7 +192,7 @@ adapter?.on('docker:exec', (e) => console.log('exec:', e.container, e.command));
 adapter?.on('temp:cleanup', (e) => console.log('cleaned up:', e.path));
 ```
 
-### Availability
+### Availability {#availability}
 
 ```typescript
 const available = await $.getAdapter('docker')?.isAvailable();
@@ -201,7 +201,7 @@ if (!available) {
 }
 ```
 
-## Error Handling
+## Error Handling {#error-handling}
 
 ```typescript
 import { DockerError } from '@xec-sh/core';
@@ -221,7 +221,7 @@ if (!result.ok) {
 }
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
 1. **Use specific image tags** instead of `latest`
 2. **Run containers as non-root** users
@@ -229,7 +229,7 @@ if (!result.ok) {
 4. **Use health checks** for production containers (`healthcheck()` on the builder)
 5. **Keep containers running** and use exec for repeated commands — executing in an existing container skips container startup entirely, while an ephemeral container pays it on every call
 
-## Related Documentation
+## Related Documentation {#related-documentation}
 
 - [Container Lifecycle](./container-lifecycle.md) - Detailed lifecycle management
 - [Compose Integration](./compose-integration.md) - Docker Compose usage

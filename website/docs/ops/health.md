@@ -5,11 +5,11 @@ title: Health Check Framework
 description: Asynchronous HTTP, TCP, command and custom checks with explicit cancellation
 ---
 
-# Health Check Framework
+# Health Check Framework {#health-check-framework}
 
 `HealthChecker` evaluates declared observations and returns a result for each check. Checks run concurrently by default; `run({ sequential: true })` runs them in declaration order.
 
-## Usage
+## Usage {#usage}
 
 ```typescript
 import { HealthChecker } from '@xec-sh/ops';
@@ -22,9 +22,9 @@ const report = await HealthChecker.create()
 console.log(report.healthy, report.checks);
 ```
 
-## Check Types
+## Check Types {#check-types}
 
-### HTTP
+### HTTP {#http}
 
 `http(url, options)` compares the response status with `status` (default 200). Optional `contains` also checks the response body. `method`, `headers` and `body` are passed to fetch. The timeout covers response headers and body reading; it defaults to ten seconds.
 
@@ -37,11 +37,11 @@ const report = await HealthChecker.create()
 console.log(report.summary);
 ```
 
-### TCP
+### TCP {#tcp}
 
 `tcp(host, port, { timeout })` reports whether a TCP connection can be established. It does not authenticate or validate the service protocol. The socket is closed before the check settles. The default timeout is five seconds.
 
-### Command
+### Command {#command}
 
 `command(source, options)` accepts trusted shell source or a core `Command` with literal `args`. The command uses the common asynchronous Xec execution engine. Its default deadline is ten seconds.
 
@@ -59,7 +59,7 @@ console.log(report.healthy);
 
 Command options also accept `env`, `cwd` and `signal`. Prefer argument vectors to interpolated shell strings when values come from configuration or users.
 
-### Custom
+### Custom {#custom}
 
 A custom check returns a boolean, or a string meaning a healthy result with that message. It receives the run's optional cancellation signal. Custom asynchronous work must cooperate with cancellation.
 
@@ -75,7 +75,7 @@ const report = await HealthChecker.create()
 console.log(report.healthy);
 ```
 
-## Wait Until Healthy
+## Wait Until Healthy {#wait-until-healthy}
 
 ```typescript
 import { HealthChecker } from '@xec-sh/ops';
@@ -87,6 +87,6 @@ console.log(report.summary);
 
 Polling uses one overall deadline, including active checks and retry delays. It does not perform an extra unbounded check after the deadline. A caller's `signal` cancels polling and active commands. Cancellation rejects the run instead of masquerading as an ordinary unhealthy observation.
 
-## Report Structure
+## Report Structure {#report-structure}
 
 The report contains `healthy`, `timestamp`, total `duration`, ordered `checks` and a summary of healthy/unhealthy counts. Each check has `name`, `healthy`, `duration` and optional `message` or `error`. An empty checker has no observations; declare the checks required by your readiness policy before treating a report as readiness evidence.

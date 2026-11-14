@@ -3,11 +3,11 @@ title: Components
 description: Log output, notes, boxes, spinners, progress bars and task runners
 ---
 
-# Components
+# Components {#components}
 
 Output components share the prompt aesthetic: a guide bar on the left, themed symbols, Unicode with ASCII fallback.
 
-## log
+## log {#log}
 
 Leveled one-line output.
 
@@ -24,7 +24,7 @@ log.message('Plain line');
 
 Each level draws its symbol from the theme (`info`, `success`, `warning`, `error` roles).
 
-## intro / outro / cancel
+## intro / outro / cancel {#intro--outro--cancel}
 
 Open and close a prompt flow:
 
@@ -38,7 +38,7 @@ outro('Done');             // closing line
 cancel('Operation cancelled.');
 ```
 
-## note / box
+## note / box {#note--box}
 
 Bordered message blocks. Both take `(message, title?, opts?)`:
 
@@ -49,7 +49,7 @@ note('Remember to commit', 'Reminder');   // rounded, fits content
 box('Boxed content', 'Title');            // full-width box
 ```
 
-## spinner
+## spinner {#spinner}
 
 ```typescript
 import { spinner } from '@xec-sh/kit';
@@ -84,7 +84,7 @@ spinner({
 
 Custom animations pass `frames: string[]` and `delay: number` directly. Pipe and CI output uses append-only progress with a periodic heartbeat. `accessible: true` also selects plain append-only text for a terminal. Pass `input`, `output` and `signal` to connect the indicator to its owning operation. `stop` reports success, `error` reports failure, and `cancel` reports cancellation. Each completion restores the terminal and removes its listeners.
 
-## progress
+## progress {#progress}
 
 A progress bar with the spinner's lifecycle plus `advance`:
 
@@ -98,7 +98,7 @@ bar.advance(20, 'Still going');   // step and new message
 bar.stop('Downloaded');
 ```
 
-## tasks
+## tasks {#tasks}
 
 Run a list of functions, each behind its own spinner:
 
@@ -122,7 +122,7 @@ await tasks([
 ]);
 ```
 
-## taskLog
+## taskLog {#tasklog}
 
 A live log block under a title that collapses when the task finishes — output shown while it runs, summary kept when it is done:
 
@@ -151,7 +151,7 @@ task.success('Build complete');
 
 Raw fragments are joined within their group. Terminal commands in titles and data are removed while display styling is retained. Accessible output strips styling as well.
 
-## stream
+## stream {#stream}
 
 Write an async iterable to the terminal as prompt-styled output — useful for piping process output through the kit's look:
 
@@ -170,7 +170,7 @@ await stream.info(lines(), { output: process.stderr, withGuide: false, spacing: 
 
 The returned promise waits for destination writes and rejects source or destination errors. An early exit closes the source iterator. Cancellation is checked between input chunks, so pass the same `AbortSignal` to producers that can wait on I/O. Control-string payloads are discarded incrementally using bounded memory.
 
-## See Also
+## See Also {#see-also}
 
 - [Prompts](./prompts.md)
 - [Tables](./table.md)

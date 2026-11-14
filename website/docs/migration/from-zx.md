@@ -8,15 +8,15 @@ source_files:
   - apps/xec/src/commands/run.ts
 ---
 
-# Migrating from zx/shelljs to Xec
+# Migrating from zx/shelljs to Xec {#migrating-from-zxshelljs-to-xec}
 
-## Overview
+## Overview {#overview}
 
 This guide helps you migrate from Google's zx or shelljs to Xec. While zx brought modern JavaScript to shell scripting, Xec extends this concept with multi-environment execution, better TypeScript support, and enterprise features like SSH/Docker/Kubernetes integration.
 
-## Why Migrate to Xec?
+## Why Migrate to Xec? {#why-migrate-to-xec}
 
-### zx Example
+### zx Example {#zx-example}
 <!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
 ```javascript
 #!/usr/bin/env zx
@@ -42,7 +42,7 @@ await Promise.all([
 ]);
 ```
 
-### shelljs Example
+### shelljs Example {#shelljs-example}
 <!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
 ```javascript
 const shell = require('shelljs');
@@ -65,7 +65,7 @@ if (result.code !== 0) {
 shell.cp('-R', 'src/', 'dist/');
 ```
 
-### Xec Advantages
+### Xec Advantages {#xec-advantages}
 
 ```typescript
 // scripts/deploy.ts
@@ -101,9 +101,9 @@ await $.ssh('server')
 - Parallel execution across environments
 - Enterprise features (retry, timeout, pooling)
 
-## Core API Mapping
+## Core API Mapping {#core-api-mapping}
 
-### zx → Xec
+### zx → Xec {#zx--xec}
 
 | zx Feature | Xec Equivalent | Notes |
 |------------|----------------|-------|
@@ -122,7 +122,7 @@ await $.ssh('server')
 | `pipe()` | `pipe()` | Enhanced piping |
 | `quiet()` | `quiet()` | Same behavior |
 
-### shelljs → Xec
+### shelljs → Xec {#shelljs--xec}
 
 `fs` below is Node's own `node:fs/promises`; Xec does not re-export a filesystem module.
 
@@ -144,9 +144,9 @@ await $.ssh('server')
 | `shell.sed()` | `$\`sed\`` | `await $\`sed s/a/b/\`` |
 | `shell.exit()` | `process.exit()` | `process.exit(code)` |
 
-## Common Pattern Migrations
+## Common Pattern Migrations {#common-pattern-migrations}
 
-### 1. Basic Command Execution
+### 1. Basic Command Execution {#1-basic-command-execution}
 
 **zx:**
 <!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
@@ -191,7 +191,7 @@ const remoteBranch = await $.ssh('server')`git branch --show-current`;
 const containerFiles = await $.docker('app')`ls -la`;
 ```
 
-### 2. Error Handling
+### 2. Error Handling {#2-error-handling}
 
 **zx:**
 <!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
@@ -254,7 +254,7 @@ const results = await Promise.allSettled([
 const failed = results.filter(r => r.status === 'rejected');
 ```
 
-### 3. File Operations
+### 3. File Operations {#3-file-operations}
 
 **zx:**
 <!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
@@ -297,7 +297,7 @@ await $.ssh('server')`cat /remote/local.txt`;
 await $.transfer.copy('local.txt', 'docker://container:/app/local.txt');
 ```
 
-### 4. Working Directory
+### 4. Working Directory {#4-working-directory}
 
 **zx:**
 <!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
@@ -346,7 +346,7 @@ await $`pwd`; // back to original
 await $.ssh('server')`cd /app && npm install`;
 ```
 
-### 5. Environment Variables
+### 5. Environment Variables {#5-environment-variables}
 
 **zx:**
 <!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
@@ -383,7 +383,7 @@ await $.docker('container')
   .env({ NODE_ENV: 'production' })`npm run build`;
 ```
 
-### 6. Piping and Streams
+### 6. Piping and Streams {#6-piping-and-streams}
 
 **zx:**
 <!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
@@ -425,9 +425,9 @@ for await (const line of $.ssh('server')`tail -f /var/log/app.log`) {
 }
 ```
 
-## Advanced Migration Patterns
+## Advanced Migration Patterns {#advanced-migration-patterns}
 
-### 1. Parallel Execution
+### 1. Parallel Execution {#1-parallel-execution}
 
 **zx:**
 <!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
@@ -459,7 +459,7 @@ await $.parallel.map(servers,
 );
 ```
 
-### 2. Remote Execution
+### 2. Remote Execution {#2-remote-execution}
 
 **zx (Limited):**
 <!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
@@ -498,7 +498,7 @@ await $.docker('container')`npm install`;
 await $.k8s({ pod: 'pod-name', namespace: 'default' })`node --version`;
 ```
 
-### 3. Configuration and Tasks
+### 3. Configuration and Tasks {#3-configuration-and-tasks}
 
 **zx (Manual):**
 <!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
@@ -544,9 +544,9 @@ tasks:
 
 Programmatic task definition (as opposed to the YAML form above) is provided by `@xec-sh/ops`, not `@xec-sh/core`.
 
-## Complex Script Migration
+## Complex Script Migration {#complex-script-migration}
 
-### Original zx Script
+### Original zx Script {#original-zx-script}
 
 <!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
 ```javascript
@@ -652,7 +652,7 @@ async function main() {
 await main();
 ```
 
-### Migrated to Xec
+### Migrated to Xec {#migrated-to-xec}
 
 ```typescript
 // scripts/deploy.ts
@@ -819,9 +819,9 @@ await main().catch((error) => {
 });
 ```
 
-## Feature Comparison
+## Feature Comparison {#feature-comparison}
 
-### Features Available in Both
+### Features Available in Both {#features-available-in-both}
 
 - Template literal command execution
 - File system operations
@@ -831,7 +831,7 @@ await main().catch((error) => {
 - Colored output (chalk)
 - HTTP requests (fetch)
 
-### Xec Exclusive Features
+### Xec Exclusive Features {#xec-exclusive-features}
 
 | Feature | Description | Example |
 |---------|-------------|---------|
@@ -846,9 +846,9 @@ await main().catch((error) => {
 | Multi-target | Execute on multiple | `Promise.all(hosts.map(h => $.ssh(h)\`cmd\`))` |
 | File Transfer | Cross-environment | `xec copy src dst` |
 
-## Migration Strategy
+## Migration Strategy {#migration-strategy}
 
-### Phase 1: Setup
+### Phase 1: Setup {#phase-1-setup}
 ```bash
 # Install Xec
 npm install -g @xec-sh/cli
@@ -858,7 +858,7 @@ npm install @xec-sh/core
 npm install zx
 ```
 
-### Phase 2: Gradual Migration
+### Phase 2: Gradual Migration {#phase-2-gradual-migration}
 
 <!-- doc-check: skip — zx or ShellJS comparison uses its original runtime and dependencies, not Xec -->
 ```typescript
@@ -875,7 +875,7 @@ await xec$.ssh('server')`npm install`;
 // Gradually replace zx calls with Xec
 ```
 
-### Phase 3: Complete Migration
+### Phase 3: Complete Migration {#phase-3-complete-migration}
 
 1. Replace all zx imports with Xec
 2. Convert to TypeScript for better types
@@ -883,21 +883,21 @@ await xec$.ssh('server')`npm install`;
 4. Implement connection pooling
 5. Add retry and timeout logic
 
-## Common Pitfalls
+## Common Pitfalls {#common-pitfalls}
 
-### 1. Global Imports
+### 1. Global Imports {#1-global-imports}
 **zx:** `import 'zx/globals'` makes everything global
 **Xec:** Explicit imports preferred for clarity
 
-### 2. Error Handling
+### 2. Error Handling {#2-error-handling-1}
 **zx:** Throws by default
 **Xec:** Use `.nothrow()` for Result pattern
 
-### 3. Shell Differences
+### 3. Shell Differences {#3-shell-differences}
 **zx:** Uses system shell
 **Xec:** Consistent cross-platform shell
 
-## Summary
+## Summary {#summary}
 
 Migrating from zx/shelljs to Xec provides:
 - ✅ Multi-environment execution (SSH, Docker, K8s)

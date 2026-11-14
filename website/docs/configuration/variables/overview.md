@@ -3,13 +3,13 @@ title: Variables Overview
 description: Understanding the variable system in Xec configuration
 ---
 
-# Variables Overview
+# Variables Overview {#variables-overview}
 
 Variables provide dynamic configuration values that can be reused throughout your Xec configuration. They enable flexible, DRY (Don't Repeat Yourself) configurations that adapt to different environments and contexts.
 
-## Variable Types
+## Variable Types {#variable-types}
 
-### Simple Variables
+### Simple Variables {#simple-variables}
 
 ```yaml
 vars:
@@ -27,7 +27,7 @@ vars:
   enableCache: true
 ```
 
-### Complex Variables
+### Complex Variables {#complex-variables}
 
 ```yaml
 vars:
@@ -58,9 +58,9 @@ vars:
       timeout: 30s
 ```
 
-## Variable Interpolation
+## Variable Interpolation {#variable-interpolation}
 
-### Basic Interpolation
+### Basic Interpolation {#basic-interpolation}
 
 ```yaml
 vars:
@@ -73,7 +73,7 @@ tasks:
     command: docker run ${tag}
 ```
 
-### Nested Variables
+### Nested Variables {#nested-variables}
 
 ```yaml
 vars:
@@ -87,7 +87,7 @@ vars:
     url: "postgres://${database.host}:${database.port}/mydb"
 ```
 
-### Array Access
+### Array Access {#array-access}
 
 Array elements are addressed with dot-index notation (bracket syntax like `${servers[0]}` is not supported):
 
@@ -101,9 +101,9 @@ vars:
   backupServer: ${servers.1}
 ```
 
-## Variable Sources
+## Variable Sources {#variable-sources}
 
-### 1. Configuration Variables
+### 1. Configuration Variables {#1-configuration-variables}
 
 Defined in `vars` section:
 
@@ -113,7 +113,7 @@ vars:
   version: "2.0.0"
 ```
 
-### 2. Environment Variables
+### 2. Environment Variables {#2-environment-variables}
 
 Access system environment:
 
@@ -128,7 +128,7 @@ vars:
   logLevel: ${env.LOG_LEVEL:info}
 ```
 
-### 3. Secrets
+### 3. Secrets {#3-secrets}
 
 Access secure values:
 
@@ -139,7 +139,7 @@ vars:
   sshKey: ${secrets.deploy_key}
 ```
 
-### 4. Task Parameters
+### 4. Task Parameters {#4-task-parameters}
 
 Access task parameters:
 
@@ -154,7 +154,7 @@ tasks:
       docker run myapp:${params.version}
 ```
 
-### 5. Command Substitution
+### 5. Command Substitution {#5-command-substitution}
 
 `${cmd:command}` runs a shell command **at configuration load time** and substitutes its trimmed stdout:
 
@@ -203,9 +203,9 @@ Configurations that use no command substitution are never gated, and never
 prompt.
 :::
 
-## Variable Scope
+## Variable Scope {#variable-scope}
 
-### Global Scope
+### Global Scope {#global-scope}
 
 Available everywhere:
 
@@ -223,7 +223,7 @@ profiles:
       url: "https://${globalVar}.example.com"
 ```
 
-### Profile Scope
+### Profile Scope {#profile-scope}
 
 Override global variables:
 
@@ -241,7 +241,7 @@ tasks:
     command: echo ${environment}  # Uses profile value
 ```
 
-### Task Scope
+### Task Scope {#task-scope}
 
 Tasks do not have their own `vars:` section — use task parameters with defaults for task-local values:
 
@@ -254,7 +254,7 @@ tasks:
     command: echo ${params.taskVar}
 ```
 
-### Step Scope
+### Step Scope {#step-scope}
 
 A step's output can be registered as a variable for later steps. The registered value is the step's **trimmed output as a string**:
 
@@ -269,7 +269,7 @@ tasks:
         # output only available after registration
 ```
 
-## Default Values
+## Default Values {#default-values}
 
 Defaults use a plain colon — everything after the first `:` is the default value. Bash-style `:-` is **not** supported (with `${env.PORT:-8080}` the default would literally be `-8080`):
 
@@ -292,7 +292,7 @@ vars:
   optional: ${env.OPTIONAL_VAR:default}  # Has default
 ```
 
-## What Interpolation Can and Cannot Do
+## What Interpolation Can and Cannot Do {#what-interpolation-can-and-cannot-do}
 
 Interpolation is a **path lookup**, not an expression language. There are no method calls, arithmetic, or ternaries inside `${...}`:
 
@@ -319,7 +319,7 @@ vars:
 
 Conditional logic belongs in task `when:` clauses (which support `==`, `!=`, `<`, `<=`, `>`, `>=`, `&&`, `||`, `!`, and parentheses) or in script steps.
 
-## Variable Resolution Order
+## Variable Resolution Order {#variable-resolution-order}
 
 Configuration sources are merged in this order — later sources override earlier ones:
 
@@ -332,7 +332,7 @@ Configuration sources are merged in this order — later sources override earlie
 
 Task parameters (`${params.name}`) are supplied per invocation and resolved in their own namespace, outside this merge.
 
-## Escaping Variables
+## Escaping Variables {#escaping-variables}
 
 Only `${...}` sequences are interpolated. To output a literal `${...}`, escape it with a backslash:
 
@@ -343,9 +343,9 @@ vars:
   command: echo $HOME                   # shell variable, untouched by Xec
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### 1. Use Descriptive Names
+### 1. Use Descriptive Names {#1-use-descriptive-names}
 
 ```yaml
 # Good
@@ -359,7 +359,7 @@ vars:
   n: 3
 ```
 
-### 2. Group Related Variables
+### 2. Group Related Variables {#2-group-related-variables}
 
 ```yaml
 vars:
@@ -373,7 +373,7 @@ vars:
     port: 6379
 ```
 
-### 3. Provide Defaults
+### 3. Provide Defaults {#3-provide-defaults}
 
 ```yaml
 vars:
@@ -382,7 +382,7 @@ vars:
   environment: ${env.NODE_ENV:development}
 ```
 
-### 4. Document Variables
+### 4. Document Variables {#4-document-variables}
 
 ```yaml
 vars:
@@ -393,7 +393,7 @@ vars:
   apiUrl: https://api.example.com
 ```
 
-### 5. Validate Early
+### 5. Validate Early {#5-validate-early}
 
 References without defaults fail configuration loading when unresolvable, so required values surface immediately:
 
@@ -408,9 +408,9 @@ vars:
 xec config validate
 ```
 
-## Common Issues
+## Common Issues {#common-issues}
 
-### Circular References
+### Circular References {#circular-references}
 
 ```yaml
 # This causes infinite loop
@@ -419,7 +419,7 @@ vars:
   b: ${a}  # Error: circular reference
 ```
 
-### Undefined Variables
+### Undefined Variables {#undefined-variables}
 
 ```yaml
 vars:
@@ -430,7 +430,7 @@ vars:
   value: ${env.MISSING:default}
 ```
 
-### Type Mismatches
+### Type Mismatches {#type-mismatches}
 
 A variable that holds the whole value keeps its YAML type (number, boolean, object); a variable embedded in a longer string is stringified:
 
@@ -444,9 +444,9 @@ tasks:
     command: connect --port ${port}
 ```
 
-## Debugging Variables
+## Debugging Variables {#debugging-variables}
 
-### Show Resolved Values
+### Show Resolved Values {#show-resolved-values}
 
 ```bash
 # Show all variables
@@ -459,11 +459,11 @@ xec config get vars.database.host
 XEC_DEBUG=true xec run task
 ```
 
-## Next Steps
+## Next Steps {#next-steps}
 
 - [Environment Variables](./environment.md) - Using environment variables
 
-## See Also
+## See Also {#see-also}
 
 - [Configuration File](../config-file.md) - Variable definition
 - [Profiles](../profiles/overview.md) - Profile-specific variables

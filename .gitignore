@@ -16,6 +16,8 @@ experiments
 
 # Testing
 coverage
+website/test-results/
+website/playwright-report/
 
 # Turbo
 .turbo

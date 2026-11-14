@@ -3,11 +3,11 @@ title: Profiles Overview
 description: Managing environment-specific configurations with profiles
 ---
 
-# Profiles Overview
+# Profiles Overview {#profiles-overview}
 
 Profiles enable you to manage different configurations for various environments (development, staging, production) or scenarios. They provide a clean way to override base configuration values without duplicating entire configuration files.
 
-## What Are Profiles?
+## What Are Profiles? {#what-are-profiles}
 
 Profiles are named configuration sets that can:
 - Override global variables
@@ -16,7 +16,7 @@ Profiles are named configuration sets that can:
 - Inherit from other profiles
 - Be activated via command-line or environment variables
 
-## Basic Profile Structure
+## Basic Profile Structure {#basic-profile-structure}
 
 ```yaml
 profiles:
@@ -33,9 +33,9 @@ profiles:
       logLevel: error
 ```
 
-## Profile Activation
+## Profile Activation {#profile-activation}
 
-### Environment Variable
+### Environment Variable {#environment-variable}
 
 ```bash
 # Set profile via environment
@@ -43,7 +43,7 @@ export XEC_PROFILE=production
 xec run deploy
 ```
 
-### Per-Command Flag
+### Per-Command Flag {#per-command-flag}
 
 Some commands (`on`, `in`, `copy`, `logs`, `watch`, `forward`, `inspect`) accept a profile flag directly:
 
@@ -53,7 +53,7 @@ xec on -p production hosts.web "systemctl restart app"
 
 There is no global `--profile` flag and no `defaultProfile` configuration key — use `XEC_PROFILE` to select a profile for a whole session.
 
-## Variable Overrides
+## Variable Overrides {#variable-overrides}
 
 Profiles can override any variables defined in the main configuration:
 
@@ -72,7 +72,7 @@ profiles:
       # appName inherited as "myapp"
 ```
 
-## Target Overrides
+## Target Overrides {#target-overrides}
 
 Modify target configurations per environment:
 
@@ -94,7 +94,7 @@ profiles:
           username: deploy
 ```
 
-## Profile Inheritance
+## Profile Inheritance {#profile-inheritance}
 
 Profiles can extend other profiles:
 
@@ -119,7 +119,7 @@ profiles:
       highAvailability: true
 ```
 
-## Inheritance Chains
+## Inheritance Chains {#inheritance-chains}
 
 `extends` accepts a single parent profile (multi-parent inheritance is not supported). Build layered configurations as a chain instead:
 
@@ -142,7 +142,7 @@ profiles:
       environment: production
 ```
 
-## Environment Variables in Profiles
+## Environment Variables in Profiles {#environment-variables-in-profiles}
 
 Set environment variables for command execution:
 
@@ -161,9 +161,9 @@ profiles:
       API_URL: https://api.example.com
 ```
 
-## Conditional Configuration
+## Conditional Configuration {#conditional-configuration}
 
-### Profile-Specific Tasks
+### Profile-Specific Tasks {#profile-specific-tasks}
 
 ```yaml
 tasks:
@@ -176,7 +176,7 @@ tasks:
       fi
 ```
 
-### Profile Detection in Scripts
+### Profile Detection in Scripts {#profile-detection-in-scripts}
 
 The active profile is available to scripts through the environment:
 
@@ -191,7 +191,7 @@ tasks:
       await $`./deploy.sh`;
 ```
 
-## Profile Files
+## Profile Files {#profile-files}
 
 Profiles that are not defined inline in `config.yaml` are looked up automatically in `.xec/profiles/<name>.yaml`:
 
@@ -212,7 +212,7 @@ targets:
 XEC_PROFILE=prod xec run deploy
 ```
 
-## Dynamic Profile Selection
+## Dynamic Profile Selection {#dynamic-profile-selection}
 
 Select the profile in the shell before invoking Xec:
 
@@ -225,7 +225,7 @@ XEC_PROFILE=$([ "$branch" = "main" ] && echo production || echo staging) xec run
 XEC_PROFILE=${CI:+ci} xec run test
 ```
 
-## Profile Validation
+## Profile Validation {#profile-validation}
 
 Ensure profile configurations are valid:
 
@@ -237,9 +237,9 @@ XEC_PROFILE=production xec config validate
 xec config get profiles.staging
 ```
 
-## Common Patterns
+## Common Patterns {#common-patterns}
 
-### Development Profile
+### Development Profile {#development-profile}
 
 ```yaml
 profiles:
@@ -266,7 +266,7 @@ profiles:
       DEBUG: "*"
 ```
 
-### Staging Profile
+### Staging Profile {#staging-profile}
 
 ```yaml
 profiles:
@@ -286,7 +286,7 @@ profiles:
           port: 22
 ```
 
-### Production Profile
+### Production Profile {#production-profile}
 
 ```yaml
 profiles:
@@ -316,7 +316,7 @@ profiles:
       LOG_LEVEL: error
 ```
 
-## Region-Specific Profiles
+## Region-Specific Profiles {#region-specific-profiles}
 
 ```yaml
 profiles:
@@ -343,7 +343,7 @@ profiles:
           host: api-eu-west.example.com
 ```
 
-## Feature Flags
+## Feature Flags {#feature-flags}
 
 ```yaml
 profiles:
@@ -366,7 +366,7 @@ profiles:
         y: true
 ```
 
-## Profile Composition
+## Profile Composition {#profile-composition}
 
 `extends` takes a single parent, so compose baselines as a chain — each layer extends the previous one:
 
@@ -394,7 +394,7 @@ profiles:
       environment: production
 ```
 
-## Profile Priority
+## Profile Priority {#profile-priority}
 
 Configuration sources are merged in this order (later overrides earlier):
 
@@ -422,7 +422,7 @@ profiles:
       value: "child"  # This wins when child profile is active
 ```
 
-## Testing with Profiles
+## Testing with Profiles {#testing-with-profiles}
 
 ```yaml
 profiles:
@@ -444,7 +444,7 @@ profiles:
       MOCK_EXTERNAL_APIS: true
 ```
 
-## CI/CD Profiles
+## CI/CD Profiles {#cicd-profiles}
 
 ```yaml
 profiles:
@@ -460,9 +460,9 @@ profiles:
       NO_COLOR: true
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### 1. Use Descriptive Names
+### 1. Use Descriptive Names {#1-use-descriptive-names}
 
 ```yaml
 # Good
@@ -478,7 +478,7 @@ profiles:
   d3:
 ```
 
-### 2. Inherit Common Settings
+### 2. Inherit Common Settings {#2-inherit-common-settings}
 
 ```yaml
 profiles:
@@ -493,7 +493,7 @@ profiles:
       environment: production
 ```
 
-### 3. Keep Secrets Separate
+### 3. Keep Secrets Separate {#3-keep-secrets-separate}
 
 ```yaml
 profiles:
@@ -503,7 +503,7 @@ profiles:
       # apiKey: "sk-12345"             # Bad
 ```
 
-### 4. Document Profiles
+### 4. Document Profiles {#4-document-profiles}
 
 ```yaml
 profiles:
@@ -515,7 +515,7 @@ profiles:
       environment: production
 ```
 
-### 5. Validate Profile Changes
+### 5. Validate Profile Changes {#5-validate-profile-changes}
 
 ```bash
 # Before switching profiles
@@ -523,9 +523,9 @@ XEC_PROFILE=new-profile xec config validate
 XEC_PROFILE=new-profile xec run smoke-test
 ```
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### Profile Not Found
+### Profile Not Found {#profile-not-found}
 
 ```bash
 # List profile definitions
@@ -535,7 +535,7 @@ xec config list --path profiles
 xec config get profiles.correct-name
 ```
 
-### Variable Not Overridden
+### Variable Not Overridden {#variable-not-overridden}
 
 ```yaml
 # Check inheritance chain
@@ -546,7 +546,7 @@ profiles:
       myVar: value  # Ensure correct path
 ```
 
-### Circular Inheritance
+### Circular Inheritance {#circular-inheritance}
 
 ```yaml
 # Avoid circular references
@@ -557,7 +557,7 @@ profiles:
     extends: a
 ```
 
-## See Also
+## See Also {#see-also}
 
 - [Configuration Command](../../commands/built-in/config.md) - Profile management
 - [Variables](../variables/overview.md) - Variable system

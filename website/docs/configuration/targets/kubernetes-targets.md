@@ -3,11 +3,11 @@ title: Kubernetes Targets
 description: Configuring Kubernetes pod targets for cluster execution
 ---
 
-# Kubernetes Targets
+# Kubernetes Targets {#kubernetes-targets}
 
 Kubernetes targets run commands inside pods via `kubectl exec`. Declare them under `targets.pods` in `.xec/config.yaml`; reference them as `pods.<name>`.
 
-## Basic Configuration
+## Basic Configuration {#basic-configuration}
 
 ```yaml
 targets:
@@ -24,7 +24,7 @@ xec in pods.api "ps aux"
 
 `kubectl` must be installed and authenticated against the cluster.
 
-## Reference
+## Reference {#reference}
 
 Fields the CLI forwards to the Kubernetes adapter:
 
@@ -63,7 +63,7 @@ targets:
 
 Other keys under a pod entry (`selector`, `timeout`, `shell`, per-target buffer limits) are accepted by the parser but are not forwarded to the connection.
 
-## Naming a Cluster Explicitly
+## Naming a Cluster Explicitly {#naming-a-cluster-explicitly}
 
 Without `context`, a target belongs to whatever `kubectl config current-context` happens to be — a target that says `production` can silently run against staging. Production targets should name their cluster:
 
@@ -76,7 +76,7 @@ targets:
       pod: "-l app=api"
 ```
 
-## Environment Variables
+## Environment Variables {#environment-variables}
 
 `env` is applied to every command executed on the target:
 
@@ -90,9 +90,9 @@ targets:
         QUEUE: high-priority
 ```
 
-## Examples
+## Examples {#examples}
 
-### Database Migration
+### Database Migration {#database-migration}
 
 ```yaml
 targets:
@@ -108,7 +108,7 @@ targets:
 xec in pods.db-migrate "npm run migrate"
 ```
 
-### Debugging a Specific Pod
+### Debugging a Specific Pod {#debugging-a-specific-pod}
 
 ```yaml
 targets:
@@ -120,7 +120,7 @@ targets:
       stdin: true
 ```
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
 ```bash
 # Test the target
@@ -142,12 +142,12 @@ Common failures:
 - **Wrong cluster** — no `context` set and `current-context` points elsewhere.
 - **Container not found** — the pod has several containers and `container:` names none of them. List them with `kubectl get pod <name> -o jsonpath='{.spec.containers[*].name}'`.
 
-## Next Steps
+## Next Steps {#next-steps}
 
 - [SSH Targets](./ssh-targets.md) - Remote host configuration
 - [Docker Targets](./docker-targets.md) - Container configuration
 
-## See Also
+## See Also {#see-also}
 
 - [Kubernetes Execution](../../targets/kubernetes/overview.md) - The Kubernetes adapter and pod API
 - [in Command](../../commands/built-in/in.md) - Running commands in pods

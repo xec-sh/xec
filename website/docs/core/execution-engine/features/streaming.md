@@ -3,13 +3,13 @@ title: Streaming
 description: Streaming command output as it arrives
 ---
 
-# Streaming
+# Streaming {#streaming}
 
 The Xec execution engine streams command output as it arrives rather than
 buffering it to completion, and can pipe that output into another command, a
 line-processing function, or a Node.js stream.
 
-## Overview
+## Overview {#overview}
 
 Streaming support (`packages/core/src/core/process-context.ts`,
 `packages/core/src/core/pipe-implementation.ts`) provides:
@@ -19,9 +19,9 @@ Streaming support (`packages/core/src/core/process-context.ts`,
 - **Combined output** (`stdall`) preserving the arrival order of stdout and stderr
 - **Live process access** (`.spawned`/`.child`) for building a custom stream pipeline
 
-## Basic Streaming
+## Basic Streaming {#basic-streaming}
 
-### Line-by-Line Iteration
+### Line-by-Line Iteration {#line-by-line-iteration}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -36,7 +36,7 @@ for await (const line of $`tail -f /var/log/app.log`) {
 
 This iterates stdout only.
 
-### Line Callbacks
+### Line Callbacks {#line-callbacks}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -49,7 +49,7 @@ await $`long-running-process`.pipe((line: string) => {
 `.stdout((line) => ...)` and `.stderr((line) => ...)` do **not** do this —
 `.stdout()` and `.stderr()` accept a destination stream, a stream mode, or a chunk callback. `.pipe(fn)` groups stdout into lines.
 
-### Stream to File
+### Stream to File {#stream-to-file}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -65,9 +65,9 @@ try {
 }
 ```
 
-## Pipe Operations
+## Pipe Operations {#pipe-operations}
 
-### Command Piping
+### Command Piping {#command-piping}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -79,7 +79,7 @@ console.log(result.stdout);
 
 A pipeline target can be a lazy `ProcessPromise`, command string, command object or tagged template. Configure each command before executing the pipeline. Completed results contain output and metadata.
 
-### Cross-Environment Piping
+### Cross-Environment Piping {#cross-environment-piping}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -90,9 +90,9 @@ await $`printf %s ${'configuration'}`.pipe(remote`cat > /srv/app/config.txt`);
 
 The target keeps its adapter and options. Use the transfer API for large or binary files. Command pipelines can buffer output according to adapter and pipeline implementation.
 
-## Transform Streams
+## Transform Streams {#transform-streams}
 
-### Data Transformation
+### Data Transformation {#data-transformation}
 
 ```typescript
 import { Transform } from 'stream';
@@ -122,7 +122,7 @@ grep.pipe(process.stdout);
 await $`cat app.log`.stdout(grep);
 ```
 
-### Line Processing
+### Line Processing {#line-processing}
 
 For line-oriented processing, `.pipe(fn)` (shown above) is simpler than a
 hand-rolled `Transform` and is already line-buffered correctly — a raw
@@ -138,9 +138,9 @@ await $`tail -f app.log`.pipe((line: string) => {
 });
 ```
 
-## Multi-Stream Management
+## Multi-Stream Management {#multi-stream-management}
 
-### Separate Stream Handling
+### Separate Stream Handling {#separate-stream-handling}
 
 ```typescript
 // Handle stdout and stderr with separate callbacks
@@ -161,7 +161,7 @@ handle.stderr?.on('data', (chunk) => console.error(`✗ ${chunk}`));
 await p;
 ```
 
-### Combined Output
+### Combined Output {#combined-output}
 
 ```typescript
 // stdout and stderr merged in the order they actually arrived — the full
@@ -170,9 +170,9 @@ const result = await $`build.sh`.nothrow();
 console.log(result.stdall);
 ```
 
-## Log Streaming
+## Log Streaming {#log-streaming}
 
-### Real-time Logs
+### Real-time Logs {#real-time-logs}
 
 ```typescript
 // Stream Docker logs (the docker CLI, piped through a line processor)
@@ -189,7 +189,7 @@ const stream = await $.k8s({ namespace: 'production' }).pod('my-pod').follow(lin
 try { await stream.completion; } finally { await stream.stop(); }
 ```
 
-### Multi-Source Log Aggregation
+### Multi-Source Log Aggregation {#multi-source-log-aggregation}
 
 ```typescript
 // Aggregate logs from multiple SSH hosts
@@ -205,7 +205,7 @@ async function aggregateLogs(sources: string[]) {
 await aggregateLogs(['server1', 'server2', 'server3']);
 ```
 
-## Building a Custom Pipeline
+## Building a Custom Pipeline {#building-a-custom-pipeline}
 
 `.spawned` resolves to the live `ProcessHandle` once the command is running,
 with real Node.js `stdout`/`stderr`/`stdin` streams — the way to reach
@@ -237,7 +237,7 @@ setTimeout(() => { handle.stdout?.pause(); console.log('paused'); }, 5000);
 setTimeout(() => { handle.stdout?.resume(); console.log('resumed'); }, 10000);
 ```
 
-## Error Handling in Streams
+## Error Handling in Streams {#error-handling-in-streams}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -249,9 +249,9 @@ try {
 }
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### Do's ✅
+### Do's ✅ {#dos-}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -267,18 +267,18 @@ try {
 }
 ```
 
-### Don'ts ❌
+### Don'ts ❌ {#donts-}
 
 Choose a destination before awaiting execution. Track completion and destination errors, release owned streams in `finally`, and keep output limits appropriate for the adapter's buffering behavior. A returned `ExecutionResult` represents a completed command.
 
-## Implementation Details
+## Implementation Details {#implementation-details}
 
 Streaming is implemented in:
 - `packages/core/src/core/process-context.ts` - line iteration (`for await`), `.spawned`/`.child`
 - `packages/core/src/core/pipe-implementation.ts` - `.pipe()` and `pipeUtils`
 - `packages/core/src/types/process-handle.ts` - the uniform live-process handle
 
-## See Also
+## See Also {#see-also}
 
 - [Execution API](/docs/core/execution-engine/api/execution-api)
 - [Pipe Operations](/docs/core/execution-engine/api/chaining)

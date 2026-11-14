@@ -1,0 +1,821 @@
+{
+  "docs": [
+    {
+      "type": "category",
+      "label": "Introduction",
+      "href": "/docs/introduction",
+      "items": [
+        {
+          "type": "doc",
+          "id": "introduction/what-is-xec"
+        },
+        {
+          "type": "doc",
+          "id": "introduction/installation"
+        },
+        {
+          "type": "doc",
+          "id": "introduction/quick-start"
+        },
+        {
+          "type": "doc",
+          "id": "introduction/core-concepts"
+        },
+        {
+          "type": "doc",
+          "id": "introduction/portable-scripts"
+        },
+        {
+          "type": "doc",
+          "id": "introduction/when-to-use"
+        },
+        {
+          "type": "doc",
+          "id": "introduction/comparison"
+        },
+        {
+          "type": "doc",
+          "id": "introduction/architecture"
+        },
+        {
+          "type": "doc",
+          "id": "introduction/philosophy"
+        },
+        {
+          "type": "doc",
+          "id": "introduction/ecosystem"
+        }
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Execution Engine",
+      "href": "/docs/core/execution-engine/overview",
+      "items": [
+        {
+          "type": "doc",
+          "id": "core/execution-engine/template-literals"
+        },
+        {
+          "type": "category",
+          "label": "Adapters",
+          "items": [
+            {
+              "type": "doc",
+              "id": "core/execution-engine/adapters/concept"
+            },
+            {
+              "type": "doc",
+              "id": "core/execution-engine/adapters/local-adapter"
+            },
+            {
+              "type": "doc",
+              "id": "core/execution-engine/adapters/ssh-adapter"
+            },
+            {
+              "type": "doc",
+              "id": "core/execution-engine/adapters/docker-adapter"
+            },
+            {
+              "type": "doc",
+              "id": "core/execution-engine/adapters/k8s-adapter"
+            }
+          ]
+        },
+        {
+          "type": "category",
+          "label": "Features",
+          "items": [
+            {
+              "type": "doc",
+              "id": "core/execution-engine/features/connection-pooling"
+            },
+            {
+              "type": "doc",
+              "id": "core/execution-engine/features/error-handling"
+            },
+            {
+              "type": "doc",
+              "id": "core/execution-engine/features/streaming"
+            },
+            {
+              "type": "doc",
+              "id": "core/execution-engine/features/file-operations"
+            },
+            {
+              "type": "doc",
+              "id": "core/execution-engine/features/port-forwarding"
+            }
+          ]
+        },
+        {
+          "type": "category",
+          "label": "API",
+          "items": [
+            {
+              "type": "doc",
+              "id": "core/execution-engine/api/execution-api"
+            },
+            {
+              "type": "doc",
+              "id": "core/execution-engine/api/chaining"
+            },
+            {
+              "type": "doc",
+              "id": "core/execution-engine/api/composition"
+            },
+            {
+              "type": "doc",
+              "id": "core/execution-engine/api/extensions"
+            }
+          ]
+        },
+        {
+          "type": "category",
+          "label": "Performance",
+          "items": [
+            {
+              "type": "doc",
+              "id": "core/execution-engine/performance/optimization"
+            },
+            {
+              "type": "doc",
+              "id": "core/execution-engine/performance/connection-reuse"
+            },
+            {
+              "type": "doc",
+              "id": "core/execution-engine/performance/parallel-execution"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Scripting",
+      "items": [
+        {
+          "type": "category",
+          "label": "Basics",
+          "items": [
+            {
+              "type": "doc",
+              "id": "scripting/basics/first-script"
+            },
+            {
+              "type": "doc",
+              "id": "scripting/basics/execution-context"
+            },
+            {
+              "type": "doc",
+              "id": "scripting/basics/command-execution"
+            },
+            {
+              "type": "doc",
+              "id": "scripting/basics/typescript-setup"
+            }
+          ]
+        },
+        {
+          "type": "category",
+          "label": "Patterns",
+          "items": [
+            {
+              "type": "doc",
+              "id": "scripting/patterns/error-handling"
+            },
+            {
+              "type": "doc",
+              "id": "scripting/patterns/async-patterns"
+            },
+            {
+              "type": "doc",
+              "id": "scripting/patterns/streaming"
+            },
+            {
+              "type": "doc",
+              "id": "scripting/patterns/chaining"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Commands",
+      "href": "/docs/commands/overview",
+      "items": [
+        {
+          "type": "doc",
+          "id": "commands/cli-reference"
+        },
+        {
+          "type": "doc",
+          "id": "commands/error-codes"
+        },
+        {
+          "type": "category",
+          "label": "Built-in Commands",
+          "items": [
+            {
+              "type": "doc",
+              "id": "commands/built-in/completion"
+            },
+            {
+              "type": "doc",
+              "id": "commands/built-in/config"
+            },
+            {
+              "type": "doc",
+              "id": "commands/built-in/copy"
+            },
+            {
+              "type": "doc",
+              "id": "commands/built-in/docker"
+            },
+            {
+              "type": "doc",
+              "id": "commands/built-in/doctor"
+            },
+            {
+              "type": "doc",
+              "id": "commands/built-in/forward"
+            },
+            {
+              "type": "doc",
+              "id": "commands/built-in/in"
+            },
+            {
+              "type": "doc",
+              "id": "commands/built-in/on"
+            },
+            {
+              "type": "doc",
+              "id": "commands/built-in/logs"
+            },
+            {
+              "type": "doc",
+              "id": "commands/built-in/new"
+            },
+            {
+              "type": "doc",
+              "id": "commands/built-in/watch"
+            },
+            {
+              "type": "doc",
+              "id": "commands/built-in/run"
+            },
+            {
+              "type": "doc",
+              "id": "commands/built-in/secrets"
+            },
+            {
+              "type": "doc",
+              "id": "commands/built-in/inspect"
+            }
+          ]
+        },
+        {
+          "type": "category",
+          "label": "Custom Commands",
+          "items": [
+            {
+              "type": "doc",
+              "id": "commands/custom/creating-commands"
+            },
+            {
+              "type": "doc",
+              "id": "commands/custom/command-structure"
+            },
+            {
+              "type": "doc",
+              "id": "commands/custom/command-testing"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Configuration",
+      "href": "/docs/configuration/overview",
+      "items": [
+        {
+          "type": "doc",
+          "id": "configuration/config-file"
+        },
+        {
+          "type": "category",
+          "label": "Targets",
+          "items": [
+            {
+              "type": "doc",
+              "id": "configuration/targets/overview"
+            },
+            {
+              "type": "doc",
+              "id": "configuration/targets/ssh-targets"
+            },
+            {
+              "type": "doc",
+              "id": "configuration/targets/docker-targets"
+            },
+            {
+              "type": "doc",
+              "id": "configuration/targets/kubernetes-targets"
+            }
+          ]
+        },
+        {
+          "type": "category",
+          "label": "Tasks",
+          "items": [
+            {
+              "type": "doc",
+              "id": "configuration/tasks/overview"
+            },
+            {
+              "type": "doc",
+              "id": "configuration/tasks/simple-tasks"
+            },
+            {
+              "type": "doc",
+              "id": "configuration/tasks/multi-step-tasks"
+            }
+          ]
+        },
+        {
+          "type": "category",
+          "label": "Profiles",
+          "items": [
+            {
+              "type": "doc",
+              "id": "configuration/profiles/overview"
+            }
+          ]
+        },
+        {
+          "type": "category",
+          "label": "Variables",
+          "items": [
+            {
+              "type": "doc",
+              "id": "configuration/variables/overview"
+            },
+            {
+              "type": "doc",
+              "id": "configuration/variables/environment"
+            }
+          ]
+        },
+        {
+          "type": "category",
+          "label": "Commands",
+          "items": [
+            {
+              "type": "doc",
+              "id": "configuration/commands/defaults"
+            }
+          ]
+        },
+        {
+          "type": "category",
+          "label": "Advanced",
+          "items": [
+            {
+              "type": "doc",
+              "id": "configuration/advanced/validation"
+            },
+            {
+              "type": "doc",
+              "id": "configuration/advanced/best-practices"
+            },
+            {
+              "type": "doc",
+              "id": "configuration/advanced/troubleshooting"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Guides",
+      "items": [
+        {
+          "type": "category",
+          "label": "Automation",
+          "items": [
+            {
+              "type": "doc",
+              "id": "guides/automation/workflow-design"
+            },
+            {
+              "type": "doc",
+              "id": "guides/automation/first-automation"
+            },
+            {
+              "type": "doc",
+              "id": "guides/automation/ci-cd-pipelines"
+            },
+            {
+              "type": "doc",
+              "id": "guides/automation/deployment"
+            },
+            {
+              "type": "doc",
+              "id": "guides/automation/testing"
+            }
+          ]
+        },
+        {
+          "type": "category",
+          "label": "Infrastructure",
+          "items": [
+            {
+              "type": "doc",
+              "id": "guides/infrastructure/server-management"
+            },
+            {
+              "type": "doc",
+              "id": "guides/infrastructure/container-orchestration"
+            },
+            {
+              "type": "doc",
+              "id": "guides/infrastructure/multi-environment"
+            }
+          ]
+        },
+        {
+          "type": "category",
+          "label": "Development",
+          "items": [
+            {
+              "type": "doc",
+              "id": "guides/development/dev-environments"
+            },
+            {
+              "type": "doc",
+              "id": "guides/development/debugging"
+            }
+          ]
+        },
+        {
+          "type": "category",
+          "label": "Advanced",
+          "items": [
+            {
+              "type": "doc",
+              "id": "guides/advanced/error-handling"
+            },
+            {
+              "type": "doc",
+              "id": "guides/advanced/security"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Targets",
+      "href": "/docs/targets/overview",
+      "items": [
+        {
+          "type": "category",
+          "label": "Local",
+          "items": [
+            {
+              "type": "doc",
+              "id": "targets/local/overview"
+            },
+            {
+              "type": "doc",
+              "id": "targets/local/shell-config"
+            },
+            {
+              "type": "doc",
+              "id": "targets/local/cross-platform"
+            },
+            {
+              "type": "doc",
+              "id": "targets/local/troubleshooting"
+            }
+          ]
+        },
+        {
+          "type": "category",
+          "label": "SSH",
+          "items": [
+            {
+              "type": "doc",
+              "id": "targets/ssh/overview"
+            },
+            {
+              "type": "doc",
+              "id": "targets/ssh/connection-config"
+            },
+            {
+              "type": "doc",
+              "id": "targets/ssh/authentication"
+            },
+            {
+              "type": "doc",
+              "id": "targets/ssh/sudo-security"
+            },
+            {
+              "type": "doc",
+              "id": "targets/ssh/interactive-shell"
+            },
+            {
+              "type": "doc",
+              "id": "targets/ssh/tunneling"
+            },
+            {
+              "type": "doc",
+              "id": "targets/ssh/batch-operations"
+            },
+            {
+              "type": "doc",
+              "id": "targets/ssh/reliability"
+            }
+          ]
+        },
+        {
+          "type": "category",
+          "label": "Docker",
+          "items": [
+            {
+              "type": "doc",
+              "id": "targets/docker/overview"
+            },
+            {
+              "type": "doc",
+              "id": "targets/docker/container-lifecycle"
+            },
+            {
+              "type": "doc",
+              "id": "targets/docker/compose-integration"
+            },
+            {
+              "type": "doc",
+              "id": "targets/docker/volume-management"
+            },
+            {
+              "type": "doc",
+              "id": "targets/docker/networking"
+            }
+          ]
+        },
+        {
+          "type": "category",
+          "label": "Kubernetes",
+          "items": [
+            {
+              "type": "doc",
+              "id": "targets/kubernetes/overview"
+            },
+            {
+              "type": "doc",
+              "id": "targets/kubernetes/pod-execution"
+            },
+            {
+              "type": "doc",
+              "id": "targets/kubernetes/multi-container"
+            },
+            {
+              "type": "doc",
+              "id": "targets/kubernetes/port-forwarding"
+            },
+            {
+              "type": "doc",
+              "id": "targets/kubernetes/log-streaming"
+            },
+            {
+              "type": "doc",
+              "id": "targets/kubernetes/file-operations"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Recipes",
+      "href": "/docs/recipes",
+      "items": [
+        {
+          "type": "category",
+          "label": "Deployment",
+          "items": [
+            {
+              "type": "doc",
+              "id": "recipes/deployment/node-app-deploy"
+            },
+            {
+              "type": "doc",
+              "id": "recipes/deployment/static-site-deploy"
+            },
+            {
+              "type": "doc",
+              "id": "recipes/deployment/docker-deploy"
+            },
+            {
+              "type": "doc",
+              "id": "recipes/deployment/k8s-deploy"
+            }
+          ]
+        },
+        {
+          "type": "category",
+          "label": "Maintenance",
+          "items": [
+            {
+              "type": "doc",
+              "id": "recipes/maintenance/log-aggregation"
+            },
+            {
+              "type": "doc",
+              "id": "recipes/maintenance/backup-restore"
+            },
+            {
+              "type": "doc",
+              "id": "recipes/maintenance/health-checks"
+            },
+            {
+              "type": "doc",
+              "id": "recipes/maintenance/certificate-renewal"
+            }
+          ]
+        },
+        {
+          "type": "category",
+          "label": "Development",
+          "items": [
+            {
+              "type": "doc",
+              "id": "recipes/development/database-setup"
+            },
+            {
+              "type": "doc",
+              "id": "recipes/development/api-mocking"
+            },
+            {
+              "type": "doc",
+              "id": "recipes/development/test-data"
+            },
+            {
+              "type": "doc",
+              "id": "recipes/development/hot-reload"
+            }
+          ]
+        },
+        {
+          "type": "category",
+          "label": "Integration",
+          "items": [
+            {
+              "type": "doc",
+              "id": "recipes/integration/github-actions"
+            },
+            {
+              "type": "doc",
+              "id": "recipes/integration/gitlab-ci"
+            },
+            {
+              "type": "doc",
+              "id": "recipes/integration/jenkins"
+            },
+            {
+              "type": "doc",
+              "id": "recipes/integration/aws-integration"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "doc",
+      "id": "patterns/index"
+    },
+    {
+      "type": "doc",
+      "id": "integrations/index"
+    },
+    {
+      "type": "category",
+      "label": "Ops Library",
+      "href": "/docs/ops",
+      "items": [
+        {
+          "type": "doc",
+          "id": "ops/deploy"
+        },
+        {
+          "type": "doc",
+          "id": "ops/pipeline"
+        },
+        {
+          "type": "doc",
+          "id": "ops/workflow"
+        },
+        {
+          "type": "doc",
+          "id": "ops/health"
+        },
+        {
+          "type": "doc",
+          "id": "ops/discovery"
+        },
+        {
+          "type": "doc",
+          "id": "ops/retry"
+        },
+        {
+          "type": "doc",
+          "id": "ops/release"
+        },
+        {
+          "type": "doc",
+          "id": "ops/config"
+        },
+        {
+          "type": "doc",
+          "id": "ops/secrets"
+        }
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Kit Library",
+      "href": "/docs/kit",
+      "items": [
+        {
+          "type": "doc",
+          "id": "kit/prompts"
+        },
+        {
+          "type": "doc",
+          "id": "kit/components"
+        },
+        {
+          "type": "doc",
+          "id": "kit/table"
+        },
+        {
+          "type": "doc",
+          "id": "kit/theming"
+        }
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Migration",
+      "items": [
+        {
+          "type": "doc",
+          "id": "migration/from-npm-scripts"
+        },
+        {
+          "type": "doc",
+          "id": "migration/from-make"
+        },
+        {
+          "type": "doc",
+          "id": "migration/from-gulp-grunt"
+        },
+        {
+          "type": "doc",
+          "id": "migration/from-shell-scripts"
+        },
+        {
+          "type": "doc",
+          "id": "migration/from-zx"
+        },
+        {
+          "type": "doc",
+          "id": "migration/from-webpack"
+        }
+      ]
+    },
+    {
+      "type": "category",
+      "label": "API Reference",
+      "href": "/docs/api",
+      "items": [
+        {
+          "type": "doc",
+          "id": "api/execution-engine"
+        },
+        {
+          "type": "doc",
+          "id": "api/process-promise"
+        },
+        {
+          "type": "doc",
+          "id": "api/types"
+        }
+      ]
+    }
+  ]
+}

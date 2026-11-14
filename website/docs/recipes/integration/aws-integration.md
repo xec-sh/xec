@@ -6,19 +6,19 @@ source_files:
   - packages/ops/src/pipeline/index.ts
 ---
 
-# AWS Integration Recipe
+# AWS Integration Recipe {#aws-integration-recipe}
 
-## Implementation Reference
+## Implementation Reference {#implementation-reference}
 
 Xec executes AWS CLI commands through `packages/core/src/core/execution-engine.ts`; it does not bundle an AWS SDK or provision cloud credentials.
 
-## Overview
+## Overview {#overview}
 
 Install the project’s supported AWS CLI and configure a limited role/profile. Pass resource identities explicitly and verify asynchronous operations after the initial request succeeds. The examples below are separate scripts, not a single account provisioning program.
 
-## AWS CLI Setup
+## AWS CLI Setup {#aws-cli-setup}
 
-### Basic AWS Configuration
+### Basic AWS Configuration {#basic-aws-configuration}
 
 ```typescript
 const profile = process.env.AWS_PROFILE;
@@ -33,9 +33,9 @@ console.log(`Authenticated target account ${account} in ${region}`);
 
 Use the provider’s role/SSO/workload-identity flow. Do not write long-lived keys into generated project files.
 
-## EC2 Management
+## EC2 Management {#ec2-management}
 
-### EC2 Instance Operations
+### EC2 Instance Operations {#ec2-instance-operations}
 
 ```typescript
 const instance = process.env.EC2_INSTANCE_ID;
@@ -45,9 +45,9 @@ await $`aws ec2 describe-instances --instance-ids ${instance} --query ${'Reserva
 
 Inspect exact instances before a start/stop operation. An instance state is not an application health check. Keep provisioning and irreversible retirement in the project’s reviewed infrastructure declaration.
 
-## S3 Operations
+## S3 Operations {#s3-operations}
 
-### S3 Bucket Management
+### S3 Bucket Management {#s3-bucket-management}
 
 ```typescript
 const bucket = process.env.ARTIFACT_BUCKET;
@@ -61,9 +61,9 @@ await $`aws s3 cp dist/ ${`s3://${bucket}/releases/${commit}/`} --recursive`;
 
 The bucket’s encryption, access policy and lifecycle are provisioned separately. Uploading a release prefix does not authorize deleting existing objects or activating that release.
 
-## Lambda Functions
+## Lambda Functions {#lambda-functions}
 
-### Lambda Deployment
+### Lambda Deployment {#lambda-deployment}
 
 ```typescript
 const name = process.env.LAMBDA_FUNCTION;
@@ -78,9 +78,9 @@ console.log(`Accepted Lambda version ${version}; alias promotion remains separat
 
 The project verifies the zip’s runtime/architecture and invokes the new qualified version before moving a serving alias. Preserve the previous alias target for recovery.
 
-## ECS/Fargate Deployment
+## ECS/Fargate Deployment {#ecsfargate-deployment}
 
-### ECS Task Management
+### ECS Task Management {#ecs-task-management}
 
 ```typescript
 const cluster = process.env.ECS_CLUSTER;
@@ -98,9 +98,9 @@ await $`npm run verify:ecs-service -- ${cluster} ${service} ${taskDefinition}`;
 
 Declare the image digest, task role and network in the reviewed task definition. Stable scheduling alone does not prove the application’s release identity or data compatibility.
 
-## EKS Integration
+## EKS Integration {#eks-integration}
 
-### EKS Cluster Management
+### EKS Cluster Management {#eks-cluster-management}
 
 Use a private temporary kubeconfig instead of changing the developer’s global current context:
 
@@ -122,9 +122,9 @@ try {
 
 The commands above are read-only cluster inspection after local credential configuration. Use the [Kubernetes deployment recipe](../deployment/k8s-deploy.md) for an explicit release transition.
 
-## CloudFormation/CDK
+## CloudFormation/CDK {#cloudformationcdk}
 
-### CloudFormation Stack Management
+### CloudFormation Stack Management {#cloudformation-stack-management}
 
 ```typescript
 const stack = process.env.CLOUDFORMATION_STACK;
@@ -135,9 +135,9 @@ await $`aws cloudformation describe-stacks --stack-name ${stack} --query ${'Stac
 
 Validation checks template syntax, not the safety of the proposed changes. Use the project’s change-set review and execution path for mutations. If CDK owns that path, invoke the locked CDK project script rather than generating another infrastructure model in Xec.
 
-## Monitoring with CloudWatch
+## Monitoring with CloudWatch {#monitoring-with-cloudwatch}
 
-### CloudWatch Metrics and Alarms
+### CloudWatch Metrics and Alarms {#cloudwatch-metrics-and-alarms}
 
 ```typescript
 const group = process.env.CLOUDWATCH_LOG_GROUP;
@@ -149,9 +149,9 @@ console.log({ observedCount: count, since });
 
 This is a bounded diagnostic query, not a durable event counter. Configure metric filters, alarm thresholds and notification destinations in the monitoring declaration.
 
-## Configuration
+## Configuration {#configuration}
 
-### Xec Configuration for AWS
+### Xec Configuration for AWS {#xec-configuration-for-aws}
 
 ```yaml
 version: '1.0'
@@ -164,33 +164,33 @@ tasks:
 
 Save the corresponding examples under these paths. Region, profile and expected account are explicit inputs; Xec does not silently select a production account.
 
-## Performance Characteristics
+## Performance Characteristics {#performance-characteristics}
 
-### AWS API Performance
+### AWS API Performance {#aws-api-performance}
 
 Measure each operation in the target region. A successful asynchronous request may only have accepted work; use the appropriate waiter and application acceptance before reporting completion.
 
-### Operation Timings
+### Operation Timings {#operation-timings}
 
 Set operation timeouts above the provider waiter’s configured budget. Retrying a read is different from retrying a partially accepted mutation; reconcile its returned resource/version identifier first.
 
-## Best Practices
+## Best Practices {#best-practices}
 
 Validate account, region and resource identity before mutation. Prefer role-based short-lived credentials. Preserve immutable artifacts and previously accepted revisions. Keep infrastructure and application deployment responsibilities in their existing declarations.
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### Common Issues
+### Common Issues {#common-issues}
 
 Check selected profile, region, caller identity and the exact denied API. Do not broaden unrelated permissions, disable TLS or hide a failed waiter. Preserve the operation identifier for diagnosis.
 
-## Related Recipes
+## Related Recipes {#related-recipes}
 
 - [Static Site Deployment](../deployment/static-site-deploy.md)
 - [Kubernetes Deployment](../deployment/k8s-deploy.md)
 - [Backup and Restore](../maintenance/backup-restore.md)
 
-## See Also
+## See Also {#see-also}
 
 - [AWS CLI reference](https://docs.aws.amazon.com/cli/latest/)
 - [Execution Engine](../../core/execution-engine/overview.md)

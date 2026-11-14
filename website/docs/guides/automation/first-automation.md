@@ -4,20 +4,20 @@ title: Your First Xec Automation
 description: Learn how to create your first automation script with Xec
 ---
 
-# Your First Xec Automation
+# Your First Xec Automation {#your-first-xec-automation}
 
 Welcome to Xec! This guide will walk you through creating your first automation script, from simple command execution to a fully-featured automation workflow.
 
-## Prerequisites
+## Prerequisites {#prerequisites}
 
 Before you begin, ensure you have:
 - Node.js 20+ installed
 - Xec installed globally: `npm install -g @xec-sh/cli`
 - Basic knowledge of JavaScript/TypeScript
 
-## Your First Script
+## Your First Script {#your-first-script}
 
-### 1. Create a Simple Script
+### 1. Create a Simple Script {#1-create-a-simple-script}
 
 Let's start with a basic automation script that builds and tests a project:
 
@@ -38,7 +38,7 @@ Run your script:
 xec run build-and-test.ts
 ```
 
-### 2. Add Error Handling
+### 2. Add Error Handling {#2-add-error-handling}
 
 Real-world automation needs proper error handling:
 
@@ -71,7 +71,7 @@ async function buildAndTest() {
 await buildAndTest();
 ```
 
-### 3. Make It Interactive
+### 3. Make It Interactive {#3-make-it-interactive}
 
 Add user interaction to your automation:
 
@@ -124,11 +124,11 @@ async function interactiveBuild() {
 await interactiveBuild();
 ```
 
-## Multi-Environment Automation
+## Multi-Environment Automation {#multi-environment-automation}
 
 One of Xec's key strengths is executing commands across different environments with the same API:
 
-### Local and Remote Execution
+### Local and Remote Execution {#local-and-remote-execution}
 
 ```typescript
 // deploy-to-staging.ts
@@ -162,7 +162,7 @@ async function deployToStaging() {
 await deployToStaging();
 ```
 
-### Docker Container Automation
+### Docker Container Automation {#docker-container-automation}
 
 ```typescript
 // docker-workflow.ts
@@ -193,7 +193,7 @@ async function dockerWorkflow() {
 await dockerWorkflow();
 ```
 
-## Parallel Execution
+## Parallel Execution {#parallel-execution}
 
 Speed up your automation by running tasks in parallel:
 
@@ -246,11 +246,11 @@ async function parallelWithErrorHandling() {
 await parallelBuild();
 ```
 
-## Using Configuration Files
+## Using Configuration Files {#using-configuration-files}
 
 For more complex automations, use Xec's configuration system:
 
-### Create `.xec/config.yaml`
+### Create `.xec/config.yaml` {#create-xecconfigyaml}
 
 ```yaml
 name: my-project
@@ -291,7 +291,7 @@ tasks:
         command: pm2 restart app
 ```
 
-### Use Configuration in Scripts
+### Use Configuration in Scripts {#use-configuration-in-scripts}
 
 ```typescript
 // config-based-automation.ts
@@ -309,9 +309,9 @@ async function runConfiguredTask() {
 await runConfiguredTask();
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### 1. Always Handle Errors
+### 1. Always Handle Errors {#1-always-handle-errors}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -331,7 +331,7 @@ if (!result.ok) {
 }
 ```
 
-### 2. Use Environment Variables Safely
+### 2. Use Environment Variables Safely {#2-use-environment-variables-safely}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -347,7 +347,7 @@ await $.env({ API_KEY: apiKey })`deploy-script`;
 // Keep the credential in the configured provider instead of a generated .env file.
 ```
 
-### 3. Provide Progress Feedback
+### 3. Provide Progress Feedback {#3-provide-progress-feedback}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -372,7 +372,7 @@ async function longRunningTask() {
 }
 ```
 
-### 4. Make Scripts Idempotent
+### 4. Make Scripts Idempotent {#4-make-scripts-idempotent}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -399,7 +399,7 @@ async function idempotentSetup() {
 }
 ```
 
-## Next Steps
+## Next Steps {#next-steps}
 
 Now that you've created your first automation:
 
@@ -416,9 +416,9 @@ Now that you've created your first automation:
    - Automate [deployments](./deployment.md)
    - Set up [test automation](./testing.md)
 
-## Common Patterns
+## Common Patterns {#common-patterns}
 
-### Cleanup on Exit
+### Cleanup on Exit {#cleanup-on-exit}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -444,7 +444,7 @@ async function runWithCleanup() {
 }
 ```
 
-### Conditional Execution
+### Conditional Execution {#conditional-execution}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -463,7 +463,7 @@ async function conditionalDeploy() {
 }
 ```
 
-### Template with Variables
+### Template with Variables {#template-with-variables}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -479,9 +479,9 @@ async function templateExample() {
 }
 ```
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### Command Not Found
+### Command Not Found {#command-not-found}
 
 If commands aren't found, check your PATH:
 
@@ -495,7 +495,7 @@ await $.env({
 await $`/usr/local/bin/my-command`;
 ```
 
-### Permission Denied
+### Permission Denied {#permission-denied}
 
 For commands requiring elevated privileges:
 
@@ -511,7 +511,7 @@ const server = $.ssh({
 });
 ```
 
-### Debugging Scripts
+### Debugging Scripts {#debugging-scripts}
 
 Enable verbose output for debugging:
 
@@ -528,7 +528,7 @@ if (process.env.DEBUG) {
 }
 ```
 
-## Summary
+## Summary {#summary}
 
 You've learned how to:
 - ✅ Create basic automation scripts

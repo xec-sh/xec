@@ -3,17 +3,17 @@ title: Performance Optimization
 description: Caching, resource usage, and execution performance
 ---
 
-# Performance Optimization
+# Performance Optimization {#performance-optimization}
 
 Optimizing Xec execution performance through caching, efficient resource usage, and strategic command execution patterns.
 
-## Overview
+## Overview {#overview}
 
 Measure command duration and resource use before tuning. Xec provides lazy execution, bounded parallel batches, target connection pooling, per-command result caching and task-level dependency scheduling. Use those mechanisms to keep workflows small and observable.
 
-## Command Caching
+## Command Caching {#command-caching}
 
-### Result Caching
+### Result Caching {#result-caching}
 
 There is no engine-level or `$`-level cache method. Caching is per command,
 chained on the `ProcessPromise` before awaiting it:
@@ -40,7 +40,7 @@ container, pod, etc.) so two different hosts never share a cached result;
 `key` overrides it outright. `invalidateOn: string[]` names glob-style
 patterns matched against other cache keys to evict on a successful run.
 
-### Conditional Caching
+### Conditional Caching {#conditional-caching}
 
 ```typescript
 import { $, type ProcessPromise } from '@xec-sh/core';
@@ -53,9 +53,9 @@ if (process.env.CACHE_IMMUTABLE_INPUTS === '1') {
 console.log(await query.json());
 ```
 
-## Resource Pooling
+## Resource Pooling {#resource-pooling}
 
-### Process Pooling
+### Process Pooling {#process-pooling}
 
 Bound the number of independent processes with `parallel`. A shell process has state and command completion boundaries, so keep each command's lifecycle explicit.
 
@@ -66,7 +66,7 @@ const results = await parallel([$`node --version`, $`git --version`], { maxConcu
 if (results.failed.length) throw new AggregateError(results.failed, 'Tool checks failed');
 ```
 
-### Connection Pooling
+### Connection Pooling {#connection-pooling}
 
 SSH connections are pooled automatically — there is no pool object to
 create or drain. Reuse comes from calling `$.ssh(...)` with the same target
@@ -82,9 +82,9 @@ await server1`command`;
 await server2`command`;
 ```
 
-## Batch Operations
+## Batch Operations {#batch-operations}
 
-### Command Batching
+### Command Batching {#command-batching}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -94,7 +94,7 @@ const remote = $.ssh({ host: 'build.example.com', username: 'build' }).cd('/srv/
 await remote.with({ stdin: script })`sh -s`;
 ```
 
-### File Operation Batching
+### File Operation Batching {#file-operation-batching}
 
 ```typescript
 // Batch file operations
@@ -127,9 +127,9 @@ await remote`
 `;  // Single SSH session
 ```
 
-## Lazy Evaluation
+## Lazy Evaluation {#lazy-evaluation}
 
-### Deferred Execution
+### Deferred Execution {#deferred-execution}
 
 ```typescript
 import { $, parallel } from '@xec-sh/core';
@@ -140,7 +140,7 @@ const outcomes = await parallel(checks, { maxConcurrent: 2 });
 console.log(outcomes.duration);
 ```
 
-### Conditional Evaluation
+### Conditional Evaluation {#conditional-evaluation}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -149,9 +149,9 @@ if (process.env.RUN_TESTS === 'true') await $`pnpm test`;
 await $`pnpm build`;
 ```
 
-## Memory Management
+## Memory Management {#memory-management}
 
-### Streaming Large Data
+### Streaming Large Data {#streaming-large-data}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -167,7 +167,7 @@ try {
 }
 ```
 
-### Resource Cleanup
+### Resource Cleanup {#resource-cleanup}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -178,9 +178,9 @@ await $.withTempDir(async directory => {
 });
 ```
 
-## Profiling and Monitoring
+## Profiling and Monitoring {#profiling-and-monitoring}
 
-### Performance Profiling
+### Performance Profiling {#performance-profiling}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -196,7 +196,7 @@ try {
 }
 ```
 
-### Resource Monitoring
+### Resource Monitoring {#resource-monitoring}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -214,9 +214,9 @@ try {
 }
 ```
 
-## Optimization Strategies
+## Optimization Strategies {#optimization-strategies}
 
-### Parallel vs Sequential
+### Parallel vs Sequential {#parallel-vs-sequential}
 
 ```typescript
 // Analyze dependencies for optimal execution
@@ -274,13 +274,13 @@ optimizer.addTask('lint', $`npm run lint`, ['install']);  // Can run parallel wi
 await optimizer.execute();
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### Do's ✅
+### Do's ✅ {#dos-}
 
 Measure through command events, bound concurrency with `parallel`, reuse target contexts, and stream large outputs to owned destinations. Use Xec task cache keys that include all declared inputs. Scope result caching to immutable queries.
 
-### Don'ts ❌
+### Don'ts ❌ {#donts-}
 
 ```typescript
 // ❌ Don't create unnecessary processes
@@ -302,7 +302,7 @@ const temp = await $`mktemp`;
 // Missing cleanup
 ```
 
-## Implementation Details
+## Implementation Details {#implementation-details}
 
 `ProcessPromise.cache()` is implemented in:
 - `packages/core/src/utils/cache.ts` - the result cache and key generation
@@ -313,7 +313,7 @@ pooling lives in the SSH adapter (see
 [Connection Reuse](/docs/core/execution-engine/performance/connection-reuse)),
 and profiling is left to the host application, as shown above.
 
-## See Also
+## See Also {#see-also}
 
 - [Connection Reuse](/docs/core/execution-engine/performance/connection-reuse)
 - [Parallel Execution](/docs/core/execution-engine/performance/parallel-execution)

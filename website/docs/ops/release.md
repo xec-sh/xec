@@ -3,14 +3,14 @@ title: Verified package releases
 description: Prepare immutable package archives, publish with registry confirmation, and resume partial npm or GitHub releases.
 ---
 
-# Verified package releases
+# Verified package releases {#verified-package-releases}
 
 `@xec-sh/ops/release` provides optional release automation for pnpm workspaces.
 It discovers public packages, builds an exact Git snapshot, checks the packed
 entry points and records immutable archives before publication. Other Ops imports
 do not load release automation. Install the published Ops package before using this subpath in another repository.
 
-## Release Xec
+## Release Xec {#release-xec}
 
 `release` is this repository's dynamic command in `.xec/commands/release.ts`,
 not a global built-in. `pnpm release` and `xec release` invoke the same recipe
@@ -88,7 +88,7 @@ comparison range. Caller-supplied oversized notes fail before remote writes.
 the isolated dependency installation use the existing pnpm store. `--yes` accepts
 the displayed execution plan in noninteractive use; it bypasses no checks.
 
-## Failure and recovery
+## Failure and recovery {#failure-and-recovery}
 
 The first `SIGINT` or `SIGTERM` cancels execution and waits for the command's
 `finally` blocks, temporary workspace cleanup and resource disposal. Xec reports
@@ -135,7 +135,7 @@ A numeric OTP supplied through the programmatic callback stays in memory for thi
 batch and is refreshed on rejection. Receipts contain package identities and checksums.
 [npm browser authorization](https://github.blog/changelog/2022-07-26-general-availability-of-improved-2fa-experience-in-npm/).
 
-### An upload is still awaiting the registry
+### An upload is still awaiting the registry {#an-upload-is-still-awaiting-the-registry}
 
 npm scans new uploads before they become public. An accepted upload or HTTP
 409 can precede a successful read by minutes. Xec records each accepted upload and
@@ -164,7 +164,7 @@ tag already exists on the remote. With GitHub publication enabled, the selected
 checkout's `origin` identifies the repository for the release notes.
 [Registry scanning](https://github.blog/changelog/2026-07-28-npm-publish-time-malware-scanning-and-dual-use-metadata/)
 
-### Resume when GitHub rejects the SSH key
+### Resume when GitHub rejects the SSH key {#resume-when-github-rejects-the-ssh-key}
 
 Run `git ls-remote --heads origin` in the tagged checkout. If it also returns
 `Permission denied (publickey)`, check the SSH identity assigned to this
@@ -186,7 +186,7 @@ checkout holding the prepared archives.
 Use the version on the prepared tag. The temporary Git settings apply to this
 one shell and its children.
 
-## Use the library in another workspace
+## Use the library in another workspace {#use-the-library-in-another-workspace}
 
 Add `.release-artifacts/` to that repository's `.gitignore`. The release module
 uses pnpm's workspace discovery and never parses workspace globs itself. Public
@@ -246,7 +246,7 @@ See [npm dist-tags](https://docs.npmjs.com/adding-dist-tags-to-packages/) and
 [GitHub's verified-tag publication](https://cli.github.com/manual/gh_release_create)
 for the underlying registry and hosting behavior.
 
-## Run the recipe through Xec
+## Run the recipe through Xec {#run-the-recipe-through-xec}
 
 The repository's `pnpm release` invokes its built Xec CLI. The dynamic command
 imports the recipe in the scripting runtime and calls the built

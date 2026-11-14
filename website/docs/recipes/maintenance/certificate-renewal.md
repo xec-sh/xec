@@ -7,26 +7,26 @@ source_files:
   - apps/xec/src/commands/run.ts
 ---
 
-# SSL Certificate Management
+# SSL Certificate Management {#ssl-certificate-management}
 
-## Problem
+## Problem {#problem}
 
 Managing SSL/TLS certificates across multiple servers and environments requires tracking expiration dates, coordinating renewals, deploying updated certificates, and reloading services without downtime.
 
-## Solution
+## Solution {#solution}
 
 Xec automates the entire certificate lifecycle using Let's Encrypt for automated renewals, with support for wildcard certificates, multi-domain setups, and various web servers.
 
-## Quick Example
+## Quick Example {#quick-example}
 
 ```typescript
 // Certbot owns renewal and locking; the hook runs only after a successful renewal.
 await $`certbot renew --quiet --deploy-hook ${'nginx -t && systemctl reload nginx'}`.timeout(600_000);
 ```
 
-## Complete Certificate Management System
+## Complete Certificate Management System {#complete-certificate-management-system}
 
-### 1. Automated Let's Encrypt Setup
+### 1. Automated Let's Encrypt Setup {#1-automated-lets-encrypt-setup}
 
 ```typescript
 const domain = process.env.CERT_DOMAIN;
@@ -42,7 +42,7 @@ await $`nginx -t`;
 await $`systemctl reload nginx`;
 ```
 
-### 2. Automated Renewal Workflow
+### 2. Automated Renewal Workflow {#2-automated-renewal-workflow}
 
 ```typescript
 // scripts/renew-certificates.ts — invoke from the host's existing scheduler.
@@ -51,7 +51,7 @@ await $`certbot renew --quiet --deploy-hook ${'nginx -t && systemctl reload ngin
 // There is no second in-process cron daemon or competing renewal policy.
 ```
 
-### 3. Multi-Domain Certificate Management
+### 3. Multi-Domain Certificate Management {#3-multi-domain-certificate-management}
 
 ```typescript
 import { X509Certificate } from 'node:crypto';
@@ -67,7 +67,7 @@ for (const domain of domains) {
 }
 ```
 
-### 4. Certificate Monitoring Dashboard
+### 4. Certificate Monitoring Dashboard {#4-certificate-monitoring-dashboard}
 
 ```typescript
 // Produce a bounded observation for an existing dashboard/monitoring collector.
@@ -80,7 +80,7 @@ console.log(JSON.stringify(report));
 if (Date.parse(certificate.validTo) <= Date.now()) process.exitCode = 1;
 ```
 
-### 5. Configuration File
+### 5. Configuration File {#5-configuration-file}
 
 Certbot owns certificate renewal configuration under its configured directory. Keep challenge credentials in the provider's protected credential file and use the installed Certbot scheduler. The Xec setup example reads these explicitly supplied, non-secret values:
 
@@ -93,7 +93,7 @@ xec run scripts/setup-certificate.ts
 
 Provision the HTTP challenge route before setup. A wildcard certificate requires a separately configured DNS challenge plugin; changing a YAML field does not install or authorize it.
 
-### 6. Xec Task Configuration
+### 6. Xec Task Configuration {#6-xec-task-configuration}
 
 ```yaml
 version: '1.0'
@@ -106,36 +106,36 @@ tasks:
     command: xec run scripts/check-certificates.ts
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### 1. Security
+### 1. Security {#1-security}
 - **Private key protection**: Keep private keys with 600 permissions
 - **Secure transfer**: Use SSH/SCP for certificate distribution
 - **DNS validation**: Use for wildcard certificates
 - **HSTS headers**: Enable HTTP Strict Transport Security
 
-### 2. Automation
+### 2. Automation {#2-automation}
 - **Regular checks**: Schedule daily certificate checks
 - **Early renewal**: Renew 30 days before expiration
 - **Automated deployment**: Sync certificates across servers
 - **Service reload**: Gracefully reload services after renewal
 
-### 3. Monitoring
+### 3. Monitoring {#3-monitoring}
 - **Expiration tracking**: Monitor days until expiration
 - **Multi-channel alerts**: Email + Slack + PagerDuty
 - **Dashboard visibility**: Central monitoring dashboard
 - **Audit logging**: Track all certificate operations
 
-## Common Patterns
+## Common Patterns {#common-patterns}
 
-### Pre/Post Renewal Hooks
+### Pre/Post Renewal Hooks {#prepost-renewal-hooks}
 ```bash
 # Prefer a webroot/DNS challenge that does not stop the serving process.
 # Run a reviewed deploy hook only after successful renewal.
 certbot renew --deploy-hook "nginx -t && systemctl reload nginx"
 ```
 
-### Load Balancer Certificate Updates
+### Load Balancer Certificate Updates {#load-balancer-certificate-updates}
 ```typescript
 // The application's reviewed certificate deployment script owns atomic file
 // replacement, permissions and recovery. Xec verifies before reload.
@@ -144,16 +144,16 @@ await $`haproxy -c -f /etc/haproxy/haproxy.cfg`;
 await $`systemctl reload haproxy`;
 ```
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### Common Issues
+### Common Issues {#common-issues}
 
 1. **Renewal failures**: Check firewall rules for port 80/443
 2. **DNS validation errors**: Verify DNS propagation
 3. **Permission denied**: Ensure certbot runs as root
 4. **Rate limits**: Let's Encrypt has rate limits, use staging for testing
 
-## Related Topics
+## Related Topics {#related-topics}
 
 - [Health Checks](./health-checks.md) - Monitor SSL endpoints
 - [Backup & Restore](./backup-restore.md) - Backup certificates

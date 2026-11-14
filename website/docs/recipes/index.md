@@ -7,13 +7,13 @@ source_files:
   - packages/ops/src/pipeline/index.ts
 ---
 
-# Xec Recipes Cookbook
+# Xec Recipes Cookbook {#xec-recipes-cookbook}
 
 Welcome to the Xec Recipes Cookbook - a collection of adaptable recipes for common automation tasks using Xec's universal command execution system.
 
-## 📚 Recipe Categories
+## 📚 Recipe Categories {#-recipe-categories}
 
-### 🚀 [Deployment](deployment/node-app-deploy.md)
+### 🚀 [Deployment](deployment/node-app-deploy.md) {#-deployment}
 Deployment strategies and explicit acceptance checks
 
 - **[Node.js Application Deployment](deployment/node-app-deploy.md)** - Deploy Node.js applications with a reviewed transition
@@ -21,7 +21,7 @@ Deployment strategies and explicit acceptance checks
 - **[Docker Container Deployment](deployment/docker-deploy.md)** - Container orchestration and management
 - **[Kubernetes Deployment](deployment/k8s-deploy.md)** - Deploy to Kubernetes clusters with Helm
 
-### 🔧 [Maintenance](maintenance/backup-restore.md)
+### 🔧 [Maintenance](maintenance/backup-restore.md) {#-maintenance}
 System maintenance and operational excellence
 
 - **[Log Aggregation](maintenance/log-aggregation.md)** - Inspect sources and verify centralized delivery
@@ -29,7 +29,7 @@ System maintenance and operational excellence
 - **[Health Checks](maintenance/health-checks.md)** - Service monitoring and alerting
 - **[Certificate Renewal](maintenance/certificate-renewal.md)** - SSL/TLS certificate management
 
-### 💻 [Development](development/database-setup.md)
+### 💻 [Development](development/database-setup.md) {#-development}
 Development workflows and environment setup
 
 - **[Database Setup](development/database-setup.md)** - Local database configuration
@@ -37,7 +37,7 @@ Development workflows and environment setup
 - **[Test Data Generation](development/test-data.md)** - Generate deterministic test fixtures
 - **[Hot Reload Workflows](development/hot-reload.md)** - Live development with hot reload
 
-### 🔌 [Integration](integration/github-actions.md)
+### 🔌 [Integration](integration/github-actions.md) {#-integration}
 Third-party service and tool integrations
 
 - **[GitHub Actions](integration/github-actions.md)** - CI/CD with GitHub Actions
@@ -45,9 +45,9 @@ Third-party service and tool integrations
 - **[Jenkins](integration/jenkins.md)** - Jenkins automation
 - **[AWS Services](integration/aws-integration.md)** - AWS service integration
 
-## 🎯 How to Use This Cookbook
+## 🎯 How to Use This Cookbook {#-how-to-use-this-cookbook}
 
-### Recipe Structure
+### Recipe Structure {#recipe-structure}
 
 Each recipe follows a consistent structure:
 
@@ -60,20 +60,20 @@ Each recipe follows a consistent structure:
 7. **Troubleshooting** - Common issues and solutions
 8. **Related Topics** - Links to related recipes
 
-### Code Verification
+### Code Verification {#code-verification}
 
 JavaScript and TypeScript examples are checked against Xec's public types. Commands that use remote services, databases or cloud providers also require the named tools, credentials and application-owned scripts. Type checking does not establish a production deployment or restore guarantee: run each recipe's acceptance checks in the intended environment.
 
-### Getting Started
+### Getting Started {#getting-started}
 
 1. **Choose a recipe** that matches your use case
 2. **Copy the configuration** to your `.xec/config.yaml`
 3. **Adapt the scripts** to your specific needs
 4. **Run the commands** as shown in the usage examples
 
-## 🔍 Finding the Right Recipe
+## 🔍 Finding the Right Recipe {#-finding-the-right-recipe}
 
-### By Use Case
+### By Use Case {#by-use-case}
 
 **Deploying Applications:**
 - Web applications → [Node.js Deployment](deployment/node-app-deploy.md)
@@ -99,7 +99,7 @@ JavaScript and TypeScript examples are checked against Xec's public types. Comma
 - Jenkins → [Jenkins Integration](integration/jenkins.md)
 - AWS → [AWS Integration](integration/aws-integration.md)
 
-### By Technology
+### By Technology {#by-technology}
 
 **Container Technologies:**
 - Docker → [Docker Deployment](deployment/docker-deploy.md)
@@ -117,9 +117,9 @@ JavaScript and TypeScript examples are checked against Xec's public types. Comma
 - MongoDB → [Database Setup](development/database-setup.md)
 - Redis → [Database Setup](development/database-setup.md)
 
-## 💡 Common Patterns
+## 💡 Common Patterns {#-common-patterns}
 
-### Parallel Execution
+### Parallel Execution {#parallel-execution}
 ```typescript
 const hosts = ['web-1.example.com', 'web-2.example.com'];
 const results = await $.parallel.map(hosts,
@@ -131,14 +131,14 @@ for (const result of results.results) {
 }
 ```
 
-### Error Handling
+### Error Handling {#error-handling}
 ```typescript
 const result = await $`node --version`.nothrow();
 if (!result.ok) throw new Error(`Runtime probe failed: ${result.cause}`);
 console.log(result.stdout.trim());
 ```
 
-### Progress Tracking
+### Progress Tracking {#progress-tracking}
 ```typescript
 import { Pipeline } from '@xec-sh/ops';
 const result = await Pipeline.create('validate')
@@ -148,14 +148,14 @@ const result = await Pipeline.create('validate')
 if (result.status !== 'success') throw new Error(`Validation ${result.status}`);
 ```
 
-### Connection Reuse
+### Connection Reuse {#connection-reuse}
 ```typescript
 const server = $.ssh({ host: 'staging.example.com', username: 'observer' });
 await server`hostname`;
 await server`uptime`;
 ```
 
-## 📝 Contributing Recipes
+## 📝 Contributing Recipes {#-contributing-recipes}
 
 We welcome contributions! To add a new recipe:
 
@@ -165,39 +165,39 @@ We welcome contributions! To add a new recipe:
 4. **Reference implementations** - Link to actual Xec source files
 5. **Submit a PR** - Include a description of the use case
 
-## 🔗 Quick Links
+## 🔗 Quick Links {#-quick-links}
 
 - [Xec Core Documentation](../core/execution-engine/overview.md)
 - [Command Reference](../commands/overview.md)
 - [Configuration Guide](../configuration/overview.md)
 - [Core Concepts](../introduction/core-concepts.md)
 
-## 📊 Recipe Statistics
+## 📊 Recipe Statistics {#-recipe-statistics}
 
 The cookbook groups recipes into deployment, maintenance, development and integration. The examples use shared Xec execution, configuration and lifecycle APIs; application-specific schemas and service policies remain explicit inputs.
 
-## 🚦 Recipe Maturity
+## 🚦 Recipe Maturity {#-recipe-maturity}
 
 Choose acceptance criteria for the actual target: a successful process exit, healthy container, reachable HTTP endpoint and validated application data are separate guarantees. Adapt and test the selected recipe before enabling automated production changes. Preserve a recovery path appropriate to the data and service being changed.
 
-## 🎓 Learning Path
+## 🎓 Learning Path {#-learning-path}
 
-### Beginner
+### Beginner {#beginner}
 1. Start with [Hot Reload](development/hot-reload.md) for local development
 2. Learn [Static Site Deployment](deployment/static-site-deploy.md)
 3. Explore [GitHub Actions](integration/github-actions.md) integration
 
-### Intermediate
+### Intermediate {#intermediate}
 1. Master [Node.js Deployment](deployment/node-app-deploy.md)
 2. Implement [Log Aggregation](maintenance/log-aggregation.md)
 3. Setup [Backup and Restore](maintenance/backup-restore.md)
 
-### Advanced
+### Advanced {#advanced}
 1. Deploy with [Docker](deployment/docker-deploy.md)
 2. Orchestrate with [Kubernetes](deployment/k8s-deploy.md)
 3. Build complete CI/CD pipelines
 
-## 🆘 Getting Help
+## 🆘 Getting Help {#-getting-help}
 
 - **Documentation**: Check the detailed documentation for each recipe
 - **Examples**: Look at the complete examples in each recipe

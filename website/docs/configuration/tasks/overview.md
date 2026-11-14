@@ -3,11 +3,11 @@ title: Tasks Overview
 description: Understanding automation tasks in Xec
 ---
 
-# Tasks Overview
+# Tasks Overview {#tasks-overview}
 
 Tasks are reusable automation workflows that encapsulate complex operations into simple, parameterized commands. They form the backbone of Xec's automation capabilities, enabling you to define once and execute anywhere.
 
-## What Are Tasks?
+## What Are Tasks? {#what-are-tasks}
 
 Tasks are named sequences of commands that can:
 - Execute across multiple targets
@@ -18,7 +18,7 @@ Tasks are named sequences of commands that can:
 - Emit and respond to events
 - Be composed into larger workflows
 
-## Basic Task Structure
+## Basic Task Structure {#basic-task-structure}
 
 ```yaml
 tasks:
@@ -36,9 +36,9 @@ tasks:
       - command: pm2 restart app
 ```
 
-## Task Types
+## Task Types {#task-types}
 
-### 1. Command Tasks
+### 1. Command Tasks {#1-command-tasks}
 
 Single command execution:
 
@@ -49,7 +49,7 @@ tasks:
     target: backup-server
 ```
 
-### 2. Script Tasks
+### 2. Script Tasks {#2-script-tasks}
 
 Execute scripts:
 
@@ -63,7 +63,7 @@ tasks:
     description: Process data pipeline
 ```
 
-### 3. Multi-Step Tasks
+### 3. Multi-Step Tasks {#3-multi-step-tasks}
 
 Complex workflows:
 
@@ -79,7 +79,7 @@ tasks:
         task: deploy-prod
 ```
 
-### 4. Parallel Tasks
+### 4. Parallel Tasks {#4-parallel-tasks}
 
 Concurrent execution:
 
@@ -94,7 +94,7 @@ tasks:
     command: curl http://localhost/health
 ```
 
-## Task Parameters
+## Task Parameters {#task-parameters}
 
 Accept input parameters:
 
@@ -114,7 +114,7 @@ tasks:
         --replicas=${params.replicas}
 ```
 
-## Task Composition
+## Task Composition {#task-composition}
 
 Build complex tasks from simpler ones:
 
@@ -132,7 +132,7 @@ tasks:
       - command: systemctl restart nginx
 ```
 
-## Error Handling
+## Error Handling {#error-handling}
 
 Control error behavior:
 
@@ -152,7 +152,7 @@ tasks:
         onFailure: continue
 ```
 
-## Conditional Execution
+## Conditional Execution {#conditional-execution}
 
 Execute steps conditionally:
 
@@ -170,7 +170,7 @@ tasks:
         when: health_status.exitCode == 0
 ```
 
-## Task Hooks
+## Task Hooks {#task-hooks}
 
 Execute code at specific points:
 
@@ -188,7 +188,7 @@ tasks:
     command: critical-operation
 ```
 
-## Event System
+## Event System {#event-system}
 
 Emit and respond to events:
 
@@ -206,7 +206,7 @@ tasks:
         echo "Data processing complete"
 ```
 
-## Task Scheduling
+## Task Scheduling {#task-scheduling}
 
 Schedule recurring tasks:
 
@@ -221,7 +221,7 @@ tasks:
     command: clean-temp-files.sh
 ```
 
-## Task Templates
+## Task Templates {#task-templates}
 
 Create reusable patterns:
 
@@ -247,7 +247,7 @@ tasks:
       service: api-server
 ```
 
-## Task Dependencies
+## Task Dependencies {#task-dependencies}
 
 Define execution order:
 
@@ -269,7 +269,7 @@ tasks:
     command: deploy-application
 ```
 
-## Task Caching
+## Task Caching {#task-caching}
 
 Cache task results:
 
@@ -283,7 +283,7 @@ tasks:
       storage: redis
 ```
 
-## Private Tasks
+## Private Tasks {#private-tasks}
 
 Hide internal tasks:
 
@@ -299,9 +299,9 @@ tasks:
       - command: public-operation
 ```
 
-## Task Execution
+## Task Execution {#task-execution}
 
-### Direct Execution
+### Direct Execution {#direct-execution}
 
 ```bash
 # Execute task
@@ -316,7 +316,7 @@ xec scale --replicas 5
 xec on hosts.backup-server --task backup
 ```
 
-### From Configuration
+### From Configuration {#from-configuration}
 
 ```yaml
 # Reference in other tasks
@@ -328,7 +328,7 @@ tasks:
       - task: deploy
 ```
 
-### From Scripts
+### From Scripts {#from-scripts}
 
 ```javascript
 import { tasks } from '@xec-sh/ops';
@@ -336,7 +336,7 @@ import { tasks } from '@xec-sh/ops';
 await tasks.run('deploy', { version: '1.2.3' });
 ```
 
-## Task Variables
+## Task Variables {#task-variables}
 
 Access task context:
 
@@ -350,9 +350,9 @@ tasks:
       echo "Param: ${params.value}"
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### 1. Single Responsibility
+### 1. Single Responsibility {#1-single-responsibility}
 
 ```yaml
 # Good - focused tasks
@@ -368,7 +368,7 @@ tasks:
     command: npm test && npm build && deploy
 ```
 
-### 2. Descriptive Names
+### 2. Descriptive Names {#2-descriptive-names}
 
 ```yaml
 # Good
@@ -381,7 +381,7 @@ tasks:
   d-p-a:  # Unclear
 ```
 
-### 3. Parameter Validation
+### 3. Parameter Validation {#3-parameter-validation}
 
 ```yaml
 tasks:
@@ -393,7 +393,7 @@ tasks:
         required: true
 ```
 
-### 4. Error Recovery
+### 4. Error Recovery {#4-error-recovery}
 
 ```yaml
 tasks:
@@ -405,7 +405,7 @@ tasks:
           task: recovery-task
 ```
 
-### 5. Documentation
+### 5. Documentation {#5-documentation}
 
 ```yaml
 tasks:
@@ -417,9 +417,9 @@ tasks:
       Required permissions: DBA role
 ```
 
-## Common Patterns
+## Common Patterns {#common-patterns}
 
-### Deployment Pipeline
+### Deployment Pipeline {#deployment-pipeline}
 
 ```yaml
 tasks:
@@ -442,7 +442,7 @@ tasks:
         task: deploy-${params.environment}
 ```
 
-### Health Monitoring
+### Health Monitoring {#health-monitoring}
 
 ```yaml
 tasks:
@@ -458,7 +458,7 @@ tasks:
       - command: check-memory-usage
 ```
 
-### Backup Strategy
+### Backup Strategy {#backup-strategy}
 
 ```yaml
 tasks:
@@ -477,9 +477,9 @@ tasks:
         target: hosts.backup-server
 ```
 
-## Advanced Features
+## Advanced Features {#advanced-features}
 
-### Dynamic Task Generation
+### Dynamic Task Generation {#dynamic-task-generation}
 
 ```yaml
 tasks:
@@ -493,7 +493,7 @@ tasks:
       }
 ```
 
-### Task Middleware
+### Task Middleware {#task-middleware}
 
 ```yaml
 tasks:
@@ -504,7 +504,7 @@ tasks:
     command: sensitive-operation
 ```
 
-### Task Metrics
+### Task Metrics {#task-metrics}
 
 ```yaml
 tasks:
@@ -515,9 +515,9 @@ tasks:
     command: important-operation
 ```
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### Task Not Found
+### Task Not Found {#task-not-found}
 
 ```bash
 # List available tasks
@@ -527,7 +527,7 @@ xec task list
 xec config show --tasks
 ```
 
-### Parameter Issues
+### Parameter Issues {#parameter-issues}
 
 ```bash
 # Show task parameters
@@ -537,7 +537,7 @@ xec task info deploy
 xec run deploy --dry-run --replicas 5
 ```
 
-### Execution Failures
+### Execution Failures {#execution-failures}
 
 ```bash
 # Debug mode
@@ -547,12 +547,12 @@ xec run deploy --debug
 xec run deploy --verbose
 ```
 
-## Next Steps
+## Next Steps {#next-steps}
 
 - [Simple Tasks](./simple-tasks.md) - Basic task creation
 - [Multi-Step Tasks](./multi-step-tasks.md) - Complex workflows
 
-## See Also
+## See Also {#see-also}
 
 - [Task Command](../../commands/built-in/run.md) - Running tasks
 - [Best Practices](../advanced/best-practices.md) - Task design patterns

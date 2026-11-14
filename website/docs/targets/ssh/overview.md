@@ -5,9 +5,9 @@ keywords: [ssh, remote, execution, pooling, tunneling]
 sidebar_position: 1
 ---
 
-# SSH Target Overview
+# SSH Target Overview {#ssh-target-overview}
 
-## Overview
+## Overview {#overview}
 
 SSH targets run commands on remote hosts through Xec's connection pool, host verification, command lifecycle, SFTP and forwarding APIs. The protocol implementation is an internal dependency: applications import only Xec, including its SSH types. A connection failure before dispatch can be retried; a lost command reply cannot be replayed safely. See [SSH reliability and ownership](./reliability.md).
 
@@ -21,7 +21,7 @@ await $.ssh('deploy@web-1')`systemctl status nginx`;
 await $.ssh({ host: 'web-1', username: 'deploy', privateKeyPath: path.join(os.homedir(), '.ssh/id_ed25519') })`uptime`;
 ```
 
-## Target Configuration
+## Target Configuration {#target-configuration}
 
 Targets defined in `.xec/config.yaml` are resolved by the CLI (`xec on`, `xec in`, `$target` in scripts) into exactly these fields — anything else in a target's YAML is not forwarded to the connection:
 
@@ -48,7 +48,7 @@ xec on "hosts.web-*" "uptime" --parallel
 
 Connection pooling, sudo, and SFTP concurrency are not per-target YAML settings — they are process-wide adapter configuration. See [Connection Configuration](./connection-config.md).
 
-## Command Execution
+## Command Execution {#command-execution}
 
 `$.ssh(target)` returns a callable context. Calling it with a template literal executes over SSH; chain methods before calling to configure the command:
 
@@ -80,7 +80,7 @@ await restart($.docker('api'), 'nginx');
 
 On top of that, an SSH context adds what only SSH can offer: `.tunnel()`, `.reverseTunnel()`, `.uploadFile()`, `.downloadFile()`, `.uploadDirectory()` and `.downloadDirectory()`. Those survive `.with()`, so configuring a target does not cost you the reason you chose it.
 
-### Streaming
+### Streaming {#streaming}
 
 The object returned by calling the context is a normal `ProcessPromise`:
 
@@ -96,7 +96,7 @@ await $.ssh('deploy@host1')`cat data.csv`
   .pipe($.ssh('deploy@host2')`import-data`);
 ```
 
-## File Transfer
+## File Transfer {#file-transfer}
 
 SFTP operations are methods on the SSH context, not a separate client:
 
@@ -111,7 +111,7 @@ await web.downloadDirectory('/var/log/app', './logs');
 
 Directory transfers preserve empty directories and include hidden files unless a `validate` callback excludes them. Symbolic links and special files are not traversed or copied. SFTP can be disabled adapter-wide (`sftp: { enabled: false }`); see [Connection Configuration](./connection-config.md).
 
-## Sudo
+## Sudo {#sudo}
 
 ```typescript
 await $.ssh({
@@ -123,7 +123,7 @@ await $.ssh({
 
 Setting `sudo.enabled` wraps the whole command in `sudo` (or `sudo -u <user>`) — the command you write should not itself start with `sudo`. See [Secure Sudo Password Handling](./sudo-security.md) for the password methods and their real security properties.
 
-## Port Forwarding
+## Port Forwarding {#port-forwarding}
 
 ```typescript
 const tunnel = await $.ssh('deploy@bastion').tunnel({
@@ -137,7 +137,7 @@ await tunnel.close();
 
 There is no dynamic (SOCKS) forwarding and no jump-host chaining — see [Tunneling](./tunneling.md) for what the two supported tunnel types actually do.
 
-## Error Handling
+## Error Handling {#error-handling}
 
 ```typescript
 import { ConnectionError, TimeoutError, CommandError } from '@xec-sh/core';
@@ -159,7 +159,7 @@ Every error thrown by the adapter extends `ExecutionError`, which carries a stab
 
 A command whose completion cannot be confirmed fails with `kind: 'outcome-unknown'` and `recoverable: false`. Xec does not replay it, including through `.retry()`. Verify the remote effect before an explicit retry. Cancellation and channel closure do not prove termination of detached remote processes.
 
-## Events
+## Events {#events}
 
 ```typescript
 $.on('ssh:connect', ({ host, port }) => console.log(`connected to ${host}:${port}`));
@@ -169,7 +169,7 @@ $.on('ssh:pool-metrics', ({ metrics }) => console.log(metrics));
 
 Other real events: `ssh:disconnect`, `ssh:execute`, `ssh:key-validated`, `ssh:pool-cleanup`, `ssh:tunnel-created`, `ssh:tunnel-closed`, plus the adapter-agnostic `connection:open` / `connection:close`.
 
-## Related Documentation
+## Related Documentation {#related-documentation}
 
 - [Authentication](./authentication.md) - password and private-key auth, host key verification
 - [Connection Configuration](./connection-config.md) - pooling, timeouts, and adapter-wide settings
@@ -178,6 +178,6 @@ Other real events: `ssh:disconnect`, `ssh:execute`, `ssh:key-validated`, `ssh:po
 - [Secure Sudo Password Handling](./sudo-security.md) - sudo password delivery methods
 - [SSH Adapter API](../../core/execution-engine/adapters/ssh-adapter.md) - API reference
 
-## Interactive terminals
+## Interactive terminals {#interactive-terminals}
 
 Use the existing `NodeSSH` class through `@xec-sh/core/ssh` for [interactive PTY shells](./interactive-shell.md), independently verified host pins, cancellable setup and bounded shell requests.

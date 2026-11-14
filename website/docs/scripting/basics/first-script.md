@@ -3,11 +3,11 @@ title: First Script
 description: Writing and running your first Xec script
 ---
 
-# Writing Your First Xec Script
+# Writing Your First Xec Script {#writing-your-first-xec-script}
 
 An Xec script is a JavaScript or TypeScript file that executes commands across local and remote environments. This guide walks you through creating your first one.
 
-## Basic Script Structure
+## Basic Script Structure {#basic-script-structure}
 
 A minimal Xec script is just a JavaScript or TypeScript file that uses the `$` template literal for command execution:
 
@@ -23,7 +23,7 @@ const pwd = await $`pwd`.text();
 console.log(`Current directory: ${pwd}`);
 ```
 
-## Running Your Script
+## Running Your Script {#running-your-script}
 
 Execute your script using the `xec run` command:
 
@@ -31,7 +31,7 @@ Execute your script using the `xec run` command:
 xec run hello.js
 ```
 
-## Script Arguments
+## Script Arguments {#script-arguments}
 
 Scripts receive their command-line arguments as the `args` global:
 
@@ -54,7 +54,7 @@ xec greet.js Alice
 # Output: Hello, Alice!
 ```
 
-## TypeScript Support
+## TypeScript Support {#typescript-support}
 
 Xec loads TypeScript scripts without a separate compilation step. Runtime transpilation does not replace `tsc --noEmit` validation:
 
@@ -88,7 +88,7 @@ const options: DeployOptions = { environment, version: args[1] || '1.0.0' };
 await deploy(options);
 ```
 
-## Async/Await Patterns
+## Async/Await Patterns {#asyncawait-patterns}
 
 All command executions are asynchronous and return promises:
 
@@ -130,7 +130,7 @@ await parallelCommands();
 await safeExecution();
 ```
 
-## Working with Output
+## Working with Output {#working-with-output}
 
 Commands return objects with stdout, stderr, and exit code:
 
@@ -164,7 +164,7 @@ try {
 }
 ```
 
-## Script Context Variables
+## Script Context Variables {#script-context-variables}
 
 Beyond `$` and the utility globals, target-bound scripts get `$target` and
 `$targetInfo` (see
@@ -190,7 +190,7 @@ if (typeof $target !== 'undefined') {
 }
 ```
 
-## Interactive Scripts
+## Interactive Scripts {#interactive-scripts}
 
 Scripts can use prompts for user interaction:
 
@@ -229,7 +229,7 @@ if (kit.isCancel(environment)) throw new Error('Cancelled');
 console.log(`Selected ${environment}`);
 ```
 
-## Watch Mode
+## Watch Mode {#watch-mode}
 
 Run scripts in watch mode to automatically re-execute on file changes:
 
@@ -239,7 +239,7 @@ xec run script.js --watch
 
 Your script will re-run whenever you save changes, making development iteration faster.
 
-## Spinner Styles
+## Spinner Styles {#spinner-styles}
 
 Xec provides several built-in spinner styles with automatic fallback for different terminal environments:
 
@@ -275,14 +275,14 @@ Each style automatically degrades gracefully in non-Unicode terminals:
 - **ASCII terminals**: Simplified fallback frames with adjusted delays
 - **CI environments**: Optimized for log readability
 
-## Next Steps
+## Next Steps {#next-steps}
 
 - Learn about the [execution context](./execution-context.md) and working with targets
 - Explore [command execution patterns](./command-execution.md) for advanced usage
 - Set up [TypeScript configuration](./typescript-setup.md) for better type safety
 - Discover [error handling patterns](../patterns/error-handling.md) for robust scripts
 
-## Complete Example
+## Complete Example {#complete-example}
 
 Here's a complete example combining multiple concepts:
 

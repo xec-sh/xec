@@ -5,11 +5,11 @@ title: Retry Policies
 description: Retry policies with backoff for flaky operations
 ---
 
-# Retry Policies
+# Retry Policies {#retry-policies}
 
 Retry failed operations with exponential backoff, jitter, and custom predicates.
 
-## Quick Retry
+## Quick Retry {#quick-retry}
 
 ```typescript
 import { retry } from '@xec-sh/ops';
@@ -20,7 +20,7 @@ const data = await retry(() => fetch('https://api.example.com/data'), {
 });
 ```
 
-## Fluent Builder
+## Fluent Builder {#fluent-builder}
 
 ```typescript
 import { RetryPolicy } from '@xec-sh/ops';
@@ -40,7 +40,7 @@ const policy = RetryPolicy.create()
 const result = await policy.execute(() => $`node --version`);
 ```
 
-## Backoff Strategies
+## Backoff Strategies {#backoff-strategies}
 
 | Strategy | Behavior | Example (initial=200ms) |
 |----------|----------|------------------------|
@@ -48,7 +48,7 @@ const result = await policy.execute(() => $`node --version`);
 | `linear` | Delay increases linearly | 200, 400, 600, 800 |
 | `exponential` | Delay doubles (default) | 200, 400, 800, 1600 |
 
-## Configuration
+## Configuration {#configuration}
 
 ```typescript
 import { BackoffStrategy } from '@xec-sh/ops';
@@ -66,7 +66,7 @@ interface RetryConfig {
 }
 ```
 
-## Exponential Backoff Generator
+## Exponential Backoff Generator {#exponential-backoff-generator}
 
 For manual retry loops:
 

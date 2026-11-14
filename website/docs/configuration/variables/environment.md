@@ -3,13 +3,13 @@ title: Environment Variables
 description: Using environment variables in Xec configuration
 ---
 
-# Environment Variables
+# Environment Variables {#environment-variables}
 
 Environment variables provide a flexible way to configure Xec without modifying configuration files. They're ideal for secrets, deployment-specific settings, and CI/CD integration.
 
-## Environment Variable Types
+## Environment Variable Types {#environment-variable-types}
 
-### 1. Xec System Variables
+### 1. Xec System Variables {#1-xec-system-variables}
 
 Variables that control Xec behavior:
 
@@ -28,7 +28,7 @@ NO_COLOR=1                          # Disable colored output (standard variable)
 XEC_COMMANDS_PATH=./my-commands     # Extra dynamic-command directories
 ```
 
-### 2. Configuration Variables
+### 2. Configuration Variables {#2-configuration-variables}
 
 Override configuration values:
 
@@ -42,7 +42,7 @@ XEC_VARS_CACHE_PORT=6379            # sets vars.cache.port
 
 Because underscores always create nesting, variables whose names themselves contain underscores (e.g. `app_name`) cannot be addressed this way — use dotted/nested names in `vars` instead.
 
-### 3. Secret Variables
+### 3. Secret Variables {#3-secret-variables}
 
 With the `env` secrets provider (or as a fallback for `${secrets.*}` lookups), secrets are read from `SECRET_*` environment variables — the key is uppercased and `.`/`-` become `_`:
 
@@ -58,7 +58,7 @@ secrets:
     prefix: SECRET_   # default
 ```
 
-### 4. User Environment Variables
+### 4. User Environment Variables {#4-user-environment-variables}
 
 Access system environment in configuration:
 
@@ -74,9 +74,9 @@ NODE_ENV=production
 DEBUG=app:*
 ```
 
-## Using Environment Variables
+## Using Environment Variables {#using-environment-variables}
 
-### In Configuration Files
+### In Configuration Files {#in-configuration-files}
 
 ```yaml
 # Access environment variables
@@ -97,7 +97,7 @@ vars:
     url: postgres://${env.DB_USER}:${env.DB_PASSWORD}@${database.host}:${database.port}/${database.name}
 ```
 
-### In Tasks
+### In Tasks {#in-tasks}
 
 ```yaml
 tasks:
@@ -115,7 +115,7 @@ tasks:
       WORKERS: ${env.WORKERS:4}
 ```
 
-### In Scripts
+### In Scripts {#in-scripts}
 
 ```yaml
 tasks:
@@ -134,7 +134,7 @@ tasks:
       process.env.CUSTOM_VAR = 'value';
 ```
 
-## Environment Variable Precedence
+## Environment Variable Precedence {#environment-variable-precedence}
 
 Configuration sources are merged in this order (highest to lowest):
 
@@ -168,9 +168,9 @@ xec run server        # port = 9000
 XEC_PROFILE=production xec run server  # port = 3000
 ```
 
-## Setting Environment Variables
+## Setting Environment Variables {#setting-environment-variables}
 
-### Shell Export
+### Shell Export {#shell-export}
 
 ```bash
 # Bash/Zsh
@@ -190,7 +190,7 @@ $env:XEC_PROFILE = "production"
 $env:API_KEY = "secret-key"
 ```
 
-### .env Files
+### .env Files {#env-files}
 
 ```bash
 # .env file
@@ -208,9 +208,9 @@ export $(cat .env | xargs)  # Alternative
 There is no built-in dotenv support — load `.env` files in your shell (as above) before invoking `xec`. The `dotenv` secrets provider is declared in the type but not implemented.
 :::
 
-### CI/CD Systems
+### CI/CD Systems {#cicd-systems}
 
-#### GitHub Actions
+#### GitHub Actions {#github-actions}
 
 ```yaml
 # .github/workflows/deploy.yml
@@ -224,7 +224,7 @@ jobs:
       - run: xec run deploy
 ```
 
-#### GitLab CI
+#### GitLab CI {#gitlab-ci}
 
 ```yaml
 # .gitlab-ci.yml
@@ -237,7 +237,7 @@ deploy:
     - xec run deploy
 ```
 
-#### Jenkins
+#### Jenkins {#jenkins}
 
 ```groovy
 // Jenkinsfile
@@ -251,9 +251,9 @@ stage('Deploy') {
 }
 ```
 
-## Profile Selection via Environment
+## Profile Selection via Environment {#profile-selection-via-environment}
 
-### Default Profile
+### Default Profile {#default-profile}
 
 ```bash
 # Set default profile
@@ -264,7 +264,7 @@ xec run deploy  # Uses staging
 xec run test    # Uses staging
 ```
 
-### Override Profile
+### Override Profile {#override-profile}
 
 ```bash
 # Environment sets the session default
@@ -274,7 +274,7 @@ export XEC_PROFILE=staging
 XEC_PROFILE=production xec run deploy  # Uses production
 ```
 
-### Dynamic Profile Selection
+### Dynamic Profile Selection {#dynamic-profile-selection}
 
 Select the profile in the shell before invoking Xec:
 
@@ -289,9 +289,9 @@ fi
 xec run deploy
 ```
 
-## Secret Management
+## Secret Management {#secret-management}
 
-### Environment-Based Secrets
+### Environment-Based Secrets {#environment-based-secrets}
 
 With the `env` provider (prefix `SECRET_` by default):
 
@@ -313,9 +313,9 @@ vars:
 
 The supported providers are `local` (default), `env`, and `git` — cloud providers such as Vault or AWS Secrets Manager are not implemented.
 
-## Debugging Environment Variables
+## Debugging Environment Variables {#debugging-environment-variables}
 
-### List All Variables
+### List All Variables {#list-all-variables}
 
 ```bash
 # Show all Xec-related environment variables
@@ -325,7 +325,7 @@ env | grep XEC_
 XEC_DEBUG=true xec config view
 ```
 
-### Trace Variable Resolution
+### Trace Variable Resolution {#trace-variable-resolution}
 
 ```yaml
 tasks:
@@ -339,7 +339,7 @@ tasks:
         });
 ```
 
-### Test Variable Override
+### Test Variable Override {#test-variable-override}
 
 ```bash
 # Test different values
@@ -347,9 +347,9 @@ XEC_VARS_PORT=3000 xec config get vars.port
 XEC_VARS_DEBUG=true xec run test
 ```
 
-## Common Patterns
+## Common Patterns {#common-patterns}
 
-### Development Environment
+### Development Environment {#development-environment}
 
 ```bash
 # .env.development
@@ -361,7 +361,7 @@ DATABASE_URL=postgres://localhost/dev
 REDIS_URL=redis://localhost:6379
 ```
 
-### Production Environment
+### Production Environment {#production-environment}
 
 ```bash
 # .env.production
@@ -373,7 +373,7 @@ DATABASE_URL=${DATABASE_URL}  # From CI/CD
 REDIS_URL=${REDIS_URL}        # From CI/CD
 ```
 
-### Docker Environment
+### Docker Environment {#docker-environment}
 
 ```dockerfile
 # Dockerfile
@@ -390,7 +390,7 @@ services:
       - DATABASE_URL=${DATABASE_URL}
 ```
 
-### Kubernetes Environment
+### Kubernetes Environment {#kubernetes-environment}
 
 ```yaml
 # deployment.yaml
@@ -411,9 +411,9 @@ spec:
               key: api-key
 ```
 
-## Security Best Practices
+## Security Best Practices {#security-best-practices}
 
-### 1. Never Commit Secrets
+### 1. Never Commit Secrets {#1-never-commit-secrets}
 
 ```bash
 # .gitignore
@@ -422,7 +422,7 @@ spec:
 !.env.example
 ```
 
-### 2. Use Secret Management
+### 2. Use Secret Management {#2-use-secret-management}
 
 ```yaml
 # Good - use secret management
@@ -434,7 +434,7 @@ vars:
   apiKey: "sk-1234567890"  # NEVER DO THIS
 ```
 
-### 3. Validate Required Variables
+### 3. Validate Required Variables {#3-validate-required-variables}
 
 ```yaml
 tasks:
@@ -455,7 +455,7 @@ tasks:
       }
 ```
 
-### 4. Sanitize Output
+### 4. Sanitize Output {#4-sanitize-output}
 
 ```yaml
 tasks:
@@ -466,7 +466,7 @@ tasks:
       echo "API Key: [REDACTED]"
 ```
 
-### 5. Use Minimal Exposure
+### 5. Use Minimal Exposure {#5-use-minimal-exposure}
 
 ```yaml
 # Only expose needed variables
@@ -477,9 +477,9 @@ tasks:
       # Don't pass all environment
 ```
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### Variable Not Found
+### Variable Not Found {#variable-not-found}
 
 ```bash
 # Check if variable is set
@@ -492,7 +492,7 @@ xec config get vars.myVar
 XEC_DEBUG=true xec config list --path vars
 ```
 
-### Variable Not Overriding
+### Variable Not Overriding {#variable-not-overriding}
 
 ```bash
 # See which files were loaded, in order
@@ -502,7 +502,7 @@ XEC_DEBUG=true xec config view
 XEC_VARS_MYVAR=value xec run task
 ```
 
-### Special Characters
+### Special Characters {#special-characters}
 
 ```bash
 # Escape special characters
@@ -511,9 +511,9 @@ export MY_VAR="value with \"quotes\""
 export MY_VAR=$'value with\nnewline'
 ```
 
-## Platform-Specific Notes
+## Platform-Specific Notes {#platform-specific-notes}
 
-### Linux/macOS
+### Linux/macOS {#linuxmacos}
 
 ```bash
 # Persistent environment
@@ -521,7 +521,7 @@ echo 'export XEC_PROFILE=production' >> ~/.bashrc
 echo 'export XEC_PROFILE=production' >> ~/.zshrc
 ```
 
-### Windows
+### Windows {#windows}
 
 ```powershell
 # Persistent environment (PowerShell)
@@ -533,16 +533,16 @@ echo 'export XEC_PROFILE=production' >> ~/.zshrc
 setx XEC_PROFILE production
 ```
 
-### WSL
+### WSL {#wsl}
 
 ```bash
 # Share with Windows
 export WSLENV=$WSLENV:XEC_PROFILE
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### 1. Document Required Variables
+### 1. Document Required Variables {#1-document-required-variables}
 
 ```yaml
 # .xec/README.md
@@ -553,7 +553,7 @@ vars:
     - REDIS_URL: Redis connection string
 ```
 
-### 2. Provide Example Configuration
+### 2. Provide Example Configuration {#2-provide-example-configuration}
 
 ```bash
 # .env.example
@@ -562,7 +562,7 @@ API_URL=http://localhost:3000
 DATABASE_URL=postgres://user:pass@localhost/db
 ```
 
-### 3. Validate Early
+### 3. Validate Early {#3-validate-early}
 
 ```yaml
 tasks:
@@ -572,7 +572,7 @@ tasks:
         - task: validate-environment
 ```
 
-### 4. Use Consistent Naming
+### 4. Use Consistent Naming {#4-use-consistent-naming}
 
 ```bash
 # Good - consistent prefix
@@ -586,7 +586,7 @@ DB_URL=value
 REDIS=value
 ```
 
-### 5. Group Related Variables
+### 5. Group Related Variables {#5-group-related-variables}
 
 ```bash
 # Database configuration
@@ -597,11 +597,11 @@ XEC_DB_USER=user
 XEC_DB_PASSWORD=pass
 ```
 
-## Next Steps
+## Next Steps {#next-steps}
 
 - [Best Practices](../advanced/best-practices.md) - Configuration patterns
 
-## See Also
+## See Also {#see-also}
 
 - [Configuration Overview](../overview.md) - Configuration basics
 - [Variables Overview](./overview.md) - Variable system

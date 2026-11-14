@@ -3,11 +3,11 @@ title: Script Execution Context
 description: The globals and context available inside Xec scripts
 ---
 
-# Script Execution Context
+# Script Execution Context {#script-execution-context}
 
 Every Xec script runs within a rich execution context that provides access to targets, configuration, and utility functions. This guide explains the execution context and how to leverage it effectively.
 
-## Understanding $target and $
+## Understanding $target and $ {#understanding-target-and-}
 
 Xec provides two primary execution engines in your scripts:
 
@@ -28,7 +28,7 @@ local binding. Code that may also run outside the CLI — under plain
 `node` — should still check with `typeof`, since there the variables
 aren't declared at all.
 
-## Global Context Variables
+## Global Context Variables {#global-context-variables}
 
 When a script executes, Xec injects these globals:
 
@@ -46,7 +46,7 @@ script's own location. `xec run deploy.js staging --force` gives
 `args = ['staging', '--force']` — flags the `run` command owns itself go
 after `--`.
 
-### Target Information
+### Target Information {#target-information}
 
 The `$targetInfo` object provides details about the execution target:
 
@@ -77,7 +77,7 @@ if (typeof $targetInfo !== 'undefined') {
 }
 ```
 
-## Utility Functions
+## Utility Functions {#utility-functions}
 
 The CLI also makes a set of scripting utilities from `@xec-sh/ops`
 available as globals in every execution path (`xec run`, `xec script.js`,
@@ -107,7 +107,7 @@ that spliced the old separator back together needs no adjustment, but code
 comparing against a `\`-separated literal does.
 :::
 
-## Working with Multiple Targets
+## Working with Multiple Targets {#working-with-multiple-targets}
 
 Scripts can be executed against different targets:
 
@@ -144,7 +144,7 @@ if ($targetInfo?.type === 'ssh') {
 await $`echo "This always runs on the host"`;
 ```
 
-## Parameter Parsing
+## Parameter Parsing {#parameter-parsing}
 
 Command-line parameters aren't parsed automatically — a script gets its raw
 arguments as the `args` global and parses them itself. `parseArgs`, one of
@@ -169,7 +169,7 @@ The flags `run` owns — `--dry-run`, `--watch`, `-o/--output`,
 owned flag after `--` to reach the script:
 `xec run deploy.js -- --dry-run`.
 
-## Context Isolation
+## Context Isolation {#context-isolation}
 
 Each CLI invocation is its own process, and the globals Xec injects
 (`$target`, `$targetInfo`, the utility functions) are restored to their
@@ -177,7 +177,7 @@ previous values after the script finishes. Variables your script assigns to
 `globalThis` itself are not tracked — in `--watch` mode, where the file is
 re-run inside the same process, they survive between runs.
 
-## REPL Context
+## REPL Context {#repl-context}
 
 When running in REPL mode, additional helpers are available:
 
@@ -194,7 +194,7 @@ xec run --repl
 `.help` and `.clear` are Node REPL dot-commands (`replServer.defineCommand`),
 not callable functions — they're typed without parentheses.
 
-## Custom Context Extension
+## Custom Context Extension {#custom-context-extension}
 
 Prefer ordinary module-scoped functions and imports. They preserve ownership and avoid leaking mutable globals between watch runs:
 
@@ -225,7 +225,7 @@ const utils = {
 await utils.deployToAll(['staging', 'production']);
 ```
 
-## Environment Variables
+## Environment Variables {#environment-variables}
 
 Scripts inherit the process environment. Xec itself reads a few variables
 rather than setting them:
@@ -246,7 +246,7 @@ process.env.API_KEY = 'example-token';
 await $`node script.js`.env({ API_KEY: 'secret' });
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
 1. **Check for target availability**:
    ```javascript
@@ -289,7 +289,7 @@ await $`node script.js`.env({ API_KEY: 'secret' });
    }
    ```
 
-## Complete Example
+## Complete Example {#complete-example}
 
 Here's a comprehensive example using the execution context:
 

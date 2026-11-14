@@ -15,16 +15,16 @@ key_functions:
 verification_date: 2026-11-14
 ---
 
-# ProcessPromise API
+# ProcessPromise API {#processpromise-api}
 
-## Implementation Reference
+## Implementation Reference {#implementation-reference}
 
 **Source Files:**
 - `packages/core/src/core/process-context.ts` - Builds and attaches every ProcessPromise method
 - `packages/core/src/core/result.ts` - The `ExecutionResult` a ProcessPromise resolves to
 - `packages/core/src/types/process.ts` - `ProcessPromise` and `ProcessHandle` types
 
-## Class: ProcessPromise
+## Class: ProcessPromise {#class-processpromise}
 
 A chainable, lazy promise that represents a command. Nothing runs until it's
 awaited, iterated with `for await`, or one of `.start()` / `.spawned` /
@@ -38,7 +38,7 @@ const result = await command;
 console.log(result.text());
 ```
 
-### Properties
+### Properties {#properties}
 
 ```typescript
 import type { ProcessPromise } from '@xec-sh/core';
@@ -51,9 +51,9 @@ those names are taken by the configurator methods below. To read output as
 it arrives, use `.child.stdout` / `.child.stderr` (available once `.spawned`
 resolves), or iterate the promise itself with `for await`.
 
-## Chaining Methods
+## Chaining Methods {#chaining-methods}
 
-### pipe()
+### pipe() {#pipe}
 
 Pipe the command's output somewhere else.
 
@@ -93,7 +93,7 @@ syntax. If you relied on that to build a pipeline, pass the command as a
 string instead.
 :::
 
-### nothrow()
+### nothrow() {#nothrow}
 
 Prevent throwing on non-zero exit codes.
 
@@ -114,7 +114,7 @@ if (result.ok) {
 }
 ```
 
-### quiet()
+### quiet() {#quiet}
 
 Suppress stdout/stderr output to the terminal (output is still captured on
 the result).
@@ -135,7 +135,7 @@ There is no `.verbose()` chain method. The equivalent is `$.verbose = true`
 stderr before it runs) — or `.config.set({ verbose: true })` on any engine
 instance.
 
-### timeout()
+### timeout() {#timeout}
 
 Fail the command after a duration.
 
@@ -175,9 +175,9 @@ await $`slow-command`.timeout('5s');
 await $`server`.timeout('10s', 'SIGKILL');
 ```
 
-## Environment Methods
+## Environment Methods {#environment-methods}
 
-### cwd()
+### cwd() {#cwd}
 
 Set working directory.
 
@@ -202,7 +202,7 @@ await $`git pull`
   .timeout('30s');
 ```
 
-### env()
+### env() {#env}
 
 Set environment variables.
 
@@ -229,7 +229,7 @@ if (!apiKey) throw new Error('API_KEY is required');
 await $`deploy`.env({ API_KEY: apiKey });
 ```
 
-### shell()
+### shell() {#shell}
 
 Set shell for execution.
 
@@ -251,9 +251,9 @@ await $`echo $SHELL`.shell('/bin/zsh');
 await $`node script.js`.shell(false);
 ```
 
-## Input/Output Methods
+## Input/Output Methods {#inputoutput-methods}
 
-### stdin
+### stdin {#stdin}
 
 Not a method — a writable stream property, available immediately. Writes
 are buffered and forwarded once the process actually spawns, so there's no
@@ -282,7 +282,7 @@ To provide the whole input up front instead, pass it as part of the
 `Command` via `.exec()` / `execute()`, or write-then-end as above; there is
 no `.stdin(input)` chain method that takes a value as an argument.
 
-### kill()
+### kill() {#kill}
 
 Kill the process — and everything it spawned. For local, Docker and
 Kubernetes this signals the whole process tree, not just the immediate
@@ -304,7 +304,7 @@ const result = await proc;
 console.log(result.signal, result.exitCode);
 ```
 
-### start() / spawned / child / pid
+### start() / spawned / child / pid {#start--spawned--child--pid}
 
 Commands are lazy — nothing runs until the promise is awaited, iterated, or
 one of these is touched.
@@ -347,9 +347,9 @@ console.log('pid:', handle.pid);
 handle.stdout?.on('data', chunk => console.log(chunk.toString()));
 ```
 
-## Output Methods
+## Output Methods {#output-methods}
 
-### lines()
+### lines() {#lines}
 
 Get output as an array of lines, once the command finishes. This is a plain
 promise, not an async iterable — `for await` does not work directly on its
@@ -374,7 +374,7 @@ line ending.
 To process lines as they arrive rather than after the command finishes,
 iterate the `ProcessPromise` itself — see [Async Iteration](#async-iteration) below.
 
-### json()
+### json() {#json}
 
 Parse trimmed output as JSON.
 
@@ -401,7 +401,7 @@ interface Config {
 const config = await $`cat config.json`.json<Config>();
 ```
 
-### text()
+### text() {#text}
 
 Get trimmed output as a string.
 
@@ -417,7 +417,7 @@ const content = await $`cat README.md`.text();
 console.log(content);
 ```
 
-### buffer()
+### buffer() {#buffer}
 
 Get output as a `Buffer`. Called this way — directly on the `ProcessPromise`,
 before awaiting — it re-encodes the already-decoded `stdout` string, so it
@@ -435,7 +435,7 @@ const exact = (await $`cat image.png`).buffer();        // the awaited result's 
 fs.writeFileSync('copy.png', exact);
 ```
 
-### cache()
+### cache() {#cache}
 
 Cache the result of this one command. Keyed by command + working directory +
 environment + target (host/container/pod), so identical commands against
@@ -455,9 +455,9 @@ import { $ } from '@xec-sh/core';
 const result = await $`curl https://api.example.com/data`.cache({ ttl: 5000 });
 ```
 
-## Advanced Methods
+## Advanced Methods {#advanced-methods}
 
-### retry
+### retry {#retry}
 
 There is no `.retry()` method on `ProcessPromise`. Two real alternatives
 exist instead, both taking the same `RetryOptions`:
@@ -499,7 +499,7 @@ import { $ } from '@xec-sh/core';
 await $.retry({ maxRetries: 5 })`network-request`;
 ```
 
-### signal()
+### signal() {#signal}
 
 Provide an abort signal.
 
@@ -528,7 +528,7 @@ try {
 }
 ```
 
-## Async iteration
+## Async iteration {#async-iteration}
 
 A `ProcessPromise` is itself async-iterable, streaming lines as they arrive
 rather than waiting for the command to finish — this is what makes it work
@@ -548,9 +548,9 @@ the process to a writable destination. Set the stream behavior before
 starting the command. The command result reflects the capture policy of
 that destination.
 
-## Result Properties
+## Result Properties {#result-properties}
 
-### ExecutionResult
+### ExecutionResult {#executionresult}
 
 The object an awaited `ProcessPromise` resolves to:
 
@@ -579,9 +579,9 @@ console.log(result.duration);  // e.g. 15
 method exposes original captured bytes, while `.text()`, `.json()` and
 `.lines()` provide decoded views.
 
-## Error Handling
+## Error Handling {#error-handling}
 
-### CommandError
+### CommandError {#commanderror}
 
 Thrown when a command exits non-zero (unless using `nothrow()`). There is
 no `ProcessError` class — the real name is `CommandError`, and it extends
@@ -609,7 +609,7 @@ try {
 }
 ```
 
-## Performance Characteristics
+## Performance Characteristics {#performance-characteristics}
 
 Lazy construction permits a command to be configured before execution.
 Measure throughput and memory with the adapters and capture policy used
@@ -617,9 +617,9 @@ by your workload. The default `maxBuffer` cap is unset at the `Command` level (n
 unless configured; when set, exceeding it throws `MaxBufferExceededError`
 rather than silently truncating.
 
-## Usage Patterns
+## Usage Patterns {#usage-patterns}
 
-### Sequential Execution
+### Sequential Execution {#sequential-execution}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -630,7 +630,7 @@ await $`npm test`;
 await $`npm run build`;
 ```
 
-### Parallel Execution
+### Parallel Execution {#parallel-execution}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -644,7 +644,7 @@ const [build, lint, test] = await Promise.all([
 ]);
 ```
 
-### Error Recovery
+### Error Recovery {#error-recovery}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -656,7 +656,7 @@ if (!result.ok) {
 }
 ```
 
-### Stream Processing
+### Stream Processing {#stream-processing}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -669,7 +669,7 @@ for await (const file of $`find . -name "*.log"`) {
 }
 ```
 
-## Related Documentation
+## Related Documentation {#related-documentation}
 
 - [Execution Engine](./execution-engine.md) - Engine that creates ProcessPromise
 - [Types](./types.md) - TypeScript type definitions

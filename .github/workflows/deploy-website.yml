@@ -6,12 +6,17 @@ on:
       - main
     paths:
       - 'website/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
       - '.github/workflows/deploy-website.yml'
   pull_request:
     branches:
       - main
     paths:
       - 'website/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/deploy-website.yml'
   workflow_dispatch:
 
 permissions:
@@ -35,7 +40,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24.13.0'
 
       - name: Enable Corepack
         run: corepack enable
@@ -54,10 +59,22 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Typecheck website
+        run: pnpm --dir website typecheck
+
       - name: Build website
         run: |
           cd website
           pnpm build
+
+      - name: Execute documented local workflows
+        run: pnpm --dir website test:examples
+
+      - name: Install browser
+        run: pnpm --dir website exec playwright install chromium
+
+      - name: Verify navigation and interactions
+        run: pnpm --dir website test:browser
 
       - name: Upload artifact
         if: github.event_name != 'pull_request'

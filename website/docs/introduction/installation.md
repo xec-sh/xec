@@ -4,9 +4,9 @@ description: How to install Xec on your system
 keywords: [install, setup, npm, pnpm, global, local]
 ---
 
-# Installation
+# Installation {#installation}
 
-## System Requirements
+## System Requirements {#system-requirements}
 
 Before installing Xec, ensure your system meets these requirements:
 
@@ -18,7 +18,7 @@ Before installing Xec, ensure your system meets these requirements:
 - **Operating System**: macOS, Linux, or Windows — all three run the unit suite in CI
 - **Package Manager**: npm (included with Node.js) or pnpm
 
-### Optional Dependencies
+### Optional Dependencies {#optional-dependencies}
 
 For full functionality, you may also want:
 
@@ -28,9 +28,9 @@ SSH execution uses Xec's bundled, reviewed `ssh2` transport; an external
 OpenSSH client is not required. A reachable SSH server and appropriate
 credentials/host-key policy are still required.
 
-## Installation Methods
+## Installation Methods {#installation-methods}
 
-### Global Installation (Recommended)
+### Global Installation (Recommended) {#global-installation-recommended}
 
 Install Xec globally to use it from anywhere on your system:
 
@@ -48,7 +48,7 @@ Verify the installation:
 xec --version
 ```
 
-### Project Installation
+### Project Installation {#project-installation}
 
 Add Xec to your project for scripting and automation:
 
@@ -76,7 +76,7 @@ Create those three project-owned script files before running the package
 scripts. `build`, `test` and `deploy` are not built-in Xec commands; their
 shorthands require matching project tasks or dynamic command definitions.
 
-### Development Installation
+### Development Installation {#development-installation}
 
 For contributing to Xec or using the latest development version:
 
@@ -98,11 +98,11 @@ pnpm build
 pnpm link --global
 ```
 
-## Package Overview
+## Package Overview {#package-overview}
 
 Xec consists of multiple packages:
 
-### @xec-sh/cli
+### @xec-sh/cli {#xec-shcli}
 The command-line interface for Xec.
 
 ```bash
@@ -115,7 +115,7 @@ Features:
 - Script running
 - Configuration management
 
-### @xec-sh/core
+### @xec-sh/core {#xec-shcore}
 The core execution engine for programmatic use.
 
 ```bash
@@ -128,7 +128,7 @@ Features:
 - Connection pooling
 - Error handling
 
-### @xec-sh/testing
+### @xec-sh/testing {#xec-shtesting}
 Testing utilities for Xec scripts and commands.
 
 ```bash
@@ -140,15 +140,15 @@ Features:
 - Docker/SSH/kind fixture lifecycle
 - Vitest test helpers (run inside `vitest`, not directly with Node)
 
-## Platform-Specific Setup
+## Platform-Specific Setup {#platform-specific-setup}
 
-### macOS
+### macOS {#macos}
 
 ```bash
 npm install -g @xec-sh/cli
 ```
 
-### Linux
+### Linux {#linux}
 
 ```bash
 # Ubuntu/Debian
@@ -165,7 +165,7 @@ sudo pacman -S nodejs npm
 npm install -g @xec-sh/cli
 ```
 
-### Windows
+### Windows {#windows}
 
 Native Windows is supported and tested:
 
@@ -188,7 +188,7 @@ you would rather not change them:
 npm install -g @xec-sh/cli
 ```
 
-## Docker Installation
+## Docker Installation {#docker-installation}
 
 Run Xec in a container:
 
@@ -201,7 +201,7 @@ CMD ["xec", "run", "script.ts"]
 ```
 
 
-## Verifying Installation
+## Verifying Installation {#verifying-installation}
 
 After installation, verify everything is working:
 
@@ -216,7 +216,7 @@ xec --help
 xec -e "console.log('Hello from Xec!')"
 ```
 
-## Configuration Setup
+## Configuration Setup {#configuration-setup}
 
 Initialize Xec in your project:
 
@@ -229,7 +229,7 @@ xec new script deploy
 xec new command greet
 ```
 
-## Environment Variables
+## Environment Variables {#environment-variables}
 
 Configure Xec behavior with environment variables:
 
@@ -244,9 +244,9 @@ export XEC_DEBUG=true
 export NO_COLOR=1
 ```
 
-## Troubleshooting Installation
+## Troubleshooting Installation {#troubleshooting-installation}
 
-### Common Issues
+### Common Issues {#common-issues}
 
 **Permission Denied**
 ```bash
@@ -280,7 +280,7 @@ nvm use 22
 npm install -g typescript tsx
 ```
 
-## Updating Xec
+## Updating Xec {#updating-xec}
 
 Keep Xec up to date:
 
@@ -295,7 +295,7 @@ npm update @xec-sh/core @xec-sh/cli
 npm outdated -g @xec-sh/cli
 ```
 
-## Uninstalling
+## Uninstalling {#uninstalling}
 
 To remove Xec from your system:
 
@@ -311,14 +311,14 @@ rm -rf ~/.xec
 rm -rf .xec/
 ```
 
-## Next Steps
+## Next Steps {#next-steps}
 
 - [Quick Start Guide](./quick-start.md) - Get started with your first script
 - [Core Concepts](./core-concepts.md) - Understand Xec's architecture
 - [Configuration](../configuration/overview.md) - Set up your environment
 - [Examples](../recipes/index.md) - Learn from real-world examples
 
-## Getting Help
+## Getting Help {#getting-help}
 
 If you encounter issues:
 

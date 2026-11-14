@@ -8,15 +8,15 @@ source_files:
   - packages/core/src/core/execution-engine.ts
 ---
 
-# Migrating from Webpack Build Scripts to Xec
+# Migrating from Webpack Build Scripts to Xec {#migrating-from-webpack-build-scripts-to-xec}
 
-## Overview
+## Overview {#overview}
 
 This guide helps you migrate webpack-based build automation to Xec. While webpack excels at bundling, teams often wrap it with complex Node.js scripts for deployment, environment management, and multi-stage builds. Xec simplifies this orchestration while keeping webpack for what it does best.
 
-## Why Use Xec with Webpack?
+## Why Use Xec with Webpack? {#why-use-xec-with-webpack}
 
-### Traditional Webpack Setup
+### Traditional Webpack Setup {#traditional-webpack-setup}
 
 <!-- doc-check: skip — Webpack configuration comparison requires the application-specific plugins and config files -->
 ```javascript
@@ -114,7 +114,7 @@ build();
 - Difficult testing
 - Limited reusability
 
-### Xec + Webpack Solution
+### Xec + Webpack Solution {#xec--webpack-solution}
 
 ```typescript
 // scripts/build.ts - Clean orchestration with Xec
@@ -166,9 +166,9 @@ console.log('✅ Build complete!');
 - Multi-environment support
 - TypeScript type safety
 
-## Core Integration Patterns
+## Core Integration Patterns {#core-integration-patterns}
 
-### 1. Webpack as a Tool, Not the Orchestrator
+### 1. Webpack as a Tool, Not the Orchestrator {#1-webpack-as-a-tool-not-the-orchestrator}
 
 **Before:** Webpack plugins handle everything
 <!-- doc-check: skip — Webpack configuration comparison requires the application-specific plugins and config files -->
@@ -207,7 +207,7 @@ tasks:
         command: aws s3 sync dist/ s3://my-bucket/
 ```
 
-### 2. Environment Management
+### 2. Environment Management {#2-environment-management}
 
 **Traditional Webpack Approach:**
 <!-- doc-check: skip — Webpack configuration comparison requires the application-specific plugins and config files -->
@@ -271,9 +271,9 @@ await $`webpack \
   ${config.minify ? '--optimization-minimize' : ''}`;
 ```
 
-## Common Webpack Tasks Migration
+## Common Webpack Tasks Migration {#common-webpack-tasks-migration}
 
-### 1. Development Server
+### 1. Development Server {#1-development-server}
 
 **Webpack Dev Server:**
 <!-- doc-check: skip — Webpack configuration comparison requires the application-specific plugins and config files -->
@@ -314,7 +314,7 @@ await Promise.all([
 ]);
 ```
 
-### 2. Multi-Configuration Builds
+### 2. Multi-Configuration Builds {#2-multi-configuration-builds}
 
 **Complex Webpack Setup:**
 <!-- doc-check: skip — Webpack configuration comparison requires the application-specific plugins and config files -->
@@ -376,7 +376,7 @@ if (failed.length > 0) {
 }
 ```
 
-### 3. Asset Optimization
+### 3. Asset Optimization {#3-asset-optimization}
 
 **Webpack Plugin Approach:**
 <!-- doc-check: skip — Webpack configuration comparison requires the application-specific plugins and config files -->
@@ -440,7 +440,7 @@ const [images, styles, scripts] = await Promise.all([
 console.log(`✅ Optimized ${images.length} images, ${styles.length} styles, ${scripts.length} scripts`);
 ```
 
-### 4. Bundle Analysis
+### 4. Bundle Analysis {#4-bundle-analysis}
 
 **Traditional Approach:**
 <!-- doc-check: skip — Webpack configuration comparison requires the application-specific plugins and config files -->
@@ -497,9 +497,9 @@ if (totalSize > maxSize) {
 }
 ```
 
-## Advanced Webpack + Xec Patterns
+## Advanced Webpack + Xec Patterns {#advanced-webpack--xec-patterns}
 
-### 1. Micro-Frontend Builds
+### 1. Micro-Frontend Builds {#1-micro-frontend-builds}
 
 ```typescript
 // scripts/build-microfrontends.ts
@@ -573,7 +573,7 @@ switch (command) {
 }
 ```
 
-### 2. Dynamic Import Testing
+### 2. Dynamic Import Testing {#2-dynamic-import-testing}
 
 ```typescript
 // scripts/test-chunks.ts
@@ -602,7 +602,7 @@ for (const chunk of chunks) {
 }
 ```
 
-### 3. Progressive Web App Build
+### 3. Progressive Web App Build {#3-progressive-web-app-build}
 
 ```typescript
 // scripts/build-pwa.ts
@@ -663,9 +663,9 @@ async function generateIcons() {
 }
 ```
 
-## Webpack Configuration Management
+## Webpack Configuration Management {#webpack-configuration-management}
 
-### Dynamic Configuration with Xec
+### Dynamic Configuration with Xec {#dynamic-configuration-with-xec}
 
 ```typescript
 // scripts/webpack-config.ts
@@ -731,9 +731,9 @@ await writeFile('webpack.config.generated.js',
 await $`webpack --config webpack.config.generated.js`;
 ```
 
-## CI/CD Integration
+## CI/CD Integration {#cicd-integration}
 
-### GitHub Actions with Webpack and Xec
+### GitHub Actions with Webpack and Xec {#github-actions-with-webpack-and-xec}
 
 ```yaml
 # .github/workflows/build.yml
@@ -775,7 +775,7 @@ jobs:
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 ```
 
-### Xec Task Configuration
+### Xec Task Configuration {#xec-task-configuration}
 
 ```yaml
 # .xec/config.yaml
@@ -810,29 +810,29 @@ tasks:
         command: aws cloudfront create-invalidation --distribution-id $DIST_ID
 ```
 
-## Migration Strategy
+## Migration Strategy {#migration-strategy}
 
-### Phase 1: Keep Webpack, Add Xec
+### Phase 1: Keep Webpack, Add Xec {#phase-1-keep-webpack-add-xec}
 1. Install Xec alongside webpack
 2. Move build orchestration to Xec
 3. Keep webpack.config.js unchanged
 4. Replace npm scripts with Xec tasks
 
-### Phase 2: Simplify Webpack Config
+### Phase 2: Simplify Webpack Config {#phase-2-simplify-webpack-config}
 1. Remove orchestration plugins
 2. Move environment logic to Xec
 3. Simplify to single webpack config
 4. Use Xec for environment variations
 
-### Phase 3: Enhance with Xec Features
+### Phase 3: Enhance with Xec Features {#phase-3-enhance-with-xec-features}
 1. Add multi-environment deployment
 2. Implement parallel builds
 3. Add remote execution for CI/CD
 4. Integrate monitoring and reporting
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### 1. Separation of Concerns
+### 1. Separation of Concerns {#1-separation-of-concerns}
 
 ```typescript
 // Project scripts define optimization and reporting; deployment follows acceptance.
@@ -846,7 +846,7 @@ await Promise.all([
 ]);
 ```
 
-### 2. Configuration as Code
+### 2. Configuration as Code {#2-configuration-as-code}
 
 ```typescript
 // Type-safe configuration
@@ -868,7 +868,7 @@ const pipeline: BuildPipeline = {
 };
 ```
 
-### 3. Error Recovery
+### 3. Error Recovery {#3-error-recovery}
 
 ```typescript
 // Graceful degradation
@@ -880,7 +880,7 @@ if (!result.ok) {
 }
 ```
 
-## Summary
+## Summary {#summary}
 
 Using Xec with Webpack provides:
 - ✅ Cleaner build orchestration

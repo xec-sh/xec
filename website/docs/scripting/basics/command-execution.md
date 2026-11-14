@@ -3,11 +3,11 @@ title: Command Execution
 description: Template literal command execution in Xec scripts
 ---
 
-# Command Execution with Template Literals
+# Command Execution with Template Literals {#command-execution-with-template-literals}
 
 The heart of Xec is its template literal syntax for command execution. This guide covers executing commands using the `$` template literal.
 
-## Basic Syntax
+## Basic Syntax {#basic-syntax}
 
 The `$` function uses JavaScript template literals to execute shell commands:
 
@@ -29,7 +29,7 @@ await $`
 `;
 ```
 
-## ProcessPromise API
+## ProcessPromise API {#processpromise-api}
 
 Every command returns a `ProcessPromise` with rich functionality:
 
@@ -52,9 +52,9 @@ promise.stdin.end('input');
 const result = await promise;
 ```
 
-## Working with Output
+## Working with Output {#working-with-output}
 
-### Capturing Output
+### Capturing Output {#capturing-output}
 
 ```javascript
 // Get stdout as a trimmed string
@@ -70,7 +70,7 @@ console.log(result.signal);    // undefined
 console.log(result.duration);  // execution time in ms
 ```
 
-### Streaming Output
+### Streaming Output {#streaming-output}
 
 ```javascript
 // Stream to stdout in real-time
@@ -87,7 +87,7 @@ await $`npm build`
   .stderr(process.stderr);
 ```
 
-### Quiet and Verbose Modes
+### Quiet and Verbose Modes {#quiet-and-verbose-modes}
 
 ```javascript
 // Quiet mode - suppress all output
@@ -103,9 +103,9 @@ await $`rm -rf node_modules`;
 await $`npm test`.quiet();
 ```
 
-## Error Handling
+## Error Handling {#error-handling}
 
-### Default Behavior
+### Default Behavior {#default-behavior}
 
 By default, commands throw on non-zero exit codes:
 
@@ -122,7 +122,7 @@ try {
 }
 ```
 
-### Non-Throwing Mode
+### Non-Throwing Mode {#non-throwing-mode}
 
 Use `.nothrow()` to handle errors manually:
 
@@ -141,7 +141,7 @@ if (!result.ok) {
 }
 ```
 
-### Retry Logic
+### Retry Logic {#retry-logic}
 
 ```javascript
 import { retry } from '@xec-sh/ops';
@@ -156,9 +156,9 @@ const result = await retry(
 
 Retry only operations that are safe to repeat. An unknown remote outcome is not proof that the command had no effect.
 
-## Environment and Working Directory
+## Environment and Working Directory {#environment-and-working-directory}
 
-### Setting Environment Variables
+### Setting Environment Variables {#setting-environment-variables}
 
 ```javascript
 // Set single variable
@@ -176,7 +176,7 @@ const apiKey = 'secret123';
 await $`curl -H "Authorization: ${apiKey}" https://api.example.com`;
 ```
 
-### Working Directory
+### Working Directory {#working-directory}
 
 ```javascript
 // Change working directory
@@ -190,9 +190,9 @@ const projectDir = './my-project';
 await $`npm test`.cwd(projectDir);
 ```
 
-## Input/Output Redirection
+## Input/Output Redirection {#inputoutput-redirection}
 
-### Providing Input
+### Providing Input {#providing-input}
 
 `stdin` is a property — a writable stream — not a method. It can be written
 to before the command has started: writes are buffered and forwarded once
@@ -214,7 +214,7 @@ await sort;
 await $`npm init`.interactive();
 ```
 
-### Output Redirection
+### Output Redirection {#output-redirection}
 
 ```javascript
 // Redirect to file (shell style)
@@ -229,9 +229,9 @@ await $`ls -la`.pipe(outFile);
 await $`echo "append" >> output.txt`;
 ```
 
-## Pipes and Chains
+## Pipes and Chains {#pipes-and-chains}
 
-### Shell Pipes
+### Shell Pipes {#shell-pipes}
 
 ```javascript
 // Using shell pipe operator
@@ -241,7 +241,7 @@ await $`cat file.txt | grep "pattern" | wc -l`;
 await $`ps aux | grep node | awk '{print $2}'`;
 ```
 
-### Programmatic Pipes
+### Programmatic Pipes {#programmatic-pipes}
 
 ```javascript
 // Pipe between commands
@@ -252,7 +252,7 @@ const processed = await $`cat data.json`.json();
 await $`echo ${JSON.stringify(processed)} | jq '.'`;
 ```
 
-## Timeout Handling
+## Timeout Handling {#timeout-handling}
 
 ```javascript
 // Set timeout in milliseconds
@@ -278,9 +278,9 @@ process (for example after `.kill('SIGTERM')`); when a wrapper shell absorbs
 the signal instead, `signal` can be absent and only the exit code and `cause`
 tell you what happened — so branch on `.ok`/`.cause`, not on `signal`.
 
-## Shell Features
+## Shell Features {#shell-features}
 
-### Variable Expansion
+### Variable Expansion {#variable-expansion}
 
 ```javascript
 // Shell variable expansion — $HOME passes through to the shell untouched.
@@ -294,7 +294,7 @@ const dir = '/tmp';
 await $`cd ${dir} && ls`;
 ```
 
-### Globbing
+### Globbing {#globbing}
 
 ```javascript
 // Shell globbing
@@ -307,7 +307,7 @@ await $`cat ${filename}`;  // May not work as expected
 await $`cat "${filename}"`; // Properly escaped
 ```
 
-### Command Substitution
+### Command Substitution {#command-substitution}
 
 ```javascript
 // Using command substitution
@@ -318,9 +318,9 @@ const date = await $`date`.text();
 await $`echo "Current date: ${date}"`;
 ```
 
-## Advanced Patterns
+## Advanced Patterns {#advanced-patterns}
 
-### Conditional Execution
+### Conditional Execution {#conditional-execution}
 
 ```javascript
 // Shell conditional operators
@@ -336,7 +336,7 @@ if (fileExists.exitCode === 0) {
 }
 ```
 
-### Background Processes
+### Background Processes {#background-processes}
 
 ```javascript
 // Start background process (returns immediately)
@@ -352,7 +352,7 @@ await server;
 server.kill('SIGTERM');
 ```
 
-### Process Groups
+### Process Groups {#process-groups}
 
 ```javascript
 // Execute multiple commands in sequence, echoing each one first
@@ -385,9 +385,9 @@ async function parallelTasks() {
 }
 ```
 
-## Platform Differences
+## Platform Differences {#platform-differences}
 
-### Cross-Platform Commands
+### Cross-Platform Commands {#cross-platform-commands}
 
 ```javascript
 import { platform } from 'os';
@@ -404,7 +404,7 @@ await $`node -e "console.log(process.cwd())"`;  // Instead of pwd
 await $`node -e "console.log(os.homedir())"`; // Instead of echo $HOME
 ```
 
-### Shell Selection
+### Shell Selection {#shell-selection}
 
 ```javascript
 // Xec defaults to /bin/sh on Unix and cmd.exe on Windows — the same default
@@ -415,9 +415,9 @@ await $`node -e "console.log(os.homedir())"`; // Instead of echo $HOME
 await $`echo $BASH_VERSION`.shell('/bin/bash');
 ```
 
-## Performance Optimization
+## Performance Optimization {#performance-optimization}
 
-### Command Batching
+### Command Batching {#command-batching}
 
 ```javascript
 // Inefficient - multiple shell invocations
@@ -436,7 +436,7 @@ await $`
 `;
 ```
 
-### Output Buffering
+### Output Buffering {#output-buffering}
 
 ```javascript
 // For large outputs, stream instead of buffering
@@ -452,9 +452,9 @@ for await (const line of $`cat very-large-file.txt`) {
 }
 ```
 
-## Security Considerations
+## Security Considerations {#security-considerations}
 
-### Command Injection Prevention
+### Command Injection Prevention {#command-injection-prevention}
 
 Template interpolation escapes every value it's given, so it's the safe
 default — no extra escaping library is needed:
@@ -488,7 +488,7 @@ const userInput = '; printf injected';
 await $.execute({ command: 'echo', args: [userInput], shell: false });
 ```
 
-### Sensitive Data
+### Sensitive Data {#sensitive-data}
 
 ```javascript
 // quiet controls output, not authorization or visibility in the process table
@@ -499,7 +499,7 @@ await $`mysql -u root -p${password}`.quiet();  // Avoid passing real secrets as 
 await $`mysql -u root`.env({ MYSQL_PWD: password });
 ```
 
-## Complete Example
+## Complete Example {#complete-example}
 
 Here's a comprehensive example showcasing various command execution patterns:
 

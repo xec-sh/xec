@@ -5,7 +5,7 @@ keywords: [docker, networking, ports, networks, connectivity]
 sidebar_position: 3
 ---
 
-# Docker Networking
+# Docker Networking {#docker-networking}
 
 Port publishing and network membership are both `docker run`-time concerns, so they live on the ephemeral container builder, not on the plain `$.docker({...})` exec/run shorthand. Network administration itself (`create`/`connect`/`disconnect`/`inspect`) is its own handle off `$.docker()`.
 
@@ -22,7 +22,7 @@ await $.docker()
   .start();
 ```
 
-## Ports
+## Ports {#ports}
 
 Only the ephemeral builder publishes ports:
 
@@ -40,7 +40,7 @@ web.port(5000, 5000, 'udp');
 
 The plain object shorthand has no equivalent — `$.docker({ image: 'nginx', ports: [...] })` accepts `ports` at the type level (`DockerEphemeralOptions`) but the engine method never forwards it to `docker run`. Use the ephemeral builder for anything beyond `image`/`volumes`/`workdir`/`user`.
 
-## Creating and Managing Networks
+## Creating and Managing Networks {#creating-and-managing-networks}
 
 ```typescript
 const network = $.docker().network('app-network');
@@ -77,7 +77,7 @@ await docker.removeNetwork('backend');
 
 `createNetwork` is idempotent — it checks `listNetworks()` first and returns quietly if the name already exists, and also swallows the daemon's own "already exists" error if one slips through a race.
 
-## Connecting an Existing Container to Another Network
+## Connecting an Existing Container to Another Network {#connecting-an-existing-container-to-another-network}
 
 An ephemeral or persistent container only joins the network(s) given at `docker run` time (or none, beyond the default bridge, for `docker exec` on something already running). To add a running container to another network afterward, use `network.connect()`:
 
@@ -90,7 +90,7 @@ await $.docker().network('app-network').connect('app');
 await $.docker('app')`ping -c 1 database`;
 ```
 
-## Inspecting a Container's Network State
+## Inspecting a Container's Network State {#inspecting-a-containers-network-state}
 
 `.info()` on either lifecycle builder returns `ip` (the default network's address) and `networks` (names of every network the container is on):
 
@@ -99,7 +99,7 @@ const info = await $.docker().container('app').info();
 console.log(info?.ip, info?.networks);
 ```
 
-## Related Topics
+## Related Topics {#related-topics}
 
 - [Docker Overview](./overview.md) - Docker basics
 - [Container Lifecycle](./container-lifecycle.md) - Container management

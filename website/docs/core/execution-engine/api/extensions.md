@@ -3,7 +3,7 @@ title: Extending Xec
 description: Composing and extending the engine without a plugin system
 ---
 
-# Extending Xec
+# Extending Xec {#extending-xec}
 
 Xec has no plugin system, and that is deliberate. `$` is a function and `$.with()`
 returns another `$`, so the ways you already compose functions and objects in
@@ -13,7 +13,7 @@ you build can be broken by a change to a plugin contract.
 This page covers the four extension points that exist: configured engines,
 wrappers, events, and process-wide configuration.
 
-## Configured engines
+## Configured engines {#configured-engines}
 
 `$.with(config)` returns a new engine that carries your settings. The original is
 untouched, so a preset is just a value you can export and share.
@@ -46,7 +46,7 @@ The same call selects a target, which is how a preset becomes environment-specif
 export const web1 = $.ssh('deploy@web-1').with({ defaultCwd: '/srv/app' });
 ```
 
-## Wrappers
+## Wrappers {#wrappers}
 
 To add behavior rather than configuration, wrap `$`. It is an ordinary function,
 so a wrapper is an ordinary function.
@@ -85,7 +85,7 @@ await restart($.ssh({ host: 'web-1', username: 'deploy' }), 'api');
 That signature — take an engine, return a result — is the whole extension model.
 It is why a step written for one environment runs unchanged on another.
 
-## Events
+## Events {#events}
 
 The engine emits events for commands, connections, transfers and caching. Use
 them for logging, metrics and audit trails.
@@ -109,7 +109,7 @@ $.on('command:error', event => {
 Sensitive values are masked before an event is emitted, so a listener that writes
 to a log cannot leak a password that appeared in a command.
 
-### Event names
+### Event names {#event-names}
 
 | Group | Events |
 |---|---|
@@ -122,7 +122,7 @@ to a log cannot leak a password that appeared in a command.
 | Retries | `retry:attempt`, `retry:success`, `retry:failed` |
 | Temp files | `temp:create`, `temp:cleanup` |
 
-### Patterns and filters
+### Patterns and filters {#patterns-and-filters}
 
 `onFiltered` accepts a `*` wildcard, and an optional predicate that decides
 whether the listener runs.
@@ -138,7 +138,7 @@ Listeners are strongly typed per event, so `event.duration` on a
 `command:complete` and `event.host` on an `ssh:connect` are both checked at
 compile time.
 
-## Process-wide configuration
+## Process-wide configuration {#process-wide-configuration}
 
 `configure()` sets defaults for the default `$`. Call it once, at startup.
 
@@ -169,7 +169,7 @@ await within(async () => {
 await $`npm test`;        // does not
 ```
 
-## Custom adapters
+## Custom adapters {#custom-adapters}
 
 `$.registerAdapter(name, adapter)` exists, but `BaseAdapter` is not part of the
 public API, so an adapter cannot currently be written outside this package. If

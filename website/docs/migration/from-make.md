@@ -8,15 +8,15 @@ source_files:
   - packages/core/src/core/execution-engine.ts
 ---
 
-# Migrating from Make to Xec
+# Migrating from Make to Xec {#migrating-from-make-to-xec}
 
-## Overview
+## Overview {#overview}
 
 This guide helps you migrate from GNU Make and Makefiles to Xec's modern task automation system. While Make has been the standard for decades, Xec provides better cross-platform support, TypeScript integration, parallel execution control, and modern developer experience.
 
-## Why Migrate from Make?
+## Why Migrate from Make? {#why-migrate-from-make}
 
-### Make Limitations
+### Make Limitations {#make-limitations}
 
 ```makefile
 # Traditional Makefile
@@ -49,7 +49,7 @@ clean:
 - Complex dependency management
 - Poor Windows support
 
-### Xec Advantages
+### Xec Advantages {#xec-advantages}
 
 ```yaml
 # .xec/config.yaml
@@ -81,9 +81,9 @@ tasks:
 - Better error handling and logging
 - TypeScript for complex logic
 
-## Core Concepts Mapping
+## Core Concepts Mapping {#core-concepts-mapping}
 
-### Make → Xec Terminology
+### Make → Xec Terminology {#make--xec-terminology}
 
 | Make Concept | Xec Equivalent | Description |
 |--------------|----------------|-------------|
@@ -96,9 +96,9 @@ tasks:
 | VPATH | cwd | Working directory control |
 | Functions | TypeScript | Full programming language |
 
-## Common Patterns Migration
+## Common Patterns Migration {#common-patterns-migration}
 
-### 1. Basic Targets
+### 1. Basic Targets {#1-basic-targets}
 
 **Makefile:**
 ```makefile
@@ -141,7 +141,7 @@ for (const file of tempFiles) {
 console.log(`✅ Cleaned ${tempFiles.length} temporary files`);
 ```
 
-### 2. Dependencies
+### 2. Dependencies {#2-dependencies}
 
 **Makefile:**
 ```makefile
@@ -187,7 +187,7 @@ tasks:
     command: tar -czf app.tar.gz app
 ```
 
-### 3. Variables and Substitution
+### 3. Variables and Substitution {#3-variables-and-substitution}
 
 **Makefile:**
 ```makefile
@@ -236,7 +236,7 @@ await $`${CC} ${objects.join(' ')} -o app`;
 console.log('✅ Build complete!');
 ```
 
-### 4. Pattern Rules
+### 4. Pattern Rules {#4-pattern-rules}
 
 **Makefile:**
 ```makefile
@@ -280,7 +280,7 @@ await Promise.all(
 );
 ```
 
-### 5. Conditional Execution
+### 5. Conditional Execution {#5-conditional-execution}
 
 **Makefile:**
 ```makefile
@@ -337,7 +337,7 @@ if (isDebug) {
 }
 ```
 
-### 6. Parallel Execution
+### 6. Parallel Execution {#6-parallel-execution}
 
 **Makefile (Limited):**
 ```makefile
@@ -392,9 +392,9 @@ if (failed.length > 0) {
 console.log('✅ All tests passed!');
 ```
 
-## Complex Makefile Migration
+## Complex Makefile Migration {#complex-makefile-migration}
 
-### Real-World C++ Project
+### Real-World C++ Project {#real-world-c-project}
 
 **Original Makefile:**
 ```makefile
@@ -581,9 +581,9 @@ if (result.exitCode === 0) {
 }
 ```
 
-## Advanced Make Features
+## Advanced Make Features {#advanced-make-features}
 
-### 1. Include Files
+### 1. Include Files {#1-include-files}
 
 **Makefile:**
 ```makefile
@@ -604,7 +604,7 @@ import:
   - ${env.CUSTOM_CONFIG}
 ```
 
-### 2. Functions and Macros
+### 2. Functions and Macros {#2-functions-and-macros}
 
 **Makefile:**
 ```makefile
@@ -628,7 +628,7 @@ await $.parallel.map(sources, source =>
 );
 ```
 
-### 3. Auto-Dependencies
+### 3. Auto-Dependencies {#3-auto-dependencies}
 
 **Makefile:**
 ```makefile
@@ -648,15 +648,15 @@ await $`make --jobs=4 app`;
 await $`npm run test:native`;
 ```
 
-## Migration Strategy
+## Migration Strategy {#migration-strategy}
 
-### Phase 1: Analysis
+### Phase 1: Analysis {#phase-1-analysis}
 1. **Inventory Targets**: List all Make targets and their purposes
 2. **Map Dependencies**: Document target dependencies
 3. **Identify Variables**: List all variables and their uses
 4. **Find Patterns**: Identify pattern rules and functions
 
-### Phase 2: Setup
+### Phase 2: Setup {#phase-2-setup}
 ```bash
 # Install Xec
 npm install -g @xec-sh/cli
@@ -668,7 +668,7 @@ xec new project
 mkdir -p scripts
 ```
 
-### Phase 3: Incremental Migration
+### Phase 3: Incremental Migration {#phase-3-incremental-migration}
 
 **Keep Makefile, add Xec wrapper:**
 ```makefile
@@ -684,15 +684,15 @@ xec-build:
 build: xec-build
 ```
 
-### Phase 4: Complete Migration
+### Phase 4: Complete Migration {#phase-4-complete-migration}
 1. Convert all targets to Xec tasks
 2. Replace pattern rules with TypeScript scripts
 3. Update CI/CD pipelines
 4. Remove only superseded orchestration; retain Make when it owns incremental compilation and dependency tracking.
 
-## Compatibility During Migration
+## Compatibility During Migration {#compatibility-during-migration}
 
-### Wrapper Script
+### Wrapper Script {#wrapper-script}
 ```bash
 #!/bin/bash
 # make-compat.sh - Make compatibility wrapper
@@ -713,7 +713,7 @@ case "$1" in
 esac
 ```
 
-### Dual Support
+### Dual Support {#dual-support}
 ```json
 // package.json
 {
@@ -723,9 +723,9 @@ esac
 }
 ```
 
-## Benefits After Migration
+## Benefits After Migration {#benefits-after-migration}
 
-### 1. Cross-Platform Support
+### 1. Cross-Platform Support {#1-cross-platform-support}
 ```typescript
 // Works on Windows, macOS, Linux
 import { platform } from 'os';
@@ -736,7 +736,7 @@ const exe = isWindows ? '.exe' : '';
 await $`gcc -o myapp${exe} src/*.c`;
 ```
 
-### 2. Better Error Handling
+### 2. Better Error Handling {#2-better-error-handling}
 ```typescript
 const result = await $`gcc -o app src/*.c`.nothrow();
 
@@ -747,13 +747,13 @@ if (!result.ok) {
 }
 ```
 
-### 3. Modern Development Experience
+### 3. Modern Development Experience {#3-modern-development-experience}
 - TypeScript with autocomplete
 - Proper IDE support
 - Integrated debugging
 - NPM package ecosystem
 
-### 4. Enhanced Parallelism
+### 4. Enhanced Parallelism {#4-enhanced-parallelism}
 ```typescript
 import { glob } from '@xec-sh/core';
 const sources = await glob('src/**/*.cpp');
@@ -763,25 +763,25 @@ await $.parallel.map(sources,
 );
 ```
 
-## Common Migration Pitfalls
+## Common Migration Pitfalls {#common-migration-pitfalls}
 
-### 1. Tab vs Space
+### 1. Tab vs Space {#1-tab-vs-space}
 - Make requires tabs for recipes
 - Xec uses standard YAML/TypeScript
 
-### 2. Shell Differences
+### 2. Shell Differences {#2-shell-differences}
 - Make uses sh by default
 - Xec provides consistent execution APIs; shell syntax and installed compilers still differ by platform
 
-### 3. Variable Expansion
+### 3. Variable Expansion {#3-variable-expansion}
 - Make: `$(VAR)` or `${VAR}`
 - Xec: `${params.var}` or TypeScript variables
 
-### 4. Implicit Rules
+### 4. Implicit Rules {#4-implicit-rules}
 - Make has built-in rules for common patterns
 - Xec requires explicit definitions (more clarity)
 
-## Summary
+## Summary {#summary}
 
 Migrating from Make to Xec provides:
 - ✅ True cross-platform support

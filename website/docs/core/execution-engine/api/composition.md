@@ -3,17 +3,17 @@ title: Composition
 description: Building workflows by composing execution primitives
 ---
 
-# Composition
+# Composition {#composition}
 
 Composition enables building complex execution workflows by combining simple, reusable components into sophisticated automation patterns.
 
-## Overview
+## Overview {#overview}
 
 Compose typed target contexts, lazy commands, pipes and bounded parallel batches. Reuse Xec tasks for workflows with dependencies. Each example below defines its own required inputs.
 
-## Function Composition
+## Function Composition {#function-composition}
 
-### Basic Composition
+### Basic Composition {#basic-composition}
 
 ```typescript
 import { $, type CallableExecutionEngine } from '@xec-sh/core';
@@ -24,7 +24,7 @@ function production(engine: CallableExecutionEngine) {
 await production($)`pnpm build`;
 ```
 
-### Command Factories
+### Command Factories {#command-factories}
 
 ```typescript
 // Create reusable command factories
@@ -55,9 +55,9 @@ function createDeployCommand(options: {
 }
 ```
 
-## Pipeline Composition
+## Pipeline Composition {#pipeline-composition}
 
-### Linear Pipelines
+### Linear Pipelines {#linear-pipelines}
 
 ```typescript
 import { $, type ProcessPromise } from '@xec-sh/core';
@@ -71,7 +71,7 @@ async function runPipeline(input: string) {
 console.log(await runPipeline(JSON.stringify({ items: [{ active: true }] })));
 ```
 
-### Branching Pipelines
+### Branching Pipelines {#branching-pipelines}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -84,9 +84,9 @@ const [formatted, count] = await Promise.all([
 console.log(formatted, count);
 ```
 
-## Parallel Composition
+## Parallel Composition {#parallel-composition}
 
-### Concurrent Execution
+### Concurrent Execution {#concurrent-execution}
 
 ```typescript
 import { $, parallel } from '@xec-sh/core';
@@ -98,7 +98,7 @@ outcomes.results.forEach((result, index) => console.log(servers[index], result))
 if (outcomes.failed.length) throw new AggregateError(outcomes.failed, 'Service checks failed');
 ```
 
-### Fan-out/Fan-in
+### Fan-out/Fan-in {#fan-outfan-in}
 
 ```typescript
 import { $, parallel, type ProcessPromise } from '@xec-sh/core';
@@ -116,9 +116,9 @@ async function sumBatches(values: number[]) {
 console.log(await sumBatches([1, 2, 3]));
 ```
 
-## Sequential Composition
+## Sequential Composition {#sequential-composition}
 
-### Ordered Operations
+### Ordered Operations {#ordered-operations}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -128,7 +128,7 @@ await $`pnpm build`;
 await $`pnpm test`;
 ```
 
-### Dependent Operations
+### Dependent Operations {#dependent-operations}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -138,9 +138,9 @@ await $`pnpm build`.env({ SOURCE_REVISION: revision });
 await $`pnpm test`;
 ```
 
-## Conditional Composition
+## Conditional Composition {#conditional-composition}
 
-### Runtime Branching
+### Runtime Branching {#runtime-branching}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -153,7 +153,7 @@ async function check(options: { build: boolean; integration: boolean }) {
 await check({ build: true, integration: process.env.CI === 'true' });
 ```
 
-### Strategy Pattern
+### Strategy Pattern {#strategy-pattern}
 
 ```typescript
 import { $, type ProcessPromise } from '@xec-sh/core';
@@ -166,9 +166,9 @@ console.log(await inspect($.ssh({ host: 'worker.example.com', username: 'deploy'
 console.log(await inspect($.docker('worker')));
 ```
 
-## Higher-Order Compositions
+## Higher-Order Compositions {#higher-order-compositions}
 
-### Command Decorators
+### Command Decorators {#command-decorators}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -184,7 +184,7 @@ async function measure<T>(name: string, command: PromiseLike<T>): Promise<T> {
 await measure('build', $`pnpm build`);
 ```
 
-### Monadic Composition
+### Monadic Composition {#monadic-composition}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -195,9 +195,9 @@ console.log(config.database.host);
 
 The output method returns a promise that composes with `then`, `catch` and `finally`. A generic JSON type describes the expected shape. Validate data from untrusted sources before using it.
 
-## Workflow Composition
+## Workflow Composition {#workflow-composition}
 
-### Complex Workflows
+### Complex Workflows {#complex-workflows}
 
 ```yaml
 tasks:
@@ -214,9 +214,9 @@ tasks:
     command: pnpm lint
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### Do's ✅
+### Do's ✅ {#dos-}
 
 ```typescript
 import { $, type CallableExecutionEngine } from '@xec-sh/core';
@@ -228,15 +228,15 @@ function configureBuild(engine: CallableExecutionEngine, cwd: string) {
 await configureBuild($, '/srv/app')`pnpm build`;
 ```
 
-### Don'ts ❌
+### Don'ts ❌ {#donts-}
 
 Keep dependency ordering in Xec tasks and data transformations in small typed functions. Preserve command failures and identify the failed operation. Repeating a deployment after an unknown transport outcome requires checking its actual state.
 
-## Implementation Details
+## Implementation Details {#implementation-details}
 
 Command configuration, pipeline execution and result handling are implemented by the core engine. Dependency scheduling belongs to Xec tasks. Run the task graph above with `xec run check`.
 
-## See Also
+## See Also {#see-also}
 
 - [Execution API](/docs/core/execution-engine/api/execution-api)
 - [Chaining](/docs/core/execution-engine/api/chaining)

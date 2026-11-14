@@ -4,21 +4,21 @@ title: Local Development Environments
 description: Setting up and managing local development environments with Xec
 ---
 
-# Local Development Environments
+# Local Development Environments {#local-development-environments}
 
-## Problem
+## Problem {#problem}
 
 Development teams need consistent, reproducible local environments that match production. Manual setup leads to "works on my machine" issues, configuration drift, and wasted time onboarding new developers.
 
-## Prerequisites
+## Prerequisites {#prerequisites}
 
 - Xec CLI installed (`npm install -g @xec-sh/cli`)
 - Docker installed (for container-based environments)
 - Basic understanding of Xec configuration
 
-## Solution
+## Solution {#solution}
 
-### Step 1: Initialize Your Development Environment
+### Step 1: Initialize Your Development Environment {#step-1-initialize-your-development-environment}
 
 Create a `.xec/config.yaml` file to define your development environment:
 
@@ -95,7 +95,7 @@ tasks:
         interactive: true
 ```
 
-### Step 2: Create Environment-Specific Scripts
+### Step 2: Create Environment-Specific Scripts {#step-2-create-environment-specific-scripts}
 
 Create development scripts in `.xec/scripts/dev-setup.js`:
 
@@ -155,7 +155,7 @@ async function main() {
 main().catch(console.error);
 ```
 
-### Step 3: Manage Multiple Environments
+### Step 3: Manage Multiple Environments {#step-3-manage-multiple-environments}
 
 Create profiles for different development scenarios:
 
@@ -192,7 +192,7 @@ commands:
         xec run setup
 ```
 
-### Step 4: Container-Based Development
+### Step 4: Container-Based Development {#step-4-container-based-development}
 
 For fully containerized development:
 
@@ -248,7 +248,7 @@ await compose.up();
 await compose.logs('app', true);
 ```
 
-### Step 5: Hot Reload and File Watching
+### Step 5: Hot Reload and File Watching {#step-5-hot-reload-and-file-watching}
 
 Use the CLI's watcher to run a command, task or script when sources change.
 The local watcher supports debouncing and an explicit polling mode.
@@ -266,7 +266,7 @@ xec watch local src tests --pattern '*.ts' --command 'npm run check' --poll --in
 Keep the check command responsible for its own build and test dependencies. For
 a named task, use `--task check` with the project's Xec task declaration.
 
-## Best Practices
+## Best Practices {#best-practices}
 
 1. **Version Control Your Environment**
    - Always commit `.xec/config.yaml`
@@ -293,7 +293,7 @@ a named task, use `--task check` with the project's Xec task declaration.
    - Automatic test runs
    - Instant error notifications
 
-## Common Pitfalls
+## Common Pitfalls {#common-pitfalls}
 
 1. **Hardcoded Paths**
    - ❌ `/Users/john/projects/myapp`
@@ -311,9 +311,9 @@ a named task, use `--task check` with the project's Xec task declaration.
    - ❌ Fixed ports without checking availability
    - ✅ Use dynamic ports or check before binding
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### Issue: Port Already in Use
+### Issue: Port Already in Use {#issue-port-already-in-use}
 ```bash
 # Find process using port
 lsof -i :3000
@@ -322,7 +322,7 @@ lsof -i :3000
 xec config set ports.app 3001
 ```
 
-### Issue: Container Permissions
+### Issue: Container Permissions {#issue-container-permissions}
 ```yaml
 # Fix volume permissions
 services:
@@ -332,7 +332,7 @@ services:
       - .:/app:delegated
 ```
 
-### Issue: Slow File Syncing
+### Issue: Slow File Syncing {#issue-slow-file-syncing}
 ```yaml
 # Optimize Docker volume performance
 volumes:
@@ -340,7 +340,7 @@ volumes:
   - ./src:/app/src:delegated  # For write-heavy workloads
 ```
 
-### Issue: Environment Variables Not Loading
+### Issue: Environment Variables Not Loading {#issue-environment-variables-not-loading}
 ```javascript
 // Check environment loading
 await $`xec run env:check`;
@@ -349,7 +349,7 @@ await $`xec run env:check`;
 console.log(process.env.MY_VAR);
 ```
 
-## Related Guides
+## Related Guides {#related-guides}
 
 - [Debugging](./debugging.md) - Debugging Xec scripts
 - [Container Orchestration](../infrastructure/container-orchestration.md) - Advanced Docker workflows

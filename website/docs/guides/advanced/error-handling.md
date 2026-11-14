@@ -4,9 +4,9 @@ title: Error Handling
 description: Classify command failures, preserve outcomes and verify recovery
 ---
 
-# Error Handling
+# Error Handling {#error-handling}
 
-## Problem
+## Problem {#problem}
 
 A command can fail before starting, exit with an error, time out, or lose its
 connection after changing remote state. Record the observed outcome and let the
@@ -18,15 +18,15 @@ JSON and YAML include a `causes` array. Both use the same credential masking.
 Cyclic references are deduplicated; a limit of 32 causes is reported explicitly
 when further entries are omitted.
 
-## Prerequisites
+## Prerequisites {#prerequisites}
 
 - Xec CLI and its public packages
 - JavaScript promises and `async`/`await`
 - An application-specific health check and recovery procedure for deployments
 
-## Solution
+## Solution {#solution}
 
-### Step 1: Basic Error Handling
+### Step 1: Basic Error Handling {#step-1-basic-error-handling}
 
 Xec rejects non-zero exits by default. `CommandError` exposes the result of the
 failed command. `ExecutionError.kind` also classifies transport and lifecycle
@@ -61,7 +61,7 @@ if (result.exitCode === 1) {
 }
 ```
 
-### Step 2: Error Context and Enrichment
+### Step 2: Error Context and Enrichment {#step-2-error-context-and-enrichment}
 
 Attach the original error as `cause`. Keep structured context limited to fields
 that the operator needs, such as an operation and target identifier.
@@ -83,7 +83,7 @@ await buildApplication(process.cwd());
 The cause retains Xec's error type and classified outcome. Avoid serializing an
 entire configuration or environment, which can include credentials.
 
-### Step 3: Remote Execution Error Handling
+### Step 3: Remote Execution Error Handling {#step-3-remote-execution-error-handling}
 
 Use the command's own timeout and the shared `parallel` helper. Results preserve
 input order, including errors returned before a command could complete.
@@ -113,7 +113,7 @@ An `outcome-unknown` failure requires reading the remote application's durable
 state before retrying a mutation. A connection error alone cannot establish
 whether the remote operation took effect.
 
-### Step 4: Transaction-Style Error Recovery
+### Step 4: Transaction-Style Error Recovery {#step-4-transaction-style-error-recovery}
 
 Use the database's transaction mechanism for operations that support it. The
 following PostgreSQL migration files must contain transaction-compatible SQL.
@@ -157,7 +157,7 @@ outcome and supports the declared recovery. Keep the durable deployment record
 and any backups required by that procedure. For multi-target strategies, use the
 shared deployment API. [Deployment operations](../../ops/deploy.md)
 
-### Step 5: Error Aggregation and Reporting
+### Step 5: Error Aggregation and Reporting {#step-5-error-aggregation-and-reporting}
 
 The engine already emits structured command events. Subscribe once and forward
 only the fields required by your logging backend.
@@ -190,7 +190,7 @@ try {
 }
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
 - Await each operation and its cleanup before ending the script.
 - Use exit codes, signals and `FailureKind` when deciding how to recover.
@@ -198,7 +198,7 @@ try {
 - Verify restored state before recording recovery as complete.
 - Keep secrets out of context fields and use the shared redaction boundary.
 
-## Common Pitfalls
+## Common Pitfalls {#common-pitfalls}
 
 A command string held in a variable belongs in `$.exec(command)`. A tagged
 interpolation represents an argument. Build dynamic commands from a trusted
@@ -211,9 +211,9 @@ const script = 'build';
 await $.exec('npm', { args: ['run', script], shell: false });
 ```
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### Issue: Restating What the Error Already Says
+### Issue: Restating What the Error Already Says {#issue-restating-what-the-error-already-says}
 
 The error message includes the command failure and call site. Inspect individual
 fields for decisions and print the message for diagnostics.
@@ -229,7 +229,7 @@ try {
 }
 ```
 
-### Issue: Hand-Rolled Concurrency for Simple Fan-Out
+### Issue: Hand-Rolled Concurrency for Simple Fan-Out {#issue-hand-rolled-concurrency-for-simple-fan-out}
 
 `parallel()` bounds execution and collects success and failure results.
 
@@ -240,7 +240,7 @@ const result = await parallel(['npm run lint', 'npm test'], { maxConcurrent: 2 }
 if (result.failed.length > 0) throw new AggregateError(result.failed, 'Checks failed');
 ```
 
-### Issue: Errors Without Context
+### Issue: Errors Without Context {#issue-errors-without-context}
 
 Catch errors at the awaited entry point. A rejected top-level operation should
 leave a failing exit status after awaited cleanup.
@@ -258,7 +258,7 @@ try {
 }
 ```
 
-### Issue: Lost Error Details
+### Issue: Lost Error Details {#issue-lost-error-details}
 
 Use the standard cause field when adding an operation-level message.
 
@@ -272,7 +272,7 @@ try {
 }
 ```
 
-### Issue: Timeout Handling
+### Issue: Timeout Handling {#issue-timeout-handling}
 
 Attach the deadline to the command so the adapter owns termination and its
 confirmation. A timeout in an unrelated promise leaves the process running.
@@ -288,7 +288,7 @@ try {
 }
 ```
 
-### Issue: Resource Leaks
+### Issue: Resource Leaks {#issue-resource-leaks}
 
 Dispose the owned engine in `finally`. Close resources obtained from its target
 API, such as tunnels, at the scope where they were created.
@@ -304,7 +304,7 @@ try {
 }
 ```
 
-## Related Guides
+## Related Guides {#related-guides}
 
 - [Debugging](../development/debugging.md)
 - [Testing](../automation/testing.md)

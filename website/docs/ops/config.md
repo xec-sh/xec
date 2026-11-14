@@ -5,11 +5,11 @@ title: Configuration Management
 description: Loading, validating and interpolating .xec configuration
 ---
 
-# Configuration Management
+# Configuration Management {#configuration-management}
 
 Fully customizable multi-source configuration with profiles, variable interpolation, and secret resolution.
 
-## Basic Usage
+## Basic Usage {#basic-usage}
 
 ```typescript
 import { ConfigurationManager } from '@xec-sh/ops';
@@ -23,7 +23,7 @@ console.log(config.targets);
 console.log(config.tasks);
 ```
 
-## Full Customization
+## Full Customization {#full-customization}
 
 Every aspect of configuration loading is customizable:
 
@@ -68,7 +68,7 @@ const manager = new ConfigurationManager({
 });
 ```
 
-## Config Sources (Priority Order)
+## Config Sources (Priority Order) {#config-sources-priority-order}
 
 1. **Environment variables** (`MYAPP_*` or `XEC_*`)
 2. **Active profile** (e.g., `.myapp/environments/staging.yaml`)
@@ -78,7 +78,7 @@ const manager = new ConfigurationManager({
 
 Higher priority sources override lower ones. Nested objects are deep-merged. Project discovery loads the first matching config file, including the root file names when no earlier candidate exists.
 
-## Variable Interpolation
+## Variable Interpolation {#variable-interpolation}
 
 ```yaml
 # config.yaml
@@ -97,7 +97,7 @@ tasks:
     command: "docker pull ${app_name}:${version}"
 ```
 
-## Secret Resolution
+## Secret Resolution {#secret-resolution}
 
 ```yaml
 # config.yaml
@@ -108,7 +108,7 @@ targets:
       password: "${secret:ssh_password}"    # Resolved from secret manager
 ```
 
-## Saving Configuration
+## Saving Configuration {#saving-configuration}
 
 ```typescript
 import { ConfigurationManager } from '@xec-sh/ops';

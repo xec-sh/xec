@@ -3,7 +3,7 @@ title: Prompts
 description: Text, selection, confirmation and date prompts with validation and cancellation
 ---
 
-# Prompts
+# Prompts {#prompts}
 
 Every prompt returns a promise. Ctrl-C, Escape, and an aborted `signal` resolve with `CANCEL_SYMBOL`. Check with `isCancel` before using the value. Errors from rendering, callbacks, or streams reject the promise after terminal cleanup.
 
@@ -14,7 +14,7 @@ const name = await text({ message: 'What is your name?' });
 if (isCancel(name)) process.exit(0);
 ```
 
-## text
+## text {#text}
 
 Single-line input.
 
@@ -31,7 +31,7 @@ const name = await text({
 
 Options: `message` (required), `placeholder`, `initialValue`, `defaultValue`, `validate`.
 
-## multiline
+## multiline {#multiline}
 
 Multi-line input. `Enter` inserts a newline; pressing `Enter` twice at the end of the input submits.
 
@@ -48,7 +48,7 @@ With `showSubmit: true`, a `[ submit ]` button renders below the editor: `Tab` f
 
 Options: everything `text` takes, plus `showSubmit` (default `false`).
 
-## confirm
+## confirm {#confirm}
 
 Yes/no toggle, arrow keys or `y`/`n`.
 
@@ -64,7 +64,7 @@ const del = await confirm({
 });
 ```
 
-## password
+## password {#password}
 
 Masked input.
 
@@ -74,7 +74,7 @@ import { password } from '@xec-sh/kit';
 const secret = await password({ message: 'Enter token:', mask: '*' });
 ```
 
-## select
+## select {#select}
 
 Single choice from a list.
 
@@ -93,7 +93,7 @@ const color = await select({
 
 Options accept readonly arrays and preserve literal value types. A string, number, or boolean can use its value as the label. Objects require an explicit `label`. Generic helpers can always supply `{ value, label }`. Disabled choices are excluded from submission and cursor movement. `maxItems` caps the visible window. `initialValue` pre-selects an enabled option. `showInstructions: false` hides the keyboard hint footer.
 
-## multiselect
+## multiselect {#multiselect}
 
 Multiple choice; `Space` toggles, `Enter` submits.
 
@@ -108,7 +108,7 @@ const tools = await multiselect({
 });
 ```
 
-## groupMultiselect
+## groupMultiselect {#groupmultiselect}
 
 Multi-select with options under group headings; selecting a heading selects the group.
 
@@ -124,7 +124,7 @@ const features = await groupMultiselect({
 });
 ```
 
-## autocomplete
+## autocomplete {#autocomplete}
 
 Type-to-filter selection over a fixed option list.
 
@@ -140,7 +140,7 @@ const pkg = await autocomplete({
 
 `autocompleteMultiselect` provides the same search with multiple selection. `autocomplete({ completeOnTab: true, ... })` copies the focused choice into the search field on Tab. The public `path` prompt enables completion by default. Zero, false, and empty-string choices remain valid option values.
 
-## path
+## path {#path}
 
 ```typescript
 import { path, isCancel } from '@xec-sh/kit';
@@ -155,7 +155,7 @@ if (!isCancel(directory)) console.log(directory);
 
 Type a path to narrow the choices, use Tab to complete the focused entry, and Enter to submit.
 
-## selectKey
+## selectKey {#selectkey}
 
 Answer with a single keypress — the option's `value` is the key.
 
@@ -171,7 +171,7 @@ const action = await selectKey({
 });
 ```
 
-## date
+## date {#date}
 
 Date picker; arrow keys move between day, month and year.
 
@@ -186,7 +186,7 @@ const when = await date({
 
 Options: `format`, `initialValue`, `defaultValue`, `minDate`, `maxDate`, `validate`. Month names and range messages localize through `updateSettings({ date: { ... } })`.
 
-## group
+## group {#group}
 
 Run several prompts in sequence and collect the answers into one object. Each entry receives the earlier `results`.
 
@@ -210,7 +210,7 @@ if (!isCancel(answers)) console.log(answers.name, answers.kind, answers.entry);
 
 Cancellation stops the group before subsequent prompts. `onCancel` receives partial completed `results` and the exact cancellation symbol as `reason`. The group awaits an asynchronous callback, then returns `CANCEL_SYMBOL`. The caller owns any process termination.
 
-## Validation
+## Validation {#validation}
 
 `text`, `multiline`, `password` and `date` take a `validate` option: either a function returning an error `string`/`Error` (or `undefined` to accept), or a [Standard Schema](https://standardschema.dev) validator such as Zod, Valibot, or ArkType.
 
@@ -254,7 +254,7 @@ const file = await text({
 });
 ```
 
-## Cancellation
+## Cancellation {#cancellation}
 
 Every prompt resolves with the exported `CANCEL_SYMBOL` when the user cancels. `isCancel` is the type guard:
 
@@ -271,7 +271,7 @@ if (isCancel(value)) {
 
 Prompts accept an `AbortSignal` through `signal` and custom `input`/`output` streams. Terminal mode, cursor visibility, and owned listeners are restored on every completion path. A signal already aborted before invocation returns cancellation without taking terminal ownership.
 
-## Accessible output
+## Accessible output {#accessible-output}
 
 `accessible: true` renders append-only prompt updates. It removes terminal-control sequences and preserves ordinary text for terminal readers and transcripts. The same resolver is used by prompts, indicators, logs, and streams.
 
@@ -284,11 +284,11 @@ const name = await text({ message: 'Name?', accessible: isAccessible() });
 
 The per-call option takes precedence over global settings, followed by the `ACCESSIBLE` environment variable. Explicit `false` disables that preference. Empty, `0`, and `false` environment values are treated as disabled. Interactive prompts still need input. Command-line applications should select an explicit non-interactive path for CI and pipes.
 
-## Keyboard
+## Keyboard {#keyboard}
 
 Arrow keys navigate; `h`/`j`/`k`/`l` work everywhere as vim aliases, `Escape` cancels. Extra aliases register through `updateSettings({ aliases: { w: 'up' } })` — see [Colors & Theming](./theming.md#global-settings).
 
-## See Also
+## See Also {#see-also}
 
 - [Components](./components.md) - Spinners, progress, notes
 - [Tables](./table.md) - Static and interactive tables

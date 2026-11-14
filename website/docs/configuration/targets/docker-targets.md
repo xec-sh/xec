@@ -3,13 +3,13 @@ title: Docker Targets
 description: Configuring Docker container targets for containerized execution
 ---
 
-# Docker Targets
+# Docker Targets {#docker-targets}
 
 Docker targets run commands inside containers. Declare them under `targets.containers` in `.xec/config.yaml`; reference them as `containers.<name>`.
 
 A target names either an existing container (`container:`) or an image (`image:`). The two behave differently.
 
-## Existing Container
+## Existing Container {#existing-container}
 
 With `container:`, every command is a `docker exec` in that running container:
 
@@ -30,7 +30,7 @@ xec in containers.app "ps aux"
 
 The container must already be running; Xec does not start it.
 
-## Ephemeral Container
+## Ephemeral Container {#ephemeral-container}
 
 With `image:`, every command runs in a fresh container from that image, removed after the command exits:
 
@@ -52,7 +52,7 @@ xec in containers.build "npm test"
 
 Two consecutive commands run in two different containers — state does not persist between them. Use `container:` when it must.
 
-## Reference
+## Reference {#reference}
 
 Fields the CLI forwards to the Docker adapter:
 
@@ -80,7 +80,7 @@ If both `container` and `image` are set, `image` wins and commands run in fresh 
 
 Other keys under a container entry (`ports`, `network`, `restart`, `privileged`, `labels`, `healthcheck`, `tty`, `runMode`, resource limits) are accepted by the parser but are not forwarded to the connection. Container lifecycle — creating, starting, networking, publishing ports — belongs to the [Docker fluent API](../../targets/docker/overview.md) in scripts or to the [docker command](../../commands/built-in/docker.md), not to target YAML.
 
-## Environment Variables
+## Environment Variables {#environment-variables}
 
 `env` is applied to every command executed on the target:
 
@@ -94,9 +94,9 @@ targets:
         NODE_ENV: test
 ```
 
-## Examples
+## Examples {#examples}
 
-### Tests Against a Database Container
+### Tests Against a Database Container {#tests-against-a-database-container}
 
 ```yaml
 targets:
@@ -110,7 +110,7 @@ targets:
 xec in containers.postgres "psql -c 'select 1'"
 ```
 
-### Reproducible Build Environment
+### Reproducible Build Environment {#reproducible-build-environment}
 
 ```yaml
 targets:
@@ -126,7 +126,7 @@ targets:
 xec in containers.builder "go build ./..."
 ```
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
 ```bash
 # Test the target
@@ -145,12 +145,12 @@ Common failures:
 - **Image pull failures** — the `image:` is not available locally and cannot be pulled. Pull it first.
 - **Permission denied on mounted files** — the container user does not own the mounted path. Set `user:` to match the host UID.
 
-## Next Steps
+## Next Steps {#next-steps}
 
 - [Kubernetes Targets](./kubernetes-targets.md) - Pod configuration
 - [SSH Targets](./ssh-targets.md) - Remote host configuration
 
-## See Also
+## See Also {#see-also}
 
 - [Docker Execution](../../targets/docker/overview.md) - The Docker adapter and fluent API
 - [in Command](../../commands/built-in/in.md) - Running commands in containers

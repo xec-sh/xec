@@ -3,15 +3,15 @@ title: Configuration Overview
 description: Understanding Xec's declarative configuration system
 ---
 
-# Configuration Overview
+# Configuration Overview {#configuration-overview}
 
 Xec's configuration system provides a powerful, declarative way to define your infrastructure, automation tasks, and execution environments. Using a simple YAML format, you can describe complex workflows, manage multiple environments, and automate repetitive tasks across diverse infrastructure.
 
-## Philosophy
+## Philosophy {#philosophy}
 
 Xec's configuration follows several key principles:
 
-### 1. **Declarative Over Imperative**
+### 1. **Declarative Over Imperative** {#1-declarative-over-imperative}
 Define *what* you want to achieve, not *how* to achieve it. Xec handles the implementation details.
 
 ```yaml
@@ -24,7 +24,7 @@ tasks:
       - command: docker-compose up -d
 ```
 
-### 2. **Convention Over Configuration**
+### 2. **Convention Over Configuration** {#2-convention-over-configuration}
 Sensible defaults minimize boilerplate while allowing customization when needed.
 
 ```yaml
@@ -36,7 +36,7 @@ targets:
       # Port defaults to 22, username to current user
 ```
 
-### 3. **Composability**
+### 3. **Composability** {#3-composability}
 Build complex configurations from simple, reusable components.
 
 ```yaml
@@ -49,7 +49,7 @@ profiles:
       replicas: 3
 ```
 
-### 4. **Progressive Disclosure**
+### 4. **Progressive Disclosure** {#4-progressive-disclosure}
 Start simple, add complexity only when needed.
 
 ```yaml
@@ -66,7 +66,7 @@ tasks:
       - command: find /backup -mtime +7 -delete
 ```
 
-## Configuration Hierarchy
+## Configuration Hierarchy {#configuration-hierarchy}
 
 Xec loads and merges configurations from multiple sources in a specific order:
 
@@ -79,33 +79,31 @@ Xec loads and merges configurations from multiple sources in a specific order:
 
 Later sources override earlier ones, allowing flexible customization at different levels.
 
-## File Structure
+## File Structure {#file-structure}
 
 A typical Xec project configuration looks like:
 
-```
-.xec/
-├── config.yaml           # Main configuration file
-├── profiles/            # Environment-specific profiles
-│   ├── dev.yaml
-│   ├── staging.yaml
-│   └── production.yaml
-├── scripts/            # Custom scripts
-│   └── health-check.js
-└── commands/          # Custom commands
-    └── backup.js
-```
+:::filetree{title=".xec/"}
+- `config.yaml` — Main configuration file
+- `profiles/` — Environment-specific profiles
+  - `dev.yaml`
+  - `staging.yaml`
+  - `production.yaml`
+- `scripts/` — Custom scripts
+  - `health-check.js`
+- `commands/` — Custom commands
+  - `backup.js`
+:::
+## Key Concepts {#key-concepts}
 
-## Key Concepts
-
-### Targets
+### Targets {#targets}
 Execution environments where commands run:
 - **Local** - Your development machine
 - **SSH Hosts** - Remote servers via SSH
 - **Docker Containers** - Containerized environments
 - **Kubernetes Pods** - Cloud-native workloads
 
-### Tasks
+### Tasks {#tasks}
 Reusable automation workflows with:
 - Multi-step execution
 - Parameter support
@@ -113,21 +111,21 @@ Reusable automation workflows with:
 - Conditional logic
 - Parallel execution
 
-### Profiles
+### Profiles {#profiles}
 Environment-specific configurations:
 - Development settings
 - Staging configurations
 - Production parameters
 - Custom environments
 
-### Variables
+### Variables {#variables}
 Dynamic values that can be:
 - Interpolated in strings
 - Shared across configurations
 - Overridden at different levels
 - Sourced from environment
 
-## Quick Start Example
+## Quick Start Example {#quick-start-example}
 
 Here's a complete configuration showcasing key features:
 
@@ -184,7 +182,7 @@ profiles:
           host: prod-web.example.com
 ```
 
-## Configuration Validation
+## Configuration Validation {#configuration-validation}
 
 Xec validates your configuration at multiple levels:
 
@@ -199,9 +197,9 @@ Run validation explicitly:
 xec config validate
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### 1. Keep Secrets Secure
+### 1. Keep Secrets Secure {#1-keep-secrets-secure}
 Never store secrets directly in configuration files:
 
 ```yaml
@@ -212,7 +210,7 @@ password: "mysecretpass"
 password: ${secrets.db_password}
 ```
 
-### 2. Use Version Control
+### 2. Use Version Control {#2-use-version-control}
 Track configuration changes:
 
 ```bash
@@ -220,7 +218,7 @@ git add .xec/config.yaml
 git commit -m "Add production deployment configuration"
 ```
 
-### 3. Organize by Environment
+### 3. Organize by Environment {#3-organize-by-environment}
 Separate environment-specific settings:
 
 ```yaml
@@ -235,7 +233,7 @@ vars:
   debug: true
 ```
 
-### 4. Document Complex Tasks
+### 4. Document Complex Tasks {#4-document-complex-tasks}
 Add descriptions and comments:
 
 ```yaml
@@ -251,7 +249,7 @@ tasks:
         name: "Verify current deployment"
 ```
 
-### 5. Leverage Composition
+### 5. Leverage Composition {#5-leverage-composition}
 Build complex configurations from simple components:
 
 ```yaml
@@ -270,7 +268,7 @@ tasks:
       - command: npm install
 ```
 
-## Next Steps
+## Next Steps {#next-steps}
 
 - [Configuration File Structure](./config-file.md) - Deep dive into config.yaml
 - [Defining Targets](./targets/overview.md) - Configure execution environments
@@ -278,7 +276,7 @@ tasks:
 - [Using Profiles](./profiles/overview.md) - Manage multiple environments
 - [Variable Management](./variables/overview.md) - Dynamic configuration values
 
-## See Also
+## See Also {#see-also}
 
 - [CLI Commands](../commands/built-in/config.md) - Configuration management commands
 - [Best Practices](./advanced/best-practices.md) - Configuration patterns

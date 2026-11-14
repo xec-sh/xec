@@ -3,24 +3,24 @@ title: watch
 description: Watch scoped directories and run commands, tasks, or scripts
 ---
 
-# watch
+# watch {#watch}
 
 Watch files on a local, SSH, Docker or Kubernetes target and run an action when
 changes are observed. Use a small source directory instead of an entire checkout
 when generated files and dependencies are not relevant.
 
-## Synopsis
+## Synopsis {#synopsis}
 
 ```bash
 xec watch <target> [paths...] [options]
 ```
 
-## Arguments
+## Arguments {#arguments}
 
 - `<target>`: `local`, `hosts.name`, `containers.name` or `pods.name`.
 - `[paths...]`: directories to watch; defaults to the current directory.
 
-## Options
+## Options {#options}
 
 | Option | Meaning |
 | --- | --- |
@@ -41,7 +41,7 @@ xec watch <target> [paths...] [options]
 
 Supply one action: `--command`, `--task` or `--script`.
 
-## Examples
+## Examples {#examples}
 
 ```bash
 xec watch local src --pattern '*.ts' --command 'pnpm test'
@@ -54,7 +54,7 @@ xec watch pods.frontend /app --exclude node_modules --task reload
 xec watch local --interactive
 ```
 
-## Pattern Syntax
+## Pattern Syntax {#pattern-syntax}
 
 `--pattern` matches a **basename**, not a full relative path. Use simple `*` and
 `?` patterns, for example `*.ts` or `config?.json`. Repeat the option for multiple
@@ -65,7 +65,7 @@ A local positional path such as `src/**/*.ts` selects the `src` watch root and
 matches its final basename segment recursively. Prefer an explicit root and
 `--pattern '*.ts'`; this also makes the scanned scope clear.
 
-## Exclude Patterns
+## Exclude Patterns {#exclude-patterns}
 
 For local watching, exclusions are literal path fragments. Use `node_modules`,
 `.git`, `dist` or `.test.`; `**/*.test.*` is not a local exclusion glob.
@@ -78,13 +78,13 @@ On remote targets, exclusions are passed to `inotifywait --exclude`, whose
 matcher is a regular expression. The stat-based remote fallback does not provide
 per-file exclusion events.
 
-## Action Types
+## Action Types {#action-types}
 
 Commands run on the selected target. Scripts use Xec's script loader with the
 selected target and execution engine in their context. Tasks use the project's
 configured task definition. A failed action is reported and watching continues.
 
-## Debouncing
+## Debouncing {#debouncing}
 
 Changes within the quiet interval are combined into one scheduled action. A
 longer interval reduces work while saving several files:
@@ -97,7 +97,7 @@ Debouncing is not a build scheduler: a later change can start an action while a
 previous action is still running. Workflows that must serialize or coordinate
 builds should own that policy through the [Ops workflow API](../../ops/workflow.md).
 
-## Polling vs Native Watchers
+## Polling vs Native Watchers {#polling-vs-native-watchers}
 
 Native local watching uses Node's `fs.watch` and depends on operating-system
 notifications. Select `--poll` for a filesystem where those notifications are
@@ -109,7 +109,7 @@ Polling costs filesystem work proportional to the selected files. It does not
 observe changes that are created and removed entirely between two scans. Neither
 mode is a durable event journal.
 
-## Remote Watching Implementation
+## Remote Watching Implementation {#remote-watching-implementation}
 
 SSH, Docker and Kubernetes targets run `inotifywait` through their target's
 command execution. When that tool is unavailable, the remote shell falls back to
@@ -122,7 +122,7 @@ unchanged may not be detected. `--poll` selects the local FileWatcher backend an
 does not force a different remote transport. There is no automatic reconnect
 promise when a remote watch process or connection fails.
 
-## Error Handling
+## Error Handling {#error-handling}
 
 The local watcher becomes ready only when all roots have been admitted. Missing
 or unreadable roots fail before the readiness message or initial action. A later
@@ -130,21 +130,21 @@ watcher error or unexpected closure fails the foreground command and releases it
 watch resources. Action failures are separate: they are logged while the watcher
 continues observing.
 
-## Signal Handling
+## Signal Handling {#signal-handling}
 
 The first `SIGINT` or `SIGTERM` cancels the command and waits for its owned actions
 and watcher cleanup. Xec reports elapsed cleanup time. A second termination
 signal explicitly forces exit; it can leave cleanup incomplete. There is no
 `SIGUSR1` configuration-reload handler.
 
-## Exit Codes
+## Exit Codes {#exit-codes}
 
 Exit status is `130` after `SIGINT` and `143` after `SIGTERM`. A successful dry run
 returns `0`; watcher setup or runtime errors use the shared
 [CLI exit codes](../cli-reference.md#exit-codes), including `10` for a missing
 path and `11` for permission denial.
 
-## Configuration
+## Configuration {#configuration}
 
 Command defaults belong under `commands.watch` in `.xec/config.yaml`:
 
@@ -157,7 +157,7 @@ commands:
     initial: false
 ```
 
-## Programmatic Watching
+## Programmatic Watching {#programmatic-watching}
 
 The shared watcher is available from `@xec-sh/loader/watch`. Its defaults differ
 from the CLI: a `200` ms debounce, script extensions only and exclusions for
@@ -188,7 +188,7 @@ restarted.
 The caller owns any initial build. The watcher does not synthesize an initial
 file change or serialize asynchronous event handlers.
 
-## Related Commands
+## Related Commands {#related-commands}
 
 - [run](run.md): execute scripts and tasks.
 - [on](on.md): execute commands on SSH hosts.

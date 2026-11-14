@@ -3,13 +3,13 @@ title: Error Handling Patterns
 description: Error handling patterns for production scripts
 ---
 
-# Error Handling Patterns
+# Error Handling Patterns {#error-handling-patterns}
 
 Robust error handling is crucial for production scripts. This guide covers comprehensive error handling patterns for Xec scripts, from basic try-catch to advanced recovery strategies.
 
-## Basic Error Handling
+## Basic Error Handling {#basic-error-handling}
 
-### Try-Catch Pattern
+### Try-Catch Pattern {#try-catch-pattern}
 
 ```typescript
 import { $, CommandError, sanitizeErrorForDiagnostics } from '@xec-sh/core';
@@ -24,7 +24,7 @@ try {
 }
 ```
 
-### Non-Throwing Commands
+### Non-Throwing Commands {#non-throwing-commands}
 
 Use `.nothrow()` to prevent exceptions and handle errors manually:
 
@@ -47,9 +47,9 @@ if (!result.ok) {
 a signal; when it's `false`, `result.cause` gives the short reason
 (`exitCode: 1` or `signal: SIGTERM`).
 
-## Error Recovery Patterns
+## Error Recovery Patterns {#error-recovery-patterns}
 
-### Retry with Exponential Backoff
+### Retry with Exponential Backoff {#retry-with-exponential-backoff}
 
 Create a fresh command inside each attempt. Retry operations whose effects can safely be repeated.
 
@@ -68,11 +68,11 @@ await policy.execute(() => $`pg_isready -h localhost -p 5432`.signal(signal).tim
 
 A transport failure after a mutation can leave an unknown outcome. Verify the resulting state before repeating that mutation.
 
-### Circuit Breaker Pattern
+### Circuit Breaker Pattern {#circuit-breaker-pattern}
 
 A long-lived caller can stop admitting work after repeated failures and probe recovery after a cooldown. Keep that state in the owning service and record the affected target. Xec supplies execution and cancellation for admitted commands. A short-lived script can stop on its first failed prerequisite.
 
-### Fallback Strategy
+### Fallback Strategy {#fallback-strategy}
 
 The alternative endpoint must satisfy the same read contract. Preserve both causes if neither source succeeds.
 
@@ -94,9 +94,9 @@ const data = await readData();
 console.log(data);
 ```
 
-## Structured Error Types
+## Structured Error Types {#structured-error-types}
 
-### Custom Error Classes
+### Custom Error Classes {#custom-error-classes}
 
 Add domain context while preserving the original cause.
 
@@ -109,9 +109,9 @@ class VerificationError extends Error {
 }
 ```
 
-## Error Context and Logging
+## Error Context and Logging {#error-context-and-logging}
 
-### Contextual Error Wrapping
+### Contextual Error Wrapping {#contextual-error-wrapping}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -125,7 +125,7 @@ async function checkHost(host: string) {
 }
 ```
 
-### Structured Logging
+### Structured Logging {#structured-logging}
 
 Use the shared sanitizer when writing errors to diagnostics.
 
@@ -141,13 +141,13 @@ try {
 }
 ```
 
-## Graceful Degradation
+## Graceful Degradation {#graceful-degradation}
 
-### Feature Flags
+### Feature Flags {#feature-flags}
 
 Check optional prerequisites before dispatch. Record intentionally skipped capabilities in the result. A required prerequisite should fail the operation.
 
-### Partial Success Handling
+### Partial Success Handling {#partial-success-handling}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -157,9 +157,9 @@ console.log({ succeeded: result.succeeded.length, failed: result.failed.length }
 if (result.failed.length) throw new AggregateError(result.failed, 'Verification incomplete');
 ```
 
-## Cleanup and Resource Management
+## Cleanup and Resource Management {#cleanup-and-resource-management}
 
-### Finally Blocks
+### Finally Blocks {#finally-blocks}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -177,13 +177,13 @@ try {
 }
 ```
 
-### Resource Pool with Error Recovery
+### Resource Pool with Error Recovery {#resource-pool-with-error-recovery}
 
 The SSH adapter owns its connection pool. Reuse an engine and stable target options, then await disposal when the owning application ends. A command result is execution data and carries no resource-release method.
 
-## Error Aggregation
+## Error Aggregation {#error-aggregation}
 
-### Collecting Multiple Errors
+### Collecting Multiple Errors {#collecting-multiple-errors}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -196,7 +196,7 @@ for (const result of results) {
 if (failures.length) throw new AggregateError(failures, 'Project checks failed');
 ```
 
-## Complete Error Handling Example
+## Complete Error Handling Example {#complete-error-handling-example}
 
 ```typescript
 import { Pipeline } from '@xec-sh/ops';

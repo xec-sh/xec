@@ -1,24 +1,31 @@
 {
-  "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
-    // Inlined from @docusaurus/tsconfig rather than extended: that config still
-    // sets `baseUrl`, which TypeScript 7 removed, and an inherited option
-    // cannot be unset. Everything below matches it except that the `@site/*`
-    // alias is expressed as a plain relative path instead of a baseUrl-relative
-    // one. Re-check this against the shipped config when Docusaurus updates.
-    "allowJs": true,
-    "esModuleInterop": true,
-    "jsx": "preserve",
     "target": "ES2022",
-    "lib": ["ES2022", "DOM"],
-    "module": "esnext",
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "module": "ESNext",
     "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "paths": {
-      "@site/*": ["./*"]
-    },
-    "types": ["@docusaurus/module-type-aliases"],
-    "allowImportingTsExtensions": true
-  }
+    "strict": true,
+    "types": [
+      "node",
+      "react",
+      "react-dom"
+    ]
+  },
+  "include": [
+    "src/site",
+    "lumen.config.ts",
+    "playwright.config.ts",
+    "tests",
+    "scripts/build.ts"
+  ]
 }

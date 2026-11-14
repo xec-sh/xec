@@ -3,11 +3,11 @@ title: Streaming Patterns
 description: Live output, backpressure, cancellation, and bounded processing through Xec
 ---
 
-# Stream Processing Patterns
+# Stream Processing Patterns {#stream-processing-patterns}
 
 Xec owns command execution and cancellation. Its output connects to Node streams and async iterators for incremental processing.
 
-## How `.pipe()` Actually Behaves
+## How `.pipe()` Actually Behaves {#how-pipe-actually-behaves}
 
 `ProcessPromise.pipe()` waits for a completed command and forwards its collected output. Configure the command before calling it.
 
@@ -19,9 +19,9 @@ await $`git status --short`.timeout('10s').pipe(process.stdout);
 
 For live output, configure `.stdout()` and `.stderr()`, consume the command's async iterator, or access the readable streams through `await command.spawned`. Use a deadline or an `AbortSignal` for commands that follow a log indefinitely.
 
-## Basic Output Streaming
+## Basic Output Streaming {#basic-output-streaming}
 
-### Streaming to Console
+### Streaming to Console {#streaming-to-console}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -34,7 +34,7 @@ await $`pnpm build`
 
 The command resolves after process completion and output delivery. A nonzero exit rejects it. The global output streams remain open.
 
-### Streaming to Files
+### Streaming to Files {#streaming-to-files}
 
 ```typescript
 import { createWriteStream } from 'node:fs';
@@ -48,9 +48,9 @@ await $`pnpm build`
 
 The local adapter ends the supplied file destination and awaits its completion. Give concurrent commands separate destinations or use one explicit owner to serialize their writes.
 
-## Real-Time Log Processing
+## Real-Time Log Processing {#real-time-log-processing}
 
-### Log Parsing and Filtering
+### Log Parsing and Filtering {#log-parsing-and-filtering}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -67,7 +67,7 @@ for await (const line of command) {
 
 The iterator preserves UTF-8 characters and complete line boundaries across chunks. JSON parsing errors propagate. Leaving the loop cancels the command and waits for its completion.
 
-### Multi-Source Log Aggregation
+### Multi-Source Log Aggregation {#multi-source-log-aggregation}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -86,9 +86,9 @@ if (failures.length) throw new AggregateError(failures, 'Log collection failed')
 
 Each source retains its own order. Record source timestamps alongside reception timestamps when reconstructing events across machines.
 
-## Stream Transformation
+## Stream Transformation {#stream-transformation}
 
-### Data Transformation Pipeline
+### Data Transformation Pipeline {#data-transformation-pipeline}
 
 ```typescript
 import { Readable } from 'node:stream';
@@ -108,7 +108,7 @@ await pipeline(
 
 Node's pipeline propagates destination errors and closes its inputs. Xec's iterator keeps the associated process lifetime attached to that pipeline.
 
-### JSON Stream Processing
+### JSON Stream Processing {#json-stream-processing}
 
 ```typescript
 import { Readable } from 'node:stream';
@@ -130,9 +130,9 @@ await pipeline(
 
 Validate each decoded record against the application's schema before using its fields. Report malformed input together with its source and position.
 
-## Progress Monitoring
+## Progress Monitoring {#progress-monitoring}
 
-### Progress Stream
+### Progress Stream {#progress-stream}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -155,15 +155,15 @@ try {
 
 Use a percentage only when the producer supplies a meaningful total. Output byte counts describe observed activity.
 
-## Parallel Stream Processing
+## Parallel Stream Processing {#parallel-stream-processing}
 
-### Multi-Stream Processor
+### Multi-Stream Processor {#multi-stream-processor}
 
 For independent commands, `$.parallel.settled()` provides a concurrency limit, cancellation, and a result for each admitted command. For transformations of one stream, await each bounded group before consuming the next. Preserve ordering explicitly when transformation completion can differ from input order.
 
-## Buffering and Batching
+## Buffering and Batching {#buffering-and-batching}
 
-### Batch Stream Processor
+### Batch Stream Processor {#batch-stream-processor}
 
 ```typescript
 import { appendFile } from 'node:fs/promises';
@@ -182,13 +182,13 @@ if (batch.length) await appendFile('commits.txt', batch.join('\n') + '\n');
 
 The consumer retains at most 100 lines. For unlimited producers, also bound line length and output retention. The execution engine's `maxBuffer` caps collected command output and reports overflow. Direct writable destinations are suitable for byte streams that exceed that capture budget.
 
-## Error Handling in Streams
+## Error Handling in Streams {#error-handling-in-streams}
 
-### Resilient Stream Pipeline
+### Resilient Stream Pipeline {#resilient-stream-pipeline}
 
 Retain both the process outcome and any transformation error. Retry a read with a fresh command and destination. Publish a completed file with an atomic rename only after the producer and writer have both succeeded. A partial output file should retain its incomplete status.
 
-## Complete Streaming Example
+## Complete Streaming Example {#complete-streaming-example}
 
 This finite export validates each log record and publishes its output only after the complete stream succeeds.
 

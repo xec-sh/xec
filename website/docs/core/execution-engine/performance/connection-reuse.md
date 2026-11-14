@@ -3,11 +3,11 @@ title: Connection Reuse
 description: Reducing overhead by reusing transport connections
 ---
 
-# Connection Reuse
+# Connection Reuse {#connection-reuse}
 
 Reducing connection overhead by reusing transport connections across multiple commands.
 
-## Overview
+## Overview {#overview}
 
 Connection reuse is automatic and adapter-specific:
 
@@ -17,9 +17,9 @@ Connection reuse is automatic and adapter-specific:
 
 There is no manual pool object to create or manage for any adapter — you get reuse simply by running more than one command against the same target.
 
-## SSH Connection Pooling
+## SSH Connection Pooling {#ssh-connection-pooling}
 
-### Automatic Reuse
+### Automatic Reuse {#automatic-reuse}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -44,7 +44,7 @@ await $.ssh('deploy@server.example.com')`uptime`;
 await $.ssh('deploy@server.example.com')`df -h`; // reuses the same connection
 ```
 
-### Pool Configuration
+### Pool Configuration {#pool-configuration}
 
 Pool behavior is set per adapter instance, not per command, through
 `ExecutionEngineConfig.adapters.ssh` (typed as `SSHAdapterConfig`, exported
@@ -78,7 +78,7 @@ const $ = new ExecutionEngine({
 });
 ```
 
-### Observing the Pool
+### Observing the Pool {#observing-the-pool}
 
 The adapter emits events rather than exposing a pool object to poll:
 
@@ -95,7 +95,7 @@ $.on('ssh:reconnect', ({ host, attempts, success }) => {
 });
 ```
 
-## Docker and Kubernetes
+## Docker and Kubernetes {#docker-and-kubernetes}
 
 Neither adapter holds a reusable connection object. Each command is its own
 `docker exec`/`docker run` or `kubectl exec` invocation:
@@ -115,7 +115,7 @@ and no API to pre-warm or keep a Docker/Kubernetes connection alive beyond
 what the `docker`/`kubectl` binaries and their daemons already do on their
 own.
 
-## Best Practices
+## Best Practices {#best-practices}
 
 ```typescript
 import { ExecutionEngine, createCallableEngine } from '@xec-sh/core';
@@ -135,12 +135,12 @@ try {
 
 Keep a target context for a related sequence of commands and dispose the owning engine after its work completes. Pool reuse follows the host, port, credentials and connection configuration. Configure idle lifetime in the pool instead of calling nonexistent disconnect methods on a target context.
 
-## Implementation
+## Implementation {#implementation}
 
 - `packages/core/src/adapters/ssh/index.ts` — connection pool, multiplexing, reconnect logic
 - `packages/core/src/adapters/ssh/connection-pool-metrics.ts` — metrics collection behind `ssh:pool-metrics`
 
-## See Also
+## See Also {#see-also}
 
 - [Connection Pooling](/docs/core/execution-engine/features/connection-pooling)
 - [Performance Optimization](/docs/core/execution-engine/performance/optimization)

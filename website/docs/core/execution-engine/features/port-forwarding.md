@@ -3,13 +3,13 @@ title: Port Forwarding
 description: Reach remote services through owned SSH and Kubernetes forwards
 ---
 
-# Port Forwarding
+# Port Forwarding {#port-forwarding}
 
 A forward exposes one remote service through a local listener. An SSH reverse
 forward exposes a local service through a listener on the SSH server. Keep the
 handle for the full operation and close it in `finally`.
 
-## Overview
+## Overview {#overview}
 
 - SSH local tunnels forward to a remote host and port.
 - SSH reverse tunnels forward a remote listener to a local host and port.
@@ -18,9 +18,9 @@ handle for the full operation and close it in `finally`.
 Use OS-assigned ports when the caller can consume the returned address. The
 application using the forward still owns service authentication and readiness.
 
-## SSH Port Forwarding
+## SSH Port Forwarding {#ssh-port-forwarding}
 
-### Local Port Forwarding
+### Local Port Forwarding {#local-port-forwarding}
 
 ```typescript
 import { $, dispose } from '@xec-sh/core';
@@ -45,7 +45,7 @@ try {
 The returned handle exposes `localPort`, `localHost`, `remoteHost`,
 `remotePort`, `isOpen` and `closed`. `open()` reopens a closed local tunnel.
 
-### Reverse Port Forwarding
+### Reverse Port Forwarding {#reverse-port-forwarding}
 
 ```typescript
 import { $, dispose } from '@xec-sh/core';
@@ -67,7 +67,7 @@ The local service must already be running. The remote listener defaults to
 loopback. Bind another address only when the deployment's access policy calls
 for that exposure.
 
-## Kubernetes Port Forwarding
+## Kubernetes Port Forwarding {#kubernetes-port-forwarding}
 
 The pod API waits for kubectl to report readiness before returning the handle.
 Use the returned port, including when selecting a dynamic port.
@@ -90,7 +90,7 @@ try {
 For a fixed local port, use `pod.portForward(8080, 3000, options)`. The forward
 reports `localPort`, `remotePort`, `isOpen`, `open()` and `close()`.
 
-## Multiple Forwards
+## Multiple Forwards {#multiple-forwards}
 
 When opening a batch, retain successful handles even if another open fails.
 Await all open results before cleanup so a late success also gets closed.
@@ -118,16 +118,16 @@ try {
 
 The same ownership rule applies to several pod forwards.
 
-## Security Considerations
+## Security Considerations {#security-considerations}
 
 Bind listeners to loopback, verify SSH host identities and pin Kubernetes
 context and namespace. Forwarding grants access through the authority of the
 SSH or Kubernetes account. Apply the destination service's own authentication
 and authorization policy as well.
 
-## Use Cases
+## Use Cases {#use-cases}
 
-### Database Access
+### Database Access {#database-access}
 
 Use the database client through the returned listener. This example assumes
 PostgreSQL authentication is configured for `psql` through an approved password
@@ -151,7 +151,7 @@ try {
 }
 ```
 
-### Debugging a Remote Pod
+### Debugging a Remote Pod {#debugging-a-remote-pod}
 
 Expose the pod's inspector on a dynamic local port and keep it open until the
 operator finishes. The application must have enabled its inspector beforehand.
@@ -170,7 +170,7 @@ try {
 }
 ```
 
-## What Isn't Supported
+## What Isn't Supported {#what-isnt-supported}
 
 These APIs describe individual fixed-destination forwards. SOCKS proxying,
 Kubernetes Service selection and automatic reconnection need additional
@@ -178,21 +178,21 @@ contracts. Reconnection changes the transport and can invalidate active client
 sessions, so applications must inspect the outcome of in-flight requests before
 resuming their work.
 
-## Error Handling
+## Error Handling {#error-handling}
 
 Setup failure rejects the opening call. After setup, failures can surface through
 the client request or a closed transport. Keep the service operation and cleanup
 in one awaited scope and preserve their errors in application diagnostics.
 
-### Automatic Port Selection
+### Automatic Port Selection {#automatic-port-selection}
 
 Omit SSH `localPort` or call `pod.portForwardDynamic(remotePort)` to let the
 operating system select the listener. Read the actual returned port after the
 opening promise resolves. A requested fixed port can fail if it is occupied.
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### Do's ✅
+### Do's ✅ {#dos-}
 
 - Retain each handle and await `close()` in `finally`.
 - Verify the destination service after opening the listener.
@@ -200,19 +200,19 @@ opening promise resolves. A requested fixed port can fail if it is occupied.
 - Bound setup and client requests with explicit deadlines.
 - Track successful handles when opening multiple forwards concurrently.
 
-### Don'ts ❌
+### Don'ts ❌ {#donts-}
 
 - A ready listener does not prove database or application health.
 - A transport failure does not prove that an in-flight mutation was rejected.
 - A failed batch open does not close the handles that already succeeded.
 
-## Implementation Details
+## Implementation Details {#implementation-details}
 
 The SSH context uses the shared SSH adapter. Kubernetes uses the common local
 process lifecycle for kubectl and confirms forwarding readiness from its output.
 Each handle owns the listener or process it creates.
 
-## See Also
+## See Also {#see-also}
 
 - [SSH Adapter](/docs/core/execution-engine/adapters/ssh-adapter)
 - [Kubernetes Adapter](/docs/core/execution-engine/adapters/k8s-adapter)

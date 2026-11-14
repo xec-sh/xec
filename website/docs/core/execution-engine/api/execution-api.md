@@ -3,11 +3,11 @@ title: Execution API
 description: The core interface for executing commands
 ---
 
-# Execution API
+# Execution API {#execution-api}
 
 The core execution API provides the fundamental interface for executing commands across all environments with a consistent, powerful syntax.
 
-## Overview
+## Overview {#overview}
 
 The Execution API (`packages/core/src/core/execution-engine.ts`) provides:
 
@@ -18,9 +18,9 @@ The Execution API (`packages/core/src/core/execution-engine.ts`) provides:
 - **Event emission** for monitoring
 - **Result handling** with type safety
 
-## Core API
+## Core API {#core-api}
 
-### Template Literal Execution
+### Template Literal Execution {#template-literal-execution}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -41,7 +41,7 @@ await $`
 `;
 ```
 
-### ExecutionEngine Class
+### ExecutionEngine Class {#executionengine-class}
 
 ```typescript
 import { ExecutionEngine } from '@xec-sh/core';
@@ -73,7 +73,7 @@ you set it at construction and worked around it elsewhere, remove the
 workaround.
 :::
 
-### Adapter Selection
+### Adapter Selection {#adapter-selection}
 
 ```typescript
 // Local execution (default)
@@ -90,9 +90,9 @@ await $.docker({ container: 'app' })`container-command`;
 await $.k8s({ pod: 'worker', namespace: 'default' })`pod-command`;
 ```
 
-## Command Building
+## Command Building {#command-building}
 
-### String Interpolation
+### String Interpolation {#string-interpolation}
 
 ```typescript
 // Safe interpolation
@@ -116,7 +116,7 @@ const flags = [
 await $`rsync ${flags} source/ dest/`;
 ```
 
-### Command Options
+### Command Options {#command-options}
 
 There is no single `.options()` call — each option is its own chainable
 method on `ProcessPromise`, or, for options that aren't exposed as a method
@@ -134,9 +134,9 @@ const result = await $`command`
 const result2 = await $.with({ maxBuffer: 10 * 1024 * 1024 })`command`;  // 10MB
 ```
 
-## Environment Configuration
+## Environment Configuration {#environment-configuration}
 
-### Working Directory
+### Working Directory {#working-directory}
 
 ```typescript
 // Change working directory
@@ -160,7 +160,7 @@ await within('/tmp', async () => {
 string (`within({ cwd: '/tmp', defaultEnv: {...} }, fn)`), and a synchronous
 counterpart, `withinSync`, for non-async callbacks.
 
-### Environment Variables
+### Environment Variables {#environment-variables}
 
 ```typescript
 // Set environment variables
@@ -178,7 +178,7 @@ await production`npm start`;
 `Record<string, string>` argument, with no second options argument and no
 way to fully replace or clear it.
 
-### Shell Configuration
+### Shell Configuration {#shell-configuration}
 
 ```typescript
 // Use specific shell
@@ -192,9 +192,9 @@ await $`ls`.shell(false);
 is no object form for passing extra shell flags. Put them in the command
 itself instead: `` await $`set -eo pipefail; complex-script` ``.
 
-## Process Control
+## Process Control {#process-control}
 
-### Signals and Termination
+### Signals and Termination {#signals-and-termination}
 
 ```typescript
 // Handle signals
@@ -212,7 +212,7 @@ process.on('SIGINT', async () => {
 });
 ```
 
-### Abort Controller
+### Abort Controller {#abort-controller}
 
 ```typescript
 import { $, ExecutionError } from '@xec-sh/core';
@@ -232,9 +232,9 @@ try {
 }
 ```
 
-## Input/Output Control
+## Input/Output Control {#inputoutput-control}
 
-### Standard Input
+### Standard Input {#standard-input}
 
 `stdin` is a property — a live, writable stream — not a method. There are
 two ways to feed a command input, depending on whether you already have the
@@ -270,7 +270,7 @@ await proc;
 await $`generate-data`.pipe($`process-data`);
 ```
 
-### Standard Output
+### Standard Output {#standard-output}
 
 ```typescript
 // Capture output
@@ -299,7 +299,7 @@ await $`noisy-command`
   .stderr('ignore');
 ```
 
-### Standard Error
+### Standard Error {#standard-error}
 
 ```typescript
 // Capture stderr
@@ -327,9 +327,9 @@ For stdout alone, the simpler option is the async iterator:
 `for await (const line of $\`test-command\`)` — it streams lines as they
 arrive, though it only covers stdout.
 
-## Result Handling
+## Result Handling {#result-handling}
 
-### Result Object
+### Result Object {#result-object}
 
 ```typescript
 // Result structure
@@ -369,7 +369,7 @@ There is no `killed` field — a signalled process is distinguishable through
 `signal` and `ok` (`ok` is `false` whenever a signal fired, even if
 `exitCode` happens to read `0`).
 
-### Error Handling
+### Error Handling {#error-handling}
 
 ```typescript
 import { $, CommandError } from '@xec-sh/core';
@@ -392,9 +392,9 @@ switch (checked.exitCode) {
 }
 ```
 
-## Event System
+## Event System {#event-system}
 
-### Command Events
+### Command Events {#command-events}
 
 ```typescript
 import { ExecutionEngine } from '@xec-sh/core';
@@ -419,7 +419,7 @@ only `command`, `args`, `cwd`, `shell`, `envKeys` (environment variable
 *names* only, never values) alongside the `timestamp`/`adapter` every event
 carries.
 
-### Custom Events
+### Custom Events {#custom-events}
 
 ```typescript
 import { EventEmitter } from 'node:events';
@@ -437,9 +437,9 @@ try {
 }
 ```
 
-## Utility Methods
+## Utility Methods {#utility-methods}
 
-### Text Processing
+### Text Processing {#text-processing}
 
 ```typescript
 // Get output as text (trimmed)
@@ -455,7 +455,7 @@ const json = await $`echo '{"key": "value"}'`.json();
 console.log(json.key);  // "value"
 ```
 
-### Boolean Checks
+### Boolean Checks {#boolean-checks}
 
 There is no `.succeeds()`/`.fails()` — use `.nothrow()` and check `.ok`:
 
@@ -474,9 +474,9 @@ if (!(await $`test -f missing.txt`.nothrow()).ok) {
 const exists = (await $`which node`.quiet().nothrow()).ok;
 ```
 
-## Performance Options
+## Performance Options {#performance-options}
 
-### Timeout Management
+### Timeout Management {#timeout-management}
 
 ```typescript
 // Simple timeout
@@ -494,7 +494,7 @@ optional signal — there is no object form. The same duration strings work as
 a plain `timeout` option wherever `Command` config is accepted, not only
 through `.timeout()`: `` $.with({ timeout: '30s' })`server` ``.
 
-### Buffer Limits
+### Buffer Limits {#buffer-limits}
 
 `maxBuffer` is a `Command` config field, not a `ProcessPromise` method — set
 it through `.with()` before the template tag runs. Exceeding it throws
@@ -508,7 +508,7 @@ await $.with({ maxBuffer: 100 * 1024 * 1024 })`generate-output`;  // 100MB
 await $`infinite-output`.stdout(process.stdout);
 ```
 
-### Parallel Execution
+### Parallel Execution {#parallel-execution}
 
 ```typescript
 // Execute commands in parallel
@@ -526,9 +526,9 @@ const commands = ['cmd1', 'cmd2', 'cmd3', 'cmd4'];
 const { succeeded, failed } = await parallel(commands, { maxConcurrent: 2 });
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### Do's ✅
+### Do's ✅ {#dos-}
 
 ```typescript
 // ✅ Use template literals for safety
@@ -548,11 +548,11 @@ await $`curl https://api.example.com`.timeout(10000);
 $.on('command:error', (e) => console.error(e));
 ```
 
-### Don'ts ❌
+### Don'ts ❌ {#donts-}
 
 Interpolate values through the template tag, retain command promises until completion, and bound buffered output with `maxBuffer`. Close resources in `finally` and preserve the cause when reporting a failed operation.
 
-## Implementation Details
+## Implementation Details {#implementation-details}
 
 The Execution API is implemented in:
 - `packages/core/src/core/execution-engine.ts` - Main engine, adapter selection, chaining methods
@@ -560,7 +560,7 @@ The Execution API is implemented in:
 - `packages/core/src/core/result.ts` - `ExecutionResult`
 - `packages/core/src/utils/shell-escape.ts` - Template literal interpolation and escaping
 
-## See Also
+## See Also {#see-also}
 
 - [Template Literals](/docs/core/execution-engine/template-literals)
 - [Chaining](/docs/core/execution-engine/api/chaining)

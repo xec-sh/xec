@@ -5,11 +5,11 @@ title: CI/CD Pipeline Engine
 description: Sequential and parallel step execution with the Pipeline class
 ---
 
-# Pipeline Engine
+# Pipeline Engine {#pipeline-engine}
 
 Define multi-step CI/CD pipelines with dependency DAG, matrix builds, conditional execution, and retry.
 
-## Basic Pipeline
+## Basic Pipeline {#basic-pipeline}
 
 ```typescript
 import { Pipeline } from '@xec-sh/ops';
@@ -25,9 +25,9 @@ const result = await Pipeline.create('ci')
 console.log(result.summary); // { total: 4, passed: 4, failed: 0, skipped: 0 }
 ```
 
-## Features
+## Features {#features}
 
-### Dependencies
+### Dependencies {#dependencies}
 Steps run only when their dependencies complete:
 
 ```typescript
@@ -40,7 +40,7 @@ Pipeline.create('build')
   .step('d', { run: 'echo d', dependsOn: ['b', 'c'] }) // waits for both
 ```
 
-### Matrix Builds
+### Matrix Builds {#matrix-builds}
 Run the same step for each combination of parameters. Matrix values become environment variables. Select the matching runtime or remote target explicitly in the command when a variant needs a different Node version or operating system.
 
 ```typescript
@@ -58,11 +58,11 @@ const result = await Pipeline.create('example')
   .run();
 ```
 
-### Command environment
+### Command environment {#command-environment}
 
 Each command receives variables declared on the pipeline, run, matrix variant, step and command, in that order. Use a step's `env` to pass a value to an SSH target. Local commands inherit the local process environment through the local adapter. Conditions and function steps execute locally and can read host variables through `ctx.env`.
 
-### Conditional Execution
+### Conditional Execution {#conditional-execution}
 Skip steps based on runtime conditions:
 
 ```typescript
@@ -76,7 +76,7 @@ const result = await Pipeline.create('example')
   .run();
 ```
 
-### Retry
+### Retry {#retry}
 Retry flaky steps:
 
 ```typescript
@@ -90,7 +90,7 @@ const result = await Pipeline.create('example')
   .run();
 ```
 
-### Continue on Error
+### Continue on Error {#continue-on-error}
 Mark steps as non-blocking:
 
 ```typescript
@@ -104,7 +104,7 @@ const result = await Pipeline.create('example')
   .run();
 ```
 
-### Function Steps
+### Function Steps {#function-steps}
 Use TypeScript functions instead of shell commands:
 
 ```typescript
@@ -120,7 +120,7 @@ const result = await Pipeline.create('example')
   .run();
 ```
 
-## Context
+## Context {#context}
 
 Pipeline context is available in conditions and function steps:
 
@@ -140,7 +140,7 @@ const result = await Pipeline.create('release')
   .run({ branch: 'main', commit: 'abc123' });
 ```
 
-## Observable, cancellable execution
+## Observable, cancellable execution {#observable-cancellable-execution}
 
 Commands use the asynchronous Xec engine. Set `concurrency` explicitly to run
 independent step groups in parallel; its default is one. Matrix variants share
@@ -184,7 +184,7 @@ it cannot guarantee that a remote job which daemonized or ignored signals has
 stopped. Verify its state before retrying effects. Retries require idempotent
 steps. `cache` remains a reserved field and does not cache execution.
 
-## TypeScript scripts in a separate process
+## TypeScript scripts in a separate process {#typescript-scripts-in-a-separate-process}
 
 ```typescript
 import { Pipeline, prepareScript } from '@xec-sh/ops';

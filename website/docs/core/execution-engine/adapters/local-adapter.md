@@ -4,11 +4,11 @@ sidebar_label: Local Adapter
 description: Command execution in local system through child_process
 ---
 
-# LocalAdapter - Local Execution
+# LocalAdapter - Local Execution {#localadapter---local-execution}
 
 LocalAdapter provides command execution in the local system through Node.js child_process API. This is the basic and most performant adapter.
 
-## Core Features
+## Core Features {#core-features}
 
 - ✅ Direct execution through spawn/spawnSync
 - ✅ Bun runtime support
@@ -17,9 +17,9 @@ LocalAdapter provides command execution in the local system through Node.js chil
 - ✅ Full process control
 - ✅ Minimal overhead
 
-## Usage
+## Usage {#usage}
 
-### Basic Execution
+### Basic Execution {#basic-execution}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -32,7 +32,7 @@ const local = $.local();
 await local`pwd`;
 ```
 
-### Configuration
+### Configuration {#configuration}
 
 ```typescript
 import { ExecutionEngine } from '@xec-sh/core';
@@ -48,9 +48,9 @@ const $ = new ExecutionEngine({
 });
 ```
 
-## Execution Modes
+## Execution Modes {#execution-modes}
 
-### Shell Mode
+### Shell Mode {#shell-mode}
 
 ```typescript
 // Automatic shell (true)
@@ -63,7 +63,7 @@ await $`echo $0`.shell('/bin/zsh');
 await $`ls`.shell(false);
 ```
 
-### Synchronous Execution
+### Synchronous Execution {#synchronous-execution}
 
 ```typescript
 import { LocalAdapter } from '@xec-sh/core';
@@ -73,9 +73,9 @@ const result = adapter.executeSync({ command: 'node', args: ['--version'], shell
 console.log(result.stdout);
 ```
 
-## Process Management
+## Process Management {#process-management}
 
-### Signals and Termination
+### Signals and Termination {#signals-and-termination}
 
 ```typescript
 // Graceful shutdown with timeout
@@ -92,7 +92,7 @@ setTimeout(() => {
 await server;
 ```
 
-### AbortController
+### AbortController {#abortcontroller}
 
 ```typescript
 const controller = new AbortController();
@@ -115,9 +115,9 @@ remove the abort listener. Reusing or aborting the controller after the command
 settles does not signal the former process. A timeout or cancellation still uses
 the configured local termination signal.
 
-## Stream Handling
+## Stream Handling {#stream-handling}
 
-### Stdin
+### Stdin {#stdin}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -133,7 +133,7 @@ try {
 }
 ```
 
-### Stdout/Stderr
+### Stdout/Stderr {#stdoutstderr}
 
 ```typescript
 // Redirect to file
@@ -152,9 +152,9 @@ const result = await $`echo test`.stdout('pipe');
 console.log(result.stdout); // 'test\n'
 ```
 
-## Environment and Context
+## Environment and Context {#environment-and-context}
 
-### Working Directory
+### Working Directory {#working-directory}
 
 ```typescript
 // Change directory
@@ -166,7 +166,7 @@ await project`npm install`;
 await project`npm test`;
 ```
 
-### Environment Variables
+### Environment Variables {#environment-variables}
 
 ```typescript
 // Add variables
@@ -183,9 +183,9 @@ await withEnv`curl $API_URL`;
 await $`printenv`.env({});  // Empty environment
 ```
 
-## Error Handling
+## Error Handling {#error-handling}
 
-### Exit Codes
+### Exit Codes {#exit-codes}
 
 ```typescript
 import { $, CommandError } from '@xec-sh/core';
@@ -200,7 +200,7 @@ const result = await $`exit 1`.nothrow();
 console.log(result.ok);
 ```
 
-### Timeouts
+### Timeouts {#timeouts}
 
 ```typescript
 // Execution timeout
@@ -214,7 +214,7 @@ try {
 await $`server`.timeout(5000, 'SIGINT');
 ```
 
-## Interactive Mode
+## Interactive Mode {#interactive-mode}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -223,13 +223,13 @@ await $`npm init`.interactive();
 await $.with({ stdin: process.stdin })`cat`.stdout('inherit').stderr('inherit');
 ```
 
-## Runtime selection
+## Runtime selection {#runtime-selection}
 
 Start the script with Node, Bun, or Deno. The local adapter uses their shared `node:child_process` API, so cancellation, output delivery, and cleanup follow one implementation. `preferBun` and `forceImplementation` were removed in Xec 0.12; remove them from adapter configuration.
 
-## Performance
+## Performance {#performance}
 
-### Mode Comparison
+### Mode Comparison {#mode-comparison}
 
 | Mode | Speed | Security | Usage |
 |------|-------|----------|-------|
@@ -238,7 +238,7 @@ Start the script with Node, Bun, or Deno. The local adapter uses their shared `n
 | shell: '/bin/sh' | Fast | Medium | POSIX compatibility |
 | sync | Very fast | High | Scripts, CLI |
 
-### Optimizations
+### Optimizations {#optimizations}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -247,7 +247,7 @@ const files = ['README.md', 'package.json'];
 await $`wc -c ${files}`;
 ```
 
-## Platform-Specific Commands
+## Platform-Specific Commands {#platform-specific-commands}
 
 ```typescript
 import { platform } from 'os';
@@ -265,9 +265,9 @@ if (isWindows) {
 }
 ```
 
-## Debugging
+## Debugging {#debugging}
 
-### Command Logging
+### Command Logging {#command-logging}
 
 ```typescript
 import { ExecutionEngine } from '@xec-sh/core';
@@ -282,7 +282,7 @@ $.on('command:complete', ({ exitCode, duration }) => {
 });
 ```
 
-### Detailed Output
+### Detailed Output {#detailed-output}
 
 ```typescript
 // Verbose mode
@@ -294,9 +294,9 @@ const verbose = $.with({
 await verbose`npm install`;  // Real-time output
 ```
 
-## Security
+## Security {#security}
 
-### Injection Prevention
+### Injection Prevention {#injection-prevention}
 
 ```typescript
 // Dangerous - shell injection
@@ -314,7 +314,7 @@ await $.local().execute({
 });
 ```
 
-### Resource Limitation
+### Resource Limitation {#resource-limitation}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -323,9 +323,9 @@ const result = await $.with({ maxBuffer: 1024 * 1024 })`generate-report`.timeout
 console.log(result.stdout);
 ```
 
-## Usage Examples
+## Usage Examples {#usage-examples}
 
-### Git Operations
+### Git Operations {#git-operations}
 
 ```typescript
 async function gitStatus() {
@@ -342,7 +342,7 @@ async function gitStatus() {
 }
 ```
 
-### System Monitoring
+### System Monitoring {#system-monitoring}
 
 ```typescript
 async function systemInfo() {
@@ -356,7 +356,7 @@ async function systemInfo() {
 }
 ```
 
-### Build Pipeline
+### Build Pipeline {#build-pipeline}
 
 ```typescript
 async function build() {
@@ -380,9 +380,9 @@ async function build() {
 }
 ```
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### PATH Issues
+### PATH Issues {#path-issues}
 
 ```typescript
 // Explicit path specification
@@ -394,7 +394,7 @@ await $`node script.js`.env({
 });
 ```
 
-### Encoding Issues
+### Encoding Issues {#encoding-issues}
 
 ```typescript
 import { ExecutionEngine, createCallableEngine } from '@xec-sh/core';
@@ -408,7 +408,7 @@ try {
 }
 ```
 
-### Zombie Processes
+### Zombie Processes {#zombie-processes}
 
 ```typescript
 import { ExecutionEngine } from '@xec-sh/core';
@@ -421,7 +421,7 @@ try {
 }
 ```
 
-## Conclusion
+## Conclusion {#conclusion}
 
 LocalAdapter is the foundation for fast and secure command execution in the local system. Its advantages:
 

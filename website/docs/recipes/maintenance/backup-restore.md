@@ -7,17 +7,17 @@ source_files:
   - apps/xec/src/commands/run.ts
 ---
 
-# Backup and Restore
+# Backup and Restore {#backup-and-restore}
 
-## Problem
+## Problem {#problem}
 
 Implementing reliable backup and restore procedures for databases, files, configurations, and application state across different environments while ensuring data integrity and minimal downtime.
 
-## Solution
+## Solution {#solution}
 
 Xec orchestrates the database tools and application acceptance checks. This recipe creates a PostgreSQL archive, records its digest after successful completion, and verifies it before restoration to a separate empty database. It does not claim automatic cross-database consistency or provide a retention scheduler.
 
-## Quick Example
+## Quick Example {#quick-example}
 
 ```typescript
 const source = process.env.PGSERVICE;
@@ -28,9 +28,9 @@ await $`pg_restore --list ${file}`;
 // Listing confirms archive readability, not application-level restore acceptance.
 ```
 
-## Complete Backup and Restore Recipes
+## Complete Backup and Restore Recipes {#complete-backup-and-restore-recipes}
 
-### Configuration
+### Configuration {#configuration}
 
 ```yaml
 version: '1.0'
@@ -46,7 +46,7 @@ tasks:
     command: xec run scripts/restore.ts ${params.directory}
 ```
 
-### Comprehensive Backup Script
+### Comprehensive Backup Script {#comprehensive-backup-script}
 
 ```typescript
 // scripts/backup.ts — pg_service.conf and credentials are provisioned separately.
@@ -80,7 +80,7 @@ const destination = process.env.BACKUP_S3_URI;
 if (destination) await $`aws s3 cp ${directory} ${destination} --recursive`;
 ```
 
-### Restore Script
+### Restore Script {#restore-script}
 
 ```typescript
 // scripts/restore.ts — the operator provisions a separate empty destination.
@@ -112,7 +112,7 @@ await $`npm run verify:restored-db`.env({ PGSERVICE: target });
 console.log('Restore and application verification completed');
 ```
 
-## Usage Examples
+## Usage Examples {#usage-examples}
 
 ```bash
 PGSERVICE=source-readonly xec run scripts/backup.ts
@@ -121,7 +121,7 @@ RESTORE_SERVICE=isolated-restore xec run scripts/restore.ts backups/postgres-exa
 
 Configure the PostgreSQL service names and the application's `verify:restored-db` command first. Schedule the backup command through an existing service scheduler. Store an independently authenticated manifest or trusted digest when detecting malicious archive replacement matters; a colocated checksum alone is not a signature.
 
-## Best Practices
+## Best Practices {#best-practices}
 
 1. **Test restore procedures** regularly
 2. **Use 3-2-1 backup rule** (3 copies, 2 different media, 1 offsite)
@@ -131,7 +131,7 @@ Configure the PostgreSQL service names and the application's `verify:restored-db
 6. **Implement backup rotation** policies
 7. **Verify backup integrity** with checksums
 
-## Related Topics
+## Related Topics {#related-topics}
 
 - [Health Checks](health-checks.md)
 - [Certificate Renewal](certificate-renewal.md)

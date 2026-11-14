@@ -5,9 +5,9 @@ keywords: [troubleshooting, local, debugging, errors, solutions]
 sidebar_position: 3
 ---
 
-# Local Target Troubleshooting
+# Local Target Troubleshooting {#local-target-troubleshooting}
 
-## Command not found
+## Command not found {#command-not-found}
 
 With the default shell (`shell: true`), a missing command is not a JavaScript exception — the shell runs, doesn't find the command, and exits 127:
 
@@ -35,7 +35,7 @@ await $`/usr/local/bin/command-name`;              // full path
 
 On macOS, Homebrew binaries under `/opt/homebrew/bin` are a common case of the same issue if that directory isn't already on `PATH`. A downloaded script may also need its quarantine attribute removed before it will execute: `` await $`xattr -d com.apple.quarantine ./script.sh` ``.
 
-## Permission denied
+## Permission denied {#permission-denied}
 
 Exit code 126 means the file exists but isn't executable:
 
@@ -47,7 +47,7 @@ await $`./script.sh`;
 await $`bash script.sh`;
 ```
 
-## Working directory does not exist
+## Working directory does not exist {#working-directory-does-not-exist}
 
 ```typescript
 import { existsSync, mkdirSync } from 'node:fs';
@@ -58,11 +58,11 @@ await $.cd('/project')`npm install`;
 
 A `cwd` that doesn't exist fails when the process is spawned, not before — the error surfaces as a failed spawn rather than a dedicated "bad directory" error.
 
-## Shell syntax errors
+## Shell syntax errors {#shell-syntax-errors}
 
 Bash-only syntax (`[[ ]]`, arrays) fails under `/bin/sh`. See [Portability](./shell-config.md#portability) for the POSIX-safe equivalents.
 
-## Environment variables
+## Environment variables {#environment-variables}
 
 Commands always inherit `process.env`; `env` layers additional keys on top of it — there's no way to start a command with a fully empty environment.
 
@@ -73,7 +73,7 @@ await $.env({ MY_VAR: 'value' })`echo $MY_VAR`;  // added
 
 If a variable you expect isn't set, check that it survives shell startup — see [Startup files](./shell-config.md#startup-files).
 
-## Buffer and encoding
+## Buffer and encoding {#buffer-and-encoding}
 
 Set `maxBuffer` process-wide, or on a derived engine for the commands that need a different cap:
 
@@ -110,7 +110,7 @@ const image = await $`cat photo.png`;
 const bytes = image.buffer();
 ```
 
-## Timeouts
+## Timeouts {#timeouts}
 
 Commands time out after 30 seconds by default:
 
@@ -130,7 +130,7 @@ try {
 
 A timeout kills the whole process tree (see below), using the adapter's `killSignal` — configured once when the engine is created (default `SIGTERM`), not the second argument to `.timeout(duration, signal)`, which local execution doesn't consult.
 
-## Killing a command and its children
+## Killing a command and its children {#killing-a-command-and-its-children}
 
 Local commands run in their own process group by default. `.kill()` — whether called directly, via a timeout, or via a `maxBuffer` overflow — signals that whole group plus any descendant that escaped it, so a shell wrapper (`sh -c 'node server.js'`) can't orphan what it started:
 
@@ -139,7 +139,7 @@ const p = $`long-running-build`;
 process.on('SIGINT', () => p.kill('SIGTERM'));
 ```
 
-## Exit codes
+## Exit codes {#exit-codes}
 
 `CommandError.exitCode` is the raw exit code; the error message already explains the common ones:
 
@@ -155,7 +155,7 @@ process.on('SIGINT', () => p.kill('SIGTERM'));
 | 141 | SIGPIPE, reader closed early |
 | 143 | SIGTERM |
 
-## Error types
+## Error types {#error-types}
 
 | Class | Thrown when |
 |-------|-------------|
@@ -187,7 +187,7 @@ if (!result.ok) {
 }
 ```
 
-## Debugging a command
+## Debugging a command {#debugging-a-command}
 
 Echo every command as it runs:
 
@@ -215,7 +215,7 @@ A failing command's error message already names where it was called from (`at fi
 
 For a command you need to watch while it runs rather than after it finishes, see [live process access](./overview.md#live-process-access) — `.spawned`, `.child` and `.pid` give real stdout/stderr streams and a pid without waiting for completion.
 
-## Related Documentation
+## Related Documentation {#related-documentation}
 
 - [Local Overview](./overview.md) - local execution fundamentals
 - [Shell Configuration](./shell-config.md) - shell setup and quoting

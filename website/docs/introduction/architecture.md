@@ -8,31 +8,29 @@ source_files:
   - apps/xec/src/main.ts
 ---
 
-# Architecture
+# Architecture {#architecture}
 
-## System Overview
+## System Overview {#system-overview}
 
 Xec is designed as a modular, extensible system for universal command execution across multiple environments. The architecture emphasizes separation of concerns, type safety, and performance.
 
-## Monorepo Structure
+## Monorepo Structure {#monorepo-structure}
 
 Xec uses a monorepo architecture managed by Turborepo:
 
-```
-xec/
-├── apps/
-│   └── xec/              # CLI application (@xec-sh/cli) — thin wrapper
-├── packages/
-│   ├── core/             # Shell execution engine (@xec-sh/core)
-│   ├── ops/              # DevOps operations library (@xec-sh/ops)
-│   ├── kit/              # TUI/CLI components (@xec-sh/kit)
-│   ├── loader/           # Script loading & modules (@xec-sh/loader)
-│   └── testing/          # Shared test utilities (@xec-sh/testing)
-├── website/              # Documentation site (Docusaurus)
-└── turbo.json            # Build orchestration
-```
-
-### Package Dependencies
+:::filetree{title="xec/"}
+- `apps/`
+  - `xec/` — CLI application (@xec-sh/cli) — thin wrapper
+- `packages/`
+  - `core/` — Shell execution engine (@xec-sh/core)
+  - `ops/` — DevOps operations library (@xec-sh/ops)
+  - `kit/` — TUI/CLI components (@xec-sh/kit)
+  - `loader/` — Script loading & modules (@xec-sh/loader)
+  - `testing/` — Shared test utilities (@xec-sh/testing)
+- `website/` — Lumen + Prism documentation site
+- `turbo.json` — Build orchestration
+:::
+### Package Dependencies {#package-dependencies}
 
 Arrows point from each package to the packages it imports at runtime. `@xec-sh/testing` is not shown — it does not depend on other Xec packages and is consumed by Vitest suites through its required runner peer.
 
@@ -48,9 +46,9 @@ flowchart TD
     LOADER --> KIT
 ```
 
-## Core Components
+## Core Components {#core-components}
 
-### 1. Execution Engine
+### 1. Execution Engine {#1-execution-engine}
 
 The execution engine (`packages/core/src/core/execution-engine.ts`) is the central component that:
 
@@ -72,11 +70,11 @@ try {
 }
 ```
 
-### 2. Adapter System
+### 2. Adapter System {#2-adapter-system}
 
 Adapters (`packages/core/src/adapters/`) provide environment-specific implementations:
 
-#### Base Adapter Interface
+#### Base Adapter Interface {#base-adapter-interface}
 
 ```typescript
 import type { LocalAdapter } from '@xec-sh/core';
@@ -86,14 +84,14 @@ type ExecuteCommand = Parameters<LocalAdapter['execute']>[0];
 type ExecuteResult = Awaited<ReturnType<LocalAdapter['execute']>>;
 ```
 
-#### Adapter Implementations
+#### Adapter Implementations {#adapter-implementations}
 
 - **LocalAdapter**: Native process execution
 - **SSHAdapter**: Remote execution via SSH
 - **DockerAdapter**: Container execution via Docker API
 - **KubernetesAdapter**: Pod execution via kubectl
 
-### 3. Command Builder
+### 3. Command Builder {#3-command-builder}
 
 The engine parses tagged templates, escapes their interpolated values and passes a `Command` to the chosen adapter. String shell syntax stays explicit; values are not shell programs:
 
@@ -104,9 +102,9 @@ const filename = 'report with spaces.txt';
 await $`printf '%s\n' ${filename}`;
 ```
 
-### 4. Connection Management
+### 4. Connection Management {#4-connection-management}
 
-#### Connection Pool
+#### Connection Pool {#connection-pool}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -120,14 +118,14 @@ try {
 }
 ```
 
-#### SSH Connection Pool
+#### SSH Connection Pool {#ssh-connection-pool}
 
 - Maintains persistent SSH connections
 - Configurable pool size and idle timeout
 - Dead connections are discarded; uncertain remote outcomes are not silently replayed
 - Connection health checks
 
-### 5. CLI Layer
+### 5. CLI Layer {#5-cli-layer}
 
 The CLI (`apps/xec/src/`) provides:
 
@@ -143,9 +141,9 @@ xec on deploy@server.example.com 'uptime'
 xec in app 'node --version'
 ```
 
-## Data Flow
+## Data Flow {#data-flow}
 
-### Command Execution Flow
+### Command Execution Flow {#command-execution-flow}
 
 A command travels from the CLI through the engine to the selected adapter, and the result flows back the same way:
 
@@ -167,7 +165,7 @@ sequenceDiagram
     CLI-->>User: display output
 ```
 
-### Configuration Loading
+### Configuration Loading {#configuration-loading}
 
 Configuration is merged from three sources before execution starts:
 
@@ -180,9 +178,9 @@ flowchart LR
     E --> F["Execution context"]
 ```
 
-## Template Literal Processing
+## Template Literal Processing {#template-literal-processing}
 
-### Parse Phase
+### Parse Phase {#parse-phase}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -191,7 +189,7 @@ const value = 'one argument; not another command';
 await $`printf '%s\n' ${value}`;
 ```
 
-### Compilation Phase
+### Compilation Phase {#compilation-phase}
 
 ```typescript
 import { ExecutionEngine, type Command } from '@xec-sh/core';
@@ -206,9 +204,9 @@ try { console.log((await engine.execute(command)).stdout); }
 finally { await engine.dispose(); }
 ```
 
-## Error Architecture
+## Error Architecture {#error-architecture}
 
-### Error Hierarchy
+### Error Hierarchy {#error-hierarchy}
 
 Execution failures use the exported error classes in `packages/core/src/core/error.ts`. Input and application errors may also be ordinary JavaScript errors. Use the real classes and stable `code`/`kind` fields:
 
@@ -223,7 +221,7 @@ catch (error) {
 }
 ```
 
-### Error Flow
+### Error Flow {#error-flow}
 
 A failed execution surfaces as the subclass matching what went wrong:
 
@@ -236,15 +234,15 @@ flowchart TD
     B -->|"connection failure"| F["ConnectionError"]
 ```
 
-## Performance Optimizations
+## Performance Optimizations {#performance-optimizations}
 
-### 1. Connection Pooling
+### 1. Connection Pooling {#1-connection-pooling}
 
 - **SSH**: Reuse SSH connections across commands
 - **Docker**: Maintain Docker client connections
 - **Kubernetes**: Preserve the explicitly selected context and kubeconfig for every operation
 
-### 2. Lazy Loading
+### 2. Lazy Loading {#2-lazy-loading}
 
 ```typescript
 // A project can load a library only when the operation needs it.
@@ -254,7 +252,7 @@ const result = await plan.run();
 if (!result.success) throw new Error('Inspection failed');
 ```
 
-### 3. Stream Processing
+### 3. Stream Processing {#3-stream-processing}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -264,7 +262,7 @@ for await (const line of $`printf 'one\ntwo\n'`) {
 }
 ```
 
-### 4. Parallel Execution
+### 4. Parallel Execution {#4-parallel-execution}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -276,9 +274,9 @@ const results = await $.parallel.all([
 console.log(results.map(result => result.exitCode));
 ```
 
-## Security Architecture
+## Security Architecture {#security-architecture}
 
-### 1. Input Sanitization
+### 1. Input Sanitization {#1-input-sanitization}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -288,7 +286,7 @@ await $`printf '%s\n' ${untrustedFilename}`;
 // $.raw deliberately disables interpolation escaping. Use it only with trusted shell text.
 ```
 
-### 2. Secret Management
+### 2. Secret Management {#2-secret-management}
 
 ```typescript
 import { ConfigurationManager } from '@xec-sh/ops';
@@ -302,37 +300,37 @@ if (!apiToken) throw new Error('API_TOKEN is not configured');
 // Pass it to the intended authenticated operation; do not print it.
 ```
 
-### 3. Permission Model
+### 3. Permission Model {#3-permission-model}
 
 Xec runs with the privileges of its local process and configured remote identity.
 It is not an operating-system sandbox. Use restricted service identities and target
 credentials, and enable only the adapters and operations your application requires.
 Command escaping and diagnostic redaction do not replace authorization.
 
-## Extension Points
+## Extension Points {#extension-points}
 
-### 1. Custom Adapters
+### 1. Custom Adapters {#1-custom-adapters}
 
 Adapter implementations follow the internal `BaseAdapter` contract and the
 engine registry. This is a Core contribution, not a separate public plugin API. The [adapter development guide](../core/execution-engine/adapters/concept.md)
 describes validation, streaming, errors and disposal. Do not copy an abbreviated
 interface from documentation into a separate execution mechanism.
 
-### 2. Command Hooks
+### 2. Command Hooks {#2-command-hooks}
 
 Use the engine's declared hooks and event types for observation. Keep telemetry
 separate from executable input and preserve error propagation and cancellation.
 The [execution-engine reference](../api/execution-engine.md) documents the public surface.
 
-### 3. Plugin System
+### 3. Plugin System {#3-plugin-system}
 
 The CLI discovers project commands from `.xec/commands`; libraries compose through
 ordinary imports and functions. There is no separate public `Plugin.install(xec)`
 contract. See [creating commands](../commands/custom/creating-commands.md).
 
-## Testing Architecture
+## Testing Architecture {#testing-architecture}
 
-### Unit Testing
+### Unit Testing {#unit-testing}
 
 ```typescript
 import { expect, it } from 'vitest';
@@ -344,7 +342,7 @@ it('retains the command exit code', async () => {
 });
 ```
 
-### Integration Testing
+### Integration Testing {#integration-testing}
 
 ```typescript
 import { expect, it } from 'vitest';
@@ -359,15 +357,15 @@ describeSSH('SSH output', () => {
 }, { containers: ['alpine-apk'], skipIfNoDocker: true });
 ```
 
-### Test Utilities
+### Test Utilities {#test-utilities}
 
 `@xec-sh/testing` provides named SSH/Docker fixtures, a Kind cluster manager,
 binary discovery and shell-name validation. It requires the declared Vitest runner;
 fixture skips must remain visible in test results.
 
-## Build System
+## Build System {#build-system}
 
-### Turborepo Pipeline
+### Turborepo Pipeline {#turborepo-pipeline}
 
 ```json
 {
@@ -387,7 +385,7 @@ fixture skips must remain visible in test results.
 }
 ```
 
-### TypeScript Configuration
+### TypeScript Configuration {#typescript-configuration}
 
 ```json
 {
@@ -403,9 +401,9 @@ fixture skips must remain visible in test results.
 }
 ```
 
-## Deployment Architecture
+## Deployment Architecture {#deployment-architecture}
 
-### Package Publishing
+### Package Publishing {#package-publishing}
 
 The repository's dynamic release recipe separates preparation from publication:
 
@@ -421,23 +419,23 @@ Publication reuses the prepared bytes. It does not rebuild packages or repeat th
 full test suite for each upload. See [Verified package releases](../ops/release.md)
 for prerequisites, cancellation, authentication and recovery.
 
-### Distribution Channels
+### Distribution Channels {#distribution-channels}
 
 npm distributes the six public workspace packages. GitHub Releases records the
 verified tag, release notes and package inventory; the current recipe does not
 publish standalone binaries, Docker images or a Homebrew formula.
 
-## Future Architecture
+## Documentation architecture {#future-architecture}
 
-### Planned Enhancements
+### Lumen and Prism {#planned-enhancements}
 
-The documentation website is planned to migrate from Docusaurus to Lumen after
-the current release. That work must preserve routes, examples and link validation;
-it is not a prerequisite for releasing Xec. Task dependencies, pipelines and
-workflow orchestration already exist in [Ops](../ops/index.md), so DAG execution
-is an existing capability, not a promised future subsystem.
+The website is built with the published Lumen and Prism 0.4.8 packages. Lumen owns Markdown compilation, code highlighting, corpus link checks, search indexing and selective React hydration. Prism provides the shared theme, controls and accessible interaction primitives.
 
-## Summary
+Xec runs the site build and verifies the public route/anchor contract. The homepage examples come from one typed source inventory, shared by server rendering, interactive tabs, copy actions and the documentation compiler check. Browser tests verify the actual generated pages.
+
+Task dependencies, pipelines and workflow orchestration are existing [Ops](../ops/index.md) capabilities; the website does not implement a separate task engine.
+
+## Summary {#summary}
 
 Xec's architecture is designed for:
 
@@ -450,7 +448,7 @@ Xec's architecture is designed for:
 
 This architecture enables Xec to provide a unified, powerful interface for command execution across any environment while maintaining simplicity and performance.
 
-## Related Documentation
+## Related Documentation {#related-documentation}
 
 - [Core Concepts](./core-concepts.md) - Fundamental concepts
 - [Execution Engine](../core/execution-engine/overview.md) - Engine details

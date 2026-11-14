@@ -7,22 +7,22 @@ source_files:
   - packages/core/src/core/execution-engine.ts
 ---
 
-# Test Data Generation Recipe
+# Test Data Generation Recipe {#test-data-generation-recipe}
 
-## Implementation Reference
+## Implementation Reference {#implementation-reference}
 
 The recipe uses Xec’s public execution API and standard Node APIs. Its Xec entry points are:
 
 - `apps/xec/src/commands/run.ts`
 - `packages/core/src/core/execution-engine.ts`
 
-## Overview
+## Overview {#overview}
 
 This recipe demonstrates how to generate realistic test data for development and testing with deterministic fixtures and standard Node streams, orchestrated by Xec. If the application needs realistic generated names or locales, declare and test a dedicated generator in that application; Xec does not bundle Faker.
 
-## Basic Data Generation
+## Basic Data Generation {#basic-data-generation}
 
-### User Data Generation
+### User Data Generation {#user-data-generation}
 
 ```typescript
 // scripts/generate-users.ts
@@ -40,7 +40,7 @@ await mkdir('.fixtures', { recursive: true });
 await writeFile('.fixtures/users.json', JSON.stringify(users, null, 2));
 ```
 
-### Product Data Generation
+### Product Data Generation {#product-data-generation}
 
 ```typescript
 // scripts/generate-products.ts
@@ -59,9 +59,9 @@ await mkdir('.fixtures', { recursive: true });
 await writeFile('.fixtures/products.json', JSON.stringify(products, null, 2));
 ```
 
-## Relational Data Generation
+## Relational Data Generation {#relational-data-generation}
 
-### Order and Transaction Data
+### Order and Transaction Data {#order-and-transaction-data}
 
 ```typescript
 // scripts/generate-orders.ts
@@ -79,9 +79,9 @@ await mkdir('.fixtures', { recursive: true });
 await writeFile('.fixtures/orders.json', JSON.stringify(orders, null, 2));
 ```
 
-## Time Series Data
+## Time Series Data {#time-series-data}
 
-### Metrics and Analytics Data
+### Metrics and Analytics Data {#metrics-and-analytics-data}
 
 ```typescript
 // scripts/generate-metrics.ts
@@ -97,9 +97,9 @@ await mkdir('.fixtures', { recursive: true });
 await writeFile('.fixtures/metrics.json', JSON.stringify(metrics, null, 2));
 ```
 
-## Database Seeding
+## Database Seeding {#database-seeding}
 
-### PostgreSQL Seeding
+### PostgreSQL Seeding {#postgresql-seeding}
 
 ```typescript
 // scripts/seed-postgres.ts
@@ -112,9 +112,9 @@ await $`npm run db:verify-fixtures`.env({ DATABASE_URL: databaseUrl });
 // No success is reported if either application command fails.
 ```
 
-## Bulk Data Generation
+## Bulk Data Generation {#bulk-data-generation}
 
-### Large Dataset Generation
+### Large Dataset Generation {#large-dataset-generation}
 
 ```typescript
 // scripts/generate-bulk.ts
@@ -133,9 +133,9 @@ await mkdir('.fixtures', { recursive: true });
 await pipeline(Readable.from(rows(100_000)), createWriteStream('.fixtures/users.ndjson'));
 ```
 
-## Test Data Management
+## Test Data Management {#test-data-management}
 
-### Data Cleanup Script
+### Data Cleanup Script {#data-cleanup-script}
 
 ```typescript
 // scripts/cleanup-test-data.ts
@@ -148,9 +148,9 @@ for (const file of ['users.json', 'products.json', 'orders.json', 'metrics.json'
 }
 ```
 
-## Configuration
+## Configuration {#configuration}
 
-### Xec Task Configuration
+### Xec Task Configuration {#xec-task-configuration}
 
 Save the examples above under `scripts/` with the names below. The seed task requires the application's declared `db:seed` and `db:verify-fixtures` scripts and an isolated test database.
 
@@ -175,21 +175,21 @@ tasks:
     command: xec run scripts/cleanup-test-data.ts
 ```
 
-## Performance Characteristics
+## Performance Characteristics {#performance-characteristics}
 
-### Generation Performance
+### Generation Performance {#generation-performance}
 
 Measure the intended record shape and count on the target runtime. No generic records-per-second claim applies to every generator.
 
-### Memory Usage
+### Memory Usage {#memory-usage}
 
 Use the streaming example for large files; array-based examples intentionally retain their small datasets in memory.
 
-### I/O Performance
+### I/O Performance {#io-performance}
 
 Await stream completion and database acceptance separately. The application's seed verifier checks the inserted record count and relationships.
 
-## Best Practices
+## Best Practices {#best-practices}
 
 1. **Deterministic Generation**
    ```typescript
@@ -212,14 +212,14 @@ Await stream completion and database acceptance separately. The application's se
    - Vary data distributions
    - Test boundary conditions
 
-## Related Recipes
+## Related Recipes {#related-recipes}
 
 - [Database Setup](./database-setup.md) - Database configuration
 - [API Mocking](./api-mocking.md) - Mock servers
 - [Hot Reload](./hot-reload.md) - Development workflow
 - [Backup Restore](../maintenance/backup-restore.md) - Data backup
 
-## See Also
+## See Also {#see-also}
 
 - [File Operations](../../scripting/basics/command-execution.md)
 - [Data Processing](../../scripting/patterns/streaming.md)

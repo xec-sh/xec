@@ -3,11 +3,11 @@ title: Simple Tasks
 description: Creating basic automation tasks in Xec
 ---
 
-# Simple Tasks
+# Simple Tasks {#simple-tasks}
 
 Simple tasks are the foundation of Xec automation. They encapsulate single commands or basic operations that can be executed repeatedly across different environments.
 
-## Command Tasks
+## Command Tasks {#command-tasks}
 
 The simplest form of task is a single command:
 
@@ -22,9 +22,9 @@ tasks:
     description: Create backup archive
 ```
 
-## Task Properties
+## Task Properties {#task-properties}
 
-### Basic Properties
+### Basic Properties {#basic-properties}
 
 ```yaml
 tasks:
@@ -42,7 +42,7 @@ tasks:
     timeout: 30000
 ```
 
-### Complete Example
+### Complete Example {#complete-example}
 
 ```yaml
 tasks:
@@ -54,9 +54,9 @@ tasks:
     timeout: 60000
 ```
 
-## Target Specification
+## Target Specification {#target-specification}
 
-### Single Target
+### Single Target {#single-target}
 
 ```yaml
 tasks:
@@ -65,7 +65,7 @@ tasks:
     target: hosts.backup-server
 ```
 
-### Multiple Targets
+### Multiple Targets {#multiple-targets}
 
 ```yaml
 tasks:
@@ -77,7 +77,7 @@ tasks:
       - hosts.db-server
 ```
 
-### Dynamic Targets
+### Dynamic Targets {#dynamic-targets}
 
 ```yaml
 tasks:
@@ -86,7 +86,7 @@ tasks:
     targets: "hosts.*"  # All hosts
 ```
 
-## Environment Variables
+## Environment Variables {#environment-variables}
 
 Set environment for task execution:
 
@@ -100,7 +100,7 @@ tasks:
       BUILD_NUMBER: ${env.CI_BUILD_NUMBER}
 ```
 
-## Working Directory
+## Working Directory {#working-directory}
 
 Control where commands execute:
 
@@ -116,7 +116,7 @@ tasks:
     target: hosts.build-server
 ```
 
-## Timeout Configuration
+## Timeout Configuration {#timeout-configuration}
 
 Prevent hanging tasks:
 
@@ -135,7 +135,7 @@ tasks:
     timeout: 0  # No timeout
 ```
 
-## Shell Configuration
+## Shell Configuration {#shell-configuration}
 
 Control shell behavior:
 
@@ -156,9 +156,9 @@ tasks:
     shell: /bin/zsh
 ```
 
-## Output Handling
+## Output Handling {#output-handling}
 
-### Capture Output
+### Capture Output {#capture-output}
 
 ```yaml
 tasks:
@@ -170,7 +170,7 @@ tasks:
     command: echo "Version is ${version_info.stdout}"
 ```
 
-### Silent Execution
+### Silent Execution {#silent-execution}
 
 ```yaml
 tasks:
@@ -179,9 +179,9 @@ tasks:
     silent: true  # Suppress output
 ```
 
-## Error Handling
+## Error Handling {#error-handling}
 
-### Basic Error Control
+### Basic Error Control {#basic-error-control}
 
 ```yaml
 tasks:
@@ -196,7 +196,7 @@ tasks:
     throwOnNonZeroExit: false
 ```
 
-### Exit Code Handling
+### Exit Code Handling {#exit-code-handling}
 
 ```yaml
 tasks:
@@ -205,9 +205,9 @@ tasks:
     acceptExitCodes: [0, 3]  # 0=active, 3=inactive
 ```
 
-## Common Patterns
+## Common Patterns {#common-patterns}
 
-### System Information
+### System Information {#system-information}
 
 ```yaml
 tasks:
@@ -224,7 +224,7 @@ tasks:
     description: Gather system information
 ```
 
-### Service Management
+### Service Management {#service-management}
 
 ```yaml
 tasks:
@@ -239,7 +239,7 @@ tasks:
     description: Check Nginx status
 ```
 
-### File Operations
+### File Operations {#file-operations}
 
 ```yaml
 tasks:
@@ -255,7 +255,7 @@ tasks:
     description: Remove backups older than 30 days
 ```
 
-### Git Operations
+### Git Operations {#git-operations}
 
 ```yaml
 tasks:
@@ -273,7 +273,7 @@ tasks:
     description: Reset to remote main branch
 ```
 
-### Docker Operations
+### Docker Operations {#docker-operations}
 
 ```yaml
 tasks:
@@ -290,7 +290,7 @@ tasks:
     target: hosts.docker-host
 ```
 
-### Database Operations
+### Database Operations {#database-operations}
 
 ```yaml
 tasks:
@@ -312,9 +312,9 @@ tasks:
     description: Count active database connections
 ```
 
-## Task Execution
+## Task Execution {#task-execution}
 
-### Command Line
+### Command Line {#command-line}
 
 ```bash
 # Run task
@@ -327,7 +327,7 @@ xec on hosts.backup-server --task backup
 xec run long-task -p timeout=120000
 ```
 
-### From Scripts
+### From Scripts {#from-scripts}
 
 ```javascript
 import { tasks } from '@xec-sh/ops';
@@ -341,7 +341,7 @@ await tasks.run('backup', {}, {
 });
 ```
 
-### From Other Tasks
+### From Other Tasks {#from-other-tasks}
 
 ```yaml
 tasks:
@@ -354,9 +354,9 @@ tasks:
       - command: echo "Main task"
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### 1. Use Descriptive Names
+### 1. Use Descriptive Names {#1-use-descriptive-names}
 
 ```yaml
 # Good
@@ -370,7 +370,7 @@ tasks:
     command: pg_dump production > backup.sql
 ```
 
-### 2. Add Descriptions
+### 2. Add Descriptions {#2-add-descriptions}
 
 ```yaml
 tasks:
@@ -382,7 +382,7 @@ tasks:
       Duration: ~10 minutes
 ```
 
-### 3. Set Appropriate Timeouts
+### 3. Set Appropriate Timeouts {#3-set-appropriate-timeouts}
 
 ```yaml
 tasks:
@@ -395,7 +395,7 @@ tasks:
     timeout: 3600000  # Long operation
 ```
 
-### 4. Handle Errors Gracefully
+### 4. Handle Errors Gracefully {#4-handle-errors-gracefully}
 
 ```yaml
 tasks:
@@ -404,7 +404,7 @@ tasks:
     throwOnNonZeroExit: false  # OK if file doesn't exist
 ```
 
-### 5. Use Environment Variables
+### 5. Use Environment Variables {#5-use-environment-variables}
 
 ```yaml
 tasks:
@@ -414,9 +414,9 @@ tasks:
       DEPLOY_ENV: ${params.environment}
 ```
 
-## Debugging Tasks
+## Debugging Tasks {#debugging-tasks}
 
-### Test Execution
+### Test Execution {#test-execution}
 
 ```bash
 # Dry run
@@ -429,7 +429,7 @@ xec run deploy --verbose
 xec run deploy --debug
 ```
 
-### Task Information
+### Task Information {#task-information}
 
 ```bash
 # Show task details
@@ -442,9 +442,9 @@ xec task list
 xec task search backup
 ```
 
-## Common Issues
+## Common Issues {#common-issues}
 
-### Command Not Found
+### Command Not Found {#command-not-found}
 
 ```yaml
 # Ensure command exists on target
@@ -457,7 +457,7 @@ tasks:
       PATH: /usr/local/bin:$PATH
 ```
 
-### Permission Denied
+### Permission Denied {#permission-denied}
 
 ```yaml
 # Use appropriate permissions
@@ -467,7 +467,7 @@ tasks:
     target: hosts.server
 ```
 
-### Working Directory Issues
+### Working Directory Issues {#working-directory-issues}
 
 ```yaml
 # Ensure directory exists
@@ -479,12 +479,12 @@ tasks:
       touch app.log
 ```
 
-## Next Steps
+## Next Steps {#next-steps}
 
 - [Multi-Step Tasks](./multi-step-tasks.md) - Complex workflows
 - [Task Overview](./overview.md) - Task management concepts
 
-## See Also
+## See Also {#see-also}
 
 - [Task Command](../../commands/built-in/run.md) - Running tasks
 - [Command Execution](../../commands/built-in/in.md) - Direct command execution

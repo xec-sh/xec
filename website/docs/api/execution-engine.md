@@ -15,20 +15,20 @@ key_functions:
 verification_date: 2026-11-14
 ---
 
-# Execution Engine API
+# Execution Engine API {#execution-engine-api}
 
-## Implementation Reference
+## Implementation Reference {#implementation-reference}
 
 **Source Files:**
 - `packages/core/src/core/execution-engine.ts` - Main engine implementation
 - `packages/core/src/core/process-context.ts` - ProcessPromise construction and state
 - `packages/core/src/adapters/base-adapter.ts` - Base adapter interface (internal — not exported)
 
-## Class: ExecutionEngine
+## Class: ExecutionEngine {#class-executionengine}
 
 The execution engine runs commands through local, SSH, Docker and Kubernetes adapters. `$` is a callable engine. `new ExecutionEngine(config)` provides `.run` as a template tag and `.execute()` for command objects. `createCallableEngine()` exposes the same instance as a callable tag.
 
-### Constructor
+### Constructor {#constructor}
 
 ```typescript
 import { createCallableEngine, ExecutionEngine, type ExecutionEngineConfig } from '@xec-sh/core';
@@ -54,7 +54,7 @@ of adapters (and their live connection pools) instead of creating fresh
 ones — this is how `.with()`, `.cd()`, `.env()` and friends stay cheap and
 keep SSH connections alive across a chain.
 
-### Configuration Updates
+### Configuration Updates {#configuration-updates}
 
 The constructor and `engine.config.set()` accept the same aliases: `env` / `defaultEnv`, `cwd` / `defaultCwd`, `shell` / `defaultShell`, and `timeout` / `defaultTimeout`. Durations are normalized to milliseconds. When both spellings are supplied, the `default*` value takes precedence; environment maps combine with `defaultEnv` winning duplicate keys.
 
@@ -75,7 +75,7 @@ try {
 
 Adapter configuration is fixed when an engine is constructed. `config.set({ adapters: ... })` rejects before applying any part of the update. Create an engine with the required adapter settings to change connection pools, cluster identity or transport policy; `config.set()` does not silently reconfigure shared connections. Per-command settings remain available through `.with()` and `execute()`.
 
-### Exact API payloads
+### Exact API payloads {#exact-api-payloads}
 
 Captured output is redacted by default. For structured API data, use a per-command `redactOutput: false` snapshot. This preserves exact `stdout`, `stderr`, `stdall` and decoded JSON. Error objects, diagnostic events and progress messages retain credential masking. The parent engine keeps its existing defaults. Native process streams and caller-supplied writable destinations carry their original bytes.
 
@@ -87,9 +87,9 @@ const containers = response.json<unknown[]>();
 console.log(containers.length);
 ```
 
-### Methods
+### Methods {#methods}
 
-#### execute()
+#### execute() {#execute}
 
 Run a fully-specified `Command` object directly — the lowest-level entry
 point, and the one every other execution method eventually calls.
@@ -121,7 +121,7 @@ import { $ } from '@xec-sh/core';
 const result = await $.exec('ls -la').nothrow();
 ```
 
-#### ssh()
+#### ssh() {#ssh}
 
 Target an SSH host. Returns an `SSHExecutionContext`, not a bare
 `ExecutionEngine` — in addition to the full engine surface below, it carries
@@ -151,7 +151,7 @@ const sshEngine2 = engine.ssh({
 });
 ```
 
-#### docker()
+#### docker() {#docker}
 
 Target a Docker container, or build one with the fluent API.
 
@@ -181,7 +181,7 @@ const dockerEngine2 = engine.docker({
 });
 ```
 
-#### k8s()
+#### k8s() {#k8s}
 
 Target a Kubernetes pod, or build one with `.pod(name)`. There is no
 `kubernetes()` alias — `k8s()` is the only spelling.
@@ -212,7 +212,7 @@ const k8sEngine2 = engine.k8s({
 const pod = engine.k8s({ pod: 'app-pod', namespace: 'production', context: 'prod-cluster' }).pod('app-pod');
 ```
 
-#### local()
+#### local() {#local}
 
 Create a local execution context.
 
@@ -228,7 +228,7 @@ const localEngine = engine.local();
 await localEngine`npm install`;
 ```
 
-#### cd()
+#### cd() {#cd}
 
 Derive an engine with a new working directory. Resolves `~` and relative
 paths against the current one; does not mutate `engine`.
@@ -247,7 +247,7 @@ import { $ as engine } from '@xec-sh/core';
 await engine.cd('/project')`npm run build`;
 ```
 
-#### env()
+#### env() {#env}
 
 Set environment variables.
 
@@ -266,7 +266,7 @@ await engine
   .env({ NODE_ENV: 'production' })`npm start`;
 ```
 
-#### timeout()
+#### timeout() {#timeout}
 
 Set execution timeout.
 
@@ -285,7 +285,7 @@ await engine
   .timeout('60s')`long-running-task`;
 ```
 
-#### parallel
+#### parallel {#parallel}
 
 Run multiple commands with a concurrency cap. This is a **property**, not a
 callable method — `engine.parallel(...)` throws; call one of its methods
@@ -335,7 +335,7 @@ import { $, parallel } from '@xec-sh/core';
 const results = await parallel(['npm test', 'npm run lint'], { maxConcurrent: 2 });
 ```
 
-### Executable lookup
+### Executable lookup {#executable-lookup}
 
 `await $.which(name)` returns the first executable path on the selected target,
 or `null` when its lookup confirms absence. `await $.isCommandAvailable(name)`
@@ -346,13 +346,13 @@ target is not evidence that its command is missing. Local Windows uses
 The name is passed as a literal argument in both cases; a failed remote transport
 cannot turn into an absent executable.
 
-## ProcessPromise API
+## ProcessPromise API {#processpromise-api}
 
 The chainable, lazy promise returned by `` $`cmd` `` and `.exec()`. Nothing
 runs until it is awaited, iterated, or one of `.start()`/`.spawned`/`.child`/`.pid`
 is read.
 
-### Properties
+### Properties {#properties}
 
 ```typescript
 import type { ProcessPromise } from '@xec-sh/core';
@@ -366,7 +366,7 @@ type ProcessHandle = Awaited<ProcessPromise['spawned']>;
 streams of a running command, use `.child.stdout` / `.child.stderr`, or
 await `.spawned` first.
 
-### Exact API payloads
+### Exact API payloads {#exact-api-payloads-1}
 
 Captured output is redacted by default. For structured API data, use a per-command `redactOutput: false` snapshot. This preserves exact `stdout`, `stderr`, `stdall` and decoded JSON. Error objects, diagnostic events and progress messages retain credential masking. The parent engine keeps its existing defaults. Native process streams and caller-supplied writable destinations carry their original bytes.
 
@@ -378,9 +378,9 @@ const containers = response.json<unknown[]>();
 console.log(containers.length);
 ```
 
-### Methods
+### Methods {#methods-1}
 
-#### pipe()
+#### pipe() {#pipe}
 
 Pipe the command's output somewhere else — another command, a stream, or a
 function.
@@ -401,7 +401,7 @@ await $`cat file.txt`.pipe($`grep pattern`);
 await $`cat file.txt`.pipe(fs.createWriteStream('out.txt'));
 ```
 
-#### nothrow()
+#### nothrow() {#nothrow}
 
 Don't throw on non-zero exit code.
 
@@ -417,7 +417,7 @@ if (!result.ok) {
 }
 ```
 
-#### quiet()
+#### quiet() {#quiet}
 
 Suppress output.
 
@@ -430,7 +430,7 @@ import { $ } from '@xec-sh/core';
 await $`npm install`.quiet();
 ```
 
-#### timeout()
+#### timeout() {#timeout-1}
 
 Fail the command after a duration.
 
@@ -443,7 +443,7 @@ import { $ } from '@xec-sh/core';
 await $`slow-command`.timeout('5s');
 ```
 
-#### signal()
+#### signal() {#signal}
 
 Attach an `AbortSignal`. Aborting kills the process; the awaited call
 rejects with a `CommandError` (signalled exit), not a generic `AbortError`.
@@ -466,7 +466,7 @@ try {
 }
 ```
 
-#### cwd()
+#### cwd() {#cwd}
 
 Set working directory for this execution.
 
@@ -479,7 +479,7 @@ import { $ } from '@xec-sh/core';
 await $`npm build`.cwd('/project');
 ```
 
-#### env()
+#### env() {#env-1}
 
 Set environment variables for this execution.
 
@@ -492,7 +492,7 @@ import { $ } from '@xec-sh/core';
 await $`npm start`.env({ PORT: '3000' });
 ```
 
-#### start()
+#### start() {#start}
 
 Begin execution without awaiting. Useful when you need `.child`/`.spawned`/`.pid`
 before the command finishes.
@@ -508,7 +508,7 @@ const handle = await p.spawned;
 console.log('pid:', handle.pid);
 ```
 
-#### cache()
+#### cache() {#cache}
 
 Cache the result of this single command. Keyed by command + cwd + env +
 target, so the same command against different hosts or containers never
@@ -523,14 +523,14 @@ import { $ } from '@xec-sh/core';
 const result = await $`curl https://api.example.com/data`.cache({ ttl: 5000 });
 ```
 
-#### kill()
+#### kill() {#kill}
 
 Terminate the process, and everything it spawned (the whole process tree,
 not just the immediate child).
 
 `kill(signal?: NodeJS.Signals): void`
 
-#### stdin
+#### stdin {#stdin}
 
 Not a method — a writable stream property. Writes are buffered and
 forwarded once the process spawns, so there's no need to `.start()` first.
@@ -547,7 +547,7 @@ p.stdin.end();
 const result = await p;
 ```
 
-#### lines()
+#### lines() {#lines}
 
 Get output as array of lines.
 
@@ -561,7 +561,7 @@ const lines = await $`ls -la`.lines();
 lines.forEach(line => console.log(line));
 ```
 
-#### json()
+#### json() {#json}
 
 Parse trimmed output as JSON.
 
@@ -575,7 +575,7 @@ const data = await $`cat package.json`.json();
 console.log(data.name, data.version);
 ```
 
-#### text()
+#### text() {#text}
 
 Get trimmed output as a string.
 
@@ -588,7 +588,7 @@ import { $ } from '@xec-sh/core';
 const content = await $`cat README.md`.text();
 ```
 
-#### buffer()
+#### buffer() {#buffer}
 
 Get output as a `Buffer`. Called this way — directly on the un-awaited
 `ProcessPromise` — it re-encodes the already-decoded `stdout` string, so it
@@ -605,7 +605,7 @@ const lossyBuffer = await $`cat image.png`.buffer();       // not binary-safe
 const exactBuffer = (await $`cat image.png`).buffer();     // binary-safe
 ```
 
-### Async iteration
+### Async iteration {#async-iteration}
 
 Iteration applies backpressure while the consumer processes a line. Captured
 command output is still subject to `maxBuffer`. A normal nonzero exit is reported
@@ -630,7 +630,7 @@ for await (const line of $`tail -f /var/log/app.log`) {
 }
 ```
 
-## Execution Result
+## Execution Result {#execution-result}
 
 The result object an awaited `ProcessPromise` (or `execute()`) resolves to.
 
@@ -649,9 +649,9 @@ function summarize(result: ExecutionResult) {
 }
 ```
 
-## Error Handling
+## Error Handling {#error-handling}
 
-### ExecutionError and CommandError
+### ExecutionError and CommandError {#executionerror-and-commanderror}
 
 `ExecutionError` is the base class for execution and adapter failures. It
 carries a stable `kind: FailureKind` and a `recoverable` getter, for
@@ -691,9 +691,9 @@ See [Types](./types.md) for the full `FailureKind` list and the other error
 classes (`TimeoutError`, `MaxBufferExceededError`, `RetryError`,
 `AdapterError`, `ConnectionError`, `DockerError`, `KubernetesError`).
 
-## Advanced Features
+## Advanced Features {#advanced-features}
 
-### Connection Pooling
+### Connection Pooling {#connection-pooling}
 
 SSH connections are pooled per adapter and reused automatically. To tune the
 pool, configure the SSH adapter directly:
@@ -721,7 +721,7 @@ for (let i = 0; i < 100; i++) {
 }
 ```
 
-### Stream Processing
+### Stream Processing {#stream-processing}
 
 Process output as it arrives, via the async iterator — not `.lines()`,
 which waits for the command to finish and returns an array:
@@ -745,7 +745,7 @@ const handle = await p.spawned;
 handle.stdout?.on('data', chunk => console.log('Log:', chunk.toString()));
 ```
 
-### Abort Signal
+### Abort Signal {#abort-signal}
 
 Cancel long-running operations. The command dies from the resulting signal,
 so the rejection is a `CommandError`, not a plain `AbortError`:
@@ -767,11 +767,11 @@ try {
 }
 ```
 
-## Performance Characteristics
+## Performance Characteristics {#performance-characteristics}
 
 Command construction is lazy. Derived engines share adapter instances and SSH connection pools. `maxBuffer` bounds captured output, and `parallel` supplies a concurrency limit. Measure execution overhead with the built package, target shell and transport used by your application. Connection latency and child-process memory depend on that environment.
 
-## Related Documentation
+## Related Documentation {#related-documentation}
 
 - [Process Promise](./process-promise.md) - Detailed ProcessPromise API
 - [Types](./types.md) - TypeScript type definitions

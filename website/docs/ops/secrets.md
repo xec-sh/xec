@@ -5,11 +5,11 @@ title: Secret Management
 description: Encrypted secret storage and the SecretManager API
 ---
 
-# Secret Management
+# Secret Management {#secret-management}
 
 Encrypted secret storage with multiple provider backends.
 
-## Usage
+## Usage {#usage}
 
 ```typescript
 import { SecretManager } from '@xec-sh/ops';
@@ -29,7 +29,7 @@ const password = await secrets.get('db_password');
 await secrets.delete('db_password');
 ```
 
-## Providers
+## Providers {#providers}
 
 | Provider | Description |
 |----------|-------------|
@@ -40,7 +40,7 @@ await secrets.delete('db_password');
 | `aws-secrets` | AWS Secrets Manager |
 | `1password` | 1Password |
 
-## Configuration
+## Configuration {#configuration}
 
 ```typescript
 import { ConfigurationManager } from '@xec-sh/ops';
@@ -54,7 +54,7 @@ const config = new ConfigurationManager({
 });
 ```
 
-## In Config Files
+## In Config Files {#in-config-files}
 
 Reference secrets in YAML configuration:
 
@@ -68,13 +68,13 @@ targets:
 
 The `${secret:name}` syntax is resolved by the `VariableInterpolator` during config loading.
 
-## Encryption
+## Encryption {#encryption}
 
 The `local` provider encrypts with **AES-256-GCM**, deriving the key with
 **scrypt** from a per-secret random salt. Files are written owner-only
 (`0600`) into an owner-only directory (`0700`).
 
-### What the key is made of, and what that protects
+### What the key is made of, and what that protects {#what-the-key-is-made-of-and-what-that-protects}
 
 By default the key material is a machine identifier — the hardware UUID on
 macOS, `/etc/machine-id` on Linux. That is enough to make the stored file

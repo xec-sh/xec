@@ -7,22 +7,22 @@ source_files:
   - packages/ops/src/health/index.ts
 ---
 
-# Database Setup Recipe
+# Database Setup Recipe {#database-setup-recipe}
 
-## Implementation Reference
+## Implementation Reference {#implementation-reference}
 
 The recipe uses Xec’s public execution API and standard Node APIs. Its Xec entry points are:
 
 - `packages/core/src/core/execution-engine.ts`
 - `packages/ops/src/health/index.ts`
 
-## Overview
+## Overview {#overview}
 
 This recipe demonstrates how to set up and manage local development databases using Xec's Docker integration. It covers PostgreSQL, MySQL, MongoDB, and Redis. Use only an isolated development Compose project. Declare the referenced image/password variables in your local environment, keep credentials out of Git, and implement the named application migration/verification scripts before invoking them. The full Compose declaration is provided below.
 
-## PostgreSQL Setup
+## PostgreSQL Setup {#postgresql-setup}
 
-### Basic PostgreSQL Container
+### Basic PostgreSQL Container {#basic-postgresql-container}
 
 ```typescript
 // Use the reviewed Compose file below; up preserves the declared volume.
@@ -31,7 +31,7 @@ await $`docker compose -f compose.dev.yaml exec -T postgres psql -U developer -d
 // Never remove an existing database container or volume merely to repeat setup.
 ```
 
-### PostgreSQL with Docker Compose
+### PostgreSQL with Docker Compose {#postgresql-with-docker-compose}
 
 ```yaml
 services:
@@ -74,9 +74,9 @@ async function setupPostgresCompose() {
 setupPostgresCompose().catch(console.error);
 ```
 
-## MySQL Setup
+## MySQL Setup {#mysql-setup}
 
-### MySQL with Persistent Data
+### MySQL with Persistent Data {#mysql-with-persistent-data}
 
 ```typescript
 // The complete Compose file declares the image, volume and credentials.
@@ -86,9 +86,9 @@ await $`npm run db:migrate:mysql`;
 await $`npm run db:verify:mysql`;
 ```
 
-## MongoDB Setup
+## MongoDB Setup {#mongodb-setup}
 
-### MongoDB Replica Set
+### MongoDB Replica Set {#mongodb-replica-set}
 
 ```typescript
 await $`docker compose -f compose.dev.yaml up -d --wait mongodb`;
@@ -98,9 +98,9 @@ await $`npm run db:configure-mongo`;
 await $`npm run db:verify-mongo`;
 ```
 
-## Redis Setup
+## Redis Setup {#redis-setup}
 
-### Redis with Persistence
+### Redis with Persistence {#redis-with-persistence}
 
 ```typescript
 await $`docker compose -f compose.dev.yaml up -d --wait redis`;
@@ -109,9 +109,9 @@ if (response.trim() !== 'PONG') throw new Error('Redis did not answer PONG');
 // This loopback-only development example does not define production authentication.
 ```
 
-## Multi-Database Stack
+## Multi-Database Stack {#multi-database-stack}
 
-### Complete Development Stack
+### Complete Development Stack {#complete-development-stack}
 
 ```yaml
 # compose.dev.yaml — image references are chosen and pinned by the application.
@@ -177,9 +177,9 @@ await $`npm run db:verify`;
 console.log('Container health and application database acceptance passed');
 ```
 
-## Database Management
+## Database Management {#database-management}
 
-### Backup and Restore
+### Backup and Restore {#backup-and-restore}
 
 ```typescript
 // scripts/backup.ts and scripts/restore.ts are the complete examples in the
@@ -188,7 +188,7 @@ await $`xec run scripts/backup.ts`;
 // Restore into a separately provisioned empty test database, never reset the live volume.
 ```
 
-### Health Monitoring
+### Health Monitoring {#health-monitoring}
 
 ```typescript
 import { HealthChecker } from '@xec-sh/ops';
@@ -200,9 +200,9 @@ console.log(report);
 if (!report.healthy) throw new Error('Database acceptance failed');
 ```
 
-## Configuration in Xec
+## Configuration in Xec {#configuration-in-xec}
 
-### Task Configuration
+### Task Configuration {#task-configuration}
 
 ```yaml
 version: '1.0'
@@ -219,23 +219,23 @@ tasks:
     command: xec run scripts/backup.ts
 ```
 
-## Performance Characteristics
+## Performance Characteristics {#performance-characteristics}
 
-### Startup Times
+### Startup Times {#startup-times}
 
 Use the declared healthchecks and SQL acceptance; a fixed sleep cannot establish readiness.
 
-### Resource Usage
+### Resource Usage {#resource-usage}
 
 Measure the chosen images and actual data volume. Set Compose limits appropriate for the workstation and workload.
 
-### Docker Operations
+### Docker Operations {#docker-operations}
 
 `up --wait` exits unsuccessfully if the configured health contract fails. It does not replace application migrations or replica-set acceptance. Retain volumes on ordinary stop/start and review version compatibility before changing images.
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### Common Issues
+### Common Issues {#common-issues}
 
 1. **Port already in use**: inspect the listener and choose a different loopback mapping. Do not terminate an unrelated database.
    ```bash
@@ -249,14 +249,14 @@ Measure the chosen images and actual data volume. Set Compose limits appropriate
    ```
 4. **Health timeout**: inspect the failing check, image, available resources and database logs. Increase the budget only after understanding the failure.
 
-## Related Recipes
+## Related Recipes {#related-recipes}
 
 - [Hot Reload](./hot-reload.md) - Development with file watching
 - [API Mocking](./api-mocking.md) - Mock API servers
 - [Test Data](./test-data.md) - Generate test data
 - [Docker Deploy](../deployment/docker-deploy.md) - Production deployment
 
-## See Also
+## See Also {#see-also}
 
 - [Docker Adapter Documentation](../../core/execution-engine/adapters/docker-adapter.md)
 - [Docker Compose Integration](../../targets/docker/compose-integration.md)

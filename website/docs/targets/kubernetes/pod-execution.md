@@ -5,11 +5,11 @@ keywords: [kubernetes, k8s, pod, exec, containers, execution]
 sidebar_position: 2
 ---
 
-# Pod Execution
+# Pod Execution {#pod-execution}
 
 Command execution in a pod goes through `kubectl exec`. This page covers the options that shape that call: pod selection, TTY/stdin, shell vs. raw, environment and working directory, timeouts, and error handling. See [Kubernetes Target Overview](./overview.md) for the basics of `$.k8s(...)` and [Multi-Container Pods](./multi-container.md) for targeting a specific container.
 
-## Direct Pod Execution
+## Direct Pod Execution {#direct-pod-execution}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -22,7 +22,7 @@ const processes = await $.k8s({
 console.log(processes);
 ```
 
-## Using a Pod Instance
+## Using a Pod Instance {#using-a-pod-instance}
 
 For multiple commands against the same pod, get a handle once:
 
@@ -35,7 +35,7 @@ const processes = await pod.exec`ps aux | grep node`;
 console.log(`Pod: ${hostname}`);
 ```
 
-## Pod Selection by Label
+## Pod Selection by Label {#pod-selection-by-label}
 
 A `pod` value that starts with `-l` is resolved to a matching pod name before the exec call runs — the adapter looks up the first pod the selector matches and execs into it, not into the selector itself:
 
@@ -48,7 +48,7 @@ await $.k8s({
 
 There is no glob or regex matching on pod names — a `pod` value without the `-l` prefix is used as a literal pod name.
 
-## TTY and Stdin
+## TTY and Stdin {#tty-and-stdin}
 
 ```typescript
 // Full interactive TTY (implies stdin)
@@ -60,7 +60,7 @@ await $.k8s({ pod: 'worker-pod', stdin: false })`batch-process --config /app/con
 
 `kubectl exec` gets `-i` by default whenever `stdin` isn't explicitly `false` — plain commands are already run with stdin attached. `tty: true` adds `-t` as well and always implies `-i`, regardless of the `stdin` option.
 
-## Custom kubectl Flags
+## Custom kubectl Flags {#custom-kubectl-flags}
 
 `execFlags` appends raw arguments to the `kubectl exec` invocation:
 
@@ -71,7 +71,7 @@ await $.k8s({
 })`long-running-command`;
 ```
 
-## Shell vs. Raw Execution
+## Shell vs. Raw Execution {#shell-vs-raw-execution}
 
 ```typescript
 const pod = $.k8s({ namespace: 'production' }).pod('web-server');
@@ -86,7 +86,7 @@ await pod.raw`echo ${userInput}`;           // unsafe: spliced into the command 
 
 Both still run through a shell in the pod (pipes, `&&`, redirects work in either) — the difference is only whether interpolated `${}` values are escaped first. `exec` is the default and safe for untrusted values; use `raw` only for values you already trust or that are meant to be shell syntax.
 
-## Environment and Working Directory
+## Environment and Working Directory {#environment-and-working-directory}
 
 `namespace` and `container` are set once, at `$.k8s(...)` or shorthand time — they can't be changed by chaining. `env` and `cwd` can:
 
@@ -100,7 +100,7 @@ await configured`echo "DB: $DATABASE_URL" && pwd`;
 
 Both reach the pod as a shell prelude (`cd ... && export ... && <command>`) — they run inside the pod, not on the machine running Xec.
 
-## Timeouts and Retries
+## Timeouts and Retries {#timeouts-and-retries}
 
 ```typescript
 const longRunning = $.k8s({ pod: 'batch-processor' }).timeout(300_000); // ms
@@ -113,7 +113,7 @@ const resilient = $.k8s({ pod: 'api-pod' }).retry({
 await resilient`curl -f http://external-api/data`;
 ```
 
-## Streaming Output
+## Streaming Output {#streaming-output}
 
 `ProcessPromise` supports async line iteration for any long-running command, kubernetes included:
 
@@ -128,7 +128,7 @@ for await (const line of tail) {
 
 Break out of the loop and call `tail.kill()` to stop it. For pod logs specifically (as opposed to an arbitrary streaming command), prefer `pod.streamLogs()` / `pod.follow()` — see [Log Streaming](./log-streaming.md).
 
-## Error Handling
+## Error Handling {#error-handling}
 
 ```typescript
 import { ExecutionError } from '@xec-sh/core';
@@ -156,7 +156,7 @@ if (result.ok) {
 }
 ```
 
-## Checking Pod Readiness
+## Checking Pod Readiness {#checking-pod-readiness}
 
 `isPodReady` and `getPodFromSelector` live on the adapter, not on the pod context — reach them through `$.getAdapter('kubernetes')`:
 

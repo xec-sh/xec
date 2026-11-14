@@ -3,13 +3,13 @@ title: Async Patterns
 description: Concurrency, cancellation, and dependency scheduling through Xec
 ---
 
-# Async Patterns for Command Execution
+# Async Patterns for Command Execution {#async-patterns-for-command-execution}
 
 Xec commands are awaitable. Use the execution engine for process ownership and the standard promise APIs for coordinating their results.
 
-## Sequential vs Parallel Execution
+## Sequential vs Parallel Execution {#sequential-vs-parallel-execution}
 
-### Sequential Execution
+### Sequential Execution {#sequential-execution}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -18,7 +18,7 @@ await $`pnpm install --frozen-lockfile`;
 await $`pnpm build`;
 ```
 
-### Parallel Execution
+### Parallel Execution {#parallel-execution}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -30,7 +30,7 @@ const result = await $.parallel.settled(['pnpm lint', 'pnpm typecheck'], {
 if (result.failed.length) throw new AggregateError(result.failed, 'Checks failed');
 ```
 
-### Mixed Sequential and Parallel
+### Mixed Sequential and Parallel {#mixed-sequential-and-parallel}
 
 ```typescript
 import { Pipeline } from '@xec-sh/ops';
@@ -44,9 +44,9 @@ const result = await Pipeline.create('ci')
 if (!result.success) process.exitCode = 1;
 ```
 
-## Promise Control Patterns
+## Promise Control Patterns {#promise-control-patterns}
 
-### Promise.allSettled for Resilient Execution
+### Promise.allSettled for Resilient Execution {#promiseallsettled-for-resilient-execution}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -62,7 +62,7 @@ if (outcomes.some(outcome => outcome.status === 'rejected')) process.exitCode = 
 
 This waits for every submitted operation. With `.nothrow()`, inspect `result.ok` as well because a fulfilled promise may contain a failed exit.
 
-### Promise.race for Timeouts
+### Promise.race for Timeouts {#promiserace-for-timeouts}
 
 Give the command its deadline through `.timeout()`. A timer raced against a command only settles the outer promise and leaves the command running.
 
@@ -72,7 +72,7 @@ import { $ } from '@xec-sh/core';
 await $`pnpm test`.timeout('2m');
 ```
 
-### Promise.any for Fallback Servers
+### Promise.any for Fallback Servers {#promiseany-for-fallback-servers}
 
 A read may query redundant endpoints. Cancel and join outstanding attempts after the first successful result. Only use this pattern when requests can safely run concurrently.
 
@@ -93,9 +93,9 @@ try {
 }
 ```
 
-## Concurrency Control
+## Concurrency Control {#concurrency-control}
 
-### Limited Parallelism
+### Limited Parallelism {#limited-parallelism}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -110,13 +110,13 @@ const result = await $.parallel.settled(commands, { maxConcurrent: 2, timeout: 3
 if (result.failed.length) throw new AggregateError(result.failed, 'Host checks failed');
 ```
 
-### Batch Processing
+### Batch Processing {#batch-processing}
 
 Use `maxConcurrent` for a rolling work queue. A batch barrier is useful when the next group depends on the complete result of the current group. Await and inspect that result before submitting another group.
 
-## Async Iterators and Generators
+## Async Iterators and Generators {#async-iterators-and-generators}
 
-### Async Generator for Streaming Results
+### Async Generator for Streaming Results {#async-generator-for-streaming-results}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -132,7 +132,7 @@ for await (const { host, result } of inspectHosts(['web1.example.com'])) {
 }
 ```
 
-### Async Iterator for Progress Updates
+### Async Iterator for Progress Updates {#async-iterator-for-progress-updates}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -144,9 +144,9 @@ for await (const line of $`pnpm build`.timeout('5m')) {
 
 The iterator emits complete output lines. Exceptions from the command still propagate to the consumer.
 
-## Event-Driven Async Patterns
+## Event-Driven Async Patterns {#event-driven-async-patterns}
 
-### Event Emitter for Long Operations
+### Event Emitter for Long Operations {#event-emitter-for-long-operations}
 
 Pipeline supplies typed start, output, and completion events. Use its observer for task progress. If an observer fails, Pipeline cancels the run and rejects it.
 
@@ -163,31 +163,31 @@ const result = await Pipeline.create('build')
 if (!result.success) process.exitCode = 1;
 ```
 
-## Queue Management
+## Queue Management {#queue-management}
 
-### Priority Queue
+### Priority Queue {#priority-queue}
 
 For a finite job list, sort command descriptions by priority before submitting them to `$.parallel`. The scheduler preserves dispatch order within the concurrency limit. Reprioritizing work already running requires application-specific scheduling.
 
-## Async Coordination Patterns
+## Async Coordination Patterns {#async-coordination-patterns}
 
-### Semaphore for Resource Limiting
+### Semaphore for Resource Limiting {#semaphore-for-resource-limiting}
 
 Share a scheduler for work competing for one resource. Separate calls to `$.parallel` have independent limits. A cross-process critical section can use the kernel-backed `withFileLock` utility in [Ops](../../ops/index.md).
 
-### Barrier Synchronization
+### Barrier Synchronization {#barrier-synchronization}
 
 A Pipeline step with multiple `dependsOn` entries becomes eligible after those dependencies settle successfully. Failure skips dependent work and stays visible in the final result.
 
-## Async Pipelines
+## Async Pipelines {#async-pipelines}
 
-### Pipeline Builder
+### Pipeline Builder {#pipeline-builder}
 
 Use [Pipeline](../../ops/pipeline.md) for command graphs and [Workflow](../../ops/workflow.md) for tasks passing typed application data. Both validate dependencies before execution. Function callbacks must observe their cancellation signal.
 
-## Async Stream Processing
+## Async Stream Processing {#async-stream-processing}
 
-### Transform Stream for Command Output
+### Transform Stream for Command Output {#transform-stream-for-command-output}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -201,7 +201,7 @@ await $`pnpm build`
 
 The local adapter observes writable backpressure and completion. See [streaming](./streaming.md) for line transformations and cancellation.
 
-## Complete Async Workflow Example
+## Complete Async Workflow Example {#complete-async-workflow-example}
 
 ```typescript
 import { Workflow } from '@xec-sh/ops';

@@ -8,15 +8,15 @@ source_files:
   - apps/xec/src/commands/run.ts
 ---
 
-# Migrating from Shell Scripts to Xec
+# Migrating from Shell Scripts to Xec {#migrating-from-shell-scripts-to-xec}
 
-## Overview
+## Overview {#overview}
 
 This guide helps you migrate from traditional bash/sh scripts to Xec's TypeScript-based scripting system. Xec provides the power and familiarity of shell scripting with the safety of TypeScript, cross-platform compatibility, and enhanced error handling.
 
-## Why Migrate from Shell Scripts?
+## Why Migrate from Shell Scripts? {#why-migrate-from-shell-scripts}
 
-### Shell Script Limitations
+### Shell Script Limitations {#shell-script-limitations}
 
 ```bash
 #!/bin/bash
@@ -59,7 +59,7 @@ echo "Deployment complete"
 - Difficult debugging
 - Poor IDE support
 
-### Xec Advantages
+### Xec Advantages {#xec-advantages}
 
 ```typescript
 // scripts/deploy.ts
@@ -112,9 +112,9 @@ console.log('✅ Deployment complete');
 - Full IDE support
 - NPM ecosystem access
 
-## Core Concepts Mapping
+## Core Concepts Mapping {#core-concepts-mapping}
 
-### Shell → Xec
+### Shell → Xec {#shell--xec}
 
 | Shell Concept | Xec Equivalent | Example |
 |---------------|----------------|---------|
@@ -128,9 +128,9 @@ console.log('✅ Deployment complete');
 | `function` | JavaScript function | `function/async function` |
 | `exit 1` | `process.exit(1)` | Or throw error |
 
-## Common Pattern Migrations
+## Common Pattern Migrations {#common-pattern-migrations}
 
-### 1. Variables and Environment
+### 1. Variables and Environment {#1-variables-and-environment}
 
 **Bash:**
 ```bash
@@ -177,7 +177,7 @@ console.log(`Building ${NAME} v${VERSION}`);
 console.log(`Files: ${fileCount || 0}`);
 ```
 
-### 2. Conditionals
+### 2. Conditionals {#2-conditionals}
 
 **Bash:**
 ```bash
@@ -240,7 +240,7 @@ if (nodeExists.ok) {
 }
 ```
 
-### 3. Loops
+### 3. Loops {#3-loops}
 
 **Bash:**
 ```bash
@@ -302,7 +302,7 @@ for (const line of lines) {
 }
 ```
 
-### 4. Functions
+### 4. Functions {#4-functions}
 
 **Bash:**
 ```bash
@@ -361,7 +361,7 @@ if (await checkService('nginx')) {
 }
 ```
 
-### 5. Error Handling
+### 5. Error Handling {#5-error-handling}
 
 **Bash:**
 ```bash
@@ -427,7 +427,7 @@ try {
 }
 ```
 
-### 6. Pipes and Redirection
+### 6. Pipes and Redirection {#6-pipes-and-redirection}
 
 **Bash:**
 ```bash
@@ -489,9 +489,9 @@ const [file1Sorted, file2Sorted] = await Promise.all([
 // Compare programmatically
 ```
 
-## Complex Script Migration
+## Complex Script Migration {#complex-script-migration}
 
-### Original Bash Script
+### Original Bash Script {#original-bash-script}
 
 ```bash
 #!/bin/bash
@@ -622,7 +622,7 @@ main() {
 main "$@"
 ```
 
-### Migrated to Xec
+### Migrated to Xec {#migrated-to-xec}
 
 ```typescript
 // scripts/backup.ts
@@ -847,9 +847,9 @@ await main().catch(async (error) => {
 });
 ```
 
-## Shell-Specific Features
+## Shell-Specific Features {#shell-specific-features}
 
-### 1. Signal Handling
+### 1. Signal Handling {#1-signal-handling}
 
 **Bash:**
 ```bash
@@ -876,7 +876,7 @@ try {
 // Do not call process.exit() or attach async cleanup to the synchronous exit event.
 ```
 
-### 2. Background Jobs
+### 2. Background Jobs {#2-background-jobs}
 
 **Bash:**
 ```bash
@@ -896,7 +896,7 @@ const job = $`long_command`.nothrow();
 const result = await job;
 ```
 
-### 3. File Descriptors
+### 3. File Descriptors {#3-file-descriptors}
 
 **Bash:**
 ```bash
@@ -912,9 +912,9 @@ const input = createReadStream('input.txt');
 const output = createWriteStream('output.txt');
 ```
 
-## Migration Tools and Helpers
+## Migration Tools and Helpers {#migration-tools-and-helpers}
 
-### Shell Command Wrapper
+### Shell Command Wrapper {#shell-command-wrapper}
 
 For gradual migration, wrap shell scripts:
 
@@ -930,7 +930,7 @@ export async function runShellScript(scriptPath: string, ...args: string[]) {
 await runShellScript('./legacy/deploy.sh', 'production');
 ```
 
-### Common Shell Utilities
+### Common Shell Utilities {#common-shell-utilities}
 
 ```typescript
 // utils/shell-utils.ts
@@ -957,9 +957,9 @@ export async function sed(pattern: string, replacement: string, file: string) {
 }
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### 1. Use TypeScript Features
+### 1. Use TypeScript Features {#1-use-typescript-features}
 
 ```typescript
 // Define interfaces for configuration
@@ -984,7 +984,7 @@ async function deploy(config: DeployConfig): Promise<void> {
 }
 ```
 
-### 2. Error Handling Strategy
+### 2. Error Handling Strategy {#2-error-handling-strategy}
 
 ```typescript
 try {
@@ -996,7 +996,7 @@ try {
 }
 ```
 
-### 3. Configuration Management
+### 3. Configuration Management {#3-configuration-management}
 
 ```typescript
 import { config } from '@xec-sh/ops';
@@ -1006,7 +1006,7 @@ if (!environment) throw new Error('vars.environment is required');
 console.log(`Configured environment: ${environment}`);
 ```
 
-## Summary
+## Summary {#summary}
 
 Migrating from shell scripts to Xec provides:
 - ✅ Cross-platform compatibility

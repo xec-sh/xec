@@ -3,13 +3,13 @@ title: Configuration Validation
 description: Validating and testing Xec configurations
 ---
 
-# Configuration Validation
+# Configuration Validation {#configuration-validation}
 
 Xec provides comprehensive validation capabilities to ensure your configurations are correct, secure, and optimized before deployment. This guide covers validation strategies, tools, and best practices.
 
-## Validation Levels
+## Validation Levels {#validation-levels}
 
-### 1. Schema Validation
+### 1. Schema Validation {#1-schema-validation}
 
 Validates configuration structure and types:
 
@@ -24,7 +24,7 @@ xec config validate
 ✓ Required fields present
 ```
 
-### 2. Semantic Validation
+### 2. Semantic Validation {#2-semantic-validation}
 
 Checks logical consistency:
 
@@ -39,7 +39,7 @@ xec config validate --verbose
 # - Profiles inheritance is correct
 ```
 
-### 3. Runtime Validation
+### 3. Runtime Validation {#3-runtime-validation}
 
 Validates execution environment:
 
@@ -54,9 +54,9 @@ xec config validate --runtime
 # - Secret availability
 ```
 
-## Configuration Schema
+## Configuration Schema {#configuration-schema}
 
-### Schema Structure
+### Schema Structure {#schema-structure}
 
 ```yaml
 # Xec follows this schema
@@ -90,7 +90,7 @@ profiles:       # Optional, profile definitions
   additionalProperties: object
 ```
 
-### Type Validation
+### Type Validation {#type-validation}
 
 ```yaml
 # Types are enforced
@@ -105,9 +105,9 @@ vars:
     key: value
 ```
 
-## Validation Commands
+## Validation Commands {#validation-commands}
 
-### Basic Validation
+### Basic Validation {#basic-validation}
 
 ```bash
 # Validate current configuration
@@ -120,7 +120,7 @@ xec config validate --file custom-config.yaml
 xec config validate --profile production
 ```
 
-### Detailed Validation
+### Detailed Validation {#detailed-validation}
 
 ```bash
 # Show all validation details
@@ -133,7 +133,7 @@ xec config validate --errors-only
 xec config validate --json
 ```
 
-### Selective Validation
+### Selective Validation {#selective-validation}
 
 ```bash
 # Validate specific sections
@@ -145,9 +145,9 @@ xec config validate --variables
 xec config validate
 ```
 
-## Common Validation Errors
+## Common Validation Errors {#common-validation-errors}
 
-### Missing Required Fields
+### Missing Required Fields {#missing-required-fields}
 
 ```yaml
 # Error: version is required
@@ -162,7 +162,7 @@ tasks:
   deploy: echo "deploy"
 ```
 
-### Invalid References
+### Invalid References {#invalid-references}
 
 ```yaml
 # Error: Target 'hosts.nonexistent' not found
@@ -178,7 +178,7 @@ tasks:
     target: hosts.production
 ```
 
-### Circular Dependencies
+### Circular Dependencies {#circular-dependencies}
 
 ```yaml
 # Error: Circular dependency detected
@@ -198,7 +198,7 @@ profiles:
     extends: base
 ```
 
-### Type Mismatches
+### Type Mismatches {#type-mismatches}
 
 ```yaml
 # Error: Expected number, got string
@@ -214,9 +214,9 @@ vars:
   port: 8080  # Number
 ```
 
-## Variable Validation
+## Variable Validation {#variable-validation}
 
-### Undefined Variables
+### Undefined Variables {#undefined-variables}
 
 ```yaml
 # Detect undefined variables
@@ -233,7 +233,7 @@ tasks:
     command: echo ${undefined:default}
 ```
 
-### Variable Resolution
+### Variable Resolution {#variable-resolution}
 
 ```bash
 # Test variable resolution
@@ -246,7 +246,7 @@ xec config get vars.database.host
 xec config get vars.database.host --profile production
 ```
 
-### Circular References
+### Circular References {#circular-references}
 
 ```yaml
 # Detect circular variable references
@@ -262,9 +262,9 @@ vars:
   c: ${b}
 ```
 
-## Target Validation
+## Target Validation {#target-validation}
 
-### Connectivity Testing
+### Connectivity Testing {#connectivity-testing}
 
 ```bash
 # Test target connectivity
@@ -277,7 +277,7 @@ xec test --all-targets
 xec test hosts.production --verbose
 ```
 
-### SSH Target Validation
+### SSH Target Validation {#ssh-target-validation}
 
 ```yaml
 # Validate SSH configuration
@@ -295,7 +295,7 @@ targets:
 # - Key has correct permissions
 ```
 
-### Docker Target Validation
+### Docker Target Validation {#docker-target-validation}
 
 ```yaml
 # Validate Docker configuration
@@ -311,7 +311,7 @@ targets:
 # - Volume paths exist
 ```
 
-### Kubernetes Target Validation
+### Kubernetes Target Validation {#kubernetes-target-validation}
 
 ```yaml
 # Validate Kubernetes configuration
@@ -328,9 +328,9 @@ targets:
 # - RBAC permissions
 ```
 
-## Task Validation
+## Task Validation {#task-validation}
 
-### Task Structure
+### Task Structure {#task-structure}
 
 ```yaml
 # Validate task definition
@@ -348,7 +348,7 @@ tasks:
 # - Parameters have valid types
 ```
 
-### Step Dependencies
+### Step Dependencies {#step-dependencies}
 
 ```yaml
 tasks:
@@ -363,7 +363,7 @@ tasks:
         dependsOn: [first]  # Validates dependency exists
 ```
 
-### Parameter Validation
+### Parameter Validation {#parameter-validation}
 
 ```yaml
 tasks:
@@ -386,9 +386,9 @@ tasks:
 # - Value ranges respected
 ```
 
-## Profile Validation
+## Profile Validation {#profile-validation}
 
-### Inheritance Chain
+### Inheritance Chain {#inheritance-chain}
 
 ```yaml
 profiles:
@@ -407,7 +407,7 @@ profiles:
       environment: production
 ```
 
-### Profile Merging
+### Profile Merging {#profile-merging}
 
 ```bash
 # Test profile merging
@@ -417,9 +417,9 @@ xec config show --profile production
 xec config validate --profile production
 ```
 
-## Custom Validation
+## Custom Validation {#custom-validation}
 
-### Validation Scripts
+### Validation Scripts {#validation-scripts}
 
 ```yaml
 tasks:
@@ -442,7 +442,7 @@ tasks:
       }
 ```
 
-### Pre-execution Validation
+### Pre-execution Validation {#pre-execution-validation}
 
 ```yaml
 tasks:
@@ -455,7 +455,7 @@ tasks:
     command: deploy-application
 ```
 
-### Validation Rules
+### Validation Rules {#validation-rules}
 
 ```yaml
 # Define validation rules
@@ -477,9 +477,9 @@ vars:
         maxLength: 64
 ```
 
-## Environment Validation
+## Environment Validation {#environment-validation}
 
-### Environment Checks
+### Environment Checks {#environment-checks}
 
 ```yaml
 tasks:
@@ -503,7 +503,7 @@ tasks:
       }
 ```
 
-### Resource Validation
+### Resource Validation {#resource-validation}
 
 ```yaml
 tasks:
@@ -525,9 +525,9 @@ tasks:
       }
 ```
 
-## Continuous Validation
+## Continuous Validation {#continuous-validation}
 
-### Pre-commit Hooks
+### Pre-commit Hooks {#pre-commit-hooks}
 
 ```bash
 #!/bin/bash
@@ -540,7 +540,7 @@ xec config validate || {
 }
 ```
 
-### CI/CD Integration
+### CI/CD Integration {#cicd-integration}
 
 ```yaml
 # .github/workflows/validate.yml
@@ -558,7 +558,7 @@ jobs:
         run: xec config validate --strict
 ```
 
-### Automated Testing
+### Automated Testing {#automated-testing}
 
 ```yaml
 tasks:
@@ -577,9 +577,9 @@ tasks:
         command: xec security scan
 ```
 
-## Validation Reports
+## Validation Reports {#validation-reports}
 
-### Generate Reports
+### Generate Reports {#generate-reports}
 
 ```bash
 # Generate validation report
@@ -589,7 +589,7 @@ xec config validate --report validation-report.json
 xec config validate --report validation-report.html
 ```
 
-### Report Format
+### Report Format {#report-format}
 
 ```json
 {
@@ -608,23 +608,23 @@ xec config validate --report validation-report.html
 }
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### 1. Validate Early and Often
+### 1. Validate Early and Often {#1-validate-early-and-often}
 
 ```bash
 # Add to development workflow
 alias xec-save='xec config validate && git add .xec/'
 ```
 
-### 2. Use Strict Mode
+### 2. Use Strict Mode {#2-use-strict-mode}
 
 ```bash
 # Fail on warnings in production
 xec config validate --strict --profile production
 ```
 
-### 3. Automate Validation
+### 3. Automate Validation {#3-automate-validation}
 
 ```yaml
 # Add validation task
@@ -636,7 +636,7 @@ tasks:
       - command: xec run test-suite
 ```
 
-### 4. Document Validation Rules
+### 4. Document Validation Rules {#4-document-validation-rules}
 
 ```yaml
 # Document requirements
@@ -652,7 +652,7 @@ vars:
       - kubectl: Kubernetes management
 ```
 
-### 5. Progressive Validation
+### 5. Progressive Validation {#5-progressive-validation}
 
 ```yaml
 # Start lenient, increase strictness
@@ -668,9 +668,9 @@ profiles:
       failOnWarning: true
 ```
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### Validation Failures
+### Validation Failures {#validation-failures}
 
 ```bash
 # Debug validation issues
@@ -683,7 +683,7 @@ xec config show --resolved
 xec config validate --tasks --verbose
 ```
 
-### Common Solutions
+### Common Solutions {#common-solutions}
 
 | Error | Solution |
 |-------|----------|
@@ -694,12 +694,12 @@ xec config validate --tasks --verbose
 | Circular dependency | Break circular reference chain |
 | Type mismatch | Ensure correct type in definition |
 
-## Next Steps
+## Next Steps {#next-steps}
 
 - [Troubleshooting](./troubleshooting.md) - Fixing common issues
 - [Best Practices](./best-practices.md) - Configuration patterns
 
-## See Also
+## See Also {#see-also}
 
 - [Configuration Overview](../overview.md) - Configuration basics
 - [Best Practices](./best-practices.md) - Configuration patterns

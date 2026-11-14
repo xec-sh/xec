@@ -3,11 +3,11 @@ title: Error Handling
 description: Error types, exit code explanation, and failure classification
 ---
 
-# Error Handling
+# Error Handling {#error-handling}
 
 The Xec execution engine provides comprehensive error handling with a Result pattern, automatic retries, and detailed error context for robust command execution.
 
-## Overview
+## Overview {#overview}
 
 Error handling (`packages/core/src/core/error.ts`) provides:
 
@@ -18,9 +18,9 @@ Error handling (`packages/core/src/core/error.ts`) provides:
 - **Graceful degradation** strategies
 - **Event-based logging** and recovery
 
-## Result Pattern
+## Result Pattern {#result-pattern}
 
-### Basic Usage
+### Basic Usage {#basic-usage}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -36,19 +36,19 @@ if (result.ok) {
 }
 ```
 
-### Result Type Definition
+### Result Type Definition {#result-type-definition}
 
 Import `ExecutionResult` from `@xec-sh/core`. Its `ok`, `exitCode`, `signal` and `cause` describe completion. `stdout`, `stderr`, `stdall` and `buffer()` expose captured output. Metadata includes `command`, `duration`, `startedAt`, `finishedAt`, `adapter`, `host` and `container`. `throwIfFailed()` converts an unsuccessful completed result into a `CommandError`.
 
 Transport or spawn failures can still reject a `.nothrow()` command. Preserve those errors separately from a completed nonzero exit.
 
-## Error Classes
+## Error Classes {#error-classes}
 
 `CommandError`, `ConnectionError`, `TimeoutError`, `AdapterError`, `DockerError`, `KubernetesError` and `MaxBufferExceededError` extend `ExecutionError`. Its `code` identifies the error type, `kind` classifies the failure and `details` contains adapter-specific context.
 
 `RetryError` extends `Error` and records the attempted results. Use the public classes for `instanceof` checks.
 
-### Handling Specific Errors
+### Handling Specific Errors {#handling-specific-errors}
 
 ```typescript
 import { $, CommandError, ExecutionError } from '@xec-sh/core';
@@ -62,7 +62,7 @@ try {
 }
 ```
 
-### Why a Failure Failed
+### Why a Failure Failed {#why-a-failure-failed}
 
 ```typescript
 import { $, classifyFailure } from '@xec-sh/core';
@@ -80,9 +80,9 @@ try {
 
 The classifications are `command-failed`, `outcome-unknown`, `timeout`, `connection-lost`, `connection-refused`, `authentication`, `not-found`, `permission-denied`, `invalid-usage`, `host-key-mismatch` and `unknown`. `recoverable` identifies connection failures for which a fresh transport may succeed. Applications must separately establish whether repeating an operation is safe.
 
-## Retry Logic
+## Retry Logic {#retry-logic}
 
-### Automatic Retries
+### Automatic Retries {#automatic-retries}
 
 ```typescript
 import { $, retry } from '@xec-sh/core';
@@ -125,7 +125,7 @@ through the derived engine — useful when you don't want to wrap each call in
 await $.retry({ maxRetries: 3 })`unstable-service`;
 ```
 
-### Conditional Retries
+### Conditional Retries {#conditional-retries}
 
 ```typescript
 import { $, retry } from '@xec-sh/core';
@@ -140,7 +140,7 @@ await retry(() => $`curl --fail --silent --show-error https://api.example.com/he
 
 This example retries a read-only health probe for selected curl connection failures. A transport error outside `CommandError` propagates immediately.
 
-### Backoff
+### Backoff {#backoff}
 
 ```typescript
 import { $, retry } from '@xec-sh/core';
@@ -157,9 +157,9 @@ await retry(() => $`curl --fail --silent https://api.example.com/health`, {
 
 `backoffMultiplier: 1` gives a constant delay. `maxRetries` excludes the initial attempt. The same core options are available through `$.retry(options)`.
 
-## Error Context
+## Error Context {#error-context}
 
-### Reading Context From a Result or Error
+### Reading Context From a Result or Error {#reading-context-from-a-result-or-error}
 
 ```typescript
 const remote = $.ssh({ host: 'server.com', username: 'user' });
@@ -193,7 +193,7 @@ try {
 }
 ```
 
-### Adding Custom Context
+### Adding Custom Context {#adding-custom-context}
 
 There is no built-in way to attach arbitrary custom context (a deployment
 name, a service version) to a thrown error. Use the standard `cause` chain
@@ -207,19 +207,19 @@ try {
 }
 ```
 
-## Error Recovery
+## Error Recovery {#error-recovery}
 
-### Fallback Chains
+### Fallback Chains {#fallback-chains}
 
 Define alternate targets only for reads whose data consistency permits substitution. A failed deployment or migration requires inspection of the original target. Preserve the original error when reporting the unavailable operation. Xec exposes the failure classification so the application can make this decision.
 
-### Circuit Breaker Pattern
+### Circuit Breaker Pattern {#circuit-breaker-pattern}
 
 A circuit breaker belongs to the caller's service policy. Define the failure threshold, cooldown, read-only recovery probe and shared state explicitly when a workflow needs one. Xec exposes classified failures and execution events for that policy. Its SSH connection pool manages transport reuse independently.
 
-## Timeout Handling
+## Timeout Handling {#timeout-handling}
 
-### Command Timeouts
+### Command Timeouts {#command-timeouts}
 
 ```typescript
 import { ExecutionError } from '@xec-sh/core';
@@ -249,7 +249,7 @@ others wrap it in an adapter-specific error while classifying it correctly —
 checking `error.kind === 'timeout'` is the one pattern that works
 consistently across every target.
 
-### Cascading Timeouts
+### Cascading Timeouts {#cascading-timeouts}
 
 ```typescript
 // Different timeouts for different stages
@@ -267,9 +267,9 @@ async function deployWithTimeouts() {
 }
 ```
 
-## Validation and Assertions
+## Validation and Assertions {#validation-and-assertions}
 
-### Input Validation
+### Input Validation {#input-validation}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -285,7 +285,7 @@ console.log(await checkService('api'));
 
 Validate the operation and its arguments before execution. Template interpolation escapes argument values. Checking a command string for a few forbidden substrings cannot establish that the whole shell program is safe.
 
-### Output Assertions
+### Output Assertions {#output-assertions}
 
 There is no built-in `.assert()` on `ProcessPromise` — check the result directly:
 
@@ -302,9 +302,9 @@ if (status.status !== 'healthy') {
 }
 ```
 
-## Error Aggregation
+## Error Aggregation {#error-aggregation}
 
-### Parallel Error Handling
+### Parallel Error Handling {#parallel-error-handling}
 
 ```typescript
 import { $, parallel } from '@xec-sh/core';
@@ -324,7 +324,7 @@ async function deployToAllServers(servers: string[]) {
 }
 ```
 
-### Error Summaries
+### Error Summaries {#error-summaries}
 
 ```typescript
 import { ExecutionError } from '@xec-sh/core';
@@ -353,9 +353,9 @@ class ErrorSummary {
 }
 ```
 
-## Logging and Debugging
+## Logging and Debugging {#logging-and-debugging}
 
-### Error Logging
+### Error Logging {#error-logging}
 
 `command:error` fires only when a command could not complete at all — a
 timeout, a lost connection, a spawn failure. A command that ran and exited
@@ -386,7 +386,7 @@ $.verbose = true;
 await $`failing-command`;
 ```
 
-### Error Telemetry
+### Error Telemetry {#error-telemetry}
 
 ```typescript
 // Send transport-level failures (timeouts, dropped connections) to a
@@ -406,17 +406,17 @@ $.on('command:error', async ({ command, error, duration }) => {
 });
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### Do's ✅
+### Do's ✅ {#dos-}
 
 Classify the actual failure, preserve the cause, bound retries and deadlines, and check state after an unknown remote outcome. Keep authentication errors, authorization failures and completed nonzero exits distinguishable in diagnostics.
 
-### Don'ts ❌
+### Don'ts ❌ {#donts-}
 
 Avoid retrying side effects solely because a connection is recoverable, swallowing failed results, or changing targets after an uncertain mutation. Report the operation and target alongside the original error.
 
-## Implementation Details
+## Implementation Details {#implementation-details}
 
 Error handling is implemented in:
 - `packages/core/src/types/result.ts` - `ExecutionResult` type definition
@@ -425,7 +425,7 @@ Error handling is implemented in:
 - `packages/core/src/core/failure-kind.ts` - `FailureKind` classification
 - `packages/core/src/utils/retry-adapter.ts` - Retry logic implementation
 
-## See Also
+## See Also {#see-also}
 
 - [Execution API](/docs/core/execution-engine/api/execution-api)
 - [Connection Pooling](/docs/core/execution-engine/features/connection-pooling)

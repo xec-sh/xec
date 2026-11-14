@@ -1,0 +1,50 @@
+[
+  {
+    "id": "local",
+    "label": "Local",
+    "file": "inspect.ts",
+    "code": "import { $ } from '@xec-sh/core';\n\nconst revision = await $`git rev-parse --short HEAD`\n  .timeout('10s')\n  .text();\n\nconsole.log(revision.trim());",
+    "note": "Run in a Git repository with xec run inspect.ts. Commands use the selected local shell.",
+    "href": "/docs/scripting/basics/first-script"
+  },
+  {
+    "id": "ssh",
+    "label": "SSH",
+    "file": "inspect.ts",
+    "code": "import { $ } from '@xec-sh/core';\n\nconst remote = $.ssh({\n  host: 'build.example.com',\n  username: 'deploy',\n});\nconst result = await remote`uname -a`.timeout('15s');\nconsole.log(result.stdout);",
+    "note": "Replace the host and configure trusted host keys and authentication. SSH runs through Xec\u2019s Node.js transport.",
+    "href": "/docs/targets/ssh/connection-config"
+  },
+  {
+    "id": "docker",
+    "label": "Docker",
+    "file": "inspect.ts",
+    "code": "import { $ } from '@xec-sh/core';\n\nconst container = $.docker({\n  image: 'node:24',\n});\nconst result = await container`node --version`;\nconsole.log(result.stdout);",
+    "note": "An image starts an ephemeral container. A container name targets an existing one. Requires a reachable Docker daemon.",
+    "href": "/docs/targets/docker/container-lifecycle"
+  },
+  {
+    "id": "kubernetes",
+    "label": "Kubernetes",
+    "file": "inspect.ts",
+    "code": "import { $ } from '@xec-sh/core';\n\nconst pod = $.k8s({\n  namespace: 'staging',\n  pod: 'api-pod',\n  container: 'api',\n});\nconst result = await pod`node --version`;\nconsole.log(result.stdout);",
+    "note": "Select a real pod in your cluster. Requires kubectl and an authorized Kubernetes context.",
+    "href": "/docs/targets/kubernetes/pod-execution"
+  },
+  {
+    "id": "pipeline",
+    "label": "Pipeline",
+    "file": "check.ts",
+    "code": "import { Pipeline } from '@xec-sh/ops';\n\nconst result = await Pipeline.create('verify')\n  .step('install', { run: 'pnpm install --frozen-lockfile' })\n  .step('types', { run: 'pnpm typecheck', dependsOn: ['install'] })\n  .step('tests', { run: 'pnpm test', dependsOn: ['install'] })\n  .step('build', { run: 'pnpm build', dependsOn: ['types', 'tests'] })\n  .run();\n\nif (!result.success) throw new Error('Verification failed');",
+    "note": "Ready steps can run concurrently; dependencies gate execution. Package-level build graphs and artifact caches can remain in Turbo.",
+    "href": "/docs/ops/pipeline"
+  },
+  {
+    "id": "kit",
+    "label": "Terminal UI",
+    "file": "choose.ts",
+    "code": "import { select, isCancel, log } from '@xec-sh/kit';\n\nconst target = await select({\n  message: 'Choose a target',\n  options: [\n    { value: 'staging', label: 'Staging' },\n    { value: 'production', label: 'Production' },\n  ],\n});\n\nif (!isCancel(target)) log.info(`Selected: ${target}`);",
+    "note": "Run in a terminal with xec run choose.ts. Installed Kit also runs with Bun. Cancellation is explicit.",
+    "href": "/docs/kit/prompts"
+  }
+]

@@ -7,17 +7,17 @@ source_files:
   - packages/ops/src/config/target-resolver.ts
 ---
 
-# Kubernetes Deployment
+# Kubernetes Deployment {#kubernetes-deployment}
 
-## Problem
+## Problem {#problem}
 
 Apply a known release to the intended cluster and namespace, then distinguish API acceptance, rollout readiness and application health.
 
-## Solution
+## Solution {#solution}
 
 Keep workload declarations in the application’s manifests or chart. Xec executes the selected provider commands with explicit context and namespace and awaits their outcomes. It does not synthesize an unreviewed cluster, secret or load-balancer policy.
 
-## Quick Example
+## Quick Example {#quick-example}
 
 ```typescript
 const context = process.env.KUBE_CONTEXT;
@@ -29,9 +29,9 @@ await $`kubectl --context ${context} --namespace ${namespace} rollout status dep
 
 The overlay must already declare the accepted image digest and the correct namespace. A successful rollout still needs application acceptance.
 
-## Complete Kubernetes Deployment Recipes
+## Complete Kubernetes Deployment Recipes {#complete-kubernetes-deployment-recipes}
 
-### Configuration
+### Configuration {#configuration}
 
 ```yaml
 version: '1.0'
@@ -49,7 +49,7 @@ tasks:
 
 Configured pod targets are useful for diagnostics; applying manifests remains a cluster API operation, not a command run inside a pod.
 
-### Full Kubernetes Deployment Script
+### Full Kubernetes Deployment Script {#full-kubernetes-deployment-script}
 
 ```typescript
 // scripts/deploy-k8s.ts
@@ -74,7 +74,7 @@ await $`npm run verify:deployed-app -- ${context} ${namespace} ${expectedImage}`
 
 The named project checks must be implemented before using this script. Persist the previous accepted manifest/chart revision and assess schema compatibility before apply. On failure, report the observed rollout and use the reviewed recovery procedure; do not blindly retry or roll back to an unspecified revision.
 
-### Helm Deployment
+### Helm Deployment {#helm-deployment}
 
 Pin the Helm CLI and chart used by the project. This example passes explicit release, context and namespace and waits for the declared resources:
 
@@ -88,7 +88,7 @@ await $`helm test myapp --kube-context ${context} --namespace ${namespace} --tim
 
 Chart tests must actually exist for `helm test` to establish an application check. Recovery flags differ between Helm versions; use the [reference for the pinned CLI](https://helm.sh/docs/helm/helm_upgrade/) and record the accepted release revision before the update.
 
-### Canary Deployment with Flagger
+### Canary Deployment with Flagger {#canary-deployment-with-flagger}
 
 Flagger owns canary progression, metrics and traffic policy. Install and validate its CRDs/controller separately and keep the Canary resource in the application’s reviewed manifests. Xec applies that declaration and invokes the project’s acceptance check:
 
@@ -102,7 +102,7 @@ await $`npm run verify:canary -- ${context} ${namespace}`.timeout(900_000);
 
 The acceptance command must fail if analysis is rejected or still incomplete. A created Canary object is not a successful canary rollout.
 
-### GitOps with ArgoCD
+### GitOps with ArgoCD {#gitops-with-argocd}
 
 When ArgoCD owns the installation, update the reviewed GitOps source through its normal review path. Do not also `kubectl apply` the same resources from a parallel deployment mechanism.
 
@@ -115,7 +115,7 @@ await $`argocd app wait ${application} --sync --health --timeout 180`.timeout(20
 
 Configure and authenticate the exact ArgoCD server beforehand. Verify the expected source revision and application behavior after synchronization.
 
-## Usage Examples
+## Usage Examples {#usage-examples}
 
 ```bash
 KUBE_CONTEXT=staging-cluster KUBE_NAMESPACE=myapp-staging xec run scripts/deploy-k8s.ts
@@ -123,13 +123,13 @@ KUBE_CONTEXT=staging-cluster KUBE_NAMESPACE=myapp-staging xec run scripts/deploy
 
 Also supply the accepted `APP_IMAGE` digest and the application health URL required by the full script. A missing input fails before apply.
 
-## Best Practices
+## Best Practices {#best-practices}
 
 Use exact cluster identity, least-privilege credentials, immutable images and reviewed manifests. Separate workload readiness from data migration and business-level acceptance. Keep provider-specific policy in its declarative source.
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### Pod Issues
+### Pod Issues {#pod-issues}
 
 ```bash
 kubectl --context staging-cluster --namespace myapp-staging get pods
@@ -139,14 +139,14 @@ xec logs pods.api --tail 100
 
 Inspect failed scheduling, image pulls, exits and readiness separately.
 
-### Service Issues
+### Service Issues {#service-issues}
 
 ```bash
 kubectl --context staging-cluster --namespace myapp-staging get service myapp
 kubectl --context staging-cluster --namespace myapp-staging get endpointslices -l kubernetes.io/service-name=myapp
 ```
 
-### Ingress Issues
+### Ingress Issues {#ingress-issues}
 
 ```bash
 kubectl --context staging-cluster --namespace myapp-staging get ingress
@@ -154,7 +154,7 @@ kubectl --context staging-cluster --namespace myapp-staging get ingress
 
 Verify the selected controller, host, TLS secret and actual external response. Do not disable TLS checking to hide a routing or certificate error.
 
-## Related Topics
+## Related Topics {#related-topics}
 
 - [Kubernetes Targets](../../targets/kubernetes/overview.md)
 - [Docker Deployment](docker-deploy.md)

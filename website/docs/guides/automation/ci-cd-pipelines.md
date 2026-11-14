@@ -4,11 +4,11 @@ title: Building CI/CD Pipelines
 description: Create CI/CD pipelines with Xec's execution engine
 ---
 
-# Building CI/CD Pipelines
+# Building CI/CD Pipelines {#building-cicd-pipelines}
 
 Learn how to leverage Xec's universal execution capabilities to build robust CI/CD pipelines that work across local development, staging, and production environments.
 
-## Why Xec for CI/CD?
+## Why Xec for CI/CD? {#why-xec-for-cicd}
 
 Traditional CI/CD tools often require separate configurations for different environments. Xec provides:
 
@@ -18,9 +18,9 @@ Traditional CI/CD tools often require separate configurations for different envi
 - **Parallel Execution**: Built-in support for concurrent tasks
 - **Error Recovery**: Robust error handling with retry capabilities
 
-## Basic Pipeline Structure
+## Basic Pipeline Structure {#basic-pipeline-structure}
 
-### Simple Build Pipeline
+### Simple Build Pipeline {#simple-build-pipeline}
 
 ```typescript
 // pipelines/build.ts
@@ -66,7 +66,7 @@ if (import.meta.url.split('?')[0] === pathToFileURL(__filename).href) {
 }
 ```
 
-### Pipeline with Stages
+### Pipeline with Stages {#pipeline-with-stages}
 
 ```typescript
 // pipelines/staged-pipeline.ts
@@ -139,9 +139,9 @@ pipeline
 await pipeline.run();
 ```
 
-## GitHub Actions Integration
+## GitHub Actions Integration {#github-actions-integration}
 
-### Xec-Powered GitHub Action
+### Xec-Powered GitHub Action {#xec-powered-github-action}
 
 ```yaml
 # .github/workflows/ci.yml
@@ -178,7 +178,7 @@ jobs:
           CI: true
 ```
 
-### CI Pipeline Script
+### CI Pipeline Script {#ci-pipeline-script}
 
 ```typescript
 // pipelines/ci.ts
@@ -229,9 +229,9 @@ async function ciPipeline() {
 await ciPipeline();
 ```
 
-## Multi-Environment Deployments
+## Multi-Environment Deployments {#multi-environment-deployments}
 
-### Progressive Deployment Pipeline
+### Progressive Deployment Pipeline {#progressive-deployment-pipeline}
 
 ```typescript
 // pipelines/deploy.ts
@@ -378,9 +378,9 @@ deployment
 await deployment.deploy();
 ```
 
-## Docker-Based CI/CD
+## Docker-Based CI/CD {#docker-based-cicd}
 
-### Building and Testing in Containers
+### Building and Testing in Containers {#building-and-testing-in-containers}
 
 ```typescript
 // pipelines/docker-ci.ts
@@ -466,7 +466,7 @@ async function dockerCI() {
 await dockerCI();
 ```
 
-### Kubernetes Deployment Pipeline
+### Kubernetes Deployment Pipeline {#kubernetes-deployment-pipeline}
 
 ```typescript
 // pipelines/k8s-deploy.ts
@@ -544,9 +544,9 @@ async function k8sDeploy() {
 await k8sDeploy();
 ```
 
-## Advanced Pipeline Features
+## Advanced Pipeline Features {#advanced-pipeline-features}
 
-### Conditional Execution
+### Conditional Execution {#conditional-execution}
 
 ```typescript
 // pipelines/conditional.ts
@@ -606,7 +606,7 @@ async function conditionalPipeline() {
 await conditionalPipeline();
 ```
 
-### Matrix Testing
+### Matrix Testing {#matrix-testing}
 
 ```typescript
 // pipelines/matrix-test.ts
@@ -666,7 +666,7 @@ async function matrixTest() {
 await matrixTest();
 ```
 
-### Pipeline Monitoring
+### Pipeline Monitoring {#pipeline-monitoring}
 
 ```typescript
 // pipelines/monitored-pipeline.ts
@@ -754,9 +754,9 @@ try {
 }
 ```
 
-## Integration with CI/CD Platforms
+## Integration with CI/CD Platforms {#integration-with-cicd-platforms}
 
-### GitLab CI Integration
+### GitLab CI Integration {#gitlab-ci-integration}
 
 ```yaml
 # .gitlab-ci.yml
@@ -820,7 +820,7 @@ deploy_production:
     - main
 ```
 
-### Jenkins Pipeline
+### Jenkins Pipeline {#jenkins-pipeline}
 
 ```groovy
 // Jenkinsfile
@@ -885,9 +885,9 @@ pipeline {
 }
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### 1. Pipeline as Code
+### 1. Pipeline as Code {#1-pipeline-as-code}
 
 Keep your pipeline definitions in version control:
 
@@ -905,7 +905,7 @@ export async function checkPipeline(): Promise<void> {
 await checkPipeline();
 ```
 
-### 2. Environment Configuration
+### 2. Environment Configuration {#2-environment-configuration}
 
 Use environment-specific configurations:
 
@@ -939,7 +939,7 @@ export function getConfig() {
 }
 ```
 
-### 3. Secrets Management
+### 3. Secrets Management {#3-secrets-management}
 
 Never hardcode secrets in pipeline code:
 
@@ -968,7 +968,7 @@ async function secureDeploy() {
 }
 ```
 
-### 4. Artifact Management
+### 4. Artifact Management {#4-artifact-management}
 
 Properly manage build artifacts:
 
@@ -1003,9 +1003,9 @@ async function manageArtifacts() {
 }
 ```
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### Common Issues
+### Common Issues {#common-issues}
 
 1. **Permission Denied**
    ```typescript
@@ -1036,13 +1036,13 @@ async function manageArtifacts() {
    }
    ```
 
-## Next Steps
+## Next Steps {#next-steps}
 
 - Learn about [deployment automation](./deployment.md)
 - Explore [test automation](./testing.md)
 - Implement [error handling](../advanced/error-handling.md)
 
-## Summary
+## Summary {#summary}
 
 You've learned how to:
 - ✅ Build basic CI/CD pipelines with Xec

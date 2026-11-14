@@ -5,9 +5,9 @@ keywords: [ssh, authentication, keys, passwords, security]
 sidebar_position: 2
 ---
 
-# SSH Authentication
+# SSH Authentication {#ssh-authentication}
 
-## Overview
+## Overview {#overview}
 
 Xec exposes SSH authentication through its own `SSHConnectionConfig` contract. It supports private-key content or paths, passwords, agent authentication, agent forwarding, custom authentication order and keyboard-interactive callbacks. Applications import the client and types from `@xec-sh/core`.
 
@@ -26,7 +26,7 @@ await $.ssh({
 })`ls`;
 ```
 
-## Private Key Authentication
+## Private Key Authentication {#private-key-authentication}
 
 `privateKey` accepts key contents as a string or Buffer. `privateKeyPath` reads a file. Use `path.join(os.homedir(), ...)` for home-relative paths passed to Node filesystem APIs.
 
@@ -43,7 +43,7 @@ await $.ssh({
 
 Key format is whatever `ssh2` (the underlying client library) accepts — OpenSSH and PEM formats. There is no PuTTY (`.ppk`) conversion anywhere in the codebase.
 
-### Validating a Key Before Use
+### Validating a Key Before Use {#validating-a-key-before-use}
 
 `SSHKeyValidator` (`packages/core/src/adapters/ssh/ssh-key-validator.ts`) is a set of static methods, not an instantiable client:
 
@@ -66,7 +66,7 @@ const perms = await SSHKeyValidator.checkKeyFilePermissions('/home/user/.ssh/id_
 
 Also available: `validatePublicKey(key)`, `validateKeyFile(path, passphrase?)`, and `validateSSHOptions({ host, username, port, privateKey, password })`, which checks that exactly one of `privateKey`/`password` is set. The adapter runs `validatePrivateKey` and `validateSSHOptions` itself before every new connection and throws `ConnectionError` if they fail — calling them yourself is only useful to fail earlier, e.g. before prompting a user for a passphrase.
 
-## Password Authentication
+## Password Authentication {#password-authentication}
 
 ```typescript
 await $.ssh({
@@ -78,7 +78,7 @@ await $.ssh({
 
 Set `hostKeyChecking` and `knownHostsPath` alongside the selected authentication method. Use an explicit `authHandler` when authentication must follow a particular sequence.
 
-## Host Key Verification
+## Host Key Verification {#host-key-verification}
 
 Every connection is verified against `known_hosts` (`packages/core/src/adapters/ssh/known-hosts.ts`); `ssh2` itself performs no verification unless told to, so this is not optional.
 
@@ -99,7 +99,7 @@ A key that changed is reported as an `EHOSTKEY`-classified `ConnectionError` and
 
 There is no custom `hostVerifier` callback, no `hostHash`/`hostFingerprint` option, and no cipher/KEX/MAC algorithm selection in the public API.
 
-## Security Best Practices
+## Security Best Practices {#security-best-practices}
 
 1. Prefer a private key over a password.
 2. `chmod 600` private key files; check with `SSHKeyValidator.checkKeyFilePermissions`.
@@ -107,7 +107,7 @@ There is no custom `hostVerifier` callback, no `hostHash`/`hostFingerprint` opti
 4. Leave `hostKeyChecking` at `accept-new` or set it to `strict` in production; only use `off` for throwaway environments.
 5. For sudo passwords specifically, see [Secure Sudo Password Handling](./sudo-security.md) — the concerns and the API are different from connection authentication.
 
-## Related Documentation
+## Related Documentation {#related-documentation}
 
 - [SSH Overview](./overview.md) - fundamentals and command execution
 - [Connection Configuration](./connection-config.md) - pooling and adapter-wide settings

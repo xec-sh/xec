@@ -5,13 +5,13 @@ keywords: [kubernetes, k8s, pods, containers, kubectl, namespace, context]
 sidebar_position: 1
 ---
 
-# Kubernetes Target Overview
+# Kubernetes Target Overview {#kubernetes-target-overview}
 
-## Overview
+## Overview {#overview}
 
 Kubernetes targets run commands inside pods by shelling out to `kubectl exec`. Xec does not talk to the Kubernetes API directly — it drives the `kubectl` binary the same way you would from a terminal. The adapter lives at `packages/core/src/adapters/kubernetes/`.
 
-## Prerequisites
+## Prerequisites {#prerequisites}
 
 ```bash
 kubectl version --client
@@ -21,7 +21,7 @@ kubectl config current-context
 
 The adapter looks for `kubectl` in common install locations (Homebrew, Docker Desktop, standard Linux paths) and otherwise falls back to `kubectl` on `PATH`. Set `kubectlPath` explicitly if yours lives somewhere else.
 
-## Basic Execution
+## Basic Execution {#basic-execution}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -37,7 +37,7 @@ await $.k8s({ pod: 'api-pod', namespace: 'production', container: 'app' })`npm t
 
 `$.k8s(target)` takes exactly one argument, either the shorthand string or an options object — the two cannot be combined. There is no `.container(...)` to chain on afterward; set it in the initial call or the shorthand's `:container` suffix.
 
-## Chaining
+## Chaining {#chaining}
 
 `$.k8s(...)` returns a context you can refine before running anything:
 
@@ -53,7 +53,7 @@ await app`npm test`;
 
 Each call returns a new context rather than mutating the current one, so it composes like the other adapters. `.env(...)` merges with whatever was already set; the rest replace.
 
-## The Pod API
+## The Pod API {#the-pod-api}
 
 `.pod(name)` returns a handle bound to one pod, in the namespace already set on the context, with more than plain exec:
 
@@ -70,7 +70,7 @@ await pod.copyTo('./config.json', '/app/config.json');
 
 `pod.exec` and `pod.raw` both return the same `ProcessPromise` any Xec command does — `.nothrow()`, `.timeout()`, `for await` line iteration, `.pipe()` all work. See [Pod Execution](./pod-execution.md) and [Multi-Container Pods](./multi-container.md) for container selection, [Log Streaming](./log-streaming.md), [Port Forwarding](./port-forwarding.md), and [File Operations](./file-operations.md) for each capability in depth.
 
-## Cluster and Context
+## Cluster and Context {#cluster-and-context}
 
 Every call can name its own cluster:
 
@@ -100,7 +100,7 @@ configure({
 
 Per-target values passed to an individual `$.k8s(...)` call override these defaults.
 
-## Low-Level Adapter Access
+## Low-Level Adapter Access {#low-level-adapter-access}
 
 For things the pod API doesn't cover — checking pod readiness, resolving a label selector, running arbitrary `kubectl` — reach the adapter directly:
 
@@ -119,7 +119,7 @@ const { stdout } = await k8s.executeKubectl(['get', 'pods', '-o', 'name'], {
 
 `new KubernetesAdapter(config)` builds a standalone instance outside the engine, taking the same config shape as `configure()` above. It isn't managed by `$`, so call its own `.dispose()` when you're done with it.
 
-## Error Handling
+## Error Handling {#error-handling}
 
 `executeKubectl` returns `{ stdout, stderr, exitCode }` for an ordinary nonzero
 exit by default. Pass `throwOnNonZeroExit: true` to reject it. A spawn failure,
@@ -147,7 +147,7 @@ if (!result.ok) {
 }
 ```
 
-## Related
+## Related {#related}
 
 - [Pod Execution](./pod-execution.md)
 - [Multi-Container Pods](./multi-container.md)

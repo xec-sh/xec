@@ -3,11 +3,11 @@ title: File Operations
 description: File transfer and manipulation across execution environments
 ---
 
-# File Operations
+# File Operations {#file-operations}
 
 The Xec execution engine provides file operations across local, SSH, and Docker environments, plus pod-scoped file copy for Kubernetes, all built on the same shell-command foundation as everything else in the engine.
 
-## Overview
+## Overview {#overview}
 
 File operations (`packages/core/src/utils/transfer.ts`) provide:
 
@@ -17,9 +17,9 @@ File operations (`packages/core/src/utils/transfer.ts`) provide:
 - **Pod-scoped copy** for Kubernetes, via a specific pod handle
 - **Plain read/write/delete** for simple local file access, without shelling out yourself
 
-## Local File Operations
+## Local File Operations {#local-file-operations}
 
-### Basic File Operations
+### Basic File Operations {#basic-file-operations}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -51,7 +51,7 @@ creating directories, stat), there is no Xec wrapper; use plain
 `node:fs/promises` for local paths, or a shell command through `$` for a
 remote target.
 
-### Directory Operations
+### Directory Operations {#directory-operations}
 
 ```typescript
 // Create directory
@@ -70,9 +70,9 @@ const found = await $`find . -name "*.js" -type f`;
 await $`tar czf archive.tar.gz directory/`;
 ```
 
-## SSH File Transfer
+## SSH File Transfer {#ssh-file-transfer}
 
-### Upload Files
+### Upload Files {#upload-files}
 
 ```typescript
 const remote = $.ssh({ host: 'server.com', username: 'user' });
@@ -90,7 +90,7 @@ callback or path filtering on these two calls. For filtering out something
 like `node_modules`, stage a filtered copy locally first (or use `rsync`
 through `$`, see [File Synchronization](#file-synchronization) below).
 
-### Download Files
+### Download Files {#download-files}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -121,7 +121,7 @@ const exists = (await remote`test -f /srv/app/config.json`.nothrow()).ok;
 console.log(files.stdout, exists);
 ```
 
-## Docker File Operations
+## Docker File Operations {#docker-file-operations}
 
 Docker file transfer goes through [`$.transfer`](#cross-environment-transfer),
 the same as SSH:
@@ -139,7 +139,7 @@ await $.transfer.copy('/local/assets', 'docker://my-app:/app/public/assets', {
 await $.transfer.copy('docker://my-app:/app/output.log', '/local/logs/output.log');
 ```
 
-### Volume Operations
+### Volume Operations {#volume-operations}
 
 ```typescript
 // Mount a volume for file sharing with an ephemeral container
@@ -163,9 +163,9 @@ await $`docker run --rm -v data-volume:/data -v /local/volume-backup:/backup bus
   tar czf /backup/volume-backup.tar.gz -C /data .`;
 ```
 
-## Kubernetes File Operations
+## Kubernetes File Operations {#kubernetes-file-operations}
 
-### Pod File Transfer
+### Pod File Transfer {#pod-file-transfer}
 
 File copy is a method on a specific pod handle, reached through `.pod(name)`:
 
@@ -195,7 +195,7 @@ await $`kubectl create configmap app-config -n production \
   --from-file=settings.json=/local/settings.json`;
 ```
 
-## Cross-Environment Transfer
+## Cross-Environment Transfer {#cross-environment-transfer}
 
 `$.transfer` is a getter, not a method — access it as a property, then call
 `.copy()`, `.move()` or `.sync()` (sync is copy with extra files at the
@@ -207,7 +207,7 @@ container-to-container. The URL grammar has no Kubernetes leg; to transfer
 against the engine's own target — including a Kubernetes pod — without
 restating it as a URL, use [`upload`/`download`](#target-bound-upload-and-download).
 
-### Local to Remote
+### Local to Remote {#local-to-remote}
 
 ```typescript
 // Local to SSH
@@ -217,7 +217,7 @@ await $.transfer.copy('/local/files', 'ssh://user@server.com/remote/files');
 await $.transfer.copy('/local/data', 'docker://app:/app/data');
 ```
 
-### Remote to Remote
+### Remote to Remote {#remote-to-remote}
 
 ```typescript
 // SSH to SSH — routed through a local temp file when the hosts differ
@@ -230,7 +230,7 @@ await $.transfer.copy(
 await $.transfer.copy('docker://exporter:/export', 'docker://importer:/import');
 ```
 
-### Target-Bound Upload and Download
+### Target-Bound Upload and Download {#target-bound-upload-and-download}
 
 `copy()` reads the environment only from the URL, so on a targeted engine two
 flat paths both look local and the transfer stays on the operator's machine.
@@ -275,9 +275,9 @@ The `recursive` and `overwrite` options apply everywhere. `onProgress`,
 `TransferOptions` but are not currently wired up for any transfer direction
 — passing them has no effect, so don't rely on them yet.
 
-## Advanced Operations
+## Advanced Operations {#advanced-operations}
 
-### Atomic File Operations
+### Atomic File Operations {#atomic-file-operations}
 
 ```typescript
 // Atomic file replacement
@@ -301,7 +301,7 @@ async function atomicReplace(file: string, content: string) {
 }
 ```
 
-### File Synchronization
+### File Synchronization {#file-synchronization}
 
 ```typescript
 // Sync directories with rsync
@@ -317,7 +317,7 @@ await remote`rsync -avz --delete /local/src/ user@server.com:/remote/dest/`;
 await $`unison /local/path ssh://server.com//remote/path`;
 ```
 
-### File Watching
+### File Watching {#file-watching}
 
 ```typescript
 // Watch for file changes
@@ -330,7 +330,7 @@ for await (const line of $`inotifywait -m -r -e modify,create,delete /path/to/wa
 await $`fswatch -r /local/src | while read f; do rsync -av /local/src/ /remote/dest/; done`;
 ```
 
-### Compression and Archives
+### Compression and Archives {#compression-and-archives}
 
 ```typescript
 // Create compressed archives
@@ -346,9 +346,9 @@ await $`cat large-file.txt | gzip > large-file.txt.gz`;
 await $`gunzip -c large-file.txt.gz | process-command`;
 ```
 
-## Permission Management
+## Permission Management {#permission-management}
 
-### File Permissions
+### File Permissions {#file-permissions}
 
 ```typescript
 // Set permissions
@@ -366,7 +366,7 @@ await remote.uploadFile('/local/script.sh', '/remote/script.sh');
 await remote`chmod 755 /remote/script.sh`;
 ```
 
-### ACL Management
+### ACL Management {#acl-management}
 
 ```typescript
 // Set ACLs
@@ -378,9 +378,9 @@ const acls = await $`getfacl file.txt`.text();
 console.log('ACLs:', acls);
 ```
 
-## Error Handling
+## Error Handling {#error-handling}
 
-### File Operation Errors
+### File Operation Errors {#file-operation-errors}
 
 ```typescript
 // Handle file not found
@@ -403,7 +403,7 @@ await retry(() => $`cp large-file.dat /network/mount/`, {
 });
 ```
 
-### Recovery Strategies
+### Recovery Strategies {#recovery-strategies}
 
 ```typescript
 // Backup before modification
@@ -429,9 +429,9 @@ async function safeModify(file: string, modifier: (content: string) => string) {
 }
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### Do's ✅
+### Do's ✅ {#dos-}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -445,11 +445,11 @@ const remoteHash = (await remote`sha256sum ${destination}`.text()).split(' ')[0]
 if (remoteHash !== localHash) throw new Error('Transferred configuration checksum differs');
 ```
 
-### Don'ts ❌
+### Don'ts ❌ {#donts-}
 
 Use transfer methods for binary data, check permissions and compare checksums for release inputs. Interpolated paths are single escaped arguments, including strings containing `*`. Use an explicit file list when operating on several paths. Avoid manual shell quoting around interpolated values.
 
-## Implementation Details
+## Implementation Details {#implementation-details}
 
 File operations are implemented in:
 - `packages/core/src/utils/transfer.ts` - `$.transfer` (copy/move/sync across local, SSH and Docker by URL; target-bound upload/download for SSH, Docker and Kubernetes)
@@ -457,7 +457,7 @@ File operations are implemented in:
 - `packages/core/src/adapters/kubernetes/kubernetes-api.ts` - Kubernetes `K8sPod.copyTo`/`copyFrom`
 - `packages/core/src/core/execution-engine.ts` - `$.readFile`/`$.writeFile`/`$.deleteFile`
 
-## See Also
+## See Also {#see-also}
 
 - [SSH Adapter](/docs/core/execution-engine/adapters/ssh-adapter)
 - [Docker Adapter](/docs/core/execution-engine/adapters/docker-adapter)

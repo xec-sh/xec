@@ -7,17 +7,17 @@ source_files:
   - packages/ops/src/config/target-resolver.ts
 ---
 
-# Service Health Monitoring
+# Service Health Monitoring {#service-health-monitoring}
 
-## Problem
+## Problem {#problem}
 
 Monitoring the health and availability of services across multiple environments (local, containers, Kubernetes, remote servers) requires different tools and approaches. Teams need consistent health checking, automated alerting, and historical tracking.
 
-## Solution
+## Solution {#solution}
 
 Xec provides a unified approach to health monitoring by executing health checks across all target types using the same API, enabling consistent monitoring regardless of deployment environment.
 
-## Quick Example
+## Quick Example {#quick-example}
 
 ```typescript
 import { HealthChecker } from '@xec-sh/ops';
@@ -29,9 +29,9 @@ console.log(report);
 if (!report.healthy) process.exitCode = 1;
 ```
 
-## Complete Health Monitoring System
+## Complete Health Monitoring System {#complete-health-monitoring-system}
 
-### 1. Multi-Environment Health Checks
+### 1. Multi-Environment Health Checks {#1-multi-environment-health-checks}
 
 ```typescript
 import { HealthChecker } from '@xec-sh/ops';
@@ -47,7 +47,7 @@ for (const check of report.checks) console.log(check.name, check.healthy, check.
 if (!report.healthy) throw new Error('One or more services failed their declared check');
 ```
 
-### 2. Docker Container Health Monitoring
+### 2. Docker Container Health Monitoring {#2-docker-container-health-monitoring}
 
 ```typescript
 import { HealthChecker } from '@xec-sh/ops';
@@ -61,7 +61,7 @@ console.log(report);
 if (!report.healthy) process.exitCode = 1;
 ```
 
-### 3. Kubernetes Pod Health Monitoring
+### 3. Kubernetes Pod Health Monitoring {#3-kubernetes-pod-health-monitoring}
 
 ```typescript
 import { HealthChecker } from '@xec-sh/ops';
@@ -74,7 +74,7 @@ if (!report.healthy) process.exitCode = 1;
 // Pod readiness and application health are separate observations.
 ```
 
-### 4. Continuous Health Monitoring
+### 4. Continuous Health Monitoring {#4-continuous-health-monitoring}
 
 ```typescript
 import { HealthChecker } from '@xec-sh/ops';
@@ -91,7 +91,7 @@ while (true) {
 // A supervisor owns this process; alert routing belongs to the monitoring system.
 ```
 
-### 5. Configuration File
+### 5. Configuration File {#5-configuration-file}
 
 Use the ordinary Xec configuration to name targets; the typed `HealthChecker` script defines the actual probes. There is no separate implicit health YAML loader.
 
@@ -107,7 +107,7 @@ targets:
 
 The custom SSH probe above is explicit about its host. To use the configured name instead, resolve it through `ConfigurationManager` and `TargetResolver` as shown in the [configuration guide](../../configuration/overview.md).
 
-### 6. Xec Task Configuration
+### 6. Xec Task Configuration {#6-xec-task-configuration}
 
 ```yaml
 version: '1.0'
@@ -122,29 +122,29 @@ tasks:
 
 Save the corresponding examples under these paths. An external supervisor may own the continuous task; `daemon: true` is not a Xec task option.
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### 1. Health Check Design
+### 1. Health Check Design {#1-health-check-design}
 - **Fast checks**: Keep health checks under 5 seconds
 - **Dependency checks**: Verify critical dependencies (DB, cache, etc.)
 - **Graceful degradation**: Distinguish between critical and non-critical failures
 - **Detailed responses**: Include version, uptime, and dependency status
 
-### 2. Monitoring Strategy
+### 2. Monitoring Strategy {#2-monitoring-strategy}
 - **Multi-level checks**: Application, system, and infrastructure health
 - **Appropriate intervals**: Balance between freshness and load
 - **Historical tracking**: Store metrics for trend analysis
 - **Automated recovery**: Implement self-healing where possible
 
-### 3. Alert Management
+### 3. Alert Management {#3-alert-management}
 - **Smart alerting**: Avoid alert fatigue with proper thresholds
 - **Escalation paths**: Define clear escalation procedures
 - **Runbook integration**: Link alerts to remediation guides
 - **Correlation**: Group related alerts to identify root causes
 
-## Common Patterns
+## Common Patterns {#common-patterns}
 
-### Health Endpoint Implementation
+### Health Endpoint Implementation {#health-endpoint-implementation}
 ```typescript
 // The application owns /health and its DB/cache checks. Xec consumes that contract.
 import { HealthChecker } from '@xec-sh/ops';
@@ -152,7 +152,7 @@ await HealthChecker.create().http('http://127.0.0.1:3000/health', { status: 200,
   .waitUntilHealthy({ timeout: 30_000, interval: 500 });
 ```
 
-### Load Balancer Integration
+### Load Balancer Integration {#load-balancer-integration}
 ```bash
 # HAProxy health check
 backend web_servers
@@ -162,9 +162,9 @@ backend web_servers
     server web2 10.0.1.11:3000 check
 ```
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### Common Issues
+### Common Issues {#common-issues}
 
 1. **False positives**: Health check passes but service is degraded
    - Add more comprehensive checks
@@ -178,7 +178,7 @@ backend web_servers
    - Implement dependency mapping
    - Use circuit breakers
 
-## Related Topics
+## Related Topics {#related-topics}
 
 - [Log Aggregation](./log-aggregation.md) - Centralized logging
 - [Backup & Restore](./backup-restore.md) - Data protection

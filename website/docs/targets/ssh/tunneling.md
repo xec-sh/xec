@@ -5,15 +5,15 @@ keywords: [ssh, tunnel, port-forwarding, bastion]
 sidebar_position: 4
 ---
 
-# SSH Tunneling
+# SSH Tunneling {#ssh-tunneling}
 
-## Overview
+## Overview {#overview}
 
 The SSH context exposes two tunnel types: a local forward (`ssh -L`) and a reverse forward (`ssh -R`), both implemented in `packages/core/src/adapters/ssh/index.ts` on top of the pooled connection. There is no dynamic/SOCKS forwarding and no built-in jump-host chaining — neither exists anywhere in the adapter.
 
 Both methods establish their connection when needed. Both kinds of forwarding bind directly to the SSH context’s target, including when different targets open tunnels concurrently; no preparatory command is required.
 
-## Local Forwarding
+## Local Forwarding {#local-forwarding}
 
 Forwards a local port to a destination reachable from the remote host:
 
@@ -42,7 +42,7 @@ const [http, db] = await Promise.all([
 ]);
 ```
 
-## Lifetime and recovery
+## Lifetime and recovery {#lifetime-and-recovery}
 
 Each local or reverse tunnel holds a lease on its pooled SSH connection until it closes. Idle
 and maximum-age cleanup cannot evict that connection while the tunnel is open.
@@ -70,7 +70,7 @@ channel returned after cancellation. A closed tunnel is not silently re-created:
 its caller owns reconnect/backoff policy and decides which operations can be
 retried safely.
 
-## Reverse Forwarding
+## Reverse Forwarding {#reverse-forwarding}
 
 Makes a local service reachable from the remote host:
 
@@ -108,7 +108,7 @@ The low-level TCP and Unix remote forwards (`NodeSSH.forwardIn` and
 closure is confirmed by closing its local listener; a failed close similarly keeps
 the lease until successful retry or transport closure.
 
-## Related Documentation
+## Related Documentation {#related-documentation}
 
 - [SSH Overview](./overview.md) - fundamentals and command execution
 - [Connection Configuration](./connection-config.md) - the pooled connection tunnels run over

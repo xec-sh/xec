@@ -3,11 +3,11 @@ title: Docker Adapter
 description: Command execution in Docker containers
 ---
 
-# Docker Adapter
+# Docker Adapter {#docker-adapter}
 
 The Docker adapter enables command execution within Docker containers with full lifecycle management and advanced features.
 
-## Overview
+## Overview {#overview}
 
 The Docker adapter (`packages/core/src/adapters/docker/index.ts`) provides container command execution with:
 
@@ -18,7 +18,7 @@ The Docker adapter (`packages/core/src/adapters/docker/index.ts`) provides conta
 - **Image building and management**
 - **Health checks**
 
-## Basic Usage
+## Basic Usage {#basic-usage}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -45,9 +45,9 @@ one-off container created this way is always removed after the command exits
 choose, ports, volumes, health checks, resource limits — use the fluent
 builder below.
 
-## Container Configuration
+## Container Configuration {#container-configuration}
 
-### Working with Existing Containers
+### Working with Existing Containers {#working-with-existing-containers}
 
 ```typescript
 // Connect to a running container
@@ -66,7 +66,7 @@ const asRoot = $.docker({
 });
 ```
 
-### Running in a container that already exists
+### Running in a container that already exists {#running-in-a-container-that-already-exists}
 
 `$.docker({ container })` runs `docker exec`, so the container's mounts,
 network and lifetime are whatever they already were. `volumes` there is
@@ -79,7 +79,7 @@ to create a container with those mounts.
 to reach `exec` and not `run`, so one target configuration meant two
 different things depending on a mode nobody chose explicitly.
 
-### Creating New Containers
+### Creating New Containers {#creating-new-containers}
 
 The plain `$.docker({ image, ... })` form only forwards `image`, `volumes`,
 `workdir`, `user` and `env` — it always runs detached and removes the
@@ -123,9 +123,9 @@ same builder can `.exec()` commands into the running container, `.stop()`,
 `.restart()` or `.remove()` it. Nothing runs until you call one of those —
 the calls above only build up configuration.
 
-## Volume Management
+## Volume Management {#volume-management}
 
-### Mounting Volumes
+### Mounting Volumes {#mounting-volumes}
 
 ```typescript
 // Bind mount
@@ -143,7 +143,7 @@ const withNamedVolume = $.docker()
   ]);
 ```
 
-### Volume Operations
+### Volume Operations {#volume-operations}
 
 ```typescript
 // Copy files to/from a container, via $.transfer's docker:// URLs
@@ -161,9 +161,9 @@ const info = await $.docker().volume('app-data').inspect();
 await $.docker().volume('old-data').remove();
 ```
 
-## Network Configuration
+## Network Configuration {#network-configuration}
 
-### Network Modes
+### Network Modes {#network-modes}
 
 ```typescript
 // Host network
@@ -176,7 +176,7 @@ const customNetwork = $.docker().ephemeral('api').network('my-app-network');
 const isolated = $.docker().ephemeral('tool').network('none');
 ```
 
-### Network Management
+### Network Management {#network-management}
 
 ```typescript
 // Create a network
@@ -195,9 +195,9 @@ await $.docker().network('app-network').connect('web', {
 await $.docker().network('app-network').disconnect('web');
 ```
 
-## Docker Compose Integration
+## Docker Compose Integration {#docker-compose-integration}
 
-### Working with Compose Projects
+### Working with Compose Projects {#working-with-compose-projects}
 
 ```typescript
 // $.docker() with no arguments returns the fluent API; .compose(file?) from there
@@ -216,7 +216,7 @@ const webLogs = await compose.logs('web', /* follow */ false, /* tail */ 100);
 await compose.down(/* removeVolumes */ true);
 ```
 
-### Compose Operations
+### Compose Operations {#compose-operations}
 
 ```typescript
 const compose = $.docker().compose('docker-compose.yml');
@@ -238,9 +238,9 @@ and reach a single service the same way you'd reach any container, with
 `$.docker('<compose-project>_web_1')` or `$.docker().container(name)` once
 you know the container name Compose gave it.
 
-## Container Lifecycle
+## Container Lifecycle {#container-lifecycle}
 
-### Lifecycle Management
+### Lifecycle Management {#lifecycle-management}
 
 ```typescript
 const container = $.docker().ephemeral('app:latest').name('my-app');
@@ -262,7 +262,7 @@ await container.remove();
 There is no `.pause()`/`.unpause()` on the fluent builder — pause a container
 with a plain command if you need it: `` $.docker().run`pause my-app` ``.
 
-### Graceful shutdown
+### Graceful shutdown {#graceful-shutdown}
 
 `DockerAdapter.stopContainer(nameOrId, timeoutSeconds)` and
 `DockerContainer.stop(timeoutSeconds)` accept an optional integer grace interval
@@ -281,7 +281,7 @@ Stopping is a native lifecycle operation; it does not change an external
 controller's desired state. A controller such as Omnitron may start the container
 again while its stack remains declared running.
 
-### Health Checks
+### Health Checks {#health-checks}
 
 ```typescript
 const healthy = $.docker()
@@ -307,9 +307,9 @@ if (!status.healthy) {
 }
 ```
 
-## Image Management
+## Image Management {#image-management}
 
-### Building Images
+### Building Images {#building-images}
 
 ```typescript
 // Build from a Dockerfile
@@ -338,7 +338,7 @@ await $.docker()
 no per-layer progress callback — `.progress()` only selects which of
 Docker's own output styles (`auto`, `plain`, `tty`) it prints while building.
 
-### Image Operations
+### Image Operations {#image-operations}
 
 ```typescript
 // Pull an image
@@ -355,7 +355,7 @@ await $.docker().rmi('old-app:v0.9.0');
 const images = await $.docker().images();
 ```
 
-## Logging
+## Logging {#logging}
 
 ```typescript
 const container = $.docker().ephemeral('app').name('app');
@@ -387,7 +387,7 @@ const stats = await $`docker stats --no-stream --format '{{json .}}' ${container
 console.log(stats);
 ```
 
-## Advanced Container Options
+## Advanced Container Options {#advanced-container-options}
 
 The ephemeral builder covers most of what `docker run` exposes: resource
 limits, restart policy and a handful of security-relevant flags.
@@ -410,7 +410,7 @@ const configured = $.docker()
 Query containers by label with a plain command — there's no Xec-side filter
 builder: `` $.docker().run`ps --filter label=com.example.app=web` ``.
 
-## Error Handling
+## Error Handling {#error-handling}
 
 Docker failures throw `DockerError` (a `container`, `operation` and
 `originalError`) or, for a plain `container`-targeted command, `CommandError`
@@ -435,14 +435,14 @@ try {
 }
 ```
 
-## Implementation Details
+## Implementation Details {#implementation-details}
 
 The Docker adapter is implemented across:
 - `packages/core/src/adapters/docker/index.ts` — main adapter implementation, plus low-level compose/build helpers
 - `packages/core/src/adapters/docker/docker-fluent-api/` — the fluent API shown throughout this page (`ephemeral()`, `container()`, `build()`, `compose()`, `network()`, `volume()`, `swarm()`)
 - `packages/core/src/adapters/docker/docker-api.ts` — `DockerContainer`, a lower-level lifecycle wrapper used internally
 
-## See Also
+## See Also {#see-also}
 
 - [SSH Adapter](/docs/core/execution-engine/adapters/ssh-adapter)
 - [Kubernetes Adapter](/docs/core/execution-engine/adapters/k8s-adapter)

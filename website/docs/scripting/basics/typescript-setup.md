@@ -3,12 +3,12 @@ title: TypeScript Setup
 description: TypeScript configuration, public types and validation for Xec scripts
 ---
 
-# TypeScript Configuration for Xec Scripts
+# TypeScript Configuration for Xec Scripts {#typescript-configuration-for-xec-scripts}
 
 Xec loads TypeScript scripts directly. Transpilation makes the script executable;
 `tsc --noEmit` separately validates types before execution.
 
-## Zero-Configuration TypeScript
+## Zero-Configuration TypeScript {#zero-configuration-typescript}
 
 ```bash
 xec run script.js
@@ -18,7 +18,7 @@ xec run script.ts
 The script loader supports `.ts`, `.mts` and JavaScript extensions. Scripts are
 not a JSX rendering environment.
 
-## Built-in Type Definitions
+## Built-in Type Definitions {#built-in-type-definitions}
 
 Use the package's public types instead of reproducing interfaces locally:
 
@@ -30,9 +30,9 @@ const result: ExecutionResult = await pending;
 console.log(result.stdout);
 ```
 
-## Creating a TypeScript Project
+## Creating a TypeScript Project {#creating-a-typescript-project}
 
-### Basic Setup
+### Basic Setup {#basic-setup}
 
 Declare directly imported packages in the script project. A globally installed
 CLI does not make its TypeScript declarations available to an unrelated project.
@@ -69,7 +69,7 @@ npx tsc --noEmit
 npx xec run scripts/inspect.ts
 ```
 
-## Type Definitions for Global Context
+## Type Definitions for Global Context {#type-definitions-for-global-context}
 
 ```typescript
 import '@xec-sh/cli/globals';
@@ -103,9 +103,9 @@ await $target`node --version`;
 These declarations describe scripts executed by Xec. Importing a declaration file
 does not inject globals into plain `node` execution.
 
-## Advanced Type Patterns
+## Advanced Type Patterns {#advanced-type-patterns}
 
-### Custom Command Builders
+### Custom Command Builders {#custom-command-builders}
 
 Use the existing configured engine instead of introducing another command-builder
 class. Each configuration call returns an execution context:
@@ -119,7 +119,7 @@ const build: CallableExecutionEngine = $.cd('/app')
 await build`npm run build`;
 ```
 
-### Result Type Guards
+### Result Type Guards {#result-type-guards}
 
 The real result already carries its status. `ok` requires both a successful exit
 and no terminating signal:
@@ -134,7 +134,7 @@ function report(result: ExecutionResult): void {
 report(await $`npm test`.nothrow());
 ```
 
-### Generic Command Wrappers
+### Generic Command Wrappers {#generic-command-wrappers}
 
 The shared retry helper takes a factory and retains its inferred result type.
 A repeated `await` of an existing ProcessPromise does not repeat execution.
@@ -153,9 +153,9 @@ console.log(result.stdout);
 Retry only operations whose repeated effects are acceptable. Unknown completion
 of a remote mutation requires reconciliation, not an automatic replay.
 
-## Module Imports and NPM Packages
+## Module Imports and NPM Packages {#module-imports-and-npm-packages}
 
-### Dynamic Imports with Types
+### Dynamic Imports with Types {#dynamic-imports-with-types}
 
 A normal dynamic import retains the package's exported types:
 
@@ -170,7 +170,7 @@ compile-time declarations for an undeclared remote package. Install and pin the
 package when the script needs static type checking; avoid invented ambient
 interfaces that merely assume the remote API.
 
-### Remote Module Integrity
+### Remote Module Integrity {#remote-module-integrity}
 
 Fetched modules execute with the process's privileges. The loader verifies remote
 bytes before execution and records their digests in its module lockfile. This
@@ -200,7 +200,7 @@ After a mismatch, verify the intended upstream source and new bytes before
 reviewing a lockfile change. Do not remove the integrity record merely to silence
 the failure. Keep the reviewed lockfile with the release inputs.
 
-### NPM Package Types
+### NPM Package Types {#npm-package-types}
 
 Use the platform's `fetch` and validate external data at runtime. A type assertion
 alone does not validate JSON:
@@ -223,9 +223,9 @@ async function fetchData(): Promise<ApiResponse> {
 }
 ```
 
-## Configuration Types
+## Configuration Types {#configuration-types}
 
-### Typed Configuration Access
+### Typed Configuration Access {#typed-configuration-access}
 
 Load the public configuration API explicitly and use its actual configuration type:
 
@@ -241,9 +241,9 @@ if (production) console.log(production.host);
 Named targets are grouped under `hosts`, `containers` and `pods`. They are not a
 flat map, and `$targetInfo.config` is only the selected target's configuration.
 
-## Error Handling with Types
+## Error Handling with Types {#error-handling-with-types}
 
-### Custom Error Types
+### Custom Error Types {#custom-error-types}
 
 Preserve the original cause when adding application context:
 
@@ -271,9 +271,9 @@ catch (error) {
 }
 ```
 
-## IDE Integration
+## IDE Integration {#ide-integration}
 
-### VS Code Setup
+### VS Code Setup {#vs-code-setup}
 
 Use the project's installed TypeScript and the same `tsconfig.json` as CI. For the
 standard TypeScript package, the workspace SDK is `node_modules/typescript/lib`.
@@ -297,7 +297,7 @@ A local CLI installation can be debugged without shell-wrapper indirection:
 }
 ```
 
-## Testing TypeScript Scripts
+## Testing TypeScript Scripts {#testing-typescript-scripts}
 
 ### Unit Testing {#unit-testing-with-jest}
 
@@ -313,7 +313,7 @@ it('rejects unsafe fixture names', () => {
 });
 ```
 
-### Integration Testing
+### Integration Testing {#integration-testing}
 
 Test the real execution API without fabricating a ProcessPromise:
 
@@ -331,7 +331,7 @@ it('reports a real child exit code', async () => {
 See [Command Testing](../../commands/custom/command-testing.md) for CLI-boundary and
 isolated SSH tests. Keep integration skip reasons visible.
 
-## Best Practices
+## Best Practices {#best-practices}
 
 1. Validate types before executing scripts with side effects.
 2. Import public types instead of maintaining copies or broad `any` declarations.
@@ -339,7 +339,7 @@ isolated SSH tests. Keep integration skip reasons visible.
 4. Await operations and resource cleanup; preserve cancellation and error causes.
 5. Keep deployment, release and retry logic in the existing shared APIs.
 
-## Complete TypeScript Example
+## Complete TypeScript Example {#complete-typescript-example}
 
 A release inspection script can use the same public planner as the repository's
 release recipe, without publishing or modifying the checkout:

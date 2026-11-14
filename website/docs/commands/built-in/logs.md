@@ -3,27 +3,27 @@ title: logs
 description: View and stream logs from any target
 ---
 
-# logs
+# logs {#logs}
 
 View and stream logs from targets across local, SSH hosts, Docker containers, and Kubernetes pods with advanced filtering and analysis capabilities.
 
-## Synopsis
+## Synopsis {#synopsis}
 
 ```bash
 xec logs [options] [target] [path]
 xec l [options] [target] [path]  # Alias
 ```
 
-## Description
+## Description {#description}
 
 The `logs` command provides unified log viewing and streaming across all target types in your Xec environment. It supports real-time log streaming, pattern filtering, time-based queries, and log analysis tasks. When no target is specified, it launches an interactive mode to help you select targets and configure viewing options.
 
-## Arguments
+## Arguments {#arguments}
 
 - `[target]` - Target specification (optional for interactive mode)
 - `[path]` - Log file path (required for SSH/local targets, optional for containers/pods)
 
-### Target Format
+### Target Format {#target-format}
 
 - `local` - Local filesystem
 - `hosts.name` - SSH host
@@ -32,21 +32,21 @@ The `logs` command provides unified log viewing and streaming across all target 
 - `containers.*` - All containers (wildcard support)
 - `hosts.web-*` - Pattern matching
 
-## Options
+## Options {#options}
 
-### Common Options
+### Common Options {#common-options}
 
 - `-o, --output <format>` - Output format: `text` (default), `json`, `yaml`, `csv`
 - `-c, --config <path>` - Path to configuration file
 
-### General Options
+### General Options {#general-options}
 
 - `-p, --profile <profile>` - Configuration profile to use
 - `-v, --verbose` - Enable verbose output with debug information
 - `-q, --quiet` - Suppress progress and metadata output
 - `--dry-run` - Preview log operations without executing
 
-### Log Viewing Options
+### Log Viewing Options {#log-viewing-options}
 
 - `-f, --follow` - Follow log output (stream new logs in real-time)
 - `-n, --tail <lines>` - Number of lines to show from the end (default: 50)
@@ -55,11 +55,11 @@ The `logs` command provides unified log viewing and streaming across all target 
 - `-t, --timestamps` - Show timestamps with log lines
 - `--previous` - Show previous container logs (Kubernetes only)
 
-### Container/Pod Specific Options
+### Container/Pod Specific Options {#containerpod-specific-options}
 
 - `--container <name>` - Container name (for pods with multiple containers)
 
-### Filtering Options
+### Filtering Options {#filtering-options}
 
 - `-g, --grep <pattern>` - Filter logs by regex pattern
 - `-v, --invert` - Invert grep match (exclude matching lines)
@@ -67,25 +67,25 @@ The `logs` command provides unified log viewing and streaming across all target 
 - `-B, --before <lines>` - Show N lines before grep match
 - `-C, --context <lines>` - Show N lines before and after grep match
 
-### Output Format Options
+### Output Format Options {#output-format-options}
 
 - `--no-color` - Disable colored output for log levels
 - `--json` - Output logs as JSON with metadata
 - `--prefix` - Prefix each line with target name
 - `--timestamps` - Add timestamps to log lines
 
-### Multi-Target Options
+### Multi-Target Options {#multi-target-options}
 
 - `--parallel` - View logs from multiple targets in parallel
 - `--aggregate` - Aggregate logs from multiple sources (time-sorted)
 
-### Task Integration
+### Task Integration {#task-integration}
 
 - `--task <task>` - Run a log analysis task on the logs
 
-## Examples
+## Examples {#examples}
 
-### Basic Log Viewing
+### Basic Log Viewing {#basic-log-viewing}
 
 View recent logs from different target types:
 
@@ -103,7 +103,7 @@ xec logs pods.api --tail 100
 xec logs local /var/log/system.log
 ```
 
-### Real-time Log Streaming
+### Real-time Log Streaming {#real-time-log-streaming}
 
 Stream live logs with the `--follow` flag:
 
@@ -118,7 +118,7 @@ xec logs hosts.web-1 /var/log/app.log -f --tail 20
 xec logs pods.worker --container sidecar -f
 ```
 
-### Time-based Filtering
+### Time-based Filtering {#time-based-filtering}
 
 Filter logs by time range:
 
@@ -133,7 +133,7 @@ xec logs hosts.api /var/log/app.log --since "2h ago" --until "1h ago"
 xec logs pods.frontend --since 30m --timestamps
 ```
 
-### Pattern Filtering and Search
+### Pattern Filtering and Search {#pattern-filtering-and-search}
 
 Use grep-style filtering for log analysis:
 
@@ -151,7 +151,7 @@ xec logs pods.api --grep "exception" --context 5
 xec logs containers.* --grep "user.*login.*failed" --before 2 --after 3
 ```
 
-### Multi-Target Log Viewing
+### Multi-Target Log Viewing {#multi-target-log-viewing}
 
 View logs from multiple targets simultaneously:
 
@@ -170,7 +170,7 @@ Finite parallel and aggregated reads wait for every admitted source. A failed so
 
 `--aggregate` sorts a finite result. Combining it with `--follow` is rejected before connecting. Use `--parallel --follow --prefix` for live multi-source output. `--dry-run` displays the selected operations without opening a log stream.
 
-### Container and Pod Specific Features
+### Container and Pod Specific Features {#container-and-pod-specific-features}
 
 Leverage container/pod specific capabilities:
 
@@ -188,7 +188,7 @@ xec logs pods.worker --container init --tail 50
 xec logs containers.web --since 5m --timestamps
 ```
 
-### Output Formatting
+### Output Formatting {#output-formatting}
 
 Control output format and appearance:
 
@@ -206,7 +206,7 @@ xec logs containers.* --prefix --tail 20
 xec logs pods.api --json --timestamps --since 1h
 ```
 
-### Log Analysis Tasks
+### Log Analysis Tasks {#log-analysis-tasks}
 
 Run analysis tasks on log data:
 
@@ -221,7 +221,7 @@ xec logs containers.* --task find-errors --since 1d
 xec logs pods.database --task performance-check
 ```
 
-### Interactive Mode
+### Interactive Mode {#interactive-mode}
 
 Use interactive mode for guided log viewing:
 
@@ -237,7 +237,7 @@ xec logs
 # - Choosing output formats
 ```
 
-### Advanced Use Cases
+### Advanced Use Cases {#advanced-use-cases}
 
 Complex log operations and workflows:
 
@@ -258,7 +258,7 @@ xec logs containers.microservice-* --json --since 30m | jq '.[] | select(.level 
 xec logs pods.critical-service -f --grep "CRITICAL|FATAL" --timestamps
 ```
 
-## Target Configuration
+## Target Configuration {#target-configuration}
 
 Targets are resolved from your `.xec/config.yaml`:
 
@@ -295,26 +295,26 @@ targets:
       container: main  # Default container for multi-container pods
 ```
 
-## Time Specifications
+## Time Specifications {#time-specifications}
 
 Time values support multiple formats:
 
-### Relative Time
+### Relative Time {#relative-time}
 - `5s`, `30s` - Seconds
 - `10m`, `45m` - Minutes  
 - `2h`, `12h` - Hours
 - `1d`, `7d` - Days
 
-### Absolute Time
+### Absolute Time {#absolute-time}
 - `2024-01-01T10:00:00Z` - ISO 8601 format
 - `2024-01-01 10:00:00` - Standard format
 - `Jan 1 10:00` - Syslog format
 
-### Human-friendly
+### Human-friendly {#human-friendly}
 - `1h ago`, `30m ago` - Relative descriptions
 - `yesterday`, `today` - Day references
 
-## Log Pattern Filtering
+## Log Pattern Filtering {#log-pattern-filtering}
 
 The `--grep` option supports full regex patterns:
 
@@ -334,14 +334,14 @@ The `--grep` option supports full regex patterns:
 --grep "DEBUG|TRACE" --invert     # Exclude debug logs
 ```
 
-## Output Formats
+## Output Formats {#output-formats}
 
 When stdout is not a terminal (a pipe, CI, `NO_COLOR`), output is the log
 lines alone: no colour, no spinner, no banner, and grep matches are not
 wrapped in ANSI. `--no-color` forces the same on a terminal. Follow mode
 streams lines into the pipe as they arrive.
 
-### Standard Output
+### Standard Output {#standard-output}
 Default human-readable format with optional colorization:
 
 ```
@@ -350,7 +350,7 @@ Default human-readable format with optional colorization:
 2024-01-01 10:00:02 [WARN] Retrying connection
 ```
 
-### JSON Output
+### JSON Output {#json-output}
 Structured output for programmatic processing:
 
 ```json
@@ -361,7 +361,7 @@ Structured output for programmatic processing:
 }
 ```
 
-### Prefixed Output
+### Prefixed Output {#prefixed-output}
 Multi-target output with target identification:
 
 ```
@@ -370,7 +370,7 @@ Multi-target output with target identification:
 [api [k8s]] 2024-01-01 10:00:02 API call completed
 ```
 
-## Log Analysis Tasks
+## Log Analysis Tasks {#log-analysis-tasks-1}
 
 Create custom analysis tasks in your configuration:
 
@@ -397,75 +397,75 @@ tasks:
           grep -i "memory.*high" "$LOG_PATH" | tail -5
 ```
 
-## Performance Considerations
+## Performance Considerations {#performance-considerations}
 
-### Streaming Performance
+### Streaming Performance {#streaming-performance}
 - Use `--tail` to limit initial log volume
 - Apply `--grep` filters to reduce output
 - Consider `--since` for time-bounded queries
 
-### Multi-Target Operations
+### Multi-Target Operations {#multi-target-operations}
 - `--parallel` improves performance for multiple targets
 - Network latency affects SSH target performance
 
-### Large Log Files
+### Large Log Files {#large-log-files}
 - Streaming (`-f`) is more efficient than large batch reads
 - Time-based filtering (`--since`, `--until`) reduces processing
 - Grep filtering happens at the source when possible
 
-## Error Handling
+## Error Handling {#error-handling}
 
 Common error scenarios and solutions:
 
-### Target Not Found
+### Target Not Found {#target-not-found}
 ```bash
 Error: Target 'containers.missing' not found
 Solution: Check target configuration in .xec/config.yaml
 ```
 
-### Log File Not Found
+### Log File Not Found {#log-file-not-found}
 ```bash
 Error: No such file: /var/log/missing.log
 Solution: Verify log file path exists on target
 ```
 
-### Permission Denied
+### Permission Denied {#permission-denied}
 ```bash
 Error: Permission denied: /var/log/secure
 Solution: Ensure SSH user has read access to log files
 ```
 
-### Container Not Running
+### Container Not Running {#container-not-running}
 ```bash
 Error: Container 'app' is not running
 Solution: Start container or check container name
 ```
 
-## Security Considerations
+## Security Considerations {#security-considerations}
 
-### SSH Authentication
+### SSH Authentication {#ssh-authentication}
 - Use SSH key authentication when possible
 - Avoid password authentication in automation
 - Configure proper SSH host key verification
 
-### Log Content
+### Log Content {#log-content}
 - Sensitive data in logs is displayed as-is
 - Use `--grep` to filter sensitive information if needed
 - Consider log rotation and retention policies
 
-### File Access
+### File Access {#file-access}
 - SSH users need read access to log files
 - Container logs accessible via Docker daemon
 - Kubernetes logs require appropriate RBAC permissions
 
-## Related Commands
+## Related Commands {#related-commands}
 
 - [on](on.md) - Execute commands on SSH hosts
 - [in](in.md) - Execute commands in containers/pods  
 - [copy](copy.md) - Copy files between targets
 - [forward](forward.md) - Port forwarding
 
-## Configuration
+## Configuration {#configuration}
 
 Set command defaults in `.xec/config.yaml`:
 
@@ -481,7 +481,7 @@ commands:
     grep: null            # No default pattern filter
 ```
 
-## Exit Codes
+## Exit Codes {#exit-codes}
 
 - `0` - Success
 - `1` - General error (target not found, file not accessible)
@@ -490,9 +490,9 @@ commands:
 - `4` - Network/connection error
 - `5` - Log processing error
 
-## Tips and Best Practices
+## Tips and Best Practices {#tips-and-best-practices}
 
-### Efficient Log Monitoring
+### Efficient Log Monitoring {#efficient-log-monitoring}
 ```bash
 # Monitor critical services
 xec logs containers.critical -f --grep "ERROR|FATAL" --timestamps
@@ -504,7 +504,7 @@ xec logs pods.app -f --since 5m --grep "deploy|start|ready"
 xec logs hosts.api /var/log/app.log --grep "exception" --context 5
 ```
 
-### Log Analysis Workflows
+### Log Analysis Workflows {#log-analysis-workflows}
 ```bash
 # Error trend analysis
 xec logs containers.* --since 1d --grep "ERROR" --json | jq -r '.timestamp' | sort | uniq -c
@@ -516,7 +516,7 @@ xec logs pods.database --grep "slow.*query" --context 2 --since 1h
 xec logs hosts.* /var/log/auth.log --grep "failed.*login" --timestamps
 ```
 
-### Automation Integration
+### Automation Integration {#automation-integration}
 ```bash
 # CI/CD log monitoring
 xec logs pods.deployment -f --grep "DEPLOY" --json > deployment.log

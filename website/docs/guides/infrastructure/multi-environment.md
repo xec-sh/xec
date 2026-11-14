@@ -4,14 +4,14 @@ description: Share typed steps across local, SSH, Docker and Kubernetes targets
 sidebar_position: 3
 ---
 
-# Working across environments
+# Working across environments {#working-across-environments}
 
 Xec uses one command interface across local processes, SSH hosts, Docker
 containers and Kubernetes pods. Share the command step, then select its target
 at the call site. The examples assume the named hosts, containers and pods
 already exist and the caller has access to them.
 
-## A step is a function that takes an engine
+## A step is a function that takes an engine {#a-step-is-a-function-that-takes-an-engine}
 
 A shared step needs only the callable command interface. Target contexts expose
 additional operations such as SSH transfers or Kubernetes logs.
@@ -31,7 +31,7 @@ await diskFree($.docker('api'));
 await diskFree($.k8s({ pod: 'api-pod', namespace: 'prod', context: 'production' }));
 ```
 
-## Running one step against many targets
+## Running one step against many targets {#running-one-step-against-many-targets}
 
 `parallel` starts lazy commands with the declared concurrency limit and waits
 for their results. A read-only fleet probe can inspect every target in one run.
@@ -51,7 +51,7 @@ console.log(`${outcome.succeeded.length} active, ${outcome.failed.length} failed
 The default `stopOnError: false` collects both rejected commands and returned
 non-zero results. `.nothrow()` preserves a failed command's result for inspection.
 
-### Naming which target failed
+### Naming which target failed {#naming-which-target-failed}
 
 `results` preserves input order. A failure can contain an execution result or
 an error raised before the command could complete.
@@ -74,7 +74,7 @@ for (const [index, result] of outcome.results.entries()) {
 }
 ```
 
-### Stopping at the first bad target
+### Stopping at the first bad target {#stopping-at-the-first-bad-target}
 
 Use `stopOnError` with concurrency one for a sequential rollout. Commands that
 have already started are allowed to settle. Keep the input commands lazy so the
@@ -94,7 +94,7 @@ if (rollout.failed.length > 0) {
 }
 ```
 
-## Retrying a flaky step
+## Retrying a flaky step {#retrying-a-flaky-step}
 
 `retry` classifies command results using `isRetryable`. This example repeats a
 read-only readiness request for selected curl failures. An SSH connection loss
@@ -126,7 +126,7 @@ try {
 For state-changing operations, determine the previous attempt's outcome and
 its idempotency contract before deciding whether to execute again.
 
-## Stages that depend on each other
+## Stages that depend on each other {#stages-that-depend-on-each-other}
 
 For a short script, `await` makes the order explicit. SSH's public transfer
 methods share its target configuration and connection handling.
@@ -148,7 +148,7 @@ operations and define the application's health and rollback procedures. [Task
 configuration](../../configuration/tasks/overview.md), [Deployment
 operations](../../ops/deploy.md)
 
-## Sharing configuration between targets
+## Sharing configuration between targets {#sharing-configuration-between-targets}
 
 Create a configured target once and pass it to the steps that need it.
 
@@ -179,7 +179,7 @@ await within({ defaultEnv: { DEPLOY_ID: 'candidate-42' } }, async () => {
 });
 ```
 
-## What this does not give you
+## What this does not give you {#what-this-does-not-give-you}
 
 Application-specific recovery still requires a declared procedure and a health
 check. A completed command proves its own exit status. Verify the deployed

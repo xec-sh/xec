@@ -6,19 +6,19 @@ source_files:
   - packages/ops/src/pipeline/index.ts
 ---
 
-# GitLab CI Integration Recipe
+# GitLab CI Integration Recipe {#gitlab-ci-integration-recipe}
 
-## Implementation Reference
+## Implementation Reference {#implementation-reference}
 
 The CLI script entry point is `apps/xec/src/commands/run.ts`; shared asynchronous pipelines are implemented in `packages/ops/src/pipeline/index.ts`.
 
-## Overview
+## Overview {#overview}
 
 Install the project’s locked CLI and run the same checked scripts as local development. GitLab owns runners, job artifacts, protected variables and environment scheduling.
 
-## Basic GitLab CI Configuration
+## Basic GitLab CI Configuration {#basic-gitlab-ci-configuration}
 
-### Simple Pipeline with Xec
+### Simple Pipeline with Xec {#simple-pipeline-with-xec}
 
 ```yaml
 image: node:24-bookworm-slim
@@ -40,9 +40,9 @@ verify:
 
 The project declares Xec and the script in its repository. Pin the selected runner image digest for immutable CI inputs. Validate workflow changes with [GitLab’s CI configuration tools](https://docs.gitlab.com/ci/yaml/).
 
-## Advanced Pipeline Configuration
+## Advanced Pipeline Configuration {#advanced-pipeline-configuration}
 
-### Multi-Environment Deployment
+### Multi-Environment Deployment {#multi-environment-deployment}
 
 ```yaml
 # Additional job in the pipeline above.
@@ -63,19 +63,19 @@ deploy-production:
 
 The application script verifies and deploys that exact artifact. Configure protected credentials and the deployment environment before enabling the job. The resource group serializes this project’s production installation, not other repositories.
 
-## GitLab Runner Configuration
+## GitLab Runner Configuration {#gitlab-runner-configuration}
 
-### Docker Executor Setup
+### Docker Executor Setup {#docker-executor-setup}
 
 Select a maintained Node 24 runner image with the tools required by the job. A Node image does not automatically include Docker, kubectl, Helm or cloud CLIs. Provision those through the runner’s reviewed image rather than installing mutable tools inside every script.
 
-### Kubernetes Executor
+### Kubernetes Executor {#kubernetes-executor}
 
 The runner owns its pod identity and resource limits. Grant the job only the namespace access its deployment requires. Do not mount an unrestricted host Docker socket or cluster-admin kubeconfig simply to run Xec.
 
-## Secret Management
+## Secret Management {#secret-management}
 
-### Using GitLab CI Variables
+### Using GitLab CI Variables {#using-gitlab-ci-variables}
 
 ```typescript
 // scripts/check-deploy-inputs.ts
@@ -88,13 +88,13 @@ console.log(`Prepared inputs for ${target} at ${commit}`);
 
 Use protected, masked or file variables for credentials as appropriate; do not print their values or dump the process environment.
 
-### Vault Integration
+### Vault Integration {#vault-integration}
 
 Use the runner’s configured external-secret integration to materialize a limited credential. Xec consumes the resulting file or environment variable. Token exchange, audience and trust policy belong to that integration; a script must not invent an unauthenticated Vault read path.
 
-## Monitoring and Notifications
+## Monitoring and Notifications {#monitoring-and-notifications}
 
-### Pipeline Status Notifications
+### Pipeline Status Notifications {#pipeline-status-notifications}
 
 Prefer the provider’s notification integration. A custom webhook must check its response and keep the URL out of logs:
 
@@ -111,29 +111,29 @@ if (!response.ok) throw new Error(`Notification failed (${response.status})`);
 
 Run this in the provider’s finalization phase; do not let a successful notification replace the original job failure.
 
-## Caching Strategies
+## Caching Strategies {#caching-strategies}
 
-### Efficient Caching Configuration
+### Efficient Caching Configuration {#efficient-caching-configuration}
 
 Cache package-manager downloads using the lockfile key, as above. Keep credentials and mutable deployment state out of the cache. A restored cache does not replace the lockfile installation or artifact verification.
 
-## Performance Optimization
+## Performance Optimization {#performance-optimization}
 
-### Parallel Job Execution
+### Parallel Job Execution {#parallel-job-execution}
 
 Use GitLab jobs for independent OS/runtime or test shards, and the shared Xec `Pipeline` for steps within a job. Avoid multiplying both levels of concurrency beyond runner capacity.
 
-## GitLab-Specific Features
+## GitLab-Specific Features {#gitlab-specific-features}
 
-### Merge Request Pipelines
+### Merge Request Pipelines {#merge-request-pipelines}
 
 Run verification on merge requests without exposing production credentials. A merge request pipeline is not authorization to deploy its source to a protected environment.
 
-### Dynamic Child Pipelines
+### Dynamic Child Pipelines {#dynamic-child-pipelines}
 
 Generate child configuration only from reviewed repository data and validate it with GitLab’s parser. Keep Xec task execution in the child job’s explicit script entry point; do not evaluate arbitrary configuration as JavaScript.
 
-## Xec Configuration for GitLab
+## Xec Configuration for GitLab {#xec-configuration-for-gitlab}
 
 ```yaml
 version: '1.0'
@@ -146,29 +146,29 @@ tasks:
 
 These are project-defined tasks, not extra built-in subcommands. The explicit script form remains valid without this task declaration.
 
-## Performance Characteristics
+## Performance Characteristics {#performance-characteristics}
 
-### Pipeline Performance
+### Pipeline Performance {#pipeline-performance}
 
 Measure install, build, test and delivery durations separately. Reuse an accepted artifact after verification instead of repeating the build during publication.
 
-### Job Execution
+### Job Execution {#job-execution}
 
 Set provider job deadlines and operation timeouts based on measured work. Cancellation must await owned process cleanup before another job reuses the same installation.
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### Common Issues
+### Common Issues {#common-issues}
 
 A missing CLI indicates an incomplete lockfile installation. A target-resolution failure indicates missing project configuration. A cloud authorization failure belongs to the job’s credential contract. Diagnose the failed layer rather than retrying the entire deployment.
 
-## Related Recipes
+## Related Recipes {#related-recipes}
 
 - [GitHub Actions](github-actions.md)
 - [Jenkins](jenkins.md)
 - [Node.js Deployment](../deployment/node-app-deploy.md)
 
-## See Also
+## See Also {#see-also}
 
 - [Pipeline API](../../ops/pipeline.md)
 - [Configuration](../../configuration/overview.md)

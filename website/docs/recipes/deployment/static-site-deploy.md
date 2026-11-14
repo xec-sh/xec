@@ -7,17 +7,17 @@ source_files:
   - packages/ops/src/config/target-resolver.ts
 ---
 
-# Static Site Deployment
+# Static Site Deployment {#static-site-deployment}
 
-## Problem
+## Problem {#problem}
 
 Publish a known static artifact without losing the previous release or confusing upload success with serving the new content.
 
-## Solution
+## Solution {#solution}
 
 Build once, retain the output and release identity, then use the hosting provider’s deployment path. Xec orchestrates that path and checks its result. Cache invalidation and origin activation are separate operations.
 
-## Quick Example
+## Quick Example {#quick-example}
 
 This stages a prepared build at an immutable S3 prefix. It deliberately does not delete the current site or change its origin:
 
@@ -34,9 +34,9 @@ console.log(`Staged ${destination}; origin activation and acceptance are still r
 
 `verify:site-artifact` is the project’s check that `dist/` belongs to that commit. Configure AWS credentials outside the script.
 
-## Complete Deployment Recipes
+## Complete Deployment Recipes {#complete-deployment-recipes}
 
-### Configuration
+### Configuration {#configuration}
 
 ```yaml
 version: '1.0'
@@ -57,7 +57,7 @@ tasks:
 
 Keep build and upload distinct so retries do not silently rebuild a different artifact.
 
-### Multi-Platform Deployment Script
+### Multi-Platform Deployment Script {#multi-platform-deployment-script}
 
 Use one reviewed provider entry point rather than inventing a universal origin-switch implementation. These project scripts implement the specified host’s deployment and recovery contracts:
 
@@ -83,7 +83,7 @@ if (!result.success) throw new Error('Site activation or acceptance failed');
 
 For S3, the project controls the bucket prefix and CDN origin. For Nginx, it controls the immutable directory and serving selector. `site:verify` must fetch the public origin and compare the expected release marker. Retain the previous selector and artifact; code rollback does not roll back external data.
 
-### CDN Deployment with Optimization
+### CDN Deployment with Optimization {#cdn-deployment-with-optimization}
 
 After the origin has switched successfully, invalidate only the paths required by the chosen cache policy and wait for that invalidation:
 
@@ -97,15 +97,15 @@ await $`aws cloudfront wait invalidation-completed --distribution-id ${distribut
 
 The [AWS invalidation waiter](https://docs.aws.amazon.com/cli/latest/reference/cloudfront/wait/invalidation-completed.html) confirms invalidation completion, not application correctness. Fetch and verify the public release afterward.
 
-## SSL Certificate Management
+## SSL Certificate Management {#ssl-certificate-management}
 
 Use the hosting provider’s certificate lifecycle, or the [certificate renewal recipe](../maintenance/certificate-renewal.md) for an explicitly managed host. Do not generate an Nginx configuration that silently disables certificate validation or replaces another site’s listener.
 
-## Performance Optimization
+## Performance Optimization {#performance-optimization}
 
 Let the site’s bundler own compression, content hashes and source maps. Upload immutable assets with their reviewed cache policy and keep HTML/release metadata revalidatable. Do not rename or gzip files after generating references unless the build tool also updates those references.
 
-## Usage Examples
+## Usage Examples {#usage-examples}
 
 ```bash
 xec run scripts/stage-site.ts 0123456789abcdef0123456789abcdef01234567
@@ -114,13 +114,13 @@ SITE_PROVIDER=s3 xec run scripts/deploy-site.ts 0123456789abcdef0123456789abcdef
 
 Use an actual prepared commit and implement the named provider hooks before activation.
 
-## Best Practices
+## Best Practices {#best-practices}
 
 Check relative asset paths, redirects, fragment anchors and the production base URL. Retain a previously accepted artifact. Verify both HTML and representative assets through the real public origin, including cache headers.
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### Cache Issues
+### Cache Issues {#cache-issues}
 
 ```typescript
 const origin = process.env.SITE_URL;
@@ -132,11 +132,11 @@ if (!response.ok) throw new Error('Published site is not reachable');
 
 Inspect the origin selection before invalidating caches again.
 
-### CORS Errors
+### CORS Errors {#cors-errors}
 
 Configure only the origins, methods and headers the application needs. CORS is a browser policy; it does not authenticate access to a private bucket or replace a file authorization check.
 
-## Related Topics
+## Related Topics {#related-topics}
 
 - [Docker Deployment](docker-deploy.md)
 - [GitHub Actions](../integration/github-actions.md)

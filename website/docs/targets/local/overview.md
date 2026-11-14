@@ -5,7 +5,7 @@ keywords: [local, shell, execution, bash, zsh, sh]
 sidebar_position: 1
 ---
 
-# Local Target Overview
+# Local Target Overview {#local-target-overview}
 
 Local targets run commands directly on the machine executing the script, through the `node:child_process` API supported by Node, Bun, and Deno. It is the default target — no configuration is required to use it.
 
@@ -16,7 +16,7 @@ const greeting = await $`echo "Hello, World!"`.text();
 console.log(greeting); // "Hello, World!"
 ```
 
-## Target configuration
+## Target configuration {#target-configuration}
 
 ```yaml
 # .xec/config.yaml
@@ -31,7 +31,7 @@ targets:
 
 All fields are optional; `local` also accepts `timeout`, `encoding`, `maxBuffer` and `throwOnNonZeroExit`. `shell` takes a boolean or the path to a single executable — it cannot carry extra arguments (see [Shell Configuration](./shell-config.md)).
 
-## Execution model
+## Execution model {#execution-model}
 
 `LocalAdapter` uses one process implementation across Node, Bun, and Deno. Select the runtime by starting the script with that executable. Xec 0.12 removes `preferBun` and `forceImplementation`; the separate Bun path did not implement the full cancellation and output contract.
 
@@ -54,7 +54,7 @@ const engine = new ExecutionEngine({
 
 `uid` and `gid` apply on Unix. Cancellation, process-tree termination, output bounds, and completion use the same lifetime on every supported runtime. A completed local cancellation reports `aborted: true`, independently of the native exit code or signal.
 
-## Environment variables
+## Environment variables {#environment-variables}
 
 Commands inherit `process.env`; anything passed as `env` is layered on top, per key — there is no way to run a command with a fully empty environment.
 
@@ -66,7 +66,7 @@ await $.env({ NODE_ENV: 'production' })`npm run build`; // persists on the retur
 await $.with({ env: { DEBUG: 'app:*' } })`node app.js`; // this command only
 ```
 
-## Working directory
+## Working directory {#working-directory}
 
 ```typescript
 $.pwd();                       // directory the engine currently uses
@@ -82,7 +82,7 @@ await within('/project', async () => {
 }); // reverts afterward
 ```
 
-## Reading output
+## Reading output {#reading-output}
 
 ```typescript
 const result = await $`ls -la`;
@@ -135,7 +135,7 @@ import { createReadStream } from 'node:fs';
 await $.with({ stdin: createReadStream('input.txt') })`wc -l`;
 ```
 
-## Live process access
+## Live process access {#live-process-access}
 
 `` $`cmd` `` is lazy — nothing runs until it is awaited, started, or one of the live accessors below is read.
 
@@ -156,7 +156,7 @@ await p.nothrow();
 
 On POSIX, a command runs in its own process group by default (`detached: true` unless overridden), and `.kill()` signals that group plus any descendant that escaped it — a shell wrapper like `sh -c 'node server.js'` cannot orphan what it started.
 
-## Timeouts
+## Timeouts {#timeouts}
 
 ```typescript
 await $`npm install`.timeout(60000);
@@ -165,7 +165,7 @@ await $`npm install`.timeout('60s');
 
 Commands time out after 30 seconds by default. A timeout rejects with `TimeoutError` and kills the process tree, using the adapter's `killSignal` (default `SIGTERM`, set at construction as shown above).
 
-## Errors
+## Errors {#errors}
 
 A non-zero exit code throws `CommandError` (`exitCode`, `signal`, `stdout`, `stderr`, `command`, `duration`) by default. Opt out per command with `.nothrow()`:
 
@@ -178,7 +178,7 @@ if (!result.ok) {
 
 See [Troubleshooting](./troubleshooting.md) for exit-code meanings and common failures.
 
-## Related Documentation
+## Related Documentation {#related-documentation}
 
 - [Shell Configuration](./shell-config.md) - shell selection, quoting, dialects
 - [Local Troubleshooting](./troubleshooting.md) - common issues and solutions

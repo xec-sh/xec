@@ -16,9 +16,9 @@ key_functions:
 verification_date: 2025-08-03
 ---
 
-# run
+# run {#run}
 
-## Implementation Reference
+## Implementation Reference {#implementation-reference}
 
 **Source Files:**
 - `apps/xec/src/commands/run.ts` - Main run command implementation
@@ -33,35 +33,35 @@ verification_date: 2025-08-03
 - `ScriptRunner.startRepl()` - REPL initialization
 - `TaskManager.run()` - Task execution from config
 
-## Overview
+## Overview {#overview}
 
 Execute Xec scripts, tasks, or evaluate code with multiple runtime support.
 
-## Synopsis
+## Synopsis {#synopsis}
 
 ```bash
 xec run [fileOrTask] [args...] [options]
 xec r [fileOrTask] [args...] [options]  # Alias
 ```
 
-## Description
+## Description {#description}
 
 The `run` command is a versatile executor that can run JavaScript/TypeScript files, execute configured tasks, evaluate inline code, or start an interactive REPL. It supports multiple JavaScript runtimes including Node.js, Bun, and Deno.
 
-## Arguments
+## Arguments {#arguments}
 
 - `[fileOrTask]` - Script file path or task name to execute
 - `[args...]` - Arguments to pass to the script
 
-## Options
+## Options {#options}
 
-### Common Options
+### Common Options {#common-options}
 
 - `-o, --output <format>` - Output format: `text` (default), `json`, `yaml`, `csv`
 - `-c, --config <path>` - Path to configuration file
 - `--dry-run` - Perform a dry run without making changes
 
-### Execution Options (from `RunCommand` implementation)
+### Execution Options (from `RunCommand` implementation) {#execution-options-from-runcommand-implementation}
 
 - `-e, --eval <code>` - Evaluate inline code
   - Executes via `ScriptRunner.evalCode()`
@@ -76,16 +76,16 @@ The `run` command is a versatile executor that can run JavaScript/TypeScript fil
 - `--watch` - Watch for file changes and re-execute
   - Re-runs the script in a fresh process on each change
 
-### Task Options
+### Task Options {#task-options}
 
 - `-p, --param <key=value>` - Task parameters (can be used multiple times)
   - Parsed by `parseTaskParams()` function
   - Supports nested objects: `-p "obj.key=value"`
   - Supports arrays: `-p "arr=[1,2,3]"`
 
-## Examples
+## Examples {#examples}
 
-### Script Execution
+### Script Execution {#script-execution}
 
 ```bash
 # Run JavaScript file
@@ -101,7 +101,7 @@ xec run deploy.js production --force
 xec run --watch build.js
 ```
 
-### Task Execution
+### Task Execution {#task-execution}
 
 ```bash
 # Run a configured task
@@ -114,7 +114,7 @@ xec run deploy -p environment=production -p version=1.2.3
 xec run backup -p "databases=['users','orders']" -p compress=true
 ```
 
-### Inline Code Evaluation
+### Inline Code Evaluation {#inline-code-evaluation}
 
 ```bash
 # Simple evaluation
@@ -133,7 +133,7 @@ xec run --typescript -e "
 xec run -e "console.log('Args:', args)" arg1 arg2
 ```
 
-### REPL Mode
+### REPL Mode {#repl-mode}
 
 ```bash
 # Start interactive REPL
@@ -143,9 +143,9 @@ xec run --repl
 xec run --repl --typescript
 ```
 
-## Script Execution
+## Script Execution {#script-execution-1}
 
-### Supported File Types
+### Supported File Types {#supported-file-types}
 
 The run command automatically detects and executes (detected in `ScriptRunner`):
 
@@ -154,7 +154,7 @@ The run command automatically detects and executes (detected in `ScriptRunner`):
 - **JSON** (`.json`) - Loaded as modules
 - **Any executable** - Falls back to direct execution with shebang support
 
-### Runtime
+### Runtime {#runtime}
 
 Scripts execute on the runtime that is running the CLI itself. Installed via
 npm, that is Node.js. To run a script under Bun or Deno, start the CLI with
@@ -171,11 +171,11 @@ bun $(which xec) run script.ts
 deno run -A $(which xec) run script.ts
 ```
 
-### Script Environment
+### Script Environment {#script-environment}
 
 Scripts executed with `xec run` have access to:
 
-#### Global Variables
+#### Global Variables {#global-variables}
 
 ```javascript
 // Script arguments and location
@@ -189,7 +189,7 @@ console.log($targetInfo);  // Selected target metadata (local for xec run)
 await $target`node --version`; // Selected callable execution engine
 ```
 
-#### Built-in Modules
+#### Built-in Modules {#built-in-modules}
 
 ```javascript
 // Command execution
@@ -215,7 +215,7 @@ log.error('Error message');
 log.warning('Warning message');
 ```
 
-#### Utilities
+#### Utilities {#utilities}
 
 ```javascript
 // Built-in Prism formatting
@@ -227,9 +227,9 @@ const unique = [...new Set([1, 2, 2, 3])];
 const now = new Date().toISOString();
 ```
 
-## Task Execution
+## Task Execution {#task-execution-1}
 
-### Task Resolution
+### Task Resolution {#task-resolution}
 
 The command resolves tasks from `.xec/config.yaml` (via `TaskManager.run()`):
 
@@ -254,7 +254,7 @@ tasks:
         command: ./deploy.sh ${params.environment} ${params.version}
 ```
 
-### Parameter Passing
+### Parameter Passing {#parameter-passing}
 
 Task parameters can be passed using the `-p` flag:
 
@@ -272,7 +272,7 @@ xec run test -p timeout=30000 -p workers=4
 xec run backup -p "config={'databases':['users','orders'],'compress':true}"
 ```
 
-### Parameter Types
+### Parameter Types {#parameter-types}
 
 Parameters are automatically parsed:
 
@@ -281,9 +281,9 @@ Parameters are automatically parsed:
 - **Numbers**: Numeric values
 - **JSON**: Objects and arrays (when starting with `{` or `[`)
 
-## Code Evaluation
+## Code Evaluation {#code-evaluation}
 
-### Inline Evaluation
+### Inline Evaluation {#inline-evaluation}
 
 Execute JavaScript/TypeScript code directly:
 
@@ -316,9 +316,9 @@ xec run -e "
 "
 ```
 
-## REPL Mode
+## REPL Mode {#repl-mode-1}
 
-### Interactive Shell
+### Interactive Shell {#interactive-shell}
 
 Start an interactive session with full Xec environment:
 
@@ -354,7 +354,7 @@ In the REPL:
 // { name: 'my-project', ... }
 ```
 
-### REPL Features
+### REPL Features {#repl-features}
 
 - **Auto-completion**: Tab completion for variables and methods
 - **History**: Up/down arrow key navigation
@@ -362,9 +362,9 @@ In the REPL:
 - **Error handling**: Graceful error display without crashing
 - **Context preservation**: Variables persist between commands
 
-## TypeScript Support
+## TypeScript Support {#typescript-support}
 
-### Automatic Detection
+### Automatic Detection {#automatic-detection}
 
 TypeScript files (`.ts`) are automatically transpiled:
 
@@ -376,7 +376,7 @@ xec run script.ts
 xec run --typescript script.js
 ```
 
-### Type Definitions
+### Type Definitions {#type-definitions}
 
 Built-in type definitions are available:
 
@@ -392,9 +392,9 @@ const files: string[] = await glob('**/*.ts');
 const stats = await fs.stat('package.json');
 ```
 
-## Watch Mode
+## Watch Mode {#watch-mode}
 
-### Development Workflow
+### Development Workflow {#development-workflow}
 
 Use watch mode for rapid development:
 
@@ -410,16 +410,16 @@ xec run --watch -e "
 "
 ```
 
-### Watch Behavior
+### Watch Behavior {#watch-behavior}
 
 - **File monitoring**: Watches the specified file for changes
 - **Auto-restart**: Automatically re-executes on file modification
 - **Error isolation**: Errors don't stop watching
 - **Graceful shutdown**: Ctrl+C stops watching cleanly
 
-## Error Handling
+## Error Handling {#error-handling}
 
-### Script Errors
+### Script Errors {#script-errors}
 
 ```bash
 # Script with syntax error
@@ -431,7 +431,7 @@ xec run failing.js
 # Error: Cannot read property 'foo' of undefined
 ```
 
-### Task Errors
+### Task Errors {#task-errors}
 
 ```bash
 # Non-existent task
@@ -443,7 +443,7 @@ xec run deploy -p invalid_param=value
 # Error: Invalid parameter format: invalid_param=value
 ```
 
-### Helpful Error Messages
+### Helpful Error Messages {#helpful-error-messages}
 
 The command provides context-aware error messages:
 
@@ -452,36 +452,36 @@ The command provides context-aware error messages:
 - **Parameter errors**: Explains correct parameter format
 - **Task validation**: Shows required parameters
 
-## Performance Characteristics
+## Performance Characteristics {#performance-characteristics}
 
 **Based on Implementation:**
 
-### Startup Performance
+### Startup Performance {#startup-performance}
 - **Script Resolution**: &lt;5ms (file existence check)
 - **Task Resolution**: &lt;10ms (config lookup)
 - **TypeScript Compilation**: 200-500ms (first run), &lt;50ms (cached)
 - **Runtime Detection**: &lt;1ms (environment check)
 
-### Execution Performance
+### Execution Performance {#execution-performance}
 - **Node.js**: ~50ms startup overhead
 - **Bun**: ~20ms startup overhead (when available)
 - **Deno**: ~100ms startup overhead (when available)
 - **Module Loading**: 10-50ms per require/import
 
-### Memory Usage
+### Memory Usage {#memory-usage}
 - **Base Process**: ~30MB (Node.js runtime)
 - **TypeScript Compiler**: +20MB when active
 - **Script Context**: 5-10MB per loaded module
 - **REPL Session**: ~40MB persistent
 
-## Related Commands
+## Related Commands {#related-commands}
 
 - [new](new.md) - Create new scripts and tasks
 - [watch](watch.md) - Watch files and auto-execute
 - [config](config.md) - Manage task configuration
 - [inspect](inspect.md) - Inspect tasks and scripts
 
-## Configuration
+## Configuration {#configuration}
 
 Script execution can be configured in `.xec/config.yaml`:
 
@@ -510,7 +510,7 @@ commands:
     replHistory: true
 ```
 
-## Exit Codes
+## Exit Codes {#exit-codes}
 
 Exit codes follow the standard error mapping (from `apps/xec/src/utils/error-handler.ts`):
 

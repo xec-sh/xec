@@ -4,11 +4,11 @@ title: Server Management
 description: Manage multiple servers efficiently with Xec's SSH capabilities
 ---
 
-# Server Management
+# Server Management {#server-management}
 
 Server management at scale using Xec's SSH adapter with connection pooling, parallel execution, and retries.
 
-## Overview
+## Overview {#overview}
 
 Xec transforms server management by providing:
 - **Connection pooling** for efficient SSH connections
@@ -17,9 +17,9 @@ Xec transforms server management by providing:
 - **Secure credential management**
 - **Session persistence** and reuse
 
-## Basic Server Operations
+## Basic Server Operations {#basic-server-operations}
 
-### Single Server Management
+### Single Server Management {#single-server-management}
 
 ```typescript
 // server/single-server.ts
@@ -58,7 +58,7 @@ async function manageServer() {
 await manageServer();
 ```
 
-### Multiple Server Management
+### Multiple Server Management {#multiple-server-management}
 
 ```typescript
 // server/multi-server.ts
@@ -143,9 +143,9 @@ await fleet.healthCheck();
 await fleet.updateAll();
 ```
 
-## Connection Management
+## Connection Management {#connection-management}
 
-### Connection Pooling
+### Connection Pooling {#connection-pooling}
 
 ```typescript
 // server/connection-pool.ts
@@ -233,7 +233,7 @@ async function performOperations() {
 await performOperations();
 ```
 
-### SSH Tunneling
+### SSH Tunneling {#ssh-tunneling}
 
 ```typescript
 // server/ssh-tunnel.ts
@@ -298,9 +298,9 @@ const tunnelManager = new SSHTunnelManager();
 await tunnelManager.accessThroughTunnel();
 ```
 
-## Server Provisioning
+## Server Provisioning {#server-provisioning}
 
-### Automated Server Setup
+### Automated Server Setup {#automated-server-setup}
 
 ```typescript
 // server/provision.ts
@@ -447,9 +447,9 @@ const provisioner = new ServerProvisioner('new-server.example.com');
 await provisioner.provision();
 ```
 
-## Monitoring and Maintenance
+## Monitoring and Maintenance {#monitoring-and-maintenance}
 
-### Health Monitoring
+### Health Monitoring {#health-monitoring}
 
 ```typescript
 // server/health-monitor.ts
@@ -613,7 +613,7 @@ const monitor = new HealthMonitor([
 await monitor.monitor();
 ```
 
-### Log Management
+### Log Management {#log-management}
 
 ```typescript
 // server/log-manager.ts
@@ -752,9 +752,9 @@ await logManager.searchLogs('ERROR');
 await logManager.tailLogs('myapp');
 ```
 
-## Batch Operations
+## Batch Operations {#batch-operations}
 
-### Parallel Command Execution
+### Parallel Command Execution {#parallel-command-execution}
 
 ```typescript
 // server/batch-ops.ts
@@ -861,7 +861,7 @@ await batch.execute([
 });
 ```
 
-### File Distribution
+### File Distribution {#file-distribution}
 
 ```typescript
 // server/file-distribution.ts
@@ -967,9 +967,9 @@ await distributor.distribute('./configs', '/etc/myapp');
 await distributor.collect('/var/log/myapp.log', './collected-logs');
 ```
 
-## Security Management
+## Security Management {#security-management}
 
-### Security Hardening
+### Security Hardening {#security-hardening}
 
 ```typescript
 // server/security-hardening.ts
@@ -1112,9 +1112,9 @@ const hardener = new SecurityHardener();
 await hardener.harden('new-server.example.com');
 ```
 
-## Disaster Recovery
+## Disaster Recovery {#disaster-recovery}
 
-### Backup Management
+### Backup Management {#backup-management}
 
 ```typescript
 // server/backup-manager.ts
@@ -1207,9 +1207,9 @@ await backupManager.createBackup('daily');
 await backupManager.listBackups();
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### 1. Connection Management
+### 1. Connection Management {#1-connection-management}
 
 ```typescript
 // Always reuse connections
@@ -1227,7 +1227,7 @@ function getServerConnection(host: string) {
 }
 ```
 
-### 2. Error Handling
+### 2. Error Handling {#2-error-handling}
 
 ```typescript
 async function safeServerOperation(host: string, operation: () => Promise<any>) {
@@ -1248,7 +1248,7 @@ async function safeServerOperation(host: string, operation: () => Promise<any>) 
 }
 ```
 
-### 3. Parallel Execution
+### 3. Parallel Execution {#3-parallel-execution}
 
 ```typescript
 import { $, parallel } from '@xec-sh/core';
@@ -1264,9 +1264,9 @@ const observation = await executeOnServers(['web-1', 'web-2'], 'uptime');
 console.log(observation.succeeded.length, observation.failed.length);
 ```
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### Common Issues
+### Common Issues {#common-issues}
 
 1. **Connection Timeout**
    ```typescript
@@ -1299,11 +1299,11 @@ console.log(observation.succeeded.length, observation.failed.length);
    console.log(result.failed.length);
    ```
 
-## Next Steps
+## Next Steps {#next-steps}
 
 - Learn about [container orchestration](./container-orchestration.md)
 
-## Summary
+## Summary {#summary}
 
 You've learned how to:
 - ✅ Manage single and multiple servers efficiently

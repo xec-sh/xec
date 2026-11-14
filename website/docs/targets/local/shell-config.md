@@ -5,11 +5,11 @@ keywords: [shell, bash, zsh, sh, powershell, cmd, quoting, escaping]
 sidebar_position: 2
 ---
 
-# Shell Configuration
+# Shell Configuration {#shell-configuration}
 
 The `shell` option controls whether a command runs through a shell, and which one. Every value interpolated into a `` $`...` `` template is quoted for that shell automatically.
 
-## The `shell` option
+## The `shell` option {#the-shell-option}
 
 `shell` is `boolean | string`:
 
@@ -32,7 +32,7 @@ await $.exec('node', { args: ['--version'], shell: false });
 
 A string shell is always invoked with `-c`, which is why this works for shells that accept that flag for a command string — `bash`, `zsh`, `sh`, `dash` and `fish` all do. On Windows, leave `cmd.exe` as the default (`shell: true`): an explicit `shell: 'cmd.exe'` would still be invoked with `-c`, which `cmd.exe` doesn't understand — it needs `/c`, so it can't be selected as a string shell this way.
 
-## Configuring a target's shell
+## Configuring a target's shell {#configuring-a-targets-shell}
 
 ```yaml
 # .xec/config.yaml
@@ -44,7 +44,7 @@ targets:
 
 There's no `shellArgs` field — `shell` is the whole story, and it takes exactly one executable path.
 
-## Startup files
+## Startup files {#startup-files}
 
 A string shell runs non-interactively via `-c`, so interactive/login startup files are not sourced automatically:
 
@@ -60,7 +60,7 @@ Source what you need explicitly:
 await $.shell('/bin/bash')`source ~/.bashrc && my-alias`;
 ```
 
-## Quoting and escaping
+## Quoting and escaping {#quoting-and-escaping}
 
 Values interpolated into a `` $`...` `` template are quoted for the shell that will run them. The dialect (`'posix'`, `'cmd'` or `'powershell'`) is resolved from whatever `.shell(...)` is currently set — not from the host OS:
 
@@ -83,7 +83,7 @@ const safe = quoteForShell(userInput, 'posix');
 await $.exec('echo ' + safe);
 ```
 
-## Portability
+## Portability {#portability}
 
 `sh` is POSIX-only — no arrays, no `[[ ]]`, no brace expansion:
 
@@ -101,7 +101,7 @@ None of those reach Windows, whose default shell is `cmd.exe` — it has
 [Windows and cross-platform scripts](./cross-platform.md) for what carries
 across operating systems and what does not.
 
-## Related Documentation
+## Related Documentation {#related-documentation}
 
 - [Local Overview](./overview.md) - local target fundamentals
 - [Windows and cross-platform scripts](./cross-platform.md) - what behaves identically on every OS

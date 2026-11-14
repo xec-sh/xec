@@ -5,11 +5,11 @@ keywords: [kubernetes, k8s, port-forward, networking, tunnel]
 sidebar_position: 4
 ---
 
-# Port Forwarding
+# Port Forwarding {#port-forwarding}
 
 Port forwarding runs `kubectl port-forward` as a child process and binds a local port to a pod port. It targets the pod's shared network namespace, not an individual container — see [Multi-Container Pods](./multi-container.md).
 
-## Fixed Local Port
+## Fixed Local Port {#fixed-local-port}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -24,7 +24,7 @@ await $`curl http://localhost:8080/health`;
 await forward.close();
 ```
 
-## Dynamic Local Port
+## Dynamic Local Port {#dynamic-local-port}
 
 Let kubectl ask the OS for a local port. The returned `localPort` is the
 actual listener reported by kubectl, not a random candidate guessed in advance:
@@ -37,7 +37,7 @@ console.log(`API available at: http://localhost:${forward.localPort}`);
 await forward.close();
 ```
 
-## Forward State
+## Forward State {#forward-state}
 
 ```typescript
 const pod = $.k8s({ namespace: 'production' }).pod('web-server');
@@ -61,7 +61,7 @@ try {
 }
 ```
 
-## Deadlines, Cancellation and Ownership
+## Deadlines, Cancellation and Ownership {#deadlines-cancellation-and-ownership}
 
 Both pod methods accept `{ timeout, signal, maxBuffer }` as their final argument.
 `timeout` bounds readiness in milliseconds (`0` disables that deadline). The
@@ -89,7 +89,7 @@ code zero. `close()` waits for native termination; adapter disposal also waits
 for its open or starting forwards. A ready forward can later stop: `isOpen`
 reflects that state, and application-level connectivity still needs checking.
 
-## Multiple Forwards
+## Multiple Forwards {#multiple-forwards}
 
 ```typescript
 const k8s = $.k8s({ namespace: 'production' });
@@ -103,7 +103,7 @@ await $`pg_isready -h localhost -p ${dbForward.localPort}`;
 await Promise.all([webForward.close(), dbForward.close()]);
 ```
 
-## Low-Level Adapter Form
+## Low-Level Adapter Form {#low-level-adapter-form}
 
 Without a pod handle, the adapter's own `portForward` requires an explicit `.open()` — unlike the pod API, it doesn't open automatically:
 
@@ -121,7 +121,7 @@ await forward.open();
 await forward.close();
 ```
 
-## Error Handling
+## Error Handling {#error-handling}
 
 ```typescript
 async function robustPortForward(podName: string, localPort: number, remotePort: number) {
@@ -138,7 +138,7 @@ async function robustPortForward(podName: string, localPort: number, remotePort:
 }
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
 - Prefer dynamic ports (`portForwardDynamic`) to avoid local port conflicts.
 - Await `close()` in a `finally` block and pass the owning operation's signal. Xec CLI scripts use its cancellation scope instead of competing process signal handlers.

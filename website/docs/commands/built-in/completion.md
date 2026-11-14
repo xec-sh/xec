@@ -3,17 +3,17 @@ title: completion
 description: Print a shell completion script
 ---
 
-# completion
+# completion {#completion}
 
 Tab completion, including the names only your project knows.
 
-## Synopsis
+## Synopsis {#synopsis}
 
 ```bash
 xec completion <bash|zsh|fish>
 ```
 
-## Description
+## Description {#description}
 
 A static list of subcommands is the easy half of completion and the less
 useful one — twelve names anyone learns in a week. What an operator
@@ -26,7 +26,7 @@ So the emitted script is thin: on every tab it asks
 completion, which is the trade every modern CLI has settled on — a list
 baked in at install time is stale the first time you add a host.
 
-## Installation
+## Installation {#installation}
 
 ```bash
 # bash
@@ -39,7 +39,7 @@ xec completion zsh > ~/.zfunc/_xec
 xec completion fish > ~/.config/fish/completions/xec.fish
 ```
 
-## What it completes
+## What it completes {#what-it-completes}
 
 | After | Candidates |
 |---|---|
@@ -60,6 +60,6 @@ completion offers nothing rather than reporting an error: a tab that
 prints a stack trace into the command line is worse than a tab that does
 nothing.
 
-## Related Commands
+## Related Commands {#related-commands}
 
 - [config](config.md) - Where the completed target and task names come from

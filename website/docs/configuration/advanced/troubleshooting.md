@@ -3,13 +3,13 @@ title: Configuration Troubleshooting
 description: Troubleshooting guide for common Xec configuration issues
 ---
 
-# Configuration Troubleshooting
+# Configuration Troubleshooting {#configuration-troubleshooting}
 
 This guide helps you diagnose and resolve common configuration issues in Xec. Each section covers specific problems, their causes, and solutions.
 
-## Diagnostic Tools
+## Diagnostic Tools {#diagnostic-tools}
 
-### Configuration Debugging
+### Configuration Debugging {#configuration-debugging}
 
 ```bash
 # Enable debug output — prints which config files are checked and loaded
@@ -22,7 +22,7 @@ xec config validate
 xec config get vars.database.host
 ```
 
-### Built-in Diagnostics
+### Built-in Diagnostics {#built-in-diagnostics}
 
 ```bash
 # Check and fix configuration issues
@@ -32,11 +32,11 @@ xec config doctor
 xec config doctor --defaults
 ```
 
-## Common Issues
+## Common Issues {#common-issues}
 
-## YAML Syntax Errors
+## YAML Syntax Errors {#yaml-syntax-errors}
 
-### Problem: Invalid YAML
+### Problem: Invalid YAML {#problem-invalid-yaml}
 
 ```yaml
 # Error: Mapping values are not allowed here
@@ -45,7 +45,7 @@ tasks:
     target: production  # Wrong indentation
 ```
 
-### Solution
+### Solution {#solution}
 
 ```yaml
 # Correct indentation
@@ -55,7 +55,7 @@ tasks:
     target: production
 ```
 
-### Debugging Tips
+### Debugging Tips {#debugging-tips}
 
 ```bash
 # Validate YAML syntax
@@ -71,9 +71,9 @@ python -c "import yaml; yaml.safe_load(open('.xec/config.yaml'))"
 # - Unclosed quotes
 ```
 
-## Variable Resolution Issues
+## Variable Resolution Issues {#variable-resolution-issues}
 
-### Problem: Undefined Variable
+### Problem: Undefined Variable {#problem-undefined-variable}
 
 ```yaml
 Error: Variable 'database.password' is not defined
@@ -83,9 +83,9 @@ tasks:
     command: psql -p ${database.password}
 ```
 
-### Solutions
+### Solutions {#solutions}
 
-#### 1. Define the Variable
+#### 1. Define the Variable {#1-define-the-variable}
 
 ```yaml
 vars:
@@ -93,7 +93,7 @@ vars:
     password: ${secrets.db_password}
 ```
 
-#### 2. Provide Default Value
+#### 2. Provide Default Value {#2-provide-default-value}
 
 ```yaml
 tasks:
@@ -101,7 +101,7 @@ tasks:
     command: psql -p ${database.password:default_password}
 ```
 
-#### 3. Check Variable Path
+#### 3. Check Variable Path {#3-check-variable-path}
 
 ```bash
 # List all variables
@@ -111,7 +111,7 @@ xec config list --path vars
 xec config get vars.database
 ```
 
-### Problem: Circular Variable Reference
+### Problem: Circular Variable Reference {#problem-circular-variable-reference}
 
 ```yaml
 Error: Circular variable reference detected: a -> b -> c -> a
@@ -122,7 +122,7 @@ vars:
   c: ${a}
 ```
 
-### Solution
+### Solution {#solution-1}
 
 ```yaml
 # Break the circular dependency
@@ -132,15 +132,15 @@ vars:
   c: ${b}
 ```
 
-## Target Connection Issues
+## Target Connection Issues {#target-connection-issues}
 
-### Problem: SSH Connection Failed
+### Problem: SSH Connection Failed {#problem-ssh-connection-failed}
 
 ```
 Error: Failed to connect to hosts.production: Connection refused
 ```
 
-### Diagnostic Steps
+### Diagnostic Steps {#diagnostic-steps}
 
 ```bash
 # Test connectivity by running a command on the target
@@ -153,9 +153,9 @@ xec config get targets.hosts.production
 ssh -v user@host -p 22
 ```
 
-### Common Solutions
+### Common Solutions {#common-solutions}
 
-#### 1. Check SSH Configuration
+#### 1. Check SSH Configuration {#1-check-ssh-configuration}
 
 ```yaml
 targets:
@@ -167,7 +167,7 @@ targets:
       privateKey: ~/.ssh/id_rsa  # Check key path
 ```
 
-#### 2. Fix Key Permissions
+#### 2. Fix Key Permissions {#2-fix-key-permissions}
 
 ```bash
 # SSH keys must have correct permissions
@@ -176,22 +176,22 @@ chmod 644 ~/.ssh/id_rsa.pub
 chmod 700 ~/.ssh
 ```
 
-#### 3. Add Host to Known Hosts
+#### 3. Add Host to Known Hosts {#3-add-host-to-known-hosts}
 
 ```bash
 # Add host key
 ssh-keyscan -H prod.example.com >> ~/.ssh/known_hosts
 ```
 
-### Problem: Docker Connection Failed
+### Problem: Docker Connection Failed {#problem-docker-connection-failed}
 
 ```
 Error: Cannot connect to Docker daemon
 ```
 
-### Solutions
+### Solutions {#solutions-1}
 
-#### 1. Check Docker Service
+#### 1. Check Docker Service {#1-check-docker-service}
 
 ```bash
 # Ensure Docker is running
@@ -202,7 +202,7 @@ sudo systemctl start docker  # Linux
 open -a Docker  # macOS
 ```
 
-#### 2. Configure Docker Socket
+#### 2. Configure Docker Socket {#2-configure-docker-socket}
 
 ```yaml
 targets:
@@ -213,15 +213,15 @@ targets:
       dockerHost: tcp://docker-host:2376
 ```
 
-### Problem: Kubernetes Connection Failed
+### Problem: Kubernetes Connection Failed {#problem-kubernetes-connection-failed}
 
 ```
 Error: Unable to connect to kubernetes cluster
 ```
 
-### Solutions
+### Solutions {#solutions-2}
 
-#### 1. Check Kubeconfig
+#### 1. Check Kubeconfig {#1-check-kubeconfig}
 
 ```bash
 # Verify kubeconfig
@@ -229,7 +229,7 @@ kubectl config view
 kubectl cluster-info
 ```
 
-#### 2. Configure Context
+#### 2. Configure Context {#2-configure-context}
 
 ```yaml
 targets:
@@ -240,15 +240,15 @@ targets:
       namespace: default
 ```
 
-## Task Execution Issues
+## Task Execution Issues {#task-execution-issues}
 
-### Problem: Task Not Found
+### Problem: Task Not Found {#problem-task-not-found}
 
 ```
 Error: Task 'deploy' not found
 ```
 
-### Solutions
+### Solutions {#solutions-3}
 
 ```bash
 # List available tasks
@@ -258,13 +258,13 @@ xec config tasks list
 xec config get tasks.deploy
 ```
 
-### Problem: Task Parameters Missing
+### Problem: Task Parameters Missing {#problem-task-parameters-missing}
 
 ```
 Error: Required parameter 'version' not provided
 ```
 
-### Solution
+### Solution {#solution-2}
 
 ```bash
 # Provide parameter
@@ -282,13 +282,13 @@ tasks:
         default: "latest"
 ```
 
-### Problem: Task Step Failed
+### Problem: Task Step Failed {#problem-task-step-failed}
 
 ```
 Error: Step 'build' failed with exit code 1
 ```
 
-### Debugging Steps
+### Debugging Steps {#debugging-steps}
 
 ```bash
 # Run task with debug output
@@ -298,15 +298,15 @@ XEC_DEBUG=true xec run deploy
 xec run deploy --verbose
 ```
 
-## Profile Issues
+## Profile Issues {#profile-issues}
 
-### Problem: Profile Not Found
+### Problem: Profile Not Found {#problem-profile-not-found}
 
 ```
 Error: Profile 'production' not found
 ```
 
-### Solutions
+### Solutions {#solutions-4}
 
 ```bash
 # List profile definitions
@@ -316,13 +316,13 @@ xec config list --path profiles
 xec config get profiles.production
 ```
 
-### Problem: Profile Inheritance Error
+### Problem: Profile Inheritance Error {#problem-profile-inheritance-error}
 
 ```
 Error: Cannot extend profile 'base': not found
 ```
 
-### Solution
+### Solution {#solution-3}
 
 ```yaml
 # Ensure base profile exists
@@ -337,24 +337,24 @@ profiles:
       environment: production
 ```
 
-## Environment Variable Issues
+## Environment Variable Issues {#environment-variable-issues}
 
-### Problem: Environment Variable Not Set
+### Problem: Environment Variable Not Set {#problem-environment-variable-not-set}
 
 ```
 Error: Environment variable 'API_KEY' is required but not set
 ```
 
-### Solutions
+### Solutions {#solutions-5}
 
-#### 1. Set Environment Variable
+#### 1. Set Environment Variable {#1-set-environment-variable}
 
 ```bash
 export API_KEY="your-api-key"
 xec run deploy
 ```
 
-#### 2. Use .env File
+#### 2. Use .env File {#2-use-env-file}
 
 ```bash
 # .env
@@ -364,7 +364,7 @@ API_KEY=your-api-key
 source .env && xec run deploy
 ```
 
-#### 3. Provide Default
+#### 3. Provide Default {#3-provide-default}
 
 ```yaml
 # Default values use a plain colon: everything after ':' is the default
@@ -372,17 +372,17 @@ vars:
   apiKey: ${env.API_KEY:development-key}
 ```
 
-## Permission Issues
+## Permission Issues {#permission-issues}
 
-### Problem: Permission Denied
+### Problem: Permission Denied {#problem-permission-denied}
 
 ```
 Error: Permission denied: /var/log/app.log
 ```
 
-### Solutions
+### Solutions {#solutions-6}
 
-#### 1. Use Sudo
+#### 1. Use Sudo {#1-use-sudo}
 
 ```yaml
 targets:
@@ -393,7 +393,7 @@ targets:
         password: ${secrets.sudo_password}
 ```
 
-#### 2. Fix File Permissions
+#### 2. Fix File Permissions {#2-fix-file-permissions}
 
 ```bash
 # Change ownership
@@ -403,7 +403,7 @@ sudo chown $(whoami) /var/log/app.log
 chmod 644 /var/log/app.log
 ```
 
-#### 3. Run as Different User
+#### 3. Run as Different User {#3-run-as-different-user}
 
 ```yaml
 targets:
@@ -412,17 +412,17 @@ targets:
       user: root  # Or appropriate user
 ```
 
-## Secret Management Issues
+## Secret Management Issues {#secret-management-issues}
 
-### Problem: Secret Not Found
+### Problem: Secret Not Found {#problem-secret-not-found}
 
 ```
 Error: Secret 'database_password' not found
 ```
 
-### Solutions
+### Solutions {#solutions-7}
 
-#### 1. Add Secret
+#### 1. Add Secret {#1-add-secret}
 
 ```bash
 # Add secret to local store
@@ -432,7 +432,7 @@ xec secrets set database_password
 export SECRET_DATABASE_PASSWORD="password"
 ```
 
-#### 2. Configure Secret Provider
+#### 2. Configure Secret Provider {#2-configure-secret-provider}
 
 The supported providers are `local` (encrypted file storage, the default), `env` (environment variables), and `git` (encrypted file in the repository):
 
@@ -443,13 +443,13 @@ secrets:
     prefix: SECRET_
 ```
 
-## Performance Issues
+## Performance Issues {#performance-issues}
 
-### Problem: Slow Configuration Loading
+### Problem: Slow Configuration Loading {#problem-slow-configuration-loading}
 
-### Solutions
+### Solutions {#solutions-8}
 
-#### 1. Avoid Expensive Command Substitutions
+#### 1. Avoid Expensive Command Substitutions {#1-avoid-expensive-command-substitutions}
 
 Every `${cmd:...}` reference executes a shell command at configuration load time. Keep those commands fast, or replace them with static values or environment variables:
 
@@ -459,20 +459,20 @@ vars:
   git_sha: ${cmd:git rev-parse --short HEAD}
 ```
 
-#### 2. Enable Debug Logging to Find the Bottleneck
+#### 2. Enable Debug Logging to Find the Bottleneck {#2-enable-debug-logging-to-find-the-bottleneck}
 
 ```bash
 # Shows which files are checked and loaded
 XEC_DEBUG=true xec config view
 ```
 
-### Problem: Connection Pool Exhausted
+### Problem: Connection Pool Exhausted {#problem-connection-pool-exhausted}
 
 ```
 Error: Connection pool exhausted for hosts.production
 ```
 
-### Solution
+### Solution {#solution-4}
 
 ```yaml
 targets:
@@ -484,15 +484,15 @@ targets:
         idleTimeout: 300000
 ```
 
-## Validation Errors
+## Validation Errors {#validation-errors}
 
-### Problem: Schema Validation Failed
+### Problem: Schema Validation Failed {#problem-schema-validation-failed}
 
 ```
 Error: Configuration does not match schema: version is required
 ```
 
-### Solution
+### Solution {#solution-5}
 
 ```yaml
 # Add required fields
@@ -500,13 +500,13 @@ version: "1.0"  # Required
 name: myapp     # Optional but recommended
 ```
 
-### Problem: Type Mismatch
+### Problem: Type Mismatch {#problem-type-mismatch}
 
 ```
 Error: Expected number for 'timeout', got string
 ```
 
-### Solution
+### Solution {#solution-6}
 
 ```yaml
 # Use correct types
@@ -514,15 +514,15 @@ timeout: 30000      # Number (milliseconds)
 # Not: timeout: "30000"  # String
 ```
 
-## Import and Module Issues
+## Import and Module Issues {#import-and-module-issues}
 
-### Problem: Import File Not Found
+### Problem: Import File Not Found {#problem-import-file-not-found}
 
 ```
 Error: Cannot import 'profiles/production.yaml': File not found
 ```
 
-### Solutions
+### Solutions {#solutions-9}
 
 ```bash
 # Check file exists
@@ -536,9 +536,9 @@ $import:
   - ./profiles/production.yaml  # Relative to config file
 ```
 
-## Debugging Strategies
+## Debugging Strategies {#debugging-strategies}
 
-### 1. Incremental Testing
+### 1. Incremental Testing {#1-incremental-testing}
 
 ```bash
 # Test configuration step by step
@@ -547,14 +547,14 @@ xec on hosts.production "echo ok"  # Test connectivity
 xec run simple-task            # Test simple task
 ```
 
-### 2. Isolation Testing
+### 2. Isolation Testing {#2-isolation-testing}
 
 ```bash
 # Point Xec at a minimal test configuration
 XEC_CONFIG=test-config.yaml xec run test
 ```
 
-### 3. Verbose Output
+### 3. Verbose Output {#3-verbose-output}
 
 ```bash
 # Maximum verbosity
@@ -564,7 +564,7 @@ XEC_DEBUG=true xec run deploy --verbose
 XEC_DEBUG=true xec run deploy 2>&1 | tee debug.log
 ```
 
-### 4. Configuration Inspection
+### 4. Configuration Inspection {#4-configuration-inspection}
 
 ```bash
 # Show resolved configuration
@@ -579,9 +579,9 @@ xec config vars list
 xec config list --json > config-snapshot.json
 ```
 
-## Recovery Procedures
+## Recovery Procedures {#recovery-procedures}
 
-### Configuration Backup
+### Configuration Backup {#configuration-backup}
 
 ```bash
 # Backup configuration
@@ -592,7 +592,7 @@ git add .xec/
 git commit -m "Configuration backup"
 ```
 
-### Reset Configuration
+### Reset Configuration {#reset-configuration}
 
 ```bash
 # Restore from backup or version control
@@ -603,9 +603,9 @@ git checkout -- .xec/
 xec new project
 ```
 
-## Getting Help
+## Getting Help {#getting-help}
 
-### Built-in Help
+### Built-in Help {#built-in-help}
 
 ```bash
 # General help
@@ -616,12 +616,12 @@ xec config --help
 xec run --help
 ```
 
-### Support Resources
+### Support Resources {#support-resources}
 
 1. **Documentation**: [Xec documentation](../../introduction/index.md)
 2. **GitHub Issues**: https://github.com/xec-sh/xec/issues
 
-### Reporting Issues
+### Reporting Issues {#reporting-issues}
 
 When reporting issues, include:
 
@@ -636,23 +636,23 @@ XEC_DEBUG=true xec [command] --verbose 2>&1 > debug.log
 # Include full error message and stack trace
 ```
 
-## Prevention Tips
+## Prevention Tips {#prevention-tips}
 
-### 1. Use Version Control
+### 1. Use Version Control {#1-use-version-control}
 
 ```bash
 git add .xec/
 git commit -m "Working configuration"
 ```
 
-### 2. Test Changes
+### 2. Test Changes {#2-test-changes}
 
 ```bash
 # Test before applying
 xec config validate
 ```
 
-### 3. Document Changes
+### 3. Document Changes {#3-document-changes}
 
 ```yaml
 # Add comments explaining configuration
@@ -661,7 +661,7 @@ vars:
   apiUrl: https://api.example.com
 ```
 
-### 4. Use Profiles
+### 4. Use Profiles {#4-use-profiles}
 
 ```yaml
 # Separate environments
@@ -670,7 +670,7 @@ profiles:
   production:   # Stable configuration
 ```
 
-### 5. Monitor Configuration
+### 5. Monitor Configuration {#5-monitor-configuration}
 
 ```bash
 # Validate regularly (e.g. in CI or a cron job)
@@ -680,12 +680,12 @@ xec config validate
 git diff .xec/
 ```
 
-## Next Steps
+## Next Steps {#next-steps}
 
 - [Validation](./validation.md) - Configuration validation
 - [Best Practices](./best-practices.md) - Avoid common issues
 
-## See Also
+## See Also {#see-also}
 
 - [Configuration Overview](../overview.md) - Configuration basics
 - [Known Issues](https://github.com/xec-sh/xec/issues) - GitHub issues

@@ -5,7 +5,7 @@ keywords: [docker, containers, lifecycle, start, stop, restart, exec]
 sidebar_position: 2
 ---
 
-# Docker Container Lifecycle
+# Docker Container Lifecycle {#docker-container-lifecycle}
 
 Two fluent builders cover container lifecycle: `$.docker().container(name)` for a container that already exists (or will), and `$.docker().ephemeral(image)` for one built fresh from an image. Both come from `$.docker()` with no arguments, and both implement the same `start`/`stop`/`restart`/`remove`/`status`/`exec`/`info`/`isRunning`/`logs`/`waitForReady` surface — but the options each one actually honors differ, covered below.
 
@@ -18,7 +18,7 @@ await app.exec`npm run migrate`;
 await app.stop();
 ```
 
-## Persistent Containers
+## Persistent Containers {#persistent-containers}
 
 `.container(name)` targets a container by name. The setters that actually affect its `exec`/`run` calls are `.workdir()`, `.user()`, `.env()`/`.addEnv()`, and `.lifecycle()`:
 
@@ -43,7 +43,7 @@ await app.remove();         // stops first unless already stopped
 
 `.labels()`, `.addLabel()`, `.command()` and `.entrypoint()` are also present on this builder (inherited from a base class shared with the ephemeral one) but have no effect on a persistent container — nothing in `.exec()`/`.start()`/`.stop()` reads them. They only matter for `.ephemeral()`.
 
-## Ephemeral Containers
+## Ephemeral Containers {#ephemeral-containers}
 
 `.ephemeral(image)` builds a `docker run` invocation. Every setter below reaches the actual command:
 
@@ -91,7 +91,7 @@ For repeated commands, call `.start()` once. An unnamed service receives a gener
 
 `status()` reports the observed Docker state. The ephemeral builder derives `running`, `healthy` and published `endpoints` from the same inspection, including image-defined health checks and dynamically allocated ports. An optional `lifecycle({ healthCheck })` callback supplies application readiness. Failed inventory reads and malformed replies reject. Confirmed absence produces `info() === null` and `isRunning() === false`.
 
-## Executing Commands
+## Executing Commands {#executing-commands}
 
 Both builders expose the same two calling conventions:
 
@@ -107,7 +107,7 @@ const result = await app.exec('npm run build');
 const result2 = await app.exec(['npm', 'run', 'build']);
 ```
 
-## Waiting for Readiness
+## Waiting for Readiness {#waiting-for-readiness}
 
 `.waitForReady(timeout?)` defaults to 30000ms. The ephemeral builder observes the running state and the container health check, including checks inherited from its image. A supplied lifecycle `healthCheck` callback provides application readiness. A container with no health check is ready once running. The persistent builder waits for the running state.
 
@@ -122,7 +122,7 @@ const docker = $.getAdapter('docker') as import('@xec-sh/core').DockerAdapter;
 await docker.waitForHealthy('my-app', 60000);
 ```
 
-## The Adapter Underneath
+## The Adapter Underneath {#the-adapter-underneath}
 
 Named `.exec()` calls use `DockerAdapter`, reachable directly via `$.getAdapter('docker')`. Lifecycle commands use the configured host execution engine and the same container identity parser as the adapter. It's lower-level — plain container names and option objects, no chaining — but has a couple of things the builders don't: `getStats()`, and two-step create/start instead of only the combined `run`.
 
@@ -148,7 +148,7 @@ const stats = await docker.getStats('db');
 console.log(stats.CPUPerc, stats.MemUsage);
 ```
 
-## Auto-Creation and Cleanup
+## Auto-Creation and Cleanup {#auto-creation-and-cleanup}
 
 Configured once via `configure({ adapters: { docker: { autoCreate: {...} } } })` (see [Adapter Configuration](./overview.md#adapter-configuration)): the first exec against a container name that doesn't exist yet transparently creates and starts one from `autoCreate.image`, and `dispose()` removes every container it created this way if `autoCreate.autoRemove` is set.
 
@@ -158,7 +158,7 @@ const docker = $.getAdapter('docker') as import('@xec-sh/core').DockerAdapter;
 await docker.dispose();
 ```
 
-## Error Handling
+## Error Handling {#error-handling}
 
 A refused stop or removal rejects and keeps its failure available to the caller. `afterStop` runs only after an acknowledged stop or confirmed absence. Removal resolves the immutable container ID before mutation and verifies absence afterward. A replacement with the same name is reported explicitly.
 
@@ -176,14 +176,14 @@ try {
 
 In exec mode (no `autoCreate`), targeting a container that doesn't exist is checked before `docker exec` ever runs: xec raises its own `DockerError`, or — with `.nothrow()` — returns a result with `exitCode: 125` and no output.
 
-## Related Topics
+## Related Topics {#related-topics}
 
 - [Docker Overview](./overview.md) - Docker target basics
 - [Compose Integration](./compose-integration.md) - Docker Compose support
 - [Volume Management](./volume-management.md) - Managing volumes
 - [Networking](./networking.md) - Container networking
 
-## Confirmed removal
+## Confirmed removal {#confirmed-removal}
 
 `DockerAdapter.removeContainer(nameOrId, force)` resolves the reference against a
 successful Docker inventory, removes that immutable ID, and confirms absence before

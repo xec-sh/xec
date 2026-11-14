@@ -3,26 +3,26 @@ title: on
 description: Execute commands on SSH hosts
 ---
 
-# on
+# on {#on}
 
 Execute commands on SSH hosts.
 
-## Synopsis
+## Synopsis {#synopsis}
 
 ```bash
 xec on [options] <hosts> [command...]
 ```
 
-## Description
+## Description {#description}
 
 The `on` command executes commands, scripts, or tasks on remote SSH hosts. It provides unified SSH execution with support for parallel operations, pattern matching, and direct SSH connections.
 
-## Arguments
+## Arguments {#arguments}
 
 - `<hosts>` - SSH host specification (patterns supported)
 - `[command...]` - Command to execute (optional for REPL/interactive modes)
 
-### Host Specification
+### Host Specification {#host-specification}
 
 Hosts can be specified as:
 - `hosts.name` - Configured SSH host
@@ -32,14 +32,14 @@ Hosts can be specified as:
 - `user@hostname` - Direct SSH connection
 - `hostname` - Direct connection (uses current user)
 
-## Options
+## Options {#options}
 
-### Common Options
+### Common Options {#common-options}
 
 - `-o, --output <format>` - Output format: `text` (default), `json`, `yaml`, `csv`
 - `-c, --config <path>` - Path to configuration file
 
-### General Options
+### General Options {#general-options}
 
 - `-p, --profile <profile>` - Configuration profile to use
 - `-i, --interactive` - Interactive mode for selecting hosts and options
@@ -57,9 +57,9 @@ Hosts can be specified as:
 - `-q, --quiet` - Suppress output
 - `--dry-run` - Preview execution without running
 
-## Examples
+## Examples {#examples}
 
-### Basic Command Execution
+### Basic Command Execution {#basic-command-execution}
 
 Execute simple commands on SSH hosts:
 
@@ -77,7 +77,7 @@ xec on hosts.* "date"
 xec on deploy@server.com "ls -la"
 ```
 
-### Parallel Execution
+### Parallel Execution {#parallel-execution}
 
 Run commands on multiple hosts simultaneously:
 
@@ -111,7 +111,7 @@ Both limits stop new hosts from *starting*. Hosts already running are
 allowed to finish, so their results are reported rather than discarded,
 and any host that never started is named.
 
-### Script Execution
+### Script Execution {#script-execution}
 
 Run scripts with SSH context:
 
@@ -126,7 +126,7 @@ xec on hosts.worker ./migrate.js
 xec on hosts.app ./deploy-script.js
 ```
 
-### Task Execution
+### Task Execution {#task-execution}
 
 Run configured tasks on hosts:
 
@@ -141,7 +141,7 @@ xec on hosts.db-* --task backup --parallel
 xec on hosts.* --task health-check
 ```
 
-### REPL Mode
+### REPL Mode {#repl-mode}
 
 Start REPL with SSH context:
 
@@ -154,7 +154,7 @@ xec on hosts.dev --repl
 # > const mem = await $target`free -m`
 ```
 
-### Interactive Mode
+### Interactive Mode {#interactive-mode}
 
 Use interactive prompts for configuration:
 
@@ -168,7 +168,7 @@ xec on --interactive
 # - Execution options (parallel, timeout, etc.)
 ```
 
-### Environment Variables
+### Environment Variables {#environment-variables}
 
 Set environment variables for remote execution:
 
@@ -183,7 +183,7 @@ xec on hosts.worker -e DB_HOST=localhost -e DB_PORT=5432 "./process.sh"
 xec on hosts.build -e PATH=/custom/bin:$PATH "which node"
 ```
 
-### Working Directory
+### Working Directory {#working-directory}
 
 Set remote working directory:
 
@@ -198,7 +198,7 @@ xec on hosts.backup -d ~ "./backup.sh"
 xec on hosts.temp -d /tmp "rm -rf old-files-*"
 ```
 
-### Timeout Control
+### Timeout Control {#timeout-control}
 
 Set execution timeouts:
 
@@ -213,7 +213,7 @@ xec on hosts.build -t 5m "make all"
 xec on hosts.backup -t 1h "./full-backup.sh"
 ```
 
-### User Override
+### User Override {#user-override}
 
 Execute as different user:
 
@@ -228,9 +228,9 @@ xec on hosts.production -u deploy "./deploy.sh"
 xec on hosts.db -u postgres "psql -c 'SELECT version()'"
 ```
 
-## Advanced Usage
+## Advanced Usage {#advanced-usage}
 
-### Pattern Matching
+### Pattern Matching {#pattern-matching}
 
 Use patterns to select multiple hosts:
 
@@ -248,7 +248,7 @@ xec on hosts.* "uname -a"
 xec on "hosts.{prod,staging}-web-*" "systemctl status"
 ```
 
-### Direct SSH Connections
+### Direct SSH Connections {#direct-ssh-connections}
 
 Connect to hosts not in configuration:
 
@@ -263,7 +263,7 @@ xec on example.com "date"
 xec on user@host1,user@host2 "uptime" --parallel
 ```
 
-### Parallel Execution Control
+### Parallel Execution Control {#parallel-execution-control}
 
 Fine-tune parallel execution:
 
@@ -278,7 +278,7 @@ xec on hosts.prod-* "test.sh" --parallel --fail-fast
 xec on hosts.* "backup.sh" --parallel -v
 ```
 
-### Command Chaining
+### Command Chaining {#command-chaining}
 
 Execute multiple commands:
 
@@ -293,7 +293,7 @@ xec on hosts.db "pg_isready && pg_dump mydb > backup.sql"
 xec on hosts.log "tail -f /var/log/app.log | grep ERROR"
 ```
 
-### Script Context
+### Script Context {#script-context}
 
 Scripts have access to SSH context:
 
@@ -307,7 +307,7 @@ await $target`npm install`;
 await $target`npm run build`;
 ```
 
-## Configuration
+## Configuration {#configuration}
 
 Configure SSH hosts in `.xec/config.yaml`:
 
@@ -340,9 +340,9 @@ commands:
     timeout: "1m"
 ```
 
-## SSH Features
+## SSH Features {#ssh-features}
 
-### Connection Options
+### Connection Options {#connection-options}
 
 The command respects SSH configuration:
 
@@ -357,7 +357,7 @@ xec on new-host.com "uptime"
 xec on hosts.* "quick-check" --parallel
 ```
 
-### Authentication
+### Authentication {#authentication}
 
 Supports multiple authentication methods:
 - SSH keys (preferred)
@@ -365,14 +365,14 @@ Supports multiple authentication methods:
 - Password authentication
 - SSH config ProxyJump
 
-### Connection Pooling
+### Connection Pooling {#connection-pooling}
 
 Connections are pooled for efficiency:
 - Reuses existing connections
 - Parallel commands share connections
 - Automatic cleanup on exit
 
-## Error Handling
+## Error Handling {#error-handling}
 
 The command handles SSH errors gracefully:
 
@@ -385,23 +385,23 @@ The command handles SSH errors gracefully:
 
 Use `-v, --verbose` for detailed error information.
 
-## Performance Considerations
+## Performance Considerations {#performance-considerations}
 
 - Connection pooling reduces overhead
 - Parallel execution for multiple hosts
 - Streaming for large outputs
 - Efficient for batch operations
 
-## Security Notes
+## Security Notes {#security-notes}
 
 - SSH keys preferred over passwords
 - Passwords read from environment variables
 - Sensitive data not logged
 - Respects SSH known_hosts
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### Connection Issues
+### Connection Issues {#connection-issues}
 
 ```bash
 # Test SSH connection
@@ -414,7 +414,7 @@ cat ~/.ssh/config
 ssh-keyscan hostname
 ```
 
-### Authentication Problems
+### Authentication Problems {#authentication-problems}
 
 ```bash
 # Check SSH agent
@@ -425,7 +425,7 @@ xec on hosts.server "date"
 # Check config for correct key path
 ```
 
-### Timeout Issues
+### Timeout Issues {#timeout-issues}
 
 ```bash
 # Increase timeout for slow connections
@@ -435,13 +435,13 @@ xec on hosts.remote -t 5m "long-running-task"
 ping hostname
 ```
 
-## Related Commands
+## Related Commands {#related-commands}
 
 - [in](in.md) - Execute in containers/pods
 - [run](run.md) - Run scripts and tasks
 - [forward](forward.md) - SSH port forwarding
 
-## Output
+## Output {#output}
 
 stdout carries the answer; stderr carries everything said about producing
 it. Progress, warnings, per-host failures and the final tally are all
@@ -474,7 +474,7 @@ A command's own stderr always reaches stderr. It does not need
 
 Every field is always present, including the empty ones.
 
-## Exit Codes
+## Exit Codes {#exit-codes}
 
 - `0` - Every host succeeded
 - The command's own exit code, when exactly one host ran and exited

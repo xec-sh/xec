@@ -14,8 +14,7 @@
         "^build"
       ],
       "outputs": [
-        "build/**",
-        ".docusaurus/**"
+        "build/**"
       ]
     },
     "dev": {

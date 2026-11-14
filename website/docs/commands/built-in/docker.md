@@ -3,32 +3,32 @@ title: docker
 description: Manage Docker containers, images, networks and volumes from the Xec CLI
 ---
 
-# docker
+# docker {#docker}
 
 Manage Docker containers, images, networks and volumes.
 
-## Synopsis
+## Synopsis {#synopsis}
 
 ```bash
 xec docker [options] <subcommand>
 xec d <subcommand>              # alias
 ```
 
-## Description
+## Description {#description}
 
 The `docker` command wraps common Docker operations: container lifecycle, image builds, networks, volumes, Compose, Swarm, and a set of pre-configured development services (Redis, PostgreSQL, Kafka, and others) that start with one line.
 
 Docker must be installed and the daemon running.
 
-## Global Options
+## Global Options {#global-options}
 
 - `-o, --output <format>` - Output format: `text` (default), `json`, `yaml`, `csv`
 - `-c, --config <path>` - Path to configuration file
 - `--dry-run` - Preview operations without executing them
 
-## Subcommands
+## Subcommands {#subcommands}
 
-### Containers
+### Containers {#containers}
 
 ```bash
 xec docker container <cmd>      # alias: c
@@ -45,7 +45,7 @@ xec docker container <cmd>      # alias: c
 - `remove [options] <containers...>` - Remove containers (`-f, --force`); alias `rm`
 - `logs [options] <container>` - View logs (`-f, --follow`, `--tail <lines>`, `--since <time>`, `--timestamps`)
 
-### Images
+### Images {#images}
 
 ```bash
 xec docker image <cmd>          # alias: i
@@ -58,7 +58,7 @@ xec docker image <cmd>          # alias: i
 - `remove [options] <images...>` - Remove images (`-f, --force`); alias `rmi`
 - `list` - List images; alias `ls`
 
-### Pre-configured Services
+### Pre-configured Services {#pre-configured-services}
 
 ```bash
 xec docker service <cmd>        # alias: s
@@ -99,7 +99,7 @@ not disable verification or invoke a separate password helper.
 - `ssh` - SSH server container for testing (`--user`, `--password`, `--pubkey <path>`, `--authorized-keys <path>`)
 - `list` - List available services; alias `ls`
 
-### Compose
+### Compose {#compose}
 
 ```bash
 xec docker compose <cmd>        # alias: dc
@@ -108,7 +108,7 @@ xec docker compose <cmd>        # alias: dc
 - `up [options]` - Create and start services (`-f, --file`, `-p, --project`, `-d, --detached`, `--build`, `--profile <profiles...>`)
 - `down [options]` - Stop and remove services (`-f, --file`, `-p, --project`, `-v, --volumes`, `--rmi`)
 
-### Networks
+### Networks {#networks}
 
 ```bash
 xec docker network <cmd>        # alias: n
@@ -117,7 +117,7 @@ xec docker network <cmd>        # alias: n
 - `create [options] <name>` - Create a network (`-d, --driver`, `--subnet`, `--gateway`, `--ip-range`, `--attachable`, `--internal`, `--label <labels...>`)
 - `remove <name>` - Remove a network; alias `rm`
 
-### Volumes
+### Volumes {#volumes}
 
 ```bash
 xec docker volume <cmd>         # alias: v
@@ -126,21 +126,21 @@ xec docker volume <cmd>         # alias: v
 - `create [options] <name>` - Create a volume (`-d, --driver`, `--label <labels...>`, `--opt <options...>`)
 - `remove [options] <name>` - Remove a volume (`-f, --force`); alias `rm`
 
-### Swarm
+### Swarm {#swarm}
 
 - `swarm init [options]` - Initialize a swarm (`--advertise-addr`, `--listen-addr`, `--data-path-addr`)
 - `swarm leave [options]` - Leave the swarm (`-f, --force`)
 
-### Shortcuts
+### Shortcuts {#shortcuts}
 
 - `ps [options]` - List containers (`-a, --all`)
 - `images` - List images
 - `prune [options]` - Remove unused data (`-a, --all` images too, `-v, --volumes`)
 - `quick-start` - Interactive service starter
 
-## Examples
+## Examples {#examples}
 
-### Containers and Images
+### Containers and Images {#containers-and-images}
 
 ```bash
 # Run a container with ports and a mounted volume
@@ -160,7 +160,7 @@ xec docker container stop web
 xec docker container rm web
 ```
 
-### Development Services
+### Development Services {#development-services}
 
 ```bash
 # Redis on the default port
@@ -176,27 +176,27 @@ xec docker service redis-cluster --masters 3 --replicas 1
 xec docker service list
 ```
 
-### Compose
+### Compose {#compose-1}
 
 ```bash
 xec docker compose up --build
 xec docker compose down -v
 ```
 
-### Housekeeping
+### Housekeeping {#housekeeping}
 
 ```bash
 xec docker ps -a
 xec docker prune --all --volumes
 ```
 
-## Related Commands
+## Related Commands {#related-commands}
 
 - [in](./in.md) - Execute commands in containers declared as targets
 - [logs](./logs.md) - Stream logs from any target
 - [copy](./copy.md) - Copy files to and from containers
 
-## See Also
+## See Also {#see-also}
 
 - [Docker Targets](../../configuration/targets/docker-targets.md) - Declaring containers in `.xec/config.yaml`
 - [Docker Execution](../../targets/docker/overview.md) - The Docker adapter and fluent API

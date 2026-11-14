@@ -3,58 +3,58 @@ title: new
 description: Initialize Xec in a project or create new artifacts
 ---
 
-# new
+# new {#new}
 
 Create new Xec artifacts (projects, scripts, commands, tasks, profiles, or extensions).
 
-## Synopsis
+## Synopsis {#synopsis}
 
 ```bash
 xec new [type] [name] [options]
 xec n [type] [name] [options]  # Alias
 ```
 
-## Description
+## Description {#description}
 
 The `new` command creates various Xec artifacts with pre-configured templates. It provides an interactive mode when no arguments are provided, or can be used with specific arguments for automation.
 
-## Arguments
+## Arguments {#arguments}
 
 - `[type]` - Type of artifact to create: `project`, `script`, `command`, `task`, `profile`, or `extension`
 - `[name]` - Name for the new artifact
 
-## Options
+## Options {#options}
 
-### Common Options
+### Common Options {#common-options}
 
 - `-o, --output <format>` - Output format: `text` (default), `json`, `yaml`, `csv`
 - `-c, --config <path>` - Path to configuration file
 - `--dry-run` - Perform a dry run without making changes
 
-### General Options
+### General Options {#general-options}
 
 - `-d, --desc <desc>` - Description for the artifact
 - `-f, --force` - Overwrite existing files
 - `-p, --profile <name>` - Apply profile after creation
 - `-i, --interactive` - Enable interactive mode (default for this command)
 
-### Project Options
+### Project Options {#project-options}
 
 - `-m, --minimal` - Create minimal structure (projects only)
 - `--skip-git` - Skip git initialization (projects only)
 
-### Script & Command Options
+### Script & Command Options {#script--command-options}
 
 - `--advanced` - Use advanced template with more features
 - `--js` - Create JavaScript instead of TypeScript (scripts/commands only)
 
-### Template Options
+### Template Options {#template-options}
 
 - `--from <template>` - Create from a template or example
 
-## Examples
+## Examples {#examples}
 
-### Interactive Mode
+### Interactive Mode {#interactive-mode}
 
 ```bash
 # Interactive mode to create any artifact
@@ -64,7 +64,7 @@ xec new
 xec n
 ```
 
-### Project Creation
+### Project Creation {#project-creation}
 
 ```bash
 # Create a new Xec project
@@ -80,7 +80,7 @@ xec new project my-app --desc "My automation project"
 xec new project my-app --skip-git
 ```
 
-### Script Creation
+### Script Creation {#script-creation}
 
 ```bash
 # Create a new TypeScript script
@@ -96,7 +96,7 @@ xec new script deploy --advanced
 xec new script backup --desc "Database backup script"
 ```
 
-### Command Creation
+### Command Creation {#command-creation}
 
 ```bash
 # Create a new CLI command
@@ -109,7 +109,7 @@ xec new command mycmd --advanced
 xec new command mycmd --js
 ```
 
-### Task Creation
+### Task Creation {#task-creation}
 
 ```bash
 # Create a new task
@@ -122,7 +122,7 @@ xec new task deploy --desc "Deploy application to production"
 xec new task deploy --advanced
 ```
 
-### Profile Creation
+### Profile Creation {#profile-creation}
 
 ```bash
 # Create environment profile
@@ -135,7 +135,7 @@ xec new profile staging --desc "Staging environment configuration"
 xec new profile production --advanced
 ```
 
-### Extension Creation
+### Extension Creation {#extension-creation}
 
 ```bash
 # Create a new extension
@@ -148,9 +148,9 @@ xec new extension my-extension --advanced
 xec new extension monitoring --desc "System monitoring extension"
 ```
 
-## Artifact Types
+## Artifact Types {#artifact-types}
 
-### Project
+### Project {#project}
 
 Creates a complete Xec project with:
 - `.xec/config.yaml` - Main configuration
@@ -163,7 +163,7 @@ Creates a complete Xec project with:
 - **Minimal** - Basic structure with essential files
 - **Standard** - Full structure with examples and documentation
 
-### Script
+### Script {#script}
 
 Creates executable scripts with shebang and imports:
 - TypeScript or JavaScript files
@@ -175,7 +175,7 @@ Creates executable scripts with shebang and imports:
 - **Basic** - Simple script structure
 - **Advanced** - Complex script with argument parsing and error handling
 
-### Command
+### Command {#command}
 
 Creates dynamic CLI commands:
 - Command definition with arguments and options
@@ -187,7 +187,7 @@ Creates dynamic CLI commands:
 - **Basic** - Simple command with basic options
 - **Advanced** - Complex command with subcommands and validation
 
-### Task
+### Task {#task}
 
 Creates reusable task definitions:
 - Task configuration in YAML format
@@ -200,7 +200,7 @@ Creates reusable task definitions:
 - **Standard** - Task with parameters
 - **Advanced** - Multi-step task with hooks and error handling
 
-### Profile
+### Profile {#profile}
 
 Creates environment profiles:
 - Environment-specific variables
@@ -212,7 +212,7 @@ Creates environment profiles:
 - **Basic** - Simple profile with variables
 - **Advanced** - Complex profile with targets and inheritance
 
-### Extension
+### Extension {#extension}
 
 Creates Xec extensions:
 - Extension manifest
@@ -224,7 +224,7 @@ Creates Xec extensions:
 - **Basic** - Simple extension structure
 - **Advanced** - Full extension with scripts and examples
 
-## Template Variables
+## Template Variables {#template-variables}
 
 All templates support variable replacement:
 
@@ -232,28 +232,26 @@ All templates support variable replacement:
 - `{description}` - Artifact description
 - `{filepath}` - File path (scripts only)
 
-## Project Structure
+## Project Structure {#project-structure}
 
 When creating a project, the following structure is generated:
 
-```
-my-project/
-├── .xec/
-│   ├── config.yaml          # Main configuration
-│   ├── .gitignore           # Git ignore rules
-│   ├── scripts/             # Executable scripts
-│   │   └── example.js       # Example script
-│   ├── commands/            # Custom CLI commands
-│   │   └── hello.js         # Example command
-│   ├── cache/               # Cache directory
-│   ├── logs/                # Log files
-│   └── tmp/                 # Temporary files
-└── README.md                # Project documentation
-```
+:::filetree{title="my-project/"}
+- `.xec/`
+  - `config.yaml` — Main configuration
+  - `.gitignore` — Git ignore rules
+  - `scripts/` — Executable scripts
+    - `example.js` — Example script
+  - `commands/` — Custom CLI commands
+    - `hello.js` — Example command
+  - `cache/` — Cache directory
+  - `logs/` — Log files
+  - `tmp/` — Temporary files
+- `README.md` — Project documentation
+:::
+## Script Templates {#script-templates}
 
-## Script Templates
-
-### Basic Script (TypeScript)
+### Basic Script (TypeScript) {#basic-script-typescript}
 
 ```typescript
 #!/usr/bin/env xec
@@ -278,7 +276,7 @@ if (kit.isCancel(name)) throw new Error('Cancelled');
 log.info(prism.blue(`Hello, ${name}!`));
 ```
 
-### Advanced Script Features
+### Advanced Script Features {#advanced-script-features}
 
 - Command line argument parsing
 - Configuration loading and declared profile application
@@ -290,9 +288,9 @@ log.info(prism.blue(`Hello, ${name}!`));
 
 The advanced starter reads `--env`, `--dry-run` and `--verbose` with Node's typed argument parser. Development selects the local target; staging and production require `hosts.staging` and `hosts.production` in the project configuration. A dry run resolves the configuration but does not execute the observation. The starter does not fetch external APIs or delete existing temporary directories.
 
-## Command Templates
+## Command Templates {#command-templates}
 
-### Basic Command
+### Basic Command {#basic-command}
 
 ```javascript
 /**
@@ -330,7 +328,7 @@ export function command(program) {
 }
 ```
 
-## Validation
+## Validation {#validation}
 
 The command validates artifact names based on type:
 
@@ -339,7 +337,7 @@ The command validates artifact names based on type:
 - **Command/Task/Profile names**: Letters, numbers, hyphens, underscores, colons
 - **Extension names**: Letters, numbers, hyphens, underscores
 
-## Git Integration
+## Git Integration {#git-integration}
 
 For projects, git initialization is automatic unless `--skip-git` is used:
 
@@ -347,11 +345,11 @@ For projects, git initialization is automatic unless `--skip-git` is used:
 - Adds all files
 - Creates initial commit with message "Initial Xec project setup"
 
-## File Permissions
+## File Permissions {#file-permissions}
 
 Scripts are automatically made executable (chmod 755) after creation.
 
-## Error Handling
+## Error Handling {#error-handling}
 
 The command provides helpful error messages for:
 
@@ -360,13 +358,13 @@ The command provides helpful error messages for:
 - Missing project directories
 - Invalid template options
 
-## Related Commands
+## Related Commands {#related-commands}
 
 - [run](run.md) - Execute scripts and tasks
 - [config](config.md) - Manage configuration
 - [inspect](inspect.md) - Inspect created artifacts
 
-## Configuration
+## Configuration {#configuration}
 
 Command behavior can be configured in `.xec/config.yaml`:
 
@@ -379,7 +377,7 @@ commands:
     makeExecutable: true
 ```
 
-## Exit Codes
+## Exit Codes {#exit-codes}
 
 - `0` - Success
 - `1` - General error

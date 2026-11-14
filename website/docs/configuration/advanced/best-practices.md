@@ -3,36 +3,34 @@ title: Configuration Best Practices
 description: Best practices and patterns for Xec configuration
 ---
 
-# Configuration Best Practices
+# Configuration Best Practices {#configuration-best-practices}
 
 This guide presents best practices, patterns, and recommendations for creating maintainable, secure, and efficient Xec configurations.
 
-## Configuration Organization
+## Configuration Organization {#configuration-organization}
 
-### File Structure
+### File Structure {#file-structure}
 
 Organize your configuration files logically:
 
-```
-.xec/
-├── config.yaml           # Main configuration
-├── profiles/            # Environment profiles
-│   ├── dev.yaml
-│   ├── staging.yaml
-│   └── production.yaml
-├── tasks/              # Reusable task definitions
-│   ├── deploy.yaml
-│   ├── backup.yaml
-│   └── monitoring.yaml
-├── targets/            # Target configurations
-│   ├── aws.yaml
-│   └── on-premise.yaml
-└── scripts/            # Custom scripts
-    ├── health-check.js
-    └── data-migration.js
-```
-
-### Modular Configuration
+:::filetree{title=".xec/"}
+- `config.yaml` — Main configuration
+- `profiles/` — Environment profiles
+  - `dev.yaml`
+  - `staging.yaml`
+  - `production.yaml`
+- `tasks/` — Reusable task definitions
+  - `deploy.yaml`
+  - `backup.yaml`
+  - `monitoring.yaml`
+- `targets/` — Target configurations
+  - `aws.yaml`
+  - `on-premise.yaml`
+- `scripts/` — Custom scripts
+  - `health-check.js`
+  - `data-migration.js`
+:::
+### Modular Configuration {#modular-configuration}
 
 Break large configurations into modules:
 
@@ -53,7 +51,7 @@ vars:
   version: "2.0.0"
 ```
 
-### Separation of Concerns
+### Separation of Concerns {#separation-of-concerns}
 
 ```yaml
 # Separate by functionality
@@ -64,9 +62,9 @@ tasks:
     - tasks/monitoring.yaml    # Monitoring tasks
 ```
 
-## Naming Conventions
+## Naming Conventions {#naming-conventions}
 
-### Consistent Naming
+### Consistent Naming {#consistent-naming}
 
 ```yaml
 # Good - consistent naming pattern
@@ -86,7 +84,7 @@ tasks:
   worker-dpl:
 ```
 
-### Descriptive Names
+### Descriptive Names {#descriptive-names}
 
 ```yaml
 # Good - self-documenting
@@ -104,7 +102,7 @@ targets:
     d-cache:
 ```
 
-### Hierarchical Naming
+### Hierarchical Naming {#hierarchical-naming}
 
 ```yaml
 tasks:
@@ -118,9 +116,9 @@ tasks:
   app:health-check:
 ```
 
-## Variable Management
+## Variable Management {#variable-management}
 
-### Variable Hierarchy
+### Variable Hierarchy {#variable-hierarchy}
 
 ```yaml
 # 1. Global defaults
@@ -141,7 +139,7 @@ tasks:
       timeout: 3600000  # Task-specific override
 ```
 
-### Variable Documentation
+### Variable Documentation {#variable-documentation}
 
 ```yaml
 vars:
@@ -161,7 +159,7 @@ vars:
   apiTimeout: 10000
 ```
 
-### Default Values
+### Default Values {#default-values}
 
 ```yaml
 vars:
@@ -175,9 +173,9 @@ vars:
   cpu_count: ${cmd:nproc}
 ```
 
-## Security Best Practices
+## Security Best Practices {#security-best-practices}
 
-### Secret Management
+### Secret Management {#secret-management}
 
 ```yaml
 # Good - use secret management
@@ -192,7 +190,7 @@ vars:
   dbPassword: "password123"       # SECURITY RISK
 ```
 
-### Secure Defaults
+### Secure Defaults {#secure-defaults}
 
 ```yaml
 targets:
@@ -208,7 +206,7 @@ targets:
       noNewPrivileges: true
 ```
 
-### Principle of Least Privilege
+### Principle of Least Privilege {#principle-of-least-privilege}
 
 ```yaml
 targets:
@@ -224,7 +222,7 @@ targets:
       capDrop: [ALL]  # Drop all capabilities
 ```
 
-### Audit Trail
+### Audit Trail {#audit-trail}
 
 ```yaml
 tasks:
@@ -237,9 +235,9 @@ tasks:
     command: sensitive-command
 ```
 
-## Error Handling
+## Error Handling {#error-handling}
 
-### Graceful Failures
+### Graceful Failures {#graceful-failures}
 
 ```yaml
 tasks:
@@ -262,7 +260,7 @@ tasks:
         alwaysRun: true
 ```
 
-### Validation Steps
+### Validation Steps {#validation-steps}
 
 ```yaml
 tasks:
@@ -280,7 +278,7 @@ tasks:
         command: deploy
 ```
 
-### Error Recovery
+### Error Recovery {#error-recovery}
 
 ```yaml
 tasks:
@@ -296,9 +294,9 @@ tasks:
           command: restore-backup ${backup_path}
 ```
 
-## Performance Optimization
+## Performance Optimization {#performance-optimization}
 
-### Connection Pooling
+### Connection Pooling {#connection-pooling}
 
 ```yaml
 targets:
@@ -312,7 +310,7 @@ targets:
       keepAliveInterval: 30000
 ```
 
-### Parallel Execution
+### Parallel Execution {#parallel-execution}
 
 ```yaml
 tasks:
@@ -326,7 +324,7 @@ tasks:
       - hosts.web-3
 ```
 
-### Resource Limits
+### Resource Limits {#resource-limits}
 
 ```yaml
 targets:
@@ -337,7 +335,7 @@ targets:
       pidsLimit: 100
 ```
 
-### Caching
+### Caching {#caching}
 
 ```yaml
 tasks:
@@ -349,9 +347,9 @@ tasks:
     command: generate-report
 ```
 
-## Environment Management
+## Environment Management {#environment-management}
 
-### Environment Isolation
+### Environment Isolation {#environment-isolation}
 
 ```yaml
 profiles:
@@ -375,7 +373,7 @@ profiles:
           host: db.example.com
 ```
 
-### Environment Validation
+### Environment Validation {#environment-validation}
 
 ```yaml
 tasks:
@@ -396,9 +394,9 @@ tasks:
       }
 ```
 
-## Documentation
+## Documentation {#documentation}
 
-### Task Documentation
+### Task Documentation {#task-documentation}
 
 ```yaml
 tasks:
@@ -422,7 +420,7 @@ tasks:
       # Implementation...
 ```
 
-### Inline Comments
+### Inline Comments {#inline-comments}
 
 ```yaml
 targets:
@@ -434,7 +432,7 @@ targets:
       # Contact: ops-team@example.com
 ```
 
-### README Integration
+### README Integration {#readme-integration}
 
 ```yaml
 # .xec/README.md
@@ -445,9 +443,9 @@ tasks:
       console.log(readme);
 ```
 
-## Testing Configuration
+## Testing Configuration {#testing-configuration}
 
-### Configuration Validation
+### Configuration Validation {#configuration-validation}
 
 ```bash
 # Validate before deployment
@@ -455,7 +453,7 @@ xec config validate
 xec config validate --profile production
 ```
 
-### Dry Run Testing
+### Dry Run Testing {#dry-run-testing}
 
 ```yaml
 tasks:
@@ -466,7 +464,7 @@ tasks:
       - command: validate-deployment --dry-run
 ```
 
-### Smoke Tests
+### Smoke Tests {#smoke-tests}
 
 ```yaml
 tasks:
@@ -477,9 +475,9 @@ tasks:
       - command: verify-critical-services
 ```
 
-## Version Control
+## Version Control {#version-control}
 
-### Configuration as Code
+### Configuration as Code {#configuration-as-code}
 
 ```bash
 # Version control your configuration
@@ -488,7 +486,7 @@ git commit -m "feat: Add production deployment configuration"
 git tag -a v1.0.0 -m "Initial configuration release"
 ```
 
-### Change Management
+### Change Management {#change-management}
 
 ```yaml
 # Track configuration changes
@@ -498,7 +496,7 @@ vars:
   approvedBy: "platform-team"
 ```
 
-### Migration Path
+### Migration Path {#migration-path}
 
 ```yaml
 # Support multiple versions
@@ -514,9 +512,9 @@ tasks:
       }
 ```
 
-## Common Patterns
+## Common Patterns {#common-patterns}
 
-### Blue-Green Deployment
+### Blue-Green Deployment {#blue-green-deployment}
 
 ```yaml
 vars:
@@ -541,7 +539,7 @@ tasks:
           vars.inactiveColor = vars.activeColor;
 ```
 
-### Canary Deployment
+### Canary Deployment {#canary-deployment}
 
 ```yaml
 tasks:
@@ -563,7 +561,7 @@ tasks:
           fi
 ```
 
-### Circuit Breaker
+### Circuit Breaker {#circuit-breaker}
 
 ```yaml
 tasks:
@@ -592,9 +590,9 @@ tasks:
       }
 ```
 
-## Anti-Patterns to Avoid
+## Anti-Patterns to Avoid {#anti-patterns-to-avoid}
 
-### 1. Configuration Sprawl
+### 1. Configuration Sprawl {#1-configuration-sprawl}
 
 ```yaml
 # Bad - everything in one file
@@ -604,7 +602,7 @@ tasks:
 # Split into logical modules
 ```
 
-### 2. Magic Values
+### 2. Magic Values {#2-magic-values}
 
 ```yaml
 # Bad - unexplained values
@@ -614,7 +612,7 @@ timeout: 47382
 timeout: 45000  # 45 seconds (API gateway timeout - 5s)
 ```
 
-### 3. Tight Coupling
+### 3. Tight Coupling {#3-tight-coupling}
 
 ```yaml
 # Bad - hardcoded dependencies
@@ -629,7 +627,7 @@ tasks:
     target: hosts.production
 ```
 
-### 4. Overengineering
+### 4. Overengineering {#4-overengineering}
 
 ```yaml
 # Bad - unnecessary complexity
@@ -641,9 +639,9 @@ vars:
   value: ${env.VALUE:default}
 ```
 
-## Monitoring and Observability
+## Monitoring and Observability {#monitoring-and-observability}
 
-### Metrics Collection
+### Metrics Collection {#metrics-collection}
 
 ```yaml
 tasks:
@@ -656,7 +654,7 @@ tasks:
         environment: ${profile}
 ```
 
-### Logging
+### Logging {#logging}
 
 ```yaml
 commands:
@@ -667,7 +665,7 @@ commands:
     prefix: true
 ```
 
-### Health Checks
+### Health Checks {#health-checks}
 
 ```yaml
 tasks:
@@ -677,12 +675,12 @@ tasks:
       curl -f http://localhost/health || alert
 ```
 
-## Next Steps
+## Next Steps {#next-steps}
 
 - [Validation](./validation.md) - Configuration validation
 - [Troubleshooting](./troubleshooting.md) - Common issues
 
-## See Also
+## See Also {#see-also}
 
 - [Configuration Overview](../overview.md) - Configuration basics
 - [CLI Reference](../../commands/overview.md) - Command documentation

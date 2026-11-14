@@ -5,13 +5,13 @@ keywords: [ssh, batch, parallel, multi-host]
 sidebar_position: 5
 ---
 
-# SSH Batch Operations
+# SSH Batch Operations {#ssh-batch-operations}
 
-## Overview
+## Overview {#overview}
 
 There is no dedicated "run this on N hosts" API. Multi-host execution is plain `Promise.all`/`Promise.allSettled` over a list of `$.ssh(host)` contexts, or the CLI's `xec on` with a target pattern. (`$.batch()` exists but is unrelated: it parallelizes an array of command strings or `Command` objects against a single target, and returns a `Promise` directly rather than being callable as a tagged template — `$.batch(hosts)\`cmd\`` does not work.)
 
-## Running on Every Host
+## Running on Every Host {#running-on-every-host}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -51,7 +51,7 @@ const results = await Promise.all(hosts.map(host => $.ssh(`deploy@${host}`)`upti
 const failed = results.filter(r => !r.ok);
 ```
 
-## Limiting Concurrency
+## Limiting Concurrency {#limiting-concurrency}
 
 Running `Promise.all` over hundreds of hosts opens that many SSH connections at once. Chunk the work instead:
 
@@ -70,7 +70,7 @@ async function runWithConcurrency<T>(items: string[], limit: number, fn: (item: 
 await runWithConcurrency(hosts, 5, host => $.ssh(`deploy@${host}`)`apt-get update`);
 ```
 
-## Retrying Failed Hosts
+## Retrying Failed Hosts {#retrying-failed-hosts}
 
 `$.ssh(target).retry({ maxRetries, initialDelay, maxDelay })` retries a single host's command on failure (see [SSH Overview](./overview.md)). Use retries for operations whose effects can safely be repeated. Here `command` is an application-owned shell script. To retry only the hosts that failed in a batch, inspect every settled result.
 
@@ -100,7 +100,7 @@ async function withHostRetry(hosts: string[], command: string, maxAttempts = 3) 
 }
 ```
 
-## Rolling / Sequential Execution
+## Rolling / Sequential Execution {#rolling--sequential-execution}
 
 For changes that must not hit every host at once, execute in order and stop on first failure:
 
@@ -121,7 +121,7 @@ for (const host of hosts) {
 
 Wrap the loop body in `try`/`catch` if later hosts should still run after one fails.
 
-## From the CLI
+## From the CLI {#from-the-cli}
 
 `xec on` executes a command against one or more configured hosts. A target pattern containing `*` or `{...}` is expanded against `.xec/config.yaml`'s `targets.hosts`:
 
@@ -133,7 +133,7 @@ xec on "hosts.*" --task deploy --parallel --max-concurrent 5 --fail-fast
 
 `--parallel` runs across matched hosts concurrently (default max 10 concurrent, set with `--max-concurrent`); without it, hosts run one at a time. `--fail-fast` stops launching new hosts once one has failed (hosts already running are not cancelled). Target patterns match host names — there is no tag-based selection.
 
-## Related Documentation
+## Related Documentation {#related-documentation}
 
 - [SSH Overview](./overview.md) - `.retry()` and other per-command chain methods
 - [Connection Configuration](./connection-config.md) - pool sizing when fanning out to many hosts

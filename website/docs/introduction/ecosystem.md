@@ -5,11 +5,11 @@ title: The Xec Ecosystem
 description: Overview of the Xec ecosystem — packages, architecture, and integrations
 ---
 
-# The Xec Ecosystem
+# The Xec Ecosystem {#the-xec-ecosystem}
 
 Xec is an ecosystem of 6 packages providing a complete DevOps automation platform — from shell execution to deployment pipelines.
 
-## Architecture
+## Architecture {#architecture}
 
 The packages form layers: a thin CLI on top of the operations library, which builds on the execution engine and the other foundation packages. Arrows point from each package to what it depends on; `@xec-sh/testing` stands alone — it is used only by test suites.
 
@@ -28,9 +28,9 @@ flowchart TD
     LOADER --> KIT
 ```
 
-## Packages
+## Packages {#packages}
 
-### @xec-sh/core
+### @xec-sh/core {#xec-shcore}
 The shell execution engine. Use it to run commands locally, over SSH, in Docker containers, or on Kubernetes pods.
 
 ```bash
@@ -62,7 +62,7 @@ echo`Build complete!`;
 const files = await glob('src/**/*.ts');
 ```
 
-### @xec-sh/ops
+### @xec-sh/ops {#xec-shops}
 The DevOps operations library. Use it standalone in any project — no CLI required.
 
 ```bash
@@ -113,7 +113,7 @@ const config = new ConfigurationManager({
 });
 ```
 
-### @xec-sh/kit
+### @xec-sh/kit {#xec-shkit}
 TUI components for building CLI interfaces — prompts, spinners, tables, colors.
 
 ```bash
@@ -137,7 +137,7 @@ s.start('Installing...');
 s.stop('Done!');
 ```
 
-### @xec-sh/loader
+### @xec-sh/loader {#xec-shloader}
 Script loading, module resolution, REPL, TypeScript transformation.
 
 ```bash
@@ -164,7 +164,7 @@ plugins.register({
 });
 ```
 
-### @xec-sh/testing
+### @xec-sh/testing {#xec-shtesting}
 Vitest helpers for Docker/SSH/Kubernetes test environments. Vitest 5.1 is a
 required peer; run the following in a `*.test.ts` file with `pnpm exec vitest run`.
 
@@ -184,7 +184,7 @@ describeSSH('SSH Tests', () => {
 });
 ```
 
-### @xec-sh/cli
+### @xec-sh/cli {#xec-shcli}
 The xec command-line tool — a thin wrapper over `@xec-sh/ops`.
 
 ```bash
@@ -196,7 +196,7 @@ xec on server-1 "docker-compose up -d"
 xec in my-container "npm test"
 ```
 
-## When to Use Which Package
+## When to Use Which Package {#when-to-use-which-package}
 
 | Use Case | Package |
 |----------|---------|
@@ -207,7 +207,7 @@ xec in my-container "npm test"
 | Test infrastructure | `@xec-sh/testing` |
 | Ready-to-use CLI | `@xec-sh/cli` |
 
-## Key Design Principles
+## Key Design Principles {#key-design-principles}
 
 1. **Library-first** — All functionality is in libraries (`core`, `ops`), CLI is just a thin wrapper
 2. **Zero vendor lock-in** — Use any package independently

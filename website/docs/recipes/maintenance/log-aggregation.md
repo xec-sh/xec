@@ -7,17 +7,17 @@ source_files:
   - packages/ops/src/config/target-resolver.ts
 ---
 
-# Log Aggregation
+# Log Aggregation {#log-aggregation}
 
-## Problem
+## Problem {#problem}
 
 An incident may span local files, SSH hosts, Docker containers and Kubernetes pods. Operators need explicit source selection and useful timestamps without rebuilding the application's logging system inside a deployment script.
 
-## Solution
+## Solution {#solution}
 
 Use Xec's `logs` command for inspection. A separately configured collector and storage service own durable delivery, retention and alerting. Viewing a stream is not proof that every record reached durable storage.
 
-## Quick Example
+## Quick Example {#quick-example}
 
 ```bash
 xec logs hosts.web-1 /var/log/app.log --tail 100 --timestamps
@@ -25,9 +25,9 @@ xec logs containers.app --tail 100 --timestamps
 xec logs pods.api --tail 100 --timestamps
 ```
 
-## Complete Log Aggregation Recipes
+## Complete Log Aggregation Recipes {#complete-log-aggregation-recipes}
 
-### Configuration
+### Configuration {#configuration}
 
 ```yaml
 version: '1.0'
@@ -60,7 +60,7 @@ tasks:
 
 Provision target credentials and read permissions separately. Docker and Kubernetes log commands run on the controller that has the corresponding client; they are not executed inside the target container.
 
-### Multi-Source Log Aggregation
+### Multi-Source Log Aggregation {#multi-source-log-aggregation}
 
 For a bounded incident view, use a quoted target pattern:
 
@@ -90,7 +90,7 @@ await $.parallel.all([
 ], { maxConcurrency: 3 });
 ```
 
-### Setup Centralized Logging Stack
+### Setup Centralized Logging Stack {#setup-centralized-logging-stack}
 
 Keep a reviewed deployment declaration in the application. Pin the collector and storage images, restrict listening addresses, configure authentication and define healthchecks and persistent volumes there. Xec starts and verifies that declaration:
 
@@ -104,7 +104,7 @@ await $`npm run verify:log-delivery`;
 
 `up --wait` verifies the declared container healthchecks. Only the application's delivery probe can establish end-to-end ingestion; no ELK or Loki configuration is generated implicitly by Xec.
 
-### Log Analysis and Alerting
+### Log Analysis and Alerting {#log-analysis-and-alerting}
 
 For an already captured application NDJSON file, validate each record before counting it. This example reports only counts; it does not forward potentially sensitive log messages to another service.
 
@@ -138,7 +138,7 @@ console.log(JSON.stringify({ records, counts: Object.fromEntries(counts) }));
 
 Alert thresholds, notification credentials and deduplication belong to the monitoring system. A malformed file fails this analysis instead of silently reducing the observed error count.
 
-## Usage Examples
+## Usage Examples {#usage-examples}
 
 ```bash
 xec logs hosts.web-1 /var/log/app.log --grep ERROR --context 3
@@ -147,7 +147,7 @@ xec follow-logs
 xec run scripts/analyze-logs.ts .observations/app.ndjson
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
 - Use structured application records with source, timestamp and correlation ID.
 - Distinguish the event timestamp from ingestion time and record clock uncertainty.
@@ -155,9 +155,9 @@ xec run scripts/analyze-logs.ts .observations/app.ndjson
 - Verify delivery using a unique probe before accepting a logging deployment.
 - Bound incident queries and restrict log read access.
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### High Log Volume
+### High Log Volume {#high-log-volume}
 
 Inspect collector backpressure, ingestion lag and disk use. Change the application's log level through its supported configuration. Do not compress or delete files still owned by a running writer.
 
@@ -166,11 +166,11 @@ docker compose -f observability/compose.yaml ps
 docker compose -f observability/compose.yaml logs --tail 100
 ```
 
-### Missing Logs
+### Missing Logs {#missing-logs}
 
 Check one named source first, then the collector and finally the storage query. A failed source, invalid timestamp and an empty successful query are different observations. Preserve that distinction in incident reports.
 
-## Related Topics
+## Related Topics {#related-topics}
 
 - [Health Checks](health-checks.md)
 - [Backup and Restore](backup-restore.md)

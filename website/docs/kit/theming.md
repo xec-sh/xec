@@ -3,11 +3,11 @@ title: Colors & Theming
 description: The prism color builder and the theme that restyles every component at once
 ---
 
-# Colors & Theming
+# Colors & Theming {#colors--theming}
 
 Two layers: `prism` builds ANSI-colored strings; the theme decides which colors the kit's own components use.
 
-## prism
+## prism {#prism}
 
 A chainable color builder with automatic capability detection — truecolor, 256, 16 colors, or none, downsampled to what the terminal supports:
 
@@ -25,14 +25,14 @@ console.log(prism.hsl(200, 100, 50)('blue'));
 console.log(prism.css('rebeccapurple')('CSS named color'));
 ```
 
-### Styles and Colors
+### Styles and Colors {#styles-and-colors}
 
 - Modifiers: `bold`, `dim`, `italic`, `underline`, `overline`, `inverse`, `hidden`, `strikethrough`, `visible`, `reset`
 - Named colors: `black`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`, `gray`, plus `*Bright` variants
 - Backgrounds: `bgRed`, `bgCyanBright`, `bgHex('#222')`, ...
 - Color models: `hex`, `rgb`, `hsl`, `hsv`, `css` — each with a `bg` twin
 
-### Color Math
+### Color Math {#color-math}
 
 Transforms apply to the current color of the chain:
 
@@ -45,7 +45,7 @@ prism.red.desaturate(0.5)('muted red');
 
 Available: `mix(color, ratio)`, `lighten`, `darken`, `saturate`, `desaturate`, `rotate(degrees)`, `invert()`, `grayscale()`.
 
-### Detection and Control
+### Detection and Control {#detection-and-control}
 
 Color support is detected per stream; `NO_COLOR` and `FORCE_COLOR=0` disable colors entirely.
 
@@ -61,7 +61,7 @@ prism.stderr.red('to stderr');            // instance bound to stderr detection
 const forced = prism.create({ level: ColorLevel.TrueColor });
 ```
 
-## The Theme
+## The Theme {#the-theme}
 
 Components never name colors — they name roles, and the theme maps roles to colors. Seven roles cover the kit:
 
@@ -77,7 +77,7 @@ Components never name colors — they name roles, and the theme maps roles to co
 
 The default maps `accent` to cyan and `activity` to magenta over the conventional green/yellow/red status triad.
 
-### Restyling
+### Restyling {#restyling}
 
 `updateSettings` merges per role — naming one role does not reset the others:
 
@@ -102,7 +102,7 @@ updateSettings({ theme: { accent: prism.hex('#22D3EE') } });
 
 `DEFAULT_THEME` exports the original mapping; the current one lives at `settings.theme`.
 
-## Global Settings
+## Global Settings {#global-settings}
 
 `updateSettings` also controls prompt behaviour beyond the theme:
 
@@ -137,7 +137,7 @@ Supported actions are `up`, `down`, `left`, `right`, `space`, `enter`, and `canc
 
 `isAccessible(accessible?)` resolves the per-call override, then `settings.accessible`, then `ACCESSIBLE`. Prompt and indicator rendering share this decision. An explicit `false` overrides an enabled environment value. [Prompt accessibility](./prompts.md#accessible-output) describes input requirements.
 
-## See Also
+## See Also {#see-also}
 
 - [Prompts](./prompts.md)
 - [Components](./components.md)

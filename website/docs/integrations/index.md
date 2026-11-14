@@ -4,15 +4,15 @@ description: Integration guides for CI/CD, cloud providers, and third-party tool
 keywords: [integrations, ci/cd, cloud, github, gitlab, aws, docker, kubernetes]
 ---
 
-# Integrations
+# Integrations {#integrations}
 
-## Overview
+## Overview {#overview}
 
 Xec integrates seamlessly with popular CI/CD platforms, cloud providers, and development tools. This section provides comprehensive guides for integrating Xec into your existing infrastructure and workflows.
 
-## CI/CD Platforms
+## CI/CD Platforms {#cicd-platforms}
 
-### Available Integrations
+### Available Integrations {#available-integrations}
 - [GitHub Actions](../recipes/integration/github-actions.md) - GitHub Actions workflows with Xec
 - [GitLab CI](../recipes/integration/gitlab-ci.md) - GitLab CI/CD pipelines
 - [Jenkins](../recipes/integration/jenkins.md) - Jenkins pipeline integration
@@ -21,37 +21,37 @@ Xec integrates seamlessly with popular CI/CD platforms, cloud providers, and dev
 For general CI/CD guidance:
 - [CI/CD Pipelines Guide](../guides/automation/ci-cd-pipelines.md) - Building CI/CD pipelines with Xec
 
-## Container & Orchestration Platforms
+## Container & Orchestration Platforms {#container--orchestration-platforms}
 
-### Docker
+### Docker {#docker}
 - [Docker Targets](../targets/docker/overview.md) - Docker target setup
 - [Docker Compose](../targets/docker/compose-integration.md) - Docker Compose integration
 - [Container Lifecycle](../targets/docker/container-lifecycle.md) - Container management
 - [Docker Networking](../targets/docker/networking.md) - Network configuration
 - [Docker Volumes](../targets/docker/volume-management.md) - Volume management
 
-### Kubernetes
+### Kubernetes {#kubernetes}
 - [Kubernetes Targets](../targets/kubernetes/overview.md) - K8s target configuration
 - [Pod Execution](../targets/kubernetes/pod-execution.md) - Executing in pods
 - [Port Forwarding](../targets/kubernetes/port-forwarding.md) - Service forwarding
 - [Log Streaming](../targets/kubernetes/log-streaming.md) - Real-time logs
 - [Multi-Container Pods](../targets/kubernetes/multi-container.md) - Complex pod setups
 
-## Development Workflows
+## Development Workflows {#development-workflows}
 
-### Deployment Recipes
+### Deployment Recipes {#deployment-recipes}
 - [Node.js Deployment](../recipes/deployment/node-app-deploy.md) - Node.js application deployment
 - [Static Site Deployment](../recipes/deployment/static-site-deploy.md) - Static website deployment
 - [Docker Deployment](../recipes/deployment/docker-deploy.md) - Container deployment
 - [Kubernetes Deployment](../recipes/deployment/k8s-deploy.md) - K8s deployment automation
 
-### Infrastructure Management
+### Infrastructure Management {#infrastructure-management}
 - [Server Management](../guides/infrastructure/server-management.md) - Managing multiple servers
 - [Container Orchestration](../guides/infrastructure/container-orchestration.md) - Docker/K8s workflows
 
-## Quick Integration Examples
+## Quick Integration Examples {#quick-integration-examples}
 
-### GitHub Actions
+### GitHub Actions {#github-actions}
 
 ```yaml
 name: Validate
@@ -70,7 +70,7 @@ jobs:
       - run: npx --no-install xec run scripts/ci.ts
 ```
 
-### Docker Integration
+### Docker Integration {#docker-integration}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -89,7 +89,7 @@ async function deployDocker(tag: string) {
 }
 ```
 
-### AWS Integration
+### AWS Integration {#aws-integration}
 
 ```typescript
 async function deployToECS(cluster: string, service: string) {
@@ -106,7 +106,7 @@ async function deployToECS(cluster: string, service: string) {
 }
 ```
 
-### Kubernetes Deployment
+### Kubernetes Deployment {#kubernetes-deployment}
 
 ```typescript
 async function deployToK8s(context: string, namespace: string, deployment: string, image: string) {
@@ -117,7 +117,7 @@ async function deployToK8s(context: string, namespace: string, deployment: strin
 }
 ```
 
-### GitLab CI Integration
+### GitLab CI Integration {#gitlab-ci-integration}
 
 ```yaml
 image: node:24
@@ -137,7 +137,7 @@ deploy:
     - npx --no-install xec run scripts/deploy.ts
 ```
 
-### Jenkins Pipeline
+### Jenkins Pipeline {#jenkins-pipeline}
 
 ```groovy
 // Jenkinsfile
@@ -184,9 +184,9 @@ pipeline {
 }
 ```
 
-## Integration Patterns
+## Integration Patterns {#integration-patterns}
 
-### Webhook Handlers
+### Webhook Handlers {#webhook-handlers}
 
 ```typescript
 // Invoke only after the HTTP boundary authenticates the sender, verifies the
@@ -201,7 +201,7 @@ async function validateVerifiedCommit(commit: string) {
 }
 ```
 
-### API Integrations
+### API Integrations {#api-integrations}
 
 ```typescript
 async function createJiraIssue(title: string, description: string) {
@@ -223,7 +223,7 @@ async function createJiraIssue(title: string, description: string) {
 }
 ```
 
-### Slack Notifications
+### Slack Notifications {#slack-notifications}
 
 ```typescript
 async function notifySlack(webhook: string, message: string) {
@@ -237,7 +237,7 @@ async function notifySlack(webhook: string, message: string) {
 }
 ```
 
-### Event-Driven Automation
+### Event-Driven Automation {#event-driven-automation}
 
 ```typescript
 import { Pipeline } from '@xec-sh/ops';
@@ -251,9 +251,9 @@ const result = await Pipeline.create('delivery')
 if (!result.success) throw new Error('Delivery failed');
 ```
 
-## Security Considerations
+## Security Considerations {#security-considerations}
 
-### Secret Management
+### Secret Management {#secret-management}
 
 1. **Never commit secrets** to version control
 2. **Use environment variables** or secret management services
@@ -264,7 +264,7 @@ if (!result.success) throw new Error('Delivery failed');
 For secure credential handling, see:
 - [Secrets Command](../commands/built-in/secrets.md) - Managing secrets with Xec
 
-### Network Security
+### Network Security {#network-security}
 
 1. **Use SSH keys** instead of passwords
 2. **Implement IP whitelisting** where possible
@@ -272,9 +272,9 @@ For secure credential handling, see:
 4. **Enable audit logging** for all operations
 5. **Use TLS/SSL** for all communications
 
-## Performance Optimization
+## Performance Optimization {#performance-optimization}
 
-### Connection Pooling
+### Connection Pooling {#connection-pooling}
 
 ```typescript
 // Engines derived from $ share its adapter pool. The CLI disposes it at exit.
@@ -286,7 +286,7 @@ await server`df -h`;
 For more on connection pooling:
 - [Connection Pooling](../core/execution-engine/features/connection-pooling.md) - SSH connection management
 
-### Caching Strategies
+### Caching Strategies {#caching-strategies}
 
 ```typescript
 // Cache only observations whose staleness is acceptable; refresh before mutation.
@@ -301,9 +301,9 @@ async function getHealth(url: string) {
 }
 ```
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### Common Issues
+### Common Issues {#common-issues}
 
 1. **Authentication failures** - Check credentials and permissions
 2. **Network timeouts** - Adjust timeout values and check connectivity
@@ -311,7 +311,7 @@ async function getHealth(url: string) {
 4. **API changes** - Keep SDKs and integrations updated
 5. **Resource limits** - Monitor and scale appropriately
 
-### Debug Techniques
+### Debug Techniques {#debug-techniques}
 
 ```bash
 # Enable debug output
@@ -327,7 +327,7 @@ xec inspect --validate
 curl -H "Authorization: Bearer $TOKEN" https://api.example.com/status
 ```
 
-## Related Documentation
+## Related Documentation {#related-documentation}
 
 - [CI/CD Pipelines](../guides/automation/ci-cd-pipelines.md) - CI/CD best practices
 - [API Reference](../api/index.md) - Core API documentation

@@ -8,15 +8,15 @@ source_files:
   - apps/xec/src/commands/run.ts
 ---
 
-# Migrating from npm Scripts to Xec
+# Migrating from npm Scripts to Xec {#migrating-from-npm-scripts-to-xec}
 
-## Overview
+## Overview {#overview}
 
 This guide helps you migrate from npm scripts in `package.json` to Xec's more powerful task and script system. Xec provides better cross-platform compatibility, parallel execution, environment management, and TypeScript support while maintaining the simplicity of npm scripts.
 
-## Why Migrate to Xec?
+## Why Migrate to Xec? {#why-migrate-to-xec}
 
-### Limitations of npm Scripts
+### Limitations of npm Scripts {#limitations-of-npm-scripts}
 
 ```json
 {
@@ -36,7 +36,7 @@ This guide helps you migrate from npm scripts in `package.json` to Xec's more po
 - No TypeScript support
 - Poor IDE integration
 
-### Xec Advantages
+### Xec Advantages {#xec-advantages}
 
 ```yaml
 # .xec/config.yaml
@@ -63,9 +63,9 @@ tasks:
 - Multi-environment support
 - Better debugging and logging
 
-## Migration Strategies
+## Migration Strategies {#migration-strategies}
 
-### Strategy 1: Gradual Migration
+### Strategy 1: Gradual Migration {#strategy-1-gradual-migration}
 
 Keep npm scripts while gradually moving to Xec:
 
@@ -80,7 +80,7 @@ Keep npm scripts while gradually moving to Xec:
 }
 ```
 
-### Strategy 2: Full Migration
+### Strategy 2: Full Migration {#strategy-2-full-migration}
 
 Replace all npm scripts with Xec tasks:
 
@@ -96,9 +96,9 @@ tasks:
     command: xec deploy production
 ```
 
-## Common Patterns Migration
+## Common Patterns Migration {#common-patterns-migration}
 
-### 1. Simple Commands
+### 1. Simple Commands {#1-simple-commands}
 
 **npm Script:**
 ```json
@@ -137,7 +137,7 @@ await rm('dist', { recursive: true, force: true });
 console.log('✅ Cleaned dist directory');
 ```
 
-### 2. Sequential Commands
+### 2. Sequential Commands {#2-sequential-commands}
 
 **npm Script:**
 ```json
@@ -178,7 +178,7 @@ await $`webpack`;
 console.log('✅ Build complete!');
 ```
 
-### 3. Parallel Commands
+### 3. Parallel Commands {#3-parallel-commands}
 
 **npm Script (Limited):**
 ```json
@@ -216,7 +216,7 @@ await Promise.all([
 ]);
 ```
 
-### 4. Environment Variables
+### 4. Environment Variables {#4-environment-variables}
 
 **npm Script:**
 ```json
@@ -253,7 +253,7 @@ await $`webpack`;
 console.log(`Built for ${env}`);
 ```
 
-### 5. Pre/Post Hooks
+### 5. Pre/Post Hooks {#5-prepost-hooks}
 
 **npm Script:**
 ```json
@@ -279,7 +279,7 @@ tasks:
         command: jest --coverage
 ```
 
-### 6. Cross-Platform Commands
+### 6. Cross-Platform Commands {#6-cross-platform-commands}
 
 **npm Script (Platform Issues):**
 ```json
@@ -307,9 +307,9 @@ await $`xec copy src/assets/ dist/assets/`;
 // Works on all platforms!
 ```
 
-## Complex Workflows
+## Complex Workflows {#complex-workflows}
 
-### Build and Deploy Pipeline
+### Build and Deploy Pipeline {#build-and-deploy-pipeline}
 
 **npm Scripts:**
 ```json
@@ -398,7 +398,7 @@ console.log('✅ Deployment complete!');
 await $`curl -X POST https://hooks.slack.com/services/... -d '{"text":"Deployed to ${target}"}'`;
 ```
 
-## Working with Monorepos
+## Working with Monorepos {#working-with-monorepos}
 
 **npm Scripts with Lerna/Workspaces:**
 ```json
@@ -442,37 +442,37 @@ tasks:
     command: npm run deploy
 ```
 
-## Migration Checklist
+## Migration Checklist {#migration-checklist}
 
-### Phase 1: Setup
+### Phase 1: Setup {#phase-1-setup}
 - [ ] Install Xec: `npm install -g @xec-sh/cli`
 - [ ] Initialize Xec: `xec new project`
 - [ ] Create `.xec/config.yaml`
 
-### Phase 2: Migrate Simple Scripts
+### Phase 2: Migrate Simple Scripts {#phase-2-migrate-simple-scripts}
 - [ ] Identify simple, standalone scripts
 - [ ] Create equivalent Xec tasks
 - [ ] Test each task individually
 - [ ] Update npm scripts to call Xec
 
-### Phase 3: Migrate Complex Workflows
+### Phase 3: Migrate Complex Workflows {#phase-3-migrate-complex-workflows}
 - [ ] Map sequential command chains
 - [ ] Convert to Xec step-based tasks
 - [ ] Add proper error handling
 - [ ] Implement parallel execution where beneficial
 
-### Phase 4: Migrate Environment-Specific Scripts
+### Phase 4: Migrate Environment-Specific Scripts {#phase-4-migrate-environment-specific-scripts}
 - [ ] Define targets for different environments
 - [ ] Use Xec's environment variable management
 - [ ] Create environment-specific configurations
 
-### Phase 5: Complete Migration
+### Phase 5: Complete Migration {#phase-5-complete-migration}
 - [ ] Replace all npm scripts with Xec commands
 - [ ] Update CI/CD pipelines
 - [ ] Update documentation
 - [ ] Remove unused dependencies
 
-## Compatibility Bridge
+## Compatibility Bridge {#compatibility-bridge}
 
 Keep npm scripts as aliases during transition:
 
@@ -490,9 +490,9 @@ Keep npm scripts as aliases during transition:
 
 This allows team members to use familiar `npm run` commands while leveraging Xec's power underneath.
 
-## Advanced Features After Migration
+## Advanced Features After Migration {#advanced-features-after-migration}
 
-### 1. Multi-Target Deployment
+### 1. Multi-Target Deployment {#1-multi-target-deployment}
 ```typescript
 // Deploy to multiple servers simultaneously
 import { $ } from '@xec-sh/core';
@@ -504,7 +504,7 @@ await Promise.all([
 ]);
 ```
 
-### 2. Conditional Execution
+### 2. Conditional Execution {#2-conditional-execution}
 ```typescript
 const branch = await $`git branch --show-current`.text();
 if (branch === 'main') {
@@ -514,7 +514,7 @@ if (branch === 'main') {
 }
 ```
 
-### 3. Interactive Prompts
+### 3. Interactive Prompts {#3-interactive-prompts}
 ```typescript
 import { confirm, isCancel, cancel } from '@xec-sh/kit';
 
@@ -529,7 +529,7 @@ if (proceed) {
 }
 ```
 
-### 4. Progress Tracking
+### 4. Progress Tracking {#4-progress-tracking}
 ```typescript
 import { spinner } from '@xec-sh/kit';
 
@@ -541,30 +541,30 @@ await $`webpack --mode production`;
 spin.stop('Build complete!');
 ```
 
-## Common Gotchas
+## Common Gotchas {#common-gotchas}
 
-### 1. Path Differences
+### 1. Path Differences {#1-path-differences}
 - npm scripts run from package.json directory
 - Xec runs from project root by default
 - Use `cwd` option to change working directory
 
-### 2. Shell Differences
+### 2. Shell Differences {#2-shell-differences}
 - npm uses system shell
 - Xec uses consistent shell across platforms
 - Some shell-specific features may need adjustment
 
-### 3. Environment Variables
+### 3. Environment Variables {#3-environment-variables}
 - npm scripts inherit all env vars
 - Xec provides controlled environment
 - Explicitly pass needed variables
 
-## Getting Help
+## Getting Help {#getting-help}
 
 - Run `xec new task` for task templates
 - Check `xec run --help` for execution options
 - Visit [Xec Documentation](https://xec.sh/docs/introduction/)
 
-## Summary
+## Summary {#summary}
 
 Migrating from npm scripts to Xec provides:
 - ✅ Better cross-platform support

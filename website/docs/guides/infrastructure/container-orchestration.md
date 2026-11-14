@@ -4,24 +4,24 @@ title: Container Orchestration
 description: Manage Docker services and Kubernetes workloads through Xec
 ---
 
-# Container Orchestration
+# Container Orchestration {#container-orchestration}
 
-## Problem
+## Problem {#problem}
 
 A container deployment combines artifact selection, service lifecycle and
 application readiness. Xec provides shared command and Docker service APIs so
 scripts can keep those operations explicit and verify their results.
 
-## Prerequisites
+## Prerequisites {#prerequisites}
 
 - Xec CLI and its public packages
 - A running Docker daemon for Docker examples
 - kubectl and an authorized kubeconfig for Kubernetes examples
 - Application images, manifests and health checks matching the examples
 
-## Solution
+## Solution {#solution}
 
-### Step 1: Docker Container Management
+### Step 1: Docker Container Management {#step-1-docker-container-management}
 
 Declare the candidate with the public fluent API. Give it a distinct name and
 an application health check before starting it. This example assumes the image
@@ -52,7 +52,7 @@ Keep the active service until the candidate passes readiness and the declared
 traffic switch succeeds. Use `$.docker().container(name)` to inspect or control
 an existing service through the same lifecycle interface.
 
-### Step 2: Docker Compose Workflows
+### Step 2: Docker Compose Workflows {#step-2-docker-compose-workflows}
 
 A Compose file owns its service dependencies, volumes and health checks. Select
 one project name consistently across build, start, command execution and logs.
@@ -79,7 +79,7 @@ ps` proves neither readiness nor the deployed application version. For
 blue-green deployment, give each side its own Compose project, verify the
 candidate and switch traffic through the application's configured router.
 
-### Step 3: Kubernetes Deployments
+### Step 3: Kubernetes Deployments {#step-3-kubernetes-deployments}
 
 Run cluster operations through the shared command engine with explicit context
 and namespace. `$.k8s()` supplies pod execution, file transfer, logs and port
@@ -114,7 +114,7 @@ Readiness and liveness probes belong in the versioned manifest. A rollout must
 also pass the application's acceptance checks before retirement of the previous
 version.
 
-### Step 4: Hybrid Orchestration
+### Step 4: Hybrid Orchestration {#step-4-hybrid-orchestration}
 
 A shared probe can operate on local Docker and Kubernetes targets. Keep target
 identity in the result so the operator can locate a failing workload.
@@ -140,7 +140,7 @@ Use Xec tasks for the surrounding build graph and deployment hooks for
 application-specific activation and rollback. [Tasks](../../configuration/tasks/overview.md),
 [Deployment operations](../../ops/deploy.md)
 
-### Step 5: Container Registry Management
+### Step 5: Container Registry Management {#step-5-container-registry-management}
 
 Use a scoped registry credential through standard input. Verify the image before
 publishing and retain its digest with the release record.
@@ -168,7 +168,7 @@ console.log(await $.docker().run`image inspect ${image} --format '{{json .RepoDi
 Configure registry retention against active and rollback references. Retiring
 images is a separate operation from publishing a new one.
 
-## Best Practices
+## Best Practices {#best-practices}
 
 - Pin image versions and record registry digests.
 - Declare resource limits and readiness checks with each workload.
@@ -177,15 +177,15 @@ images is a separate operation from publishing a new one.
 - Preserve the previous release until acceptance completes.
 - Inspect command failures and partial results before retrying mutations.
 
-## Common Pitfalls
+## Common Pitfalls {#common-pitfalls}
 
 An `unhealthy` state contains the text `healthy`. Compare structured health
 values exactly or use the fluent service's `status()` and `waitForReady()`.
 Keep application readiness separate from process existence.
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### Issue: Container Fails to Start
+### Issue: Container Fails to Start {#issue-container-fails-to-start}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -195,7 +195,7 @@ console.log(await container.logs({ tail: 50 }));
 console.log(await container.status());
 ```
 
-### Issue: Pod Stuck in Pending
+### Issue: Pod Stuck in Pending {#issue-pod-stuck-in-pending}
 
 ```bash
 kubectl --context staging -n myapp describe pod myapp-0
@@ -203,7 +203,7 @@ kubectl --context staging -n myapp get events --sort-by=.lastTimestamp
 kubectl --context staging -n myapp get pvc
 ```
 
-### Issue: Image Pull Errors
+### Issue: Image Pull Errors {#issue-image-pull-errors}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -216,7 +216,7 @@ await $`kubectl --context staging -n myapp describe pod myapp-0`;
 Inspect the pod events and the configured image-pull secret reference. Keep
 credential contents out of diagnostic output.
 
-### Issue: Service Discovery Failing
+### Issue: Service Discovery Failing {#issue-service-discovery-failing}
 
 ```bash
 kubectl --context staging -n myapp get services
@@ -224,7 +224,7 @@ kubectl --context staging -n myapp get endpointslices
 kubectl --context staging -n myapp get networkpolicies
 ```
 
-## Related Guides
+## Related Guides {#related-guides}
 
 - [Server management](./server-management.md)
 - [Working across environments](./multi-environment.md)

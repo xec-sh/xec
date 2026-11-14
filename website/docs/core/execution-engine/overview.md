@@ -4,13 +4,13 @@ sidebar_label: Overview
 description: Architecture and principles of Xec's universal command execution engine
 ---
 
-# Universal Execution Engine
+# Universal Execution Engine {#universal-execution-engine}
 
 The Execution Engine (`ExecutionEngine`) is the core of the Xec system, providing unified command execution across diverse environments. It offers a universal API for working with local processes, SSH connections, Docker containers, and Kubernetes pods.
 
-## Core Concepts
+## Core Concepts {#core-concepts}
 
-### Universal Execution
+### Universal Execution {#universal-execution}
 
 The engine abstracts environment-specific details, allowing the same code to work across different target systems:
 
@@ -39,7 +39,7 @@ await pod`ls -la`;
 await $.k8s().pod('my-pod').exec`ls -la`;
 ```
 
-### Engine Architecture
+### Engine Architecture {#engine-architecture}
 
 The engine parses the template literal, builds and escapes the command, then routes it to the adapter for the target environment:
 
@@ -60,9 +60,9 @@ flowchart TD
     Engine --> K8s
 ```
 
-## Command Lifecycle
+## Command Lifecycle {#command-lifecycle}
 
-### 1. Command Building
+### 1. Command Building {#1-command-building}
 
 Commands are built through template literals with automatic escaping:
 
@@ -75,7 +75,7 @@ await $`cat ${file}`;        // cat 'file with spaces.txt'
 await $`echo ${dangerous}`;  // echo ''\''; rm -rf /'
 ```
 
-### 2. Context Configuration
+### 2. Context Configuration {#2-context-configuration}
 
 Commands are enriched with execution context:
 
@@ -90,7 +90,7 @@ const run = createCallableEngine(new ExecutionEngine({
 await run`pnpm build`.cwd('/projects/app').env({ DEBUG: 'true' }).timeout(60_000);
 ```
 
-### 3. Adapter Selection
+### 3. Adapter Selection {#3-adapter-selection}
 
 The engine automatically selects the appropriate adapter:
 
@@ -106,7 +106,7 @@ await $.execute({
 });
 ```
 
-### 4. Execution and Result Processing
+### 4. Execution and Result Processing {#4-execution-and-result-processing}
 
 ```typescript
 const result = await $`ls -la`;
@@ -121,11 +121,11 @@ result.startedAt;   // Start time
 result.finishedAt;  // Finish time
 ```
 
-## ProcessPromise API
+## ProcessPromise API {#processpromise-api}
 
 `ProcessPromise` is an extended Promise with additional methods for execution control:
 
-### Stream Management
+### Stream Management {#stream-management}
 
 ```typescript
 // Output redirection
@@ -140,7 +140,7 @@ await $`npm init`.interactive();
 await $`npm install`.quiet();
 ```
 
-### Error Handling
+### Error Handling {#error-handling}
 
 ```typescript
 // Don't throw on error
@@ -156,7 +156,7 @@ await $.retry({
 })`flaky-command`;
 ```
 
-### Execution Control
+### Execution Control {#execution-control}
 
 ```typescript
 // Timeout
@@ -172,7 +172,7 @@ const proc = $`server`;
 setTimeout(() => proc.kill(), 5000);
 ```
 
-### Result Transformation
+### Result Transformation {#result-transformation}
 
 ```typescript
 // Get trimmed text
@@ -188,7 +188,7 @@ const lines = await $`ls`.lines();
 const buffer = await $`cat binary.dat`.buffer();
 ```
 
-## Piping
+## Piping {#piping}
 
 The engine supports Unix-like pipes:
 
@@ -201,7 +201,7 @@ await $`ls -la`.pipe((line: string) => {
 });
 ```
 
-## Parallel Execution
+## Parallel Execution {#parallel-execution}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -214,7 +214,7 @@ const outcomes = await $.batch(commands, {
 if (outcomes.failed.length) throw new AggregateError(outcomes.failed, 'Test batch failed');
 ```
 
-## Events and Monitoring
+## Events and Monitoring {#events-and-monitoring}
 
 The engine provides an event system for monitoring:
 
@@ -235,7 +235,7 @@ $.on('command:error', ({ command, error }) => {
 });
 ```
 
-## Result Caching
+## Result Caching {#result-caching}
 
 ```typescript
 // Cache command results
@@ -250,7 +250,7 @@ const cached = await $`expensive-operation`.cache({
 });
 ```
 
-## Contextual Execution
+## Contextual Execution {#contextual-execution}
 
 ```typescript
 // Create context with settings
@@ -280,7 +280,7 @@ await within(async () => {
 });
 ```
 
-## Command Templates
+## Command Templates {#command-templates}
 
 ```typescript
 // Create a template
@@ -300,9 +300,9 @@ await gitClone.execute($, {
 });
 ```
 
-## Utilities and Helpers
+## Utilities and Helpers {#utilities-and-helpers}
 
-### Temporary Files
+### Temporary Files {#temporary-files}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -318,7 +318,7 @@ await $.withTempDir(async directory => {
 });
 ```
 
-### Helper Functions
+### Helper Functions {#helper-functions}
 
 Standalone helpers exported from the package:
 
@@ -331,7 +331,7 @@ await sleep('100ms');
 console.log(parseDuration('30s'));
 ```
 
-### File Transfer
+### File Transfer {#file-transfer}
 
 ```typescript
 // Between environments: ssh://user@host/path, docker://container:/path
@@ -348,7 +348,7 @@ await $.transfer.sync('/source', 'docker://app:/dest', {
 });
 ```
 
-### Interactive Prompts
+### Interactive Prompts {#interactive-prompts}
 
 Interactive prompts are not part of `@xec-sh/core` — they live in `@xec-sh/kit`,
 the separate TUI/CLI components package:
@@ -365,7 +365,7 @@ const option = await select({
 const secret = await password({ message: 'Password:' });
 ```
 
-## Error Handling
+## Error Handling {#error-handling-1}
 
 ```typescript
 import { $, CommandError } from '@xec-sh/core';
@@ -381,7 +381,7 @@ const result = await $`test -f config.json`.nothrow();
 if (!result.ok) console.log('Configuration check failed', result.exitCode);
 ```
 
-## Runtime Support
+## Runtime Support {#runtime-support}
 
 `@xec-sh/core` runs on Node.js 20+, Bun and Deno with the same API. The local adapter uses the runtimes' shared `node:child_process` API, with one implementation of cancellation, streaming, and cleanup. Importing the package pulls in Node builtins only — SSH, Docker and Kubernetes adapters load lazily on first use.
 
@@ -391,9 +391,9 @@ import { RuntimeDetector } from '@xec-sh/core';
 RuntimeDetector.detect(); // 'node' | 'bun' | 'deno'
 ```
 
-## Performance and Optimizations
+## Performance and Optimizations {#performance-and-optimizations}
 
-### Connection Pooling
+### Connection Pooling {#connection-pooling}
 
 SSH and other adapters automatically manage connection pools:
 
@@ -406,7 +406,7 @@ for (const file of ['/srv/app/config.json', '/srv/app/package.json']) {
 }
 ```
 
-### Lazy Initialization
+### Lazy Initialization {#lazy-initialization}
 
 Adapters are created only on first use:
 
@@ -415,7 +415,7 @@ Adapters are created only on first use:
 await $.docker({ container: 'app' })`ls`;
 ```
 
-### Stream Processing
+### Stream Processing {#stream-processing}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -423,9 +423,9 @@ import { $ } from '@xec-sh/core';
 await $`generate-report`.stdout(process.stdout);
 ```
 
-## Security
+## Security {#security}
 
-### Automatic Escaping
+### Automatic Escaping {#automatic-escaping}
 
 All template literal values are automatically escaped — each interpolated
 value becomes exactly one shell argument:
@@ -444,7 +444,7 @@ quotes you wrote yourself is no longer the position it was escaped for, and
 a value containing a `"` can close your quotes early and reach the shell —
 build the whole argument as one interpolated value instead, as above.
 
-### Sensitive Data Masking
+### Sensitive Data Masking {#sensitive-data-masking}
 
 Masking is enabled by default in every adapter: passwords, tokens, and keys
 matching the built-in patterns are replaced with `[REDACTED]` in events and
@@ -488,7 +488,7 @@ const $ = new ExecutionEngine({
 });
 ```
 
-#### Values you already know
+#### Values you already know {#values-you-already-know}
 
 A pattern recognises a credential by its shape. That is the best
 available guess when nothing is known about the text, and like any guess
@@ -520,7 +520,7 @@ Values under four characters are refused, and `registerSecret` returns
 registering `"ok"` would rewrite every `ok` in every stream. With no
 secret registered, the check costs one property read.
 
-## Integration with async/await
+## Integration with async/await {#integration-with-asyncawait}
 
 The engine is fully compatible with async/await and Promise APIs:
 
@@ -544,9 +544,9 @@ const fastest = await Promise.race([
 ]);
 ```
 
-## Extensibility
+## Extensibility {#extensibility}
 
-### Registering Adapters
+### Registering Adapters {#registering-adapters}
 
 `$.registerAdapter(name, adapter)` is real, but writing the adapter itself
 currently is not: every adapter extends the abstract `BaseAdapter` class,
@@ -556,7 +556,7 @@ stream filter). There is no supported way to implement a custom adapter
 outside the package today — `registerAdapter` exists for the four built-in
 adapters to register themselves, not as a public extension point.
 
-### Event Listeners
+### Event Listeners {#event-listeners}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -566,9 +566,9 @@ $.on('command:complete', event => console.log({ duration: event.duration, exitCo
 await $`node --version`;
 ```
 
-## Usage Examples
+## Usage Examples {#usage-examples}
 
-### CI/CD Pipeline
+### CI/CD Pipeline {#cicd-pipeline}
 
 ```typescript
 import { ExecutionEngine, createCallableEngine } from '@xec-sh/core';
@@ -585,7 +585,7 @@ async function build(projectDirectory: string) {
 }
 ```
 
-### Data Processing
+### Data Processing {#data-processing}
 
 ```typescript
 async function processLogs() {
@@ -606,7 +606,7 @@ async function processLogs() {
 }
 ```
 
-### System Monitoring
+### System Monitoring {#system-monitoring}
 
 `$.parallel.map()` builds one command per item and runs them with a
 concurrency cap — its callback must return a `string`, `Command` or
@@ -638,7 +638,7 @@ async function monitorSystem() {
 }
 ```
 
-## Conclusion
+## Conclusion {#conclusion}
 
 The ExecutionEngine provides a powerful and flexible API for command execution across various environments. Its key advantages:
 

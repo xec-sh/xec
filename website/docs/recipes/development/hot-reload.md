@@ -7,17 +7,17 @@ source_files:
   - packages/loader/src/watch/file-watcher.ts
 ---
 
-# Hot Reload Development Workflows
+# Hot Reload Development Workflows {#hot-reload-development-workflows}
 
-## Problem
+## Problem {#problem}
 
 Setting up efficient development workflows with automatic rebuilding, hot module replacement, and synchronized browser reload across multiple services and environments.
 
-## Solution
+## Solution {#solution}
 
 Xec provides integrated file watching and command execution capabilities, while the selected development server owns HMR and backend restarts. Use the shared Xec watcher for additional build steps rather than introducing a second watcher or reload protocol.
 
-## Quick Example
+## Quick Example {#quick-example}
 
 ```typescript
 // The package scripts own their framework's HMR/restart behavior.
@@ -28,9 +28,9 @@ await $.parallel.all([
 ], { maxConcurrency: 2 });
 ```
 
-## Complete Hot Reload Recipes
+## Complete Hot Reload Recipes {#complete-hot-reload-recipes}
 
-### Configuration
+### Configuration {#configuration}
 
 ```yaml
 version: '1.0'
@@ -43,7 +43,7 @@ tasks:
     command: xec watch local "src/assets/**/*" --command "npm run build:assets"
 ```
 
-### Full-Stack Development Server
+### Full-Stack Development Server {#full-stack-development-server}
 
 ```typescript
 // scripts/dev-server.ts
@@ -59,7 +59,7 @@ await $.parallel.all([
 ], { maxConcurrency: 3 });
 ```
 
-### Mobile Development Hot Reload
+### Mobile Development Hot Reload {#mobile-development-hot-reload}
 
 ```typescript
 // Let the project's installed mobile toolchain own hot reload and device selection.
@@ -74,7 +74,7 @@ if (platform === 'react-native') {
 }
 ```
 
-## Usage Examples
+## Usage Examples {#usage-examples}
 
 ```bash
 # Start full development environment
@@ -90,7 +90,7 @@ xec run scripts/dev-server.ts
 xec run scripts/mobile-dev.ts react-native
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
 1. **Use file watching efficiently** with proper ignore patterns
 2. **Debounce rapid changes** to avoid excessive rebuilds
@@ -100,9 +100,9 @@ xec run scripts/mobile-dev.ts react-native
 6. **Monitor memory usage** during long dev sessions
 7. **Cache dependencies** for faster rebuilds
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### Port Already in Use
+### Port Already in Use {#port-already-in-use}
 
 Inspect the listener and the configured server port. Stop only the development process you own, or select another port through that server's configuration.
 
@@ -110,11 +110,11 @@ Inspect the listener and the configured server port. Stop only the development p
 lsof -i :3000
 ```
 
-### Hot Reload Not Working
+### Hot Reload Not Working {#hot-reload-not-working}
 
 Check the development server's output first. Confirm the watched path, ignored directories and whether the tool expects a full restart or supports HMR. Use Xec's watcher for files outside that framework's watch graph; avoid two tools rebuilding the same output directory.
 
-## Related Topics
+## Related Topics {#related-topics}
 
 - [Database Setup](database-setup.md)
 - [API Mocking](api-mocking.md)

@@ -1,19 +1,19 @@
 ---
 title: Portable Scripts
-description: Write once, run anywhere - universal scripts with $target
+description: Route commands through $target while keeping runtime and target requirements explicit
 keywords: [$target, portable, universal, multi-environment, context]
 sidebar_position: 5
 ---
 
-# Portable Scripts
+# Portable Scripts {#portable-scripts}
 
-One of Xec's most powerful features is the ability to write scripts that work identically across different environments - local, SSH, Docker, and Kubernetes - without modification.
+A portable Xec script keeps its TypeScript orchestration on the machine running the CLI and directs commands through `$target`. The same execution API reaches local, SSH, Docker and Kubernetes targets. Portability still requires compatible commands, paths, permissions and shell syntax on those targets.
 
-## The $target Concept
+## The $target Concept {#the-target-concept}
 
 When you execute a script with Xec's CLI commands (`xec run`, `xec on`, `xec in`), the execution engine injects two globals into your script's context: `$target`, an execution engine bound to the current target — run commands through it and they execute there — and `$targetInfo`, a plain object describing that target. Plain `$` always executes locally, whatever the target.
 
-### How It Works
+### How It Works {#how-it-works}
 
 ```javascript
 // deploy.js - A universal deployment script
@@ -47,7 +47,7 @@ xec in my-pod deploy.js
 # Output: Deploying to: kubernetes
 ```
 
-## The Magic: Automatic Context Injection
+## The Magic: Automatic Context Injection {#the-magic-automatic-context-injection}
 
 When you use CLI commands to execute scripts, Xec:
 
@@ -56,7 +56,7 @@ When you use CLI commands to execute scripts, Xec:
 3. **Routes `$target` commands** through the appropriate adapter
 4. **Maintains consistent behavior** across environments
 
-### Example: Universal Health Check
+### Example: Universal Health Check {#example-universal-health-check}
 
 ```javascript
 // health-check.js
@@ -91,7 +91,7 @@ const results = await checks[$targetInfo.type]();
 console.log(`Health check for ${$targetInfo.name}:`, results);
 ```
 
-## $targetInfo Properties
+## $targetInfo Properties {#targetinfo-properties}
 
 `$target` itself is an execution engine — call it with a template literal. The
 metadata lives on `$targetInfo`:
@@ -108,7 +108,7 @@ interface TargetInfo {
 }
 ```
 
-### Accessing Target Information
+### Accessing Target Information {#accessing-target-information}
 
 ```javascript
 // script.js
@@ -126,9 +126,9 @@ if ($targetInfo.type === 'ssh') {
 }
 ```
 
-## Real-World Use Cases
+## Real-World Use Cases {#real-world-use-cases}
 
-### 1. Universal Build Script
+### 1. Universal Build Script {#1-universal-build-script}
 
 ```javascript
 // build.js
@@ -159,7 +159,7 @@ if ($targetInfo.type === 'ssh' && $targetInfo.name.includes('prod')) {
 }
 ```
 
-### 2. Multi-Environment Database Backup
+### 2. Multi-Environment Database Backup {#2-multi-environment-database-backup}
 
 ```javascript
 // backup.js — pg_dump connects over the network, so the commands
@@ -191,7 +191,7 @@ console.log(`Backup uploaded to S3`);
 await $`rm ${backupFile}`;
 ```
 
-### 3. Service Management
+### 3. Service Management {#3-service-management}
 
 ```javascript
 // service-status.js — these are read-only commands installed on each target.
@@ -210,9 +210,9 @@ const output = await $target.exec(statusCommands[$targetInfo.type]).text();
 console.log(output);
 ```
 
-## Advanced Patterns
+## Advanced Patterns {#advanced-patterns}
 
-### Conditional Logic Based on Target
+### Conditional Logic Based on Target {#conditional-logic-based-on-target}
 
 ```javascript
 // deploy.js
@@ -235,7 +235,7 @@ if ($targetInfo.type === 'kubernetes') {
 }
 ```
 
-### Target-Aware Logging
+### Target-Aware Logging {#target-aware-logging}
 
 ```javascript
 // logger.js
@@ -258,9 +258,9 @@ const logger = new TargetAwareLogger();
 await logger.log('Application started');
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### 1. Design for Portability
+### 1. Design for Portability {#1-design-for-portability}
 
 ```javascript
 // Good: Works everywhere
@@ -270,7 +270,7 @@ await $target`npm test`;
 await $target`/usr/local/bin/npm test`;  // May not exist everywhere
 ```
 
-### 2. Handle Target Variations Gracefully
+### 2. Handle Target Variations Gracefully {#2-handle-target-variations-gracefully}
 
 ```javascript
 // Good: Defensive programming
@@ -284,7 +284,7 @@ const logPath = {
 await $target`mkdir -p ${logPath}`;
 ```
 
-### 3. Use Target Information for Configuration
+### 3. Use Target Information for Configuration {#3-use-target-information-for-configuration}
 
 ```javascript
 // Good: Target-aware configuration
@@ -297,7 +297,7 @@ const config = {
 };
 ```
 
-### 4. Leverage Target for Debugging
+### 4. Leverage Target for Debugging {#4-leverage-target-for-debugging}
 
 ```javascript
 // Good: Enhanced debugging in development
@@ -307,9 +307,9 @@ if ($targetInfo.type === 'local' || $targetInfo.name.includes('dev')) {
 }
 ```
 
-## Testing Portable Scripts
+## Testing Portable Scripts {#testing-portable-scripts}
 
-### Local Testing
+### Local Testing {#local-testing}
 
 ```bash
 # Test locally first — under `xec run` the script gets a local-bound
@@ -317,7 +317,7 @@ if ($targetInfo.type === 'local' || $targetInfo.name.includes('dev')) {
 xec run my-script.js
 ```
 
-### Multi-Environment Testing
+### Multi-Environment Testing {#multi-environment-testing}
 
 ```javascript
 // test-portable.js
@@ -335,9 +335,9 @@ for (const env of environments) {
 }
 ```
 
-## Comparison with Traditional Approaches
+## Comparison with Traditional Approaches {#comparison-with-traditional-approaches}
 
-### Traditional: Environment-Specific Scripts
+### Traditional: Environment-Specific Scripts {#traditional-environment-specific-scripts}
 
 ```bash
 # Different scripts for different environments
@@ -347,7 +347,7 @@ deploy-docker.sh
 deploy-k8s.sh
 ```
 
-### Xec: One Portable Script
+### Xec: One Portable Script {#xec-one-portable-script}
 
 ```javascript
 // deploy.js - Works everywhere
@@ -356,7 +356,7 @@ await $target`npm run build`;
 await $target`npm run deploy:${$targetInfo.type}`;
 ```
 
-## Integration with Configuration
+## Integration with Configuration {#integration-with-configuration}
 
 Combine `$target` with Xec's configuration system:
 
@@ -379,7 +379,7 @@ console.log(`Running on ${$targetInfo.name}`);
 console.log(`API Key: ${process.env.API_KEY}`);
 ```
 
-## Summary
+## Summary {#summary}
 
 The `$target` concept enables:
 
@@ -396,7 +396,7 @@ This makes Xec ideal for:
 - Infrastructure management
 - Universal tooling
 
-## Next Steps
+## Next Steps {#next-steps}
 
 - [Core Concepts](./core-concepts.md) - Understand Xec's architecture
 - [Configuration](../configuration/overview.md) - Configure targets

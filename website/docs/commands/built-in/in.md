@@ -3,26 +3,26 @@ title: in
 description: Execute commands in Docker containers or Kubernetes pods
 ---
 
-# in
+# in {#in}
 
 Execute commands inside Docker containers or Kubernetes pods.
 
-## Synopsis
+## Synopsis {#synopsis}
 
 ```bash
 xec in [options] <target> [command...]
 ```
 
-## Description
+## Description {#description}
 
 The `in` command executes commands, scripts, or tasks inside Docker containers and Kubernetes pods. It provides a unified interface for container execution across different container runtimes.
 
-## Arguments
+## Arguments {#arguments}
 
 - `<target>` - Target container or pod (supports patterns)
 - `[command...]` - Command to execute (optional, defaults to interactive shell)
 
-### Target Patterns
+### Target Patterns {#target-patterns}
 
 - `containers.name` - Specific Docker container
 - `pods.name` - Specific Kubernetes pod
@@ -30,14 +30,14 @@ The `in` command executes commands, scripts, or tasks inside Docker containers a
 - `pods.*` - All Kubernetes pods
 - `{containers.web,containers.api}` - Multiple specific targets
 
-## Options
+## Options {#options}
 
-### Common Options
+### Common Options {#common-options}
 
 - `-o, --output <format>` - Output format: `text` (default), `json`, `yaml`, `csv`
 - `-c, --config <path>` - Path to configuration file
 
-### General Options
+### General Options {#general-options}
 
 - `-p, --profile <profile>` - Configuration profile to use
 - `-i, --interactive` - Interactive mode (attach to container)
@@ -55,9 +55,9 @@ The `in` command executes commands, scripts, or tasks inside Docker containers a
 - `-q, --quiet` - Suppress output
 - `--dry-run` - Preview execution without running
 
-## Examples
+## Examples {#examples}
 
-### Basic Command Execution
+### Basic Command Execution {#basic-command-execution}
 
 Execute simple commands in containers:
 
@@ -75,7 +75,7 @@ xec in containers.db "ps aux"
 xec in containers.node "npm test"
 ```
 
-### Interactive Shell
+### Interactive Shell {#interactive-shell}
 
 Start interactive shell sessions:
 
@@ -90,7 +90,7 @@ xec in -u root containers.web
 xec in -d /app containers.api
 ```
 
-### Script Execution
+### Script Execution {#script-execution}
 
 Run scripts with container context:
 
@@ -105,7 +105,7 @@ xec in pods.worker ./migrate.js
 xec in containers.test ./test-runner.js
 ```
 
-### Task Execution
+### Task Execution {#task-execution}
 
 Run configured tasks in containers:
 
@@ -120,7 +120,7 @@ xec in pods.builder --task build
 xec in containers.* --task migrate --parallel
 ```
 
-### REPL Mode
+### REPL Mode {#repl-mode}
 
 Start REPL with container context:
 
@@ -136,7 +136,7 @@ xec in pods.api --repl
 # > const config = await $target`cat /app/config.json`
 ```
 
-### Multiple Target Execution
+### Multiple Target Execution {#multiple-target-execution}
 
 Execute on multiple targets:
 
@@ -151,7 +151,7 @@ xec in containers.* "npm test" --parallel
 xec in {containers.web,containers.api} "health-check"
 ```
 
-### Environment Variables
+### Environment Variables {#environment-variables}
 
 Set environment variables for execution:
 
@@ -169,7 +169,7 @@ xec in containers.test -e DEBUG=true "pytest"
 xec in containers.app -e AWS_REGION "aws s3 ls"
 ```
 
-#### Values from the secret store
+#### Values from the secret store {#values-from-the-secret-store}
 
 `secret://name` reads the value from this machine's store and delivers it
 through the environment of the remote process:
@@ -187,7 +187,7 @@ in output, events and error messages even if the command prints it.
 A reference to a key nothing holds fails before anything runs anywhere,
 naming the key, rather than halfway through a deployment.
 
-### Working Directory
+### Working Directory {#working-directory}
 
 Set working directory for command:
 
@@ -202,7 +202,7 @@ xec in pods.builder -d /workspace "make build"
 xec in containers.temp -d /tmp "./cleanup.sh"
 ```
 
-### Timeout Control
+### Timeout Control {#timeout-control}
 
 Set execution timeouts:
 
@@ -217,7 +217,7 @@ xec in pods.migration -t 5m "./migrate.js"
 xec in containers.backup -t 1h "./backup.sh"
 ```
 
-### User Context
+### User Context {#user-context}
 
 Run commands as specific user:
 
@@ -232,9 +232,9 @@ xec in -u app containers.web "npm install"
 xec in -u 1000 pods.worker "./script.sh"
 ```
 
-## Target Types
+## Target Types {#target-types}
 
-### Docker Containers
+### Docker Containers {#docker-containers}
 
 Execute in Docker containers:
 
@@ -249,7 +249,7 @@ xec in containers.abc123 "date"
 xec in containers.* "health-check" --parallel
 ```
 
-### Kubernetes Pods
+### Kubernetes Pods {#kubernetes-pods}
 
 Execute in Kubernetes pods:
 
@@ -265,9 +265,9 @@ xec in pods.multi-container "date"
 xec in pods.worker-* "./process.sh" --parallel
 ```
 
-## Advanced Usage
+## Advanced Usage {#advanced-usage}
 
-### Parallel Execution
+### Parallel Execution {#parallel-execution}
 
 Run commands on multiple targets simultaneously:
 
@@ -282,7 +282,7 @@ xec in pods.app-* "./deploy.sh" --parallel
 xec in containers.* "tail -n 100 /var/log/app.log" --parallel
 ```
 
-### Command Chaining
+### Command Chaining {#command-chaining}
 
 Chain multiple commands:
 
@@ -297,7 +297,7 @@ xec in pods.processor "cat data.json | jq '.items[]' | wc -l"
 xec in containers.db "pg_isready && psql -c 'SELECT 1'"
 ```
 
-### Script Context
+### Script Context {#script-context}
 
 Scripts have access to container context:
 
@@ -309,7 +309,7 @@ console.log(output);
 await $target`cp -r dist/* /var/www/`;
 ```
 
-### Interactive Testing
+### Interactive Testing {#interactive-testing}
 
 Use interactive mode for debugging:
 
@@ -324,7 +324,7 @@ xec in -i pods.debug
 xec in -i containers.network
 ```
 
-## Configuration
+## Configuration {#configuration}
 
 Configure defaults in `.xec/config.yaml`:
 
@@ -353,9 +353,9 @@ commands:
       - NODE_ENV=production
 ```
 
-## Docker-Specific Features
+## Docker-Specific Features {#docker-specific-features}
 
-### Docker Exec Options
+### Docker Exec Options {#docker-exec-options}
 
 The command maps to `docker exec` with options:
 
@@ -373,15 +373,15 @@ xec in -i containers.app
 # → docker exec -it app /bin/sh
 ```
 
-### Container States
+### Container States {#container-states}
 
 - Container must be running
 - Use container name or ID
 - Supports pattern matching on names
 
-## Kubernetes-Specific Features
+## Kubernetes-Specific Features {#kubernetes-specific-features}
 
-### Kubectl Exec Options
+### Kubectl Exec Options {#kubectl-exec-options}
 
 The command maps to `kubectl exec` with options:
 
@@ -399,13 +399,13 @@ xec in pods.multi "ps"
 # → kubectl exec multi -c app -- ps
 ```
 
-### Pod Selection
+### Pod Selection {#pod-selection}
 
 - Pod must be in Running state
 - Namespace from configuration
 - Container selection for multi-container pods
 
-## Error Handling
+## Error Handling {#error-handling}
 
 The command handles common errors:
 
@@ -417,23 +417,23 @@ The command handles common errors:
 
 Use `-v, --verbose` for detailed error information.
 
-## Performance Considerations
+## Performance Considerations {#performance-considerations}
 
 - Commands execute directly in containers (no SSH overhead)
 - Parallel execution for multiple targets
 - Stream processing for large outputs
 - Efficient for batch operations
 
-## Security Notes
+## Security Notes {#security-notes}
 
 - Respects container user permissions
 - Environment variables not logged
 - Sensitive commands should use `--quiet`
 - Interactive mode for secure input
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### Container Not Found
+### Container Not Found {#container-not-found}
 
 ```bash
 # List available containers
@@ -443,7 +443,7 @@ docker ps
 xec inspect containers
 ```
 
-### Pod Not Ready
+### Pod Not Ready {#pod-not-ready}
 
 ```bash
 # Check pod status
@@ -453,7 +453,7 @@ kubectl get pods
 kubectl wait --for=condition=ready pod/webapp
 ```
 
-### Permission Denied
+### Permission Denied {#permission-denied}
 
 ```bash
 # Run as root
@@ -463,13 +463,13 @@ xec in -u root containers.app "chmod +x script.sh"
 xec in containers.app "whoami"
 ```
 
-## Related Commands
+## Related Commands {#related-commands}
 
 - [on](on.md) - Execute commands on SSH hosts
 - [run](run.md) - Run scripts and tasks
 - [logs](logs.md) - View container/pod logs
 
-## Output
+## Output {#output}
 
 stdout carries the answer; stderr carries everything said about producing
 it. With one target, its stdout is passed through byte for byte, so
@@ -481,7 +481,7 @@ visible. A command's own stderr always reaches stderr, without needing
 `-o json` replaces all of it with one document — the same shape [on](on.md)
 produces, so a script that reads one reads the other.
 
-## Exit Codes
+## Exit Codes {#exit-codes}
 
 - `0` - Every target succeeded
 - The command's own exit code, when exactly one target ran and exited

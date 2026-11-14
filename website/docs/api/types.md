@@ -12,9 +12,9 @@ source_files:
 verification_date: 2026-11-14
 ---
 
-# Type Definitions
+# Type Definitions {#type-definitions}
 
-## Implementation Reference
+## Implementation Reference {#implementation-reference}
 
 **Source Files:**
 - `packages/core/src/types/command.ts` - `Command` and adapter option types
@@ -41,11 +41,11 @@ if (parsed.ok === true) {
 }
 ```
 
-## Core Types
+## Core Types {#core-types}
 
-### Adapter Option Types
+### Adapter Option Types {#adapter-option-types}
 
-#### SSHAdapterOptions
+#### SSHAdapterOptions {#sshadapteroptions}
 
 ```typescript
 import type { SSHAdapterOptions } from '@xec-sh/core';
@@ -57,7 +57,7 @@ const target = {
 } satisfies SSHAdapterOptions;
 ```
 
-#### DockerAdapterOptions
+#### DockerAdapterOptions {#dockeradapteroptions}
 
 ```typescript
 import type { DockerAdapterOptions } from '@xec-sh/core';
@@ -67,7 +67,7 @@ const target = {
 } satisfies DockerAdapterOptions;
 ```
 
-#### KubernetesAdapterOptions
+#### KubernetesAdapterOptions {#kubernetesadapteroptions}
 
 ```typescript
 import type { KubernetesAdapterOptions } from '@xec-sh/core';
@@ -79,7 +79,7 @@ const target = {
 } satisfies KubernetesAdapterOptions;
 ```
 
-#### LocalAdapterOptions
+#### LocalAdapterOptions {#localadapteroptions}
 
 ```typescript
 import type { Command } from '@xec-sh/core';
@@ -93,9 +93,9 @@ exported by name) and set on a `Command` via `adapter`/`adapterOptions` —
 though in practice you reach them through `$.ssh(...)`, `$.docker(...)`,
 `$.k8s(...)`, `$.local()` rather than building a `Command` by hand.
 
-### Execution Types
+### Execution Types {#execution-types}
 
-#### Command
+#### Command {#command}
 
 The full shape accepted by `$.execute()` and built internally by every
 other execution method.
@@ -124,7 +124,7 @@ console.log((await $.execute(command)).stdout);
 `progress`. Derive option subsets with `Pick<Command, ...>` to keep consumer
 configuration checked against the public contract.
 
-#### ExecutionResult
+#### ExecutionResult {#executionresult}
 
 What an awaited `ProcessPromise` (or `execute()`) resolves to:
 
@@ -160,12 +160,12 @@ Execution metadata names the selected adapter and, where available, the
 remote host or container. `stdall` preserves the order observed by the
 parent across stdout and stderr. `buffer()` returns captured original bytes.
 
-#### ProcessOutput
+#### ProcessOutput {#processoutput}
 
 Use the public `ExecutionResult` type for completed command output. The
 convenience methods on `ProcessPromise` derive text, JSON and lines from it.
 
-### Error Types
+### Error Types {#error-types}
 
 `ExecutionError` carries the classified failure kind, error code and details.
 Execution and adapter errors derive from it. `RetryError` extends `Error` and
@@ -239,7 +239,7 @@ explainExitCode(0);   // '' — nothing worth explaining
 Signals are plain `NodeJS.Signals` strings throughout (`kill(signal?: NodeJS.Signals)`,
 `ExecutionResult.signal?: string`) — there is no custom `Signal` enum.
 
-### Event Types
+### Event Types {#event-types}
 
 Every engine (and the SSH/K8s/Docker contexts, since they delegate to one)
 is a `TypedEventEmitter<UshEventMap>`: `.on(event, listener)`, `.once(...)`,
@@ -277,7 +277,7 @@ The full set of exported event types: `UshEvent`, `UshEventMap`, `UshEventType`,
 `DockerExecEvent`, `K8sExecEvent`, `TransferStartEvent`, `TransferCompleteEvent`,
 `TransferErrorEvent`, `TypedEventEmitter`.
 
-## Type Guards
+## Type Guards {#type-guards}
 
 Use the public predicates for resource disposal and transport classification.
 
@@ -293,7 +293,7 @@ Narrow adapter options with their `type` discriminator and parsed targets
 with `kind`. Use `instanceof` for public error classes and `classifyFailure()`
 when the thrown value may come from another library.
 
-## The Result Pattern
+## The Result Pattern {#the-result-pattern}
 
 `.nothrow()` returns an `ExecutionResult` for a completed nonzero command.
 Inspect its `ok`, `exitCode`, `stderr` and `cause` fields.
@@ -313,7 +313,7 @@ if (result.ok) {
 Transport, authentication and infrastructure failures may still reject.
 Handle them with the typed error hierarchy and preserve uncertain outcomes.
 
-## Related Documentation
+## Related Documentation {#related-documentation}
 
 - [API Index](./index.md) - API overview
 - [Execution Engine](./execution-engine.md) - Engine types

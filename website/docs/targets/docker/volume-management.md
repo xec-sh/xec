@@ -5,7 +5,7 @@ keywords: [docker, volumes, mounts, storage, file transfer]
 sidebar_position: 4
 ---
 
-# Docker Volume Management
+# Docker Volume Management {#docker-volume-management}
 
 Named-volume administration (`create`/`remove`/`inspect`) is a handle off `$.docker()`. Bind-mounting a volume into a container is a `docker run`-time decision — it belongs to the ephemeral builder or a target's config, not to something you can attach to an already-running container. File transfer to and from a running container is `docker cp`, unrelated to volumes.
 
@@ -21,7 +21,7 @@ await $.docker()
   .start();
 ```
 
-## Named Volumes
+## Named Volumes {#named-volumes}
 
 ```typescript
 const vol = $.docker().volume('app-data');
@@ -47,7 +47,7 @@ const names = await docker.listVolumes();       // string[]
 await docker.removeVolume('db-data', true);      // true = force
 ```
 
-## Bind Mounts
+## Bind Mounts {#bind-mounts}
 
 Mounts are set when a container is created, not afterward — Docker itself has no "attach a mount to a running container" operation, so neither does xec. For an ephemeral container:
 
@@ -86,7 +86,7 @@ targets:
 
 `volumes` has no effect for `runMode: 'exec'` (the default when only `container` is set, without `image`) — there's no container to attach a fresh mount to at exec time.
 
-## Copying Files
+## Copying Files {#copying-files}
 
 There's no volume-based file API; copying goes through `docker cp`:
 
@@ -113,7 +113,7 @@ await docker.copyToContainer('./app.jar', 'java-app', '/app/app.jar');
 await $.docker({ container: 'java-app', user: 'root' })`chown appuser:appuser /app/app.jar`;
 ```
 
-## Streaming Into a Container
+## Streaming Into a Container {#streaming-into-a-container}
 
 For data that isn't already a file on disk, pipe a stream into `stdin` via `.with()` (there's no dedicated `.stdin()` chain method, so it goes through the general command-options override):
 
@@ -124,7 +124,7 @@ const stream = createReadStream('./large-file.dat');
 await $.docker('processor').with({ stdin: stream })`cat > /tmp/input.dat`;
 ```
 
-## Pruning
+## Pruning {#pruning}
 
 ```typescript
 // docker system prune --force --volumes (stopped containers, unused networks,
@@ -135,7 +135,7 @@ await $.docker().prune(false, true);
 await $.docker().prune(true, true);
 ```
 
-## Related Topics
+## Related Topics {#related-topics}
 
 - [Docker Overview](./overview.md) - Docker basics
 - [Container Lifecycle](./container-lifecycle.md) - Container management

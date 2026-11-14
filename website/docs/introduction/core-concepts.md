@@ -4,22 +4,22 @@ description: Fundamental concepts and architecture of Xec
 keywords: [concepts, architecture, execution engine, adapters, targets, template literals]
 ---
 
-# Core Concepts
+# Core Concepts {#core-concepts}
 
 Understanding Xec's core concepts will help you leverage its full power for multi-environment command execution.
 
-## Execution Engine
+## Execution Engine {#execution-engine}
 
 The execution engine is the heart of Xec, providing a unified API that abstracts away environment differences while preserving full control.
 
-### Key Characteristics
+### Key Characteristics {#key-characteristics}
 
 - **Universal API**: Single interface for all environments
 - **Async-First**: Built on promises and async/await
 - **Streaming Support**: Real-time output streaming
 - **Error Handling**: Consistent error patterns across environments
 
-### How It Works
+### How It Works {#how-it-works}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -33,13 +33,13 @@ await $.docker({ container: 'container' })`echo "Hello from Docker"`;
 await $.k8s({ pod: 'pod' })`echo "Hello from Kubernetes"`;
 ```
 
-## Adapters
+## Adapters {#adapters}
 
 Adapters are environment-specific implementations that handle the details of execution while maintaining a consistent interface.
 
-### Adapter Types
+### Adapter Types {#adapter-types}
 
-#### Local Adapter
+#### Local Adapter {#local-adapter}
 Executes commands on the local machine.
 
 ```typescript
@@ -47,7 +47,7 @@ Executes commands on the local machine.
 await $`npm install`;
 ```
 
-#### SSH Adapter
+#### SSH Adapter {#ssh-adapter}
 Executes commands on remote servers via SSH.
 
 ```typescript
@@ -58,7 +58,7 @@ await $.ssh({
 })`systemctl restart app`;
 ```
 
-#### Docker Adapter
+#### Docker Adapter {#docker-adapter}
 Executes commands inside Docker containers.
 
 ```typescript
@@ -66,7 +66,7 @@ Executes commands inside Docker containers.
 await $.docker({ container: 'my-app' })`python manage.py migrate`;
 ```
 
-#### Kubernetes Adapter
+#### Kubernetes Adapter {#kubernetes-adapter}
 Executes commands in Kubernetes pods.
 
 ```typescript
@@ -77,7 +77,7 @@ await $.k8s({
 })`./health-check.sh`;
 ```
 
-### Adapter Selection
+### Adapter Selection {#adapter-selection}
 
 Xec automatically selects the appropriate adapter based on the target:
 
@@ -88,11 +88,11 @@ import { targets } from '@xec-sh/ops';
 await targets.exec('hosts.production', './deploy.sh');
 ```
 
-## Configuration System
+## Configuration System {#configuration-system}
 
 Xec uses a hierarchical configuration system centered around `.xec/config.yaml`.
 
-### Configuration Structure
+### Configuration Structure {#configuration-structure}
 
 ```yaml
 # .xec/config.yaml
@@ -153,18 +153,18 @@ profiles:
         NODE_ENV: production
 ```
 
-### How Configuration Works
+### How Configuration Works {#how-configuration-works}
 
 1. **Targets** define where commands run (SSH hosts, Docker containers, K8s pods)
 2. **Tasks** are reusable command sequences with parameters
 3. **Profiles** switch between different configurations (dev/staging/prod)
 4. **Defaults** apply globally unless overridden
 
-## Targets
+## Targets {#targets}
 
 Targets are named execution contexts that define where and how commands should run.
 
-### Target Types
+### Target Types {#target-types}
 
 ```yaml
 targets:
@@ -201,7 +201,7 @@ targets:
       container: main  # Optional: specific container in pod
 ```
 
-### Target Resolution
+### Target Resolution {#target-resolution}
 
 ```typescript
 import { targets } from '@xec-sh/ops';
@@ -218,11 +218,11 @@ const results = await Promise.all(
 );
 ```
 
-## Template Literals
+## Template Literals {#template-literals}
 
 Xec uses JavaScript's template literal syntax for natural command composition.
 
-### Basic Usage
+### Basic Usage {#basic-usage}
 
 ```typescript
 // Simple command
@@ -240,7 +240,7 @@ await $`
 `;
 ```
 
-### Advanced Features
+### Advanced Features {#advanced-features}
 
 ```typescript
 // Command chaining
@@ -257,11 +257,11 @@ if (!result.ok) {
 }
 ```
 
-## Process Promise
+## Process Promise {#process-promise}
 
 Commands in Xec return a ProcessPromise - an enhanced promise with additional methods.
 
-### Methods
+### Methods {#methods}
 
 ```typescript
 const promise = $`long-running-command`;
@@ -283,11 +283,11 @@ const result = await promise;
 console.log(result.stdout, result.stderr);
 ```
 
-## Connection Pooling
+## Connection Pooling {#connection-pooling}
 
 Xec automatically manages connection pools for efficient resource usage.
 
-### SSH Connection Pooling
+### SSH Connection Pooling {#ssh-connection-pooling}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -301,18 +301,18 @@ for (const host of servers) {
 await $.dispose();
 ```
 
-### Benefits
+### Benefits {#benefits}
 
 - **Performance**: Reuse existing connections
 - **Resource Efficiency**: Limit concurrent connections
 - **Automatic Cleanup**: Idle connections are closed
 - **Transparent**: Works without configuration
 
-## Error Handling
+## Error Handling {#error-handling}
 
 Xec provides consistent error handling across all environments.
 
-### Error Types
+### Error Types {#error-types}
 
 ```typescript
 import { CommandError, ConnectionError, TimeoutError } from '@xec-sh/core';
@@ -345,7 +345,7 @@ try {
 }
 ```
 
-### Result Pattern
+### Result Pattern {#result-pattern}
 
 ```typescript
 // Use nothrow() for safe execution
@@ -358,11 +358,11 @@ if (result.ok) {
 }
 ```
 
-## Streaming
+## Streaming {#streaming}
 
 Xec supports real-time output streaming for long-running commands.
 
-### Stream Processing
+### Stream Processing {#stream-processing}
 
 ```typescript
 // Stream output line by line
@@ -376,11 +376,11 @@ await $`build-command`
   .pipe(fs.createWriteStream('build.log'));
 ```
 
-## Parallel Execution
+## Parallel Execution {#parallel-execution}
 
 Execute commands across multiple targets simultaneously.
 
-### Parallel Patterns
+### Parallel Patterns {#parallel-patterns}
 
 ```typescript
 // Independent local commands run concurrently.
@@ -396,11 +396,11 @@ const results = await $.parallel.all(
 );
 ```
 
-## Configuration Context
+## Configuration Context {#configuration-context}
 
 Xec commands have access to configuration context.
 
-### Context Variables
+### Context Variables {#context-variables}
 
 ```typescript
 import { config } from '@xec-sh/ops';
@@ -412,11 +412,11 @@ console.log(config.get('name'));
 console.log(process.env.NODE_ENV);
 ```
 
-## File Operations
+## File Operations {#file-operations}
 
 Xec provides unified file operations across environments.
 
-### Cross-Environment Files
+### Cross-Environment Files {#cross-environment-files}
 
 ```typescript
 // Use the CLI for file operations
@@ -434,11 +434,11 @@ await ssh.uploadFile('local-file.txt', '/remote/path/local-file.txt');
 await ssh.downloadFile('/remote/file.txt', './file.txt');
 ```
 
-## Module System
+## Module System {#module-system}
 
 Xec supports modular command organization.
 
-### Command Modules
+### Command Modules {#command-modules}
 
 ```typescript
 import type { ProcessPromise } from '@xec-sh/core';
@@ -452,9 +452,9 @@ export async function deploy(target: CommandTarget, version: string) {
 await deploy($.ssh('deploy@production'), 'v1.2.3');
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### 1. Use Named Targets
+### 1. Use Named Targets {#1-use-named-targets}
 
 ```typescript
 import { targets } from '@xec-sh/ops';
@@ -463,7 +463,7 @@ import { targets } from '@xec-sh/ops';
 await targets.exec('hosts.production', './deploy.sh');
 ```
 
-### 2. Handle Errors Gracefully
+### 2. Handle Errors Gracefully {#2-handle-errors-gracefully}
 
 ```typescript
 // Good: Explicit error handling
@@ -476,7 +476,7 @@ if (!result.ok) {
 await $`risky-command`;  // May crash
 ```
 
-### 3. Use Connection Pooling
+### 3. Use Connection Pooling {#3-use-connection-pooling}
 
 ```typescript
 // Good: Reuse connections
@@ -489,7 +489,7 @@ await $.ssh('deploy@server')`command1`;
 await $.ssh('deploy@server')`command2`;  // Reuses pooled connection
 ```
 
-### 4. Stream Large Outputs
+### 4. Stream Large Outputs {#4-stream-large-outputs}
 
 ```typescript
 // Good: Stream processing
@@ -502,7 +502,7 @@ const result = await $`large-output`;
 console.log(result.stdout);  // May cause OOM
 ```
 
-## Architecture Overview
+## Architecture Overview {#architecture-overview}
 
 A command written as a template literal passes through the execution engine to an adapter, which runs it on the target environment:
 
@@ -521,7 +521,7 @@ flowchart TD
     AD --> OS["Operating system / network"]
 ```
 
-## Summary
+## Summary {#summary}
 
 These core concepts form the foundation of Xec:
 
@@ -541,7 +541,7 @@ Understanding these concepts enables you to:
 - Optimize performance with pooling and streaming
 - Build complex automation workflows
 
-## Next Steps
+## Next Steps {#next-steps}
 
 - [Architecture Deep Dive](./architecture.md) - Technical architecture details
 - [Execution Engine](../core/execution-engine/overview.md) - Engine implementation

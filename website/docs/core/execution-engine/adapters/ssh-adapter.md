@@ -3,7 +3,7 @@ title: SSH Adapter
 description: The Xec SSH API, its ownership rules and links to complete usage guides.
 ---
 
-# SSH Adapter
+# SSH Adapter {#ssh-adapter}
 
 Use an SSH target for commands, file transfer and tunnels. The adapter owns host verification, pooled connections, bounded channel scheduling, cancellation and cleanup. Application code imports Xec only; transport libraries stay inside the adapter.
 

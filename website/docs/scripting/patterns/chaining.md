@@ -3,13 +3,13 @@ title: Chaining Patterns
 description: Compose execution settings, pipelines, and result transformations with public Xec APIs
 ---
 
-# Method Chaining Patterns
+# Method Chaining Patterns {#method-chaining-patterns}
 
 Configure a command before starting it, await its outcome, then transform its result. Shared engines carry defaults across commands. Pipeline and Workflow describe dependencies across steps.
 
-## Basic Method Chaining
+## Basic Method Chaining {#basic-method-chaining}
 
-### ProcessPromise Chain Methods
+### ProcessPromise Chain Methods {#processpromise-chain-methods}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -24,7 +24,7 @@ console.log(result.exitCode);
 
 Each command executes once. Repeatedly awaiting the same `ProcessPromise` observes the same execution. Apply modifiers before awaiting, reading `.spawned`, or piping its result.
 
-### Conditional Chaining
+### Conditional Chaining {#conditional-chaining}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -34,9 +34,9 @@ if (process.env.CI) command.env({ CI: 'true' });
 await command;
 ```
 
-## Builder Pattern Chains
+## Builder Pattern Chains {#builder-pattern-chains}
 
-### Command Builder
+### Command Builder {#command-builder}
 
 An engine configured with `.cd()`, `.env()`, and `.timeout()` supplies reusable defaults. Per-command modifiers can override them.
 
@@ -48,7 +48,7 @@ await app`pnpm lint`;
 await app`pnpm test`.timeout('5m');
 ```
 
-### Pipeline Builder
+### Pipeline Builder {#pipeline-builder}
 
 ```typescript
 import { Pipeline } from '@xec-sh/ops';
@@ -64,9 +64,9 @@ if (!result.success) throw new Error('Verification failed');
 
 Pipeline validates dependencies before execution. Its result includes failed, skipped, and cancelled steps. The caller must inspect `success` when deciding whether to continue.
 
-## Functional Chaining
+## Functional Chaining {#functional-chaining}
 
-### Pipe Function Composition
+### Pipe Function Composition {#pipe-function-composition}
 
 Transform completed output with ordinary typed functions.
 
@@ -80,7 +80,7 @@ const branches = (await $`git branch --format=${'%(refname:short)'}`.lines())
 console.log(branches);
 ```
 
-### Chainable Wrapper
+### Chainable Wrapper {#chainable-wrapper}
 
 Use the public engine to bind an application directory once. A small domain function can return its `ProcessPromise`, preserving `.timeout()`, `.signal()`, and `.nothrow()` for callers.
 
@@ -93,9 +93,9 @@ function checkProject(directory: string) {
 await checkProject('./app').timeout('2m');
 ```
 
-## Complex Chain Patterns
+## Complex Chain Patterns {#complex-chain-patterns}
 
-### Branching Chains
+### Branching Chains {#branching-chains}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -108,7 +108,7 @@ if (branch.trim() === 'main') {
 }
 ```
 
-### Chain Router
+### Chain Router {#chain-router}
 
 Validate an external choice against the commands your application permits. Keep script text owned by the application.
 
@@ -124,9 +124,9 @@ if (!command) throw new Error('Choose test or build');
 await $.exec(command).timeout('5m');
 ```
 
-## Async Chain Patterns
+## Async Chain Patterns {#async-chain-patterns}
 
-### Sequential Chain
+### Sequential Chain {#sequential-chain}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -138,7 +138,7 @@ await $`pnpm test`;
 
 The default command behavior throws on a failed exit. A failed install therefore prevents the next statement from running.
 
-### Parallel Chain
+### Parallel Chain {#parallel-chain}
 
 Submit command descriptions to the scheduler so it controls when each command starts.
 
@@ -154,9 +154,9 @@ if (result.failed.length) throw new AggregateError(result.failed, 'Checks failed
 
 A promise that has already started consumes resources before the scheduler receives it. Pass strings or `Command` objects when the concurrency limit must control dispatch.
 
-## Transformation Chains
+## Transformation Chains {#transformation-chains}
 
-### Result Transformer Chain
+### Result Transformer Chain {#result-transformer-chain}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -168,7 +168,7 @@ console.log({ changedFiles: paths.length, paths });
 
 `ProcessPromise.pipe()` transforms buffered command output after completion. Live output uses `.stdout()`, `.stderr()`, or the async line iterator. See [stream processing](./streaming.md).
 
-## Complete Chaining Example
+## Complete Chaining Example {#complete-chaining-example}
 
 ```typescript
 import { Pipeline } from '@xec-sh/ops';

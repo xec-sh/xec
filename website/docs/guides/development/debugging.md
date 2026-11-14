@@ -4,22 +4,22 @@ title: Debugging Techniques
 description: Advanced debugging techniques for Xec scripts and automation
 ---
 
-# Debugging Techniques
+# Debugging Techniques {#debugging-techniques}
 
-## Problem
+## Problem {#problem}
 
 Debugging distributed scripts across multiple environments (local, SSH, Docker, Kubernetes) is challenging. Traditional debuggers don't work well with remote execution, and understanding what went wrong requires visibility into command execution, environment state, and error propagation.
 
-## Prerequisites
+## Prerequisites {#prerequisites}
 
 - Xec CLI installed with development dependencies
 - Node.js debugging tools (`node --inspect`)
 - Understanding of Xec execution model
 - Chrome DevTools or VS Code for debugging
 
-## Solution
+## Solution {#solution}
 
-### Step 1: Enable Debug Mode
+### Step 1: Enable Debug Mode {#step-1-enable-debug-mode}
 
 Enable the CLI's verbose diagnostics for the script you are investigating.
 
@@ -37,7 +37,7 @@ node --inspect-brk=127.0.0.1:9229 "$(command -v xec)" run scripts/check.ts
 Attach the debugger to the loopback inspector endpoint and set breakpoints in
 the script. Use an SSH tunnel when accessing a remote inspector.
 
-### Step 2: Command-Level Debugging
+### Step 2: Command-Level Debugging {#step-2-command-level-debugging}
 
 Debug individual commands with verbose output:
 
@@ -79,7 +79,7 @@ const lineCount = await pipeline.text();
 console.log('Line count:', lineCount);
 ```
 
-### Step 3: Remote Debugging
+### Step 3: Remote Debugging {#step-3-remote-debugging}
 
 Debug scripts running on remote targets:
 
@@ -124,7 +124,7 @@ await docker`df -h`;
 await docker`cat /proc/meminfo`;
 ```
 
-### Step 4: Interactive Debugging
+### Step 4: Interactive Debugging {#step-4-interactive-debugging}
 
 For a project with `tsx` installed as a development dependency, VS Code can
 launch a standalone script that imports the public Xec packages. Use the CLI
@@ -189,7 +189,7 @@ const env = process.argv[2] || 'development';
 await deployStep(env);
 ```
 
-### Step 5: Logging and Tracing
+### Step 5: Logging and Tracing {#step-5-logging-and-tracing}
 
 Subscribe to the engine's structured events. This preserves the callable and
 chainable API and uses its existing diagnostic redaction.
@@ -214,7 +214,7 @@ try {
 }
 ```
 
-### Step 6: Error Analysis
+### Step 6: Error Analysis {#step-6-error-analysis}
 
 Preserve a classified error and a small operation context. The top-level caller
 can forward this record to its existing logger and set the exit status.
@@ -238,7 +238,7 @@ try {
 }
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
 1. **Use Structured Logging**
    - JSON format for machine parsing
@@ -265,7 +265,7 @@ try {
    - Provide examples
    - Explain output format
 
-## Common Pitfalls
+## Common Pitfalls {#common-pitfalls}
 
 1. **Debugging in Production**
    - ❌ Leaving debug mode enabled
@@ -283,9 +283,9 @@ try {
    - ❌ Not capturing stderr
    - ✅ Redirect all streams appropriately
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
-### Issue: Debugger Not Attaching
+### Issue: Debugger Not Attaching {#issue-debugger-not-attaching}
 ```bash
 # Check if port is available
 lsof -i :9229
@@ -297,7 +297,7 @@ node --inspect=127.0.0.1:9230 "$(command -v xec)" run script.js
 ssh -L 9229:localhost:9229 user@server
 ```
 
-### Issue: Missing Stack Traces
+### Issue: Missing Stack Traces {#issue-missing-stack-traces}
 ```javascript
 // Enable long stack traces
 Error.stackTraceLimit = Infinity;
@@ -306,7 +306,7 @@ Error.stackTraceLimit = Infinity;
 process.env.NODE_OPTIONS = '--stack-trace-limit=1000';
 ```
 
-### Issue: Async Errors Not Caught
+### Issue: Async Errors Not Caught {#issue-async-errors-not-caught}
 Await the script's entry point so its failures reach one final handler.
 
 ```typescript
@@ -325,7 +325,7 @@ try {
 }
 ```
 
-### Issue: Hung or Runaway Commands
+### Issue: Hung or Runaway Commands {#issue-hung-or-runaway-commands}
 
 Set a deadline on the command and inspect the classified failure. A non-zero
 exit and a timeout are distinct outcomes.
@@ -341,7 +341,7 @@ try {
 }
 ```
 
-### Issue: Remote Debug Connection Failed
+### Issue: Remote Debug Connection Failed {#issue-remote-debug-connection-failed}
 ```yaml
 # Configure SSH for debugging
 Host debug-server
@@ -351,7 +351,7 @@ Host debug-server
   ServerAliveInterval 60
 ```
 
-## Related Guides
+## Related Guides {#related-guides}
 
 - [Dev Environments](./dev-environments.md) - Setting up development
 - [Error Handling](../advanced/error-handling.md) - Robust error handling

@@ -3,11 +3,11 @@ title: Multi-Step Tasks
 description: Creating complex workflows with multi-step tasks
 ---
 
-# Multi-Step Tasks
+# Multi-Step Tasks {#multi-step-tasks}
 
 Multi-step tasks enable you to create complex workflows by combining multiple commands, tasks, and scripts into a single, orchestrated operation. They provide advanced control flow, error handling, and parallel execution capabilities.
 
-## Basic Multi-Step Structure
+## Basic Multi-Step Structure {#basic-multi-step-structure}
 
 ```yaml
 tasks:
@@ -20,9 +20,9 @@ tasks:
       - command: pm2 restart app
 ```
 
-## Step Types
+## Step Types {#step-types}
 
-### Command Steps
+### Command Steps {#command-steps}
 
 Execute shell commands:
 
@@ -35,7 +35,7 @@ tasks:
       - command: systemctl start nginx
 ```
 
-### Task Steps
+### Task Steps {#task-steps}
 
 Call other tasks:
 
@@ -54,7 +54,7 @@ tasks:
       - command: rsync -av /backup/ remote:/backup/
 ```
 
-### Script Steps
+### Script Steps {#script-steps}
 
 Execute JavaScript code:
 
@@ -73,9 +73,9 @@ tasks:
           await saveResults(processed);
 ```
 
-## Step Properties
+## Step Properties {#step-properties}
 
-### Named Steps
+### Named Steps {#named-steps}
 
 Add names for clarity:
 
@@ -99,7 +99,7 @@ tasks:
         command: ./deploy.sh
 ```
 
-### Step Targets
+### Step Targets {#step-targets}
 
 Override task target per step:
 
@@ -120,7 +120,7 @@ tasks:
         target: hosts.cache-server
 ```
 
-### Step Environment
+### Step Environment {#step-environment}
 
 Set environment per step:
 
@@ -140,9 +140,9 @@ tasks:
           MINIFY: true
 ```
 
-## Parallel Execution
+## Parallel Execution {#parallel-execution}
 
-### Parallel Steps
+### Parallel Steps {#parallel-steps}
 
 Execute steps concurrently:
 
@@ -161,7 +161,7 @@ tasks:
             target: hosts.worker
 ```
 
-### Parallel with Groups
+### Parallel with Groups {#parallel-with-groups}
 
 Group parallel operations:
 
@@ -186,9 +186,9 @@ tasks:
         targets: ["hosts.web-1", "hosts.web-2"]
 ```
 
-## Conditional Execution
+## Conditional Execution {#conditional-execution}
 
-### When Conditions
+### When Conditions {#when-conditions}
 
 Execute steps conditionally:
 
@@ -211,7 +211,7 @@ tasks:
         when: ${vars.env_check} == "production"
 ```
 
-### Complex Conditions
+### Complex Conditions {#complex-conditions}
 
 Conditions support `==`, `!=`, `<`, `<=`, `>`, `>=`, `&&`, `||`, `!`, and parentheses. References use `${...}` syntax; method calls are not supported:
 
@@ -229,9 +229,9 @@ tasks:
         when: ${vars.health} == "high-load" && ${params.autoScale} == true
 ```
 
-## Error Handling
+## Error Handling {#error-handling}
 
-### Step Failure Behavior
+### Step Failure Behavior {#step-failure-behavior}
 
 ```yaml
 tasks:
@@ -250,7 +250,7 @@ tasks:
         onFailure: ignore  # Don't count as failure
 ```
 
-### Retry Logic
+### Retry Logic {#retry-logic}
 
 ```yaml
 tasks:
@@ -265,7 +265,7 @@ tasks:
 
 The retry handler supports `retry` (number of attempts) and `delay` (fixed pause between attempts, e.g. `5s`). There is no backoff option — the delay is constant across attempts. An `onFailure` handler can also run a recovery `task:` or `command:` instead of retrying.
 
-### Error Recovery
+### Error Recovery {#error-recovery}
 
 ```yaml
 tasks:
@@ -282,9 +282,9 @@ tasks:
           command: emergency-cleanup
 ```
 
-## Data Flow
+## Data Flow {#data-flow}
 
-### Register Variables
+### Register Variables {#register-variables}
 
 Pass data between steps:
 
@@ -308,7 +308,7 @@ tasks:
 
 To pass structured data between steps, print it as JSON in one step and parse it in the next (e.g. with `jq`), or do the whole flow inside a single `script:` step.
 
-## Step Ordering and Task Dependencies
+## Step Ordering and Task Dependencies {#step-ordering-and-task-dependencies}
 
 Steps always run **in the order they are written** (unless `parallel: true` groups them). There is no per-step `dependsOn`; to run prerequisite tasks first, reference them as steps:
 
@@ -329,7 +329,7 @@ tasks:
 
 (The schema also accepts a task-level `dependsOn:` list, but it is only validated — the executor does not run dependencies automatically.)
 
-## Always Run Steps
+## Always Run Steps {#always-run-steps}
 
 Execute regardless of previous failures:
 
@@ -352,9 +352,9 @@ tasks:
         alwaysRun: true
 ```
 
-## Hooks
+## Hooks {#hooks}
 
-### Task-Level Hooks
+### Task-Level Hooks {#task-level-hooks}
 
 ```yaml
 tasks:
@@ -379,9 +379,9 @@ tasks:
 
 Hooks exist at the **task level** only — individual steps do not accept a `hooks:` key. To bracket a critical step with setup/verification, make them explicit neighboring steps (with `alwaysRun: true` for cleanup) or use the step's `onFailure` handler.
 
-## Real-World Examples
+## Real-World Examples {#real-world-examples}
 
-### CI/CD Pipeline
+### CI/CD Pipeline {#cicd-pipeline}
 
 ```yaml
 tasks:
@@ -426,7 +426,7 @@ tasks:
         when: ${params.branch} == "main" && ${params.deploy} == true
 ```
 
-### Database Migration
+### Database Migration {#database-migration}
 
 ```yaml
 tasks:
@@ -464,7 +464,7 @@ tasks:
         alwaysRun: true
 ```
 
-### Blue-Green Deployment
+### Blue-Green Deployment {#blue-green-deployment}
 
 ```yaml
 tasks:
@@ -514,9 +514,9 @@ tasks:
         when: ${params.keepOld} != true
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### 1. Use Named Steps
+### 1. Use Named Steps {#1-use-named-steps}
 
 ```yaml
 # Good - clear step purposes
@@ -532,7 +532,7 @@ steps:
   - command: npm test
 ```
 
-### 2. Handle Errors Appropriately
+### 2. Handle Errors Appropriately {#2-handle-errors-appropriately}
 
 ```yaml
 steps:
@@ -545,7 +545,7 @@ steps:
     onFailure: continue
 ```
 
-### 3. Use Parallel Execution Wisely
+### 3. Use Parallel Execution Wisely {#3-use-parallel-execution-wisely}
 
 ```yaml
 # Good - independent operations
@@ -565,7 +565,7 @@ steps:
       - command: start-service  # Depends on stop!
 ```
 
-### 4. Clean Up Resources
+### 4. Clean Up Resources {#4-clean-up-resources}
 
 ```yaml
 steps:
@@ -577,7 +577,7 @@ steps:
     alwaysRun: true
 ```
 
-### 5. Document Complex Logic
+### 5. Document Complex Logic {#5-document-complex-logic}
 
 ```yaml
 tasks:
@@ -590,12 +590,12 @@ tasks:
       # Step descriptions...
 ```
 
-## Next Steps
+## Next Steps {#next-steps}
 
 - [Simple Tasks](./simple-tasks.md) - Basic task concepts
 - [Task Overview](./overview.md) - Task management concepts
 
-## See Also
+## See Also {#see-also}
 
 - [Task Command](../../commands/built-in/run.md) - Running tasks
 - [Best Practices](../advanced/best-practices.md) - Task design guidelines

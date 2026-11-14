@@ -3,15 +3,15 @@ title: Targets Overview
 description: Understanding execution targets in Xec
 ---
 
-# Targets Overview
+# Targets Overview {#targets-overview}
 
 Targets define where commands execute. A target is declared once in `.xec/config.yaml` and then referenced by name from the command line, tasks, and scripts.
 
-## Target Types
+## Target Types {#target-types}
 
 Xec supports four target types:
 
-### 1. Local
+### 1. Local {#1-local}
 
 The machine Xec runs on. Always available as `local` without any configuration:
 
@@ -19,7 +19,7 @@ The machine Xec runs on. Always available as `local` without any configuration:
 xec in local "make build"
 ```
 
-### 2. SSH Hosts
+### 2. SSH Hosts {#2-ssh-hosts}
 
 Remote servers, declared under `targets.hosts`:
 
@@ -32,7 +32,7 @@ targets:
       privateKey: ~/.ssh/prod_key
 ```
 
-### 3. Docker Containers
+### 3. Docker Containers {#3-docker-containers}
 
 Containers, declared under `targets.containers` — an existing container or a fresh one per command:
 
@@ -47,7 +47,7 @@ targets:
         - .:/src
 ```
 
-### 4. Kubernetes Pods
+### 4. Kubernetes Pods {#4-kubernetes-pods}
 
 Pods, declared under `targets.pods`:
 
@@ -60,7 +60,7 @@ targets:
       container: app
 ```
 
-## Target Resolution
+## Target Resolution {#target-resolution}
 
 Targets are referenced with dot notation:
 
@@ -80,7 +80,7 @@ xec on "hosts.web-*" "uptime" --parallel
 xec on "hosts.web-{1,2,3}" "systemctl status nginx"
 ```
 
-## Defaults
+## Defaults {#defaults}
 
 `targets.defaults` sets values inherited by every target; type-specific blocks apply per type. An individual target overrides both:
 
@@ -99,7 +99,7 @@ targets:
       port: 2222                     # overrides only the port
 ```
 
-## Environment Variables
+## Environment Variables {#environment-variables}
 
 Every target type accepts `env`, applied to each command executed on it:
 
@@ -113,7 +113,7 @@ targets:
         NODE_ENV: production
 ```
 
-## Multiple Targets in Tasks
+## Multiple Targets in Tasks {#multiple-targets-in-tasks}
 
 A task step can run across several targets:
 
@@ -137,13 +137,13 @@ tasks:
 
 See [Multi-Step Tasks](../tasks/multi-step-tasks.md).
 
-## Connection Behaviour
+## Connection Behaviour {#connection-behaviour}
 
 SSH connections are pooled and reused automatically; Docker and Kubernetes commands go through `docker` and `kubectl`. Pool sizes, sudo, and SFTP limits are process-wide adapter configuration in `@xec-sh/core`, not per-target YAML — see [Connection Configuration](../../targets/ssh/connection-config.md).
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### Use Meaningful Names
+### Use Meaningful Names {#use-meaningful-names}
 
 ```yaml
 # Good - the name says what it is
@@ -161,7 +161,7 @@ targets:
       user: root
 ```
 
-### Keep Credentials in Secrets
+### Keep Credentials in Secrets {#keep-credentials-in-secrets}
 
 ```yaml
 targets:
@@ -172,7 +172,7 @@ targets:
       passphrase: ${secrets.ssh_passphrase}
 ```
 
-### Vary Environments with Profiles
+### Vary Environments with Profiles {#vary-environments-with-profiles}
 
 ```yaml
 profiles:
@@ -191,7 +191,7 @@ profiles:
 
 See [Profiles](../profiles/overview.md).
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
 ```bash
 # Test a target
@@ -207,13 +207,13 @@ xec config get targets.hosts.production
 xec config validate
 ```
 
-## Next Steps
+## Next Steps {#next-steps}
 
 - [SSH Targets](./ssh-targets.md) - Remote server configuration
 - [Docker Targets](./docker-targets.md) - Container configuration
 - [Kubernetes Targets](./kubernetes-targets.md) - Pod configuration
 
-## See Also
+## See Also {#see-also}
 
 - [in Command](../../commands/built-in/in.md) - Running commands on targets
 - [on Command](../../commands/built-in/on.md) - Running commands on SSH hosts

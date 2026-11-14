@@ -3,13 +3,13 @@ title: Creating Custom Commands
 description: Adding project-specific commands under .xec/commands
 ---
 
-# Creating Custom Commands
+# Creating Custom Commands {#creating-custom-commands}
 
 A file in `.xec/commands/` becomes a command of your CLI. `xec deploy` can be
 yours — with its own options, `--help`, and everything a script can reach:
 targets, prompts, the full execution engine.
 
-## Command Structure
+## Command Structure {#command-structure}
 
 A command file exports a function that receives the CLI's
 [Commander](https://github.com/tj/commander.js) program and registers itself:
@@ -37,9 +37,9 @@ The export may be named `command`, `setup`, or be the default export — the
 loader accepts all three. TypeScript needs no build step: the file is
 transformed on load.
 
-## What a Command Can Use
+## What a Command Can Use {#what-a-command-can-use}
 
-### Script globals — no imports
+### Script globals — no imports {#script-globals--no-imports}
 
 Every global available to `xec run` scripts is available inside a command:
 `$`, `kit`, `log`, `prism`, `glob`, `fs`, `retry`, `sleep`, `within`, `yaml`,
@@ -67,7 +67,7 @@ export function command(program: any) {
 }
 ```
 
-### Typed imports — even in a bare project
+### Typed imports — even in a bare project {#typed-imports--even-in-a-bare-project}
 
 For IntelliSense and explicit dependencies, import the packages statically.
 The CLI carries `@xec-sh/core`, `@xec-sh/ops`, `@xec-sh/kit` and
@@ -90,7 +90,7 @@ export function command(program: any) {
 }
 ```
 
-### Targets
+### Targets {#targets}
 
 The engine reaches every environment from anywhere:
 
@@ -122,7 +122,7 @@ export function command(program: any) {
 }
 ```
 
-### Project configuration
+### Project configuration {#project-configuration}
 
 The configuration the rest of the CLI uses is one import away:
 
@@ -143,7 +143,7 @@ export function command(program: any) {
 }
 ```
 
-## Discovery
+## Discovery {#discovery}
 
 Xec looks for command files in:
 
@@ -155,20 +155,18 @@ Files with `.js`, `.mjs`, `.ts`, `.tsx` extensions register; `.test.*`,
 `.spec.*` and dot-files are skipped. A dynamic command with the same name as
 a built-in replaces it.
 
-### Nested commands
+### Nested commands {#nested-commands}
 
 Subdirectories become colon-separated names:
 
-```
-.xec/commands/
-├── db/
-│   ├── migrate.ts     # xec db:migrate
-│   └── backup.ts      # xec db:backup
-└── cache/
-    └── clear.ts       # xec cache:clear
-```
-
-## Descriptions and Aliases Without Execution
+:::filetree{title=".xec/commands/"}
+- `db/`
+  - `migrate.ts` — xec db:migrate
+  - `backup.ts` — xec db:backup
+- `cache/`
+  - `clear.ts` — xec cache:clear
+:::
+## Descriptions and Aliases Without Execution {#descriptions-and-aliases-without-execution}
 
 `xec --help` must print one line per command without executing every command
 file — loading them all would run a TypeScript transform and whatever each
@@ -197,7 +195,7 @@ export function command(program: any) {
 The command actually invoked is always loaded in full, so its own options
 and `--help` are real.
 
-## Errors and Exit Codes
+## Errors and Exit Codes {#errors-and-exit-codes}
 
 Throwing from an action is reported and exits non-zero — in CI that is the
 whole contract. Handle only what you can improve:
@@ -219,7 +217,7 @@ export function command(program: any) {
 }
 ```
 
-## Testing Commands
+## Testing Commands {#testing-commands}
 
 A command file is a module; test it like one:
 
@@ -236,7 +234,7 @@ xec greet Alice --uppercase
 xec --help | grep greet
 ```
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
 ```bash
 # See discovery: which directories were scanned, what was found, load errors
@@ -250,7 +248,7 @@ XEC_DEBUG=1 xec your-command
 Transformed TypeScript commands run from `.xec/.tmp/`; with `XEC_DEBUG` set
 the transformed files are kept there for inspection.
 
-## Sharing Commands
+## Sharing Commands {#sharing-commands}
 
 - `XEC_COMMANDS_PATH=/path/to/shared/commands` adds a directory to discovery
 - A parent directory's `.xec/commands/` serves every project beneath it —

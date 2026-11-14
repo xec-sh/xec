@@ -4,11 +4,11 @@ description: Xec owns connection policy, bounded operations and unambiguous fail
 sidebar_position: 8
 ---
 
-# SSH reliability and ownership
+# SSH reliability and ownership {#ssh-reliability-and-ownership}
 
 Use `@xec-sh/core` for target-oriented operations and `@xec-sh/core/ssh` when an application needs interactive channels or the complete SFTP client. Public types, authentication adapters and operation lifecycles belong to Xec. Applications do not install or import the underlying transport implementation or its type package. Xec currently uses `ssh2` internally; this does not require a system SSH executable.
 
-## Commands and uncertain outcomes
+## Commands and uncertain outcomes {#commands-and-uncertain-outcomes}
 
 A successful command requires an exit status or signal and completed channel delivery. A channel that closes without either fails with `SSH_OUTCOME_UNKNOWN`, `kind: 'outcome-unknown'`, and `recoverable: false`. The same applies when the connection or acknowledgement is lost after command dispatch. Neither the adapter nor `.retry()` replays that operation. This avoids executing a deployment or database change twice merely because its reply was lost.
 
@@ -16,7 +16,7 @@ Connection establishment can retry before dispatch. An explicit channel-open ref
 
 `execCommand` bounds retained output to 10 MiB per stream by default. Configure `maxBuffer`, or use `collectStdout: false` / `collectStderr: false` with streaming consumers. UTF-8 output is decoded after packet assembly; `Buffer` input retains its bytes. `AbortSignal` cancels both queued and running work. It does not certify that a remote process or its descendants have terminated.
 
-## Managed file transfers
+## Managed file transfers {#managed-file-transfers}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -39,7 +39,7 @@ Defaults are 15 seconds to open a subsystem, 30 seconds without request progress
 
 Interrupted writes report an unknown outcome: bytes may already exist at the destination. Transfers are not atomic replacements, snapshots, resumable transactions, or automatic cross-server replication. Verify or remove partial destinations according to the application's policy before retrying. Hidden files and empty directories are included; symbolic links and special files are not copied. Downloaded directory names containing path separators are rejected. The caller must still choose a trusted local destination: these helpers are not a filesystem sandbox and do not protect a concurrently modified local directory from symlink substitution.
 
-## Connections and reverse listeners
+## Connections and reverse listeners {#connections-and-reverse-listeners}
 
 `connectionPool.maxConnections` bounds ready connections **and handshakes in progress** (default 10). Commands, transfers and local tunnels acquire a lease before the connection can be evicted. At capacity, Xec can replace an idle connection; if all slots are busy, the new operation fails with `ENOBUFS`. Cancel or finish work, or explicitly increase the budget. Disabling reuse still tracks connections, applies the budget and closes them after their last operation. `dispose()` is terminal and cancels pending handshakes; create a new adapter for a new lifecycle.
 
@@ -51,7 +51,7 @@ A reverse tunnel owns a **dedicated connection**, using the same target, credent
 
 A successful `close()` waits for unbind acknowledgement. If unbind is refused or times out, the handle remains owned and closure can be retried. `closed` also resolves when the transport disappears; that releases **local ownership**, not proof of immediate remote cleanup during a network partition. Do not blindly repeat an allocation with an unknown outcome.
 
-## Interactive and advanced clients
+## Interactive and advanced clients {#interactive-and-advanced-clients}
 
 ```typescript
 import { NodeSSH, type SFTPClient, type SSHChannel } from '@xec-sh/core/ssh';
@@ -79,7 +79,7 @@ The client provides shell, exec, subsystem, TCP and Unix-socket forwarding, reve
 
 Use `stat` to distinguish a missing file from a connection error. The compatibility `exists` callback also provides an optional error as its second argument. A negative boolean alone cannot establish that a file is absent.
 
-## One connection contract
+## One connection contract {#one-connection-contract}
 
 `$.ssh(...)`, `SSHAdapter` targets and `NodeSSH.connect(...)` share Xec's `SSHConnectionConfig`. Agent sockets and plain `SSHAgent` objects, keyboard-interactive handlers, explicit host fingerprints, algorithms and handshake cancellation do not require transport-library imports. Adapter defaults provide a common policy; defined target options override it.
 
@@ -101,7 +101,7 @@ await host`uname -s`;
 
 Pool identities cover the effective connection policy, including agent/callback identity and algorithm constraints. Key files are read before acquisition, so rotated key bytes cannot borrow the previous connection. Supplied sockets stay exclusive. A cancelled borrow cannot acquire an existing authenticated socket. Command timeouts cancel their channel; repeated failures retire a connection after its remaining users finish. Dispose existing sessions when revoking a mutable agent or changing an external trust file: changing the authority behind an existing object does not retroactively revoke an authenticated SSH session.
 
-## Transport patches and release artifacts
+## Transport patches and release artifacts {#transport-patches-and-release-artifacts}
 
 Xec keeps `ssh2` as its internal protocol implementation. The reviewed 1.17.0 patch rejects zero-size channel packets and receive-window violations, settles writes parked behind exhausted window credit when a channel closes, isolates the ChaCha nonce during nested writes, and acknowledges SFTP channel closure while releasing buffered requests. The regressions correspond to upstream reports [1504](https://github.com/mscdex/ssh2/issues/1504), [1505](https://github.com/mscdex/ssh2/issues/1505), [1509](https://github.com/mscdex/ssh2/pull/1509) [1523](https://github.com/mscdex/ssh2/pull/1523) and [1522](https://github.com/mscdex/ssh2/issues/1522).
 
@@ -109,7 +109,7 @@ Xec keeps `ssh2` as its internal protocol implementation. The reviewed 1.17.0 pa
 
 Preparation canonicalizes CRLF to LF in its private copy and verifies the resulting bytes against the reviewed hashes. The prepared package bundles `ssh2` and its dependency closure, carries the upstream license and `SSH-TRANSPORT.json` checksums, and excludes machine-specific native binaries. Optional native acceleration can be built on the consumer's platform; the JavaScript path remains available. `node scripts/ssh-transport.mjs prepare <new-directory>` prepares an immutable package directory for the release pipeline. Direct packing of an unprepared workspace is rejected. A root-only dependency patch would not protect npm consumers, so artifact installation is part of the gate.
 
-## Verification and limits
+## Verification and limits {#verification-and-limits}
 
 `pnpm check:ssh-boundary` builds the package into a temporary directory and type-checks a strict consumer with no transport package or transport types installed. CI runs this check on Linux and Windows. Unit tests inject missing callbacks, lost replies, cancellation, delayed progress and invalid remote paths; interoperability tests use independent OpenSSH fixtures. Set `XEC_SSH_TEST_CONTAINERS` to a comma-separated list to run an explicit fixture subset; required fixtures that cannot start fail setup.
 

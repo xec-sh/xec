@@ -1,6 +1,6 @@
 # Xec documentation
 
-Source for [xec.sh](https://xec.sh), built with Docusaurus. Contains the guides, API references, and examples for the Xec packages.
+The source for [xec.sh](https://xec.sh). Built with **Lumen 0.4.8** and **Prism 0.4.8**, using published npm packages.
 
 ## Develop
 
@@ -11,7 +11,7 @@ pnpm install --frozen-lockfile
 pnpm docs:start
 ```
 
-The development server runs at `http://localhost:3000` with hot reload.
+Lumen serves the site with live source updates. The terminal prints its local address.
 
 ## Verify
 
@@ -19,26 +19,31 @@ The development server runs at `http://localhost:3000` with hot reload.
 pnpm docs:check
 pnpm --dir website typecheck
 pnpm docs:build
-pnpm docs:serve
+pnpm --dir website test:examples
+pnpm --dir website exec playwright install chromium
+pnpm --dir website test:browser
 ```
 
-Example checks validate documented APIs against source declarations. The production build checks links and anchors; inspect layout and interaction in the browser as well.
+Xec runs the production build and its route checks. Lumen compiles Markdown, highlights code, verifies links and builds the Pagefind search index. The route contract preserves 153 published documentation URLs and their section anchors. Browser tests cover desktop/mobile navigation, all six example tabs, copy feedback, persistent light/dark/system themes, search and the active section indicator.
 
 ## Structure
 
-| Path | Content |
+| Path | Responsibility |
 | --- | --- |
-| `docs/introduction` | Installation and architecture |
-| `docs/core`, `docs/targets`, `docs/api` | Execution contracts and API reference |
-| `docs/commands`, `docs/configuration`, `docs/scripting` | CLI and project workflows |
-| `docs/ops`, `docs/kit` | Orchestration and terminal UI |
-| `docs/guides`, `docs/recipes`, `docs/integrations` | Applied examples |
-| `src` | Site components and styling |
+| `docs/` | Guides, API references and executable examples |
+| `pages/` | Homepage and search routes |
+| `lumen.config.ts` | Canonical Lumen configuration; broken links and anchors fail the build |
+| `src/site/` | Xec identity and layouts built from Prism and Lumen components |
+| `src/data/examples.json` | The exact copyable TypeScript examples shown on the homepage |
+| `src/data/sidebars.json` | Documentation navigation |
+| `src/data/route-contract.json` | Published URL and section-anchor contract |
+| `scripts/build.ts` | Xec orchestration of compilation and route verification |
+| `tests/` | Browser acceptance checks |
 
-Keep examples executable, describe actual behavior and limitations, and update documentation with the corresponding API change. Link to the authoritative reference instead of duplicating long option lists. Mermaid diagrams and local English search are enabled.
+The homepage switches between real source examples; it does not execute shell commands in the browser. Library APIs, CLI entry points and platform prerequisites stay explicit. The site uses static HTML and selective Lumen islands; it requires no application server.
 
 ## Deploy
 
-The [Pages workflow](../.github/workflows/deploy-website.yml) builds and deploys eligible changes to `main`. Its checks and path filters define the deployment trigger.
+The [Pages workflow](../.github/workflows/deploy-website.yml) verifies eligible changes and deploys `website/build` to the existing `xec.sh` custom domain. Pull requests build and test without deploying. `pnpm docs:deploy` dispatches that same workflow; there is no separate local deployment implementation.
 
 [Project overview](../README.md) · [MIT license](../LICENSE)

@@ -3,7 +3,7 @@ title: Error codes
 description: The codes a failure can be identified by
 ---
 
-# Error codes
+# Error codes {#error-codes}
 
 Every failure carries a `code`. It is the part a script or an agent should
 match on: the message is written for a person and will be reworded; the
@@ -26,7 +26,7 @@ The error document goes to **stderr**, and stdout stays empty on failure,
 so a caller that redirects stdout to a file never finds half a diagnostic
 in it.
 
-## Why words and not numbers
+## Why words and not numbers {#why-words-and-not-numbers}
 
 `XE0417` would need this page open in another window to mean anything.
 `CONNECTION_FAILED` does not. Codes are read far more often than they are
@@ -37,7 +37,7 @@ System error numbers — `ENOENT`, `EACCES`, `ECONNREFUSED`, `ETIMEDOUT` —
 are passed through unchanged rather than translated. They are already a
 vocabulary every operator and every language knows.
 
-## The codes
+## The codes {#the-codes}
 
 | Code | Meaning |
 |---|---|
@@ -69,7 +69,7 @@ vocabulary every operator and every language knows.
 | `GIT_OPERATION_FAILED` | The git secret provider could not complete a git operation. |
 | `TEAM_MEMBER_NOT_FOUND` | No team member is registered under that name. |
 | `UNKNOWN_ERROR` | The failure was not recognised; the message and, with --verbose, the stack are all there is. |
-## Exit codes
+## Exit codes {#exit-codes}
 
 The code identifies *what* failed; the exit status says only whether
 something did. They are separate on purpose — a shell can act on one and
@@ -86,7 +86,7 @@ See the [complete mapping](cli-reference.md#exit-codes). Error identifiers and
 process exit codes are separate contracts; `KUBERNETES_ERROR`, for example, is
 not itself a numeric status.
 
-## Adding a code
+## Adding a code {#adding-a-code}
 
 A code is a promise, so the list is pinned: `error-codes.test.ts` fails if
 one is removed, if two codes describe the same idea, or if the source

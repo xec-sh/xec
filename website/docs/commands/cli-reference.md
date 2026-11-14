@@ -4,18 +4,18 @@ description: Complete reference for the Xec command-line interface
 keywords: [cli, reference, options, commands, execution]
 ---
 
-# CLI Reference
+# CLI Reference {#cli-reference}
 
 The command dispatcher is `apps/xec/src/main.ts`; built-in names and aliases are
 in `apps/xec/src/utils/command-manifest.ts`. Project commands are loaded through
 `apps/xec/src/utils/cli-command-manager.ts`, and the shared error mapping lives in
 `packages/ops/src/utils/error-handler.ts`.
 
-## Overview
+## Overview {#overview}
 
 Complete reference for the Xec command-line interface, including global options, execution flow, and configuration.
 
-## Synopsis
+## Synopsis {#synopsis}
 
 ```bash
 xec [global-options] <command> [command-options] [arguments]
@@ -23,13 +23,13 @@ xec [global-options] <script-file> [script-arguments]
 xec [global-options] <task-name> [task-parameters]
 ```
 
-## Global Options
+## Global Options {#global-options}
 
 Place root options before the command word. Flags after that word belong to the
 selected command; for example `xec -v secrets set KEY -v VALUE` uses the first
 `-v` for verbosity and the second for the secret value.
 
-### Output Control
+### Output Control {#output-control}
 
 - `-v, --verbose` - Enable verbose output with detailed logging
   - Sets log level to DEBUG
@@ -42,7 +42,7 @@ selected command; for example `xec -v secrets set KEY -v VALUE` uses the first
   - Sets `process.env.NO_COLOR = '1'`
   - Useful for logs and CI environments
 
-### Execution Control
+### Execution Control {#execution-control}
 
 - `--cwd <path>` - Set current working directory before execution
   - Changes `process.cwd()` to specified path
@@ -54,7 +54,7 @@ selected command; for example `xec -v secrets set KEY -v VALUE` uses the first
   - Uses the same REPL as `xec run --repl`
   - Pre-imports Xec core modules
 
-### Command Options
+### Command Options {#command-options}
 
 `--dry-run`, `-c/--config <path>` and `-o/--output <format>` belong to commands
 that expose them, not the root parser. Put them after the command word and check
@@ -66,20 +66,20 @@ xec on hosts.dev uptime --dry-run
 xec config get targets --config .xec/preview.yaml
 ```
 
-### Help and Information
+### Help and Information {#help-and-information}
 
 - `-h, --help` - Display help information
   - Shows command-specific help when used with command
 - `-V, --version` - Display version information
   - Shows package version from `package.json`
 
-## Command Execution Flow
+## Command Execution Flow {#command-execution-flow}
 
 Xec loads the requested built-in and project command registry, then dispatches
 special modes, scripts, explicit shell commands, configured tasks and registered
 commands. A task shorthand cannot shadow a registered command.
 
-### 1. Special Modes
+### 1. Special Modes {#1-special-modes}
 
 **Direct Code Evaluation:**
 ```bash
@@ -93,7 +93,7 @@ xec --repl
 # Starts interactive session with Xec core imported
 ```
 
-### 2. Script File Execution
+### 2. Script File Execution {#2-script-file-execution}
 
 If the first argument is a file path with recognized extensions:
 
@@ -117,7 +117,7 @@ file. Use `xec run <file>` to select script execution explicitly.
 - Current working directory preserved
 - TypeScript compiled by the built-in loader — no `tsx`/`ts-node` needed
 
-### 3. Task Execution
+### 3. Task Execution {#3-task-execution}
 
 If the first argument matches a configured task name:
 
@@ -133,7 +133,7 @@ xec test --coverage
 - `-p key=value` and boolean switches are supported
 - Unexpected positional arguments are rejected; task parameters are named
 
-### 4. Built-in Commands
+### 4. Built-in Commands {#4-built-in-commands}
 
 Core commands shipped with Xec:
 
@@ -144,7 +144,7 @@ xec on "hosts.*" "uptime"
 xec logs containers.app --follow
 ```
 
-### 5. Dynamic Commands
+### 5. Dynamic Commands {#5-dynamic-commands}
 
 Commands loaded from `.xec/commands/` directories:
 
@@ -154,7 +154,7 @@ xec database:migrate
 xec custom-command --option value
 ```
 
-### 6. Direct Command Execution
+### 6. Direct Command Execution {#6-direct-command-execution}
 
 For an executable or shell command, use the explicit `--` separator to avoid
 collisions with task and command names:
@@ -165,11 +165,11 @@ xec -- ls -la
 xec -- npm install
 ```
 
-## Configuration Precedence
+## Configuration Precedence {#configuration-precedence}
 
 Configuration values are resolved in this order (highest to lowest priority):
 
-### 1. Command-line Options
+### 1. Command-line Options {#1-command-line-options}
 
 Options passed directly to commands:
 
@@ -177,7 +177,7 @@ Options passed directly to commands:
 xec copy --timeout 30s --parallel src/ hosts.web:/app/
 ```
 
-### 2. Environment Variables
+### 2. Environment Variables {#2-environment-variables}
 
 Any variable with the `XEC_` prefix overrides configuration by path — the
 rest of the name is lowercased and underscores become dots:
@@ -194,7 +194,7 @@ A few names additionally have dedicated meaning:
 - `XEC_DEBUG` - Enable debug output (`true`/`1`)
 - `NO_COLOR` / `FORCE_COLOR=0` - Disable colored output (standard variables)
 
-### 3. Configuration File
+### 3. Configuration File {#3-configuration-file}
 
 Values from `.xec/config.yaml`:
 
@@ -214,19 +214,19 @@ commands:
     shell: /bin/bash
 ```
 
-### 4. Built-in Defaults
+### 4. Built-in Defaults {#4-built-in-defaults}
 
 Default values defined in Xec source code.
 
-## Exit Codes
+## Exit Codes {#exit-codes}
 
 Xec uses standardized exit codes (`getExitCode` in
 `packages/ops/src/utils/error-handler.ts`):
 
-### Success
+### Success {#success}
 - `0` - Success, no errors
 
-### Error Codes (mapped from error classes)
+### Error Codes (mapped from error classes) {#error-codes-mapped-from-error-classes}
 - `2` - `ValidationError` - Invalid arguments, options, or input
 - `3` - `ConfigurationError` - Configuration file issues
 - `4` - `ModuleError` - Module loading failures
@@ -243,7 +243,7 @@ Xec uses standardized exit codes (`getExitCode` in
 A script that calls `process.exit(n)` keeps its own `n`, but bypasses awaited
 cleanup. Prefer returning or throwing from the owning command.
 
-### Cancellation
+### Cancellation {#cancellation}
 
 The first `SIGINT` or `SIGTERM` aborts the command's execution scope and waits for
 its `finally` blocks and owned resource disposal. Operations keep their own
@@ -255,7 +255,7 @@ with `getExecutionSignal()` from `@xec-sh/core`.
 
 
 
-### Usage Examples
+### Usage Examples {#usage-examples}
 
 ```bash
 # Check exit code in scripts
@@ -271,9 +271,9 @@ xec test && xec deploy production
 xec build || exit 1
 ```
 
-## Environment Variables
+## Environment Variables {#environment-variables}
 
-### Core Variables
+### Core Variables {#core-variables}
 
 **XEC_CONFIG**
 ```bash
@@ -299,7 +299,7 @@ export XEC_DEBUG=true
 xec any-command  # Shows detailed debug information
 ```
 
-### Output Control
+### Output Control {#output-control-1}
 
 **NO_COLOR**
 ```bash
@@ -307,7 +307,7 @@ export NO_COLOR=1
 xec inspect  # Outputs without colors (FORCE_COLOR=0 works too)
 ```
 
-### Execution Environment
+### Execution Environment {#execution-environment}
 
 **XEC_TIMEOUT**
 ```bash
@@ -327,9 +327,9 @@ export XEC_SHELL=/bin/zsh
 xec on hosts.server "echo $SHELL"  # Uses zsh instead of default
 ```
 
-## Advanced Usage
+## Advanced Usage {#advanced-usage}
 
-### Combining Options
+### Combining Options {#combining-options}
 
 ```bash
 # Multiple global options
@@ -342,7 +342,7 @@ XEC_DEBUG=true xec --quiet copy src/ dest/
 xec --cwd /project script.ts --input data.json --output results/
 ```
 
-### Complex Command Lines
+### Complex Command Lines {#complex-command-lines}
 
 ```bash
 # Task with parameters and environment
@@ -364,7 +364,7 @@ XEC_DEBUG=true xec --repl
 > console.log(date)
 ```
 
-### Pipeline Integration
+### Pipeline Integration {#pipeline-integration}
 
 **CI/CD Integration:**
 ```bash
@@ -416,9 +416,9 @@ RUN xec build --env=production
 CMD ["xec", "start", "--port=3000"]
 ```
 
-## Performance Considerations
+## Performance Considerations {#performance-considerations}
 
-### Command Loading
+### Command Loading {#command-loading}
 
 Commands are loaded lazily for better startup performance:
 
@@ -430,7 +430,7 @@ xec config get targets
 xec --help
 ```
 
-### Parallel Execution
+### Parallel Execution {#parallel-execution}
 
 Many commands support parallel execution:
 
@@ -446,7 +446,7 @@ export XEC_PARALLEL=true
 xec copy files/ "hosts.*:/dest/"
 ```
 
-### Caching
+### Caching {#caching}
 
 Xec caches compiled scripts and module resolution:
 
@@ -459,9 +459,9 @@ export XEC_CACHE_DIR=/tmp/xec-cache
 xec run script.ts
 ```
 
-## Debugging and Troubleshooting
+## Debugging and Troubleshooting {#debugging-and-troubleshooting}
 
-### Debug Mode
+### Debug Mode {#debug-mode}
 
 Enable comprehensive debug output:
 
@@ -476,7 +476,7 @@ XEC_DEBUG=true xec command
 - Network requests and responses
 - Execution timing
 
-### Verbose Output
+### Verbose Output {#verbose-output}
 
 Get detailed execution information:
 
@@ -487,7 +487,7 @@ export XEC_VERBOSE=true
 xec command
 ```
 
-### Common Issues
+### Common Issues {#common-issues}
 
 **Command Not Found:**
 ```bash
@@ -525,7 +525,7 @@ XEC_DEBUG=true xec script.ts
 XEC_DEBUG=true xec -e "import('missing-module')"
 ```
 
-### Performance Profiling
+### Performance Profiling {#performance-profiling}
 
 ```bash
 # Time command execution
@@ -538,31 +538,31 @@ XEC_DEBUG=true time xec command 2>&1 | grep -E "(timing|duration)"
 /usr/bin/time -l xec command
 ```
 
-## Performance Characteristics
+## Performance Characteristics {#performance-characteristics}
 
 **Based on Implementation Analysis:**
 
-### Startup Performance
+### Startup Performance {#startup-performance}
 - **Command Resolution**: &lt;5ms (direct lookup in registry)
 - **Config Loading**: 50-100ms (YAML parsing + schema validation)
 - **Dynamic Command Discovery**: 10-50ms (filesystem scanning)
 - **TypeScript Compilation**: 200-500ms (first run, cached after)
 
-### Execution Performance
+### Execution Performance {#execution-performance}
 - **SSH Connection**: 100-500ms (new), &lt;10ms (pooled)
 - **Docker Exec**: 50-100ms per command
 - **Kubernetes Exec**: 200-500ms per pod
 - **Parallel Execution**: Linear scaling with connection pooling
 
-### Memory Usage
+### Memory Usage {#memory-usage}
 - **Base Process**: ~30MB (Node.js + Xec core)
 - **Per Connection**: ~2MB (SSH), ~1MB (Docker)
 - **Config Object**: 10-100KB depending on size
 - **Script Compilation Cache**: ~5MB per script
 
-## Integration Examples
+## Integration Examples {#integration-examples}
 
-### Shell Scripts
+### Shell Scripts {#shell-scripts}
 
 ```bash
 #!/bin/bash
@@ -594,7 +594,7 @@ xec deploy "$ENVIRONMENT" \
 echo "Deployment completed successfully"
 ```
 
-### Make Targets
+### Make Targets {#make-targets}
 
 ```makefile
 # Makefile
@@ -624,7 +624,7 @@ watch:  ## Watch files and rebuild
 	xec watch $(XEC_OPTS) --pattern="src/**/*.ts"
 ```
 
-### GitHub Actions
+### GitHub Actions {#github-actions}
 
 ```yaml
 # .github/workflows/deploy.yml

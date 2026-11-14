@@ -1,17 +1,17 @@
 ---
 sidebar_position: 1
 title: Introduction
-description: Universal Command Execution for the Modern Stack
+description: TypeScript scripts, project CLIs, terminal UI, orchestration and releases across local and remote environments
 keywords: [xec, universal execution, typescript, ssh, docker, kubernetes]
 ---
 
-# Universal Command Execution for the Modern Stack
+# Universal Command Execution for the Modern Stack {#universal-command-execution-for-the-modern-stack}
 
-**One execution API for local, SSH, Docker, and Kubernetes environments**
+**One toolkit for scripts, project CLIs, orchestration and releases.**
 
-Xec is a universal command execution system that provides a unified API for running commands across diverse environments - local machines, SSH servers, Docker containers, and Kubernetes pods - all through a single, elegant TypeScript interface.
+Xec turns operational work into reusable TypeScript. Start with a script, expose it as a project command, compose a pipeline and publish a verified release. Local processes, SSH hosts, Docker containers and Kubernetes pods share the same execution API; each target retains its own shell, tools and security boundary.
 
-## 🚀 Execute Anywhere with the Same API
+## 🚀 Execute Anywhere with the Same API {#-execute-anywhere-with-the-same-api}
 
 ```typescript
 // Execute anywhere with the same API
@@ -30,7 +30,7 @@ await $.docker({ container: 'my-container' })`python manage.py migrate`;
 await $.k8s('app-pod')`kubectl rollout status deployment/app`;
 ```
 
-## 🎯 Or Use Declarative Configuration
+## 🎯 Or Use Declarative Configuration {#-or-use-declarative-configuration}
 
 ```yaml
 # .xec/config.yaml
@@ -65,29 +65,29 @@ tasks:
         command: ./deploy.sh
 ```
 
-## ✨ Key Features
+## ✨ Key Features {#-key-features}
 
-### 1. **Universal Execution Engine**
+### 1. **Universal Execution Engine** {#1-universal-execution-engine}
 Single API for all environments via @xec-sh/core - write once, execute anywhere.
 
-### 2. **Multi-Environment Native**
-Seamless execution across local, SSH, Docker, and Kubernetes with zero code changes.
+### 2. **Multi-Environment Native** {#2-multi-environment-native}
+A shared execution contract across local, SSH, Docker and Kubernetes. Command portability still depends on the target shell and installed programs.
 
-### 3. **TypeScript Template Literals**
+### 3. **TypeScript Template Literals** {#3-typescript-template-literals}
 Intuitive  $\`command\` syntax with full type safety and IntelliSense support.
 
-### 4. **Enterprise Features**
+### 4. **Enterprise Features** {#4-enterprise-features}
 Built-in connection pooling, retry logic, error handling, and streaming output.
 
-### 5. **Parallel Execution**
+### 5. **Parallel Execution** {#5-parallel-execution}
 Execute commands across multiple targets simultaneously with automatic orchestration.
 
-### 6. **Flexible Approach**
+### 6. **Flexible Approach** {#6-flexible-approach}
 Use imperative TypeScript scripts or declarative YAML configuration - your choice.
 
-## 📋 Real-World Use Cases
+## 📋 Real-World Use Cases {#-real-world-use-cases}
 
-### **Multi-Environment Deployment**
+### **Multi-Environment Deployment** {#multi-environment-deployment}
 > "Same code runs everywhere - local to cloud"
 
 Deploy to development, staging, and production with a single command:
@@ -99,7 +99,7 @@ await Promise.all([
 ]);
 ```
 
-### **Infrastructure Management**
+### **Infrastructure Management** {#infrastructure-management}
 > "Control servers, containers, and clusters"
 
 Manage your entire infrastructure stack from one place:
@@ -115,7 +115,7 @@ const outcome = await parallel(
 console.log(`${outcome.succeeded.length} healthy, ${outcome.failed.length} not`);
 ```
 
-### **CI/CD Pipelines**
+### **CI/CD Pipelines** {#cicd-pipelines}
 > "Build sophisticated deployment workflows"
 
 Create powerful pipelines with error handling and rollback:
@@ -130,7 +130,7 @@ try {
 }
 ```
 
-### **DevOps Automation**
+### **DevOps Automation** {#devops-automation}
 > "Automate operations with TypeScript safety"
 
 Type-safe automation with full IDE support:
@@ -148,19 +148,19 @@ async function deploy(config: DeployConfig) {
 }
 ```
 
-### **Cross-Platform Testing**
+### **Cross-Platform Testing** {#cross-platform-testing}
 > "Test on multiple environments simultaneously"
 
 Run tests across different platforms in parallel:
 ```typescript
 const testResults = await Promise.all([
   $`npm test`,
-  $.docker({ container: 'node:18' })`npm test`,
-  $.docker({ container: 'node:20' })`npm test`,
+  $.docker({ image: 'node:22' })`npm test`,
+  $.docker({ image: 'node:24' })`npm test`,
 ]);
 ```
 
-### **Hybrid Cloud Operations**
+### **Hybrid Cloud Operations** {#hybrid-cloud-operations}
 > "Manage mixed infrastructure seamlessly"
 
 Coordinate operations across cloud providers and on-premise:
@@ -170,21 +170,13 @@ await $.k8s('gcp-cluster')`backup.sh`;
 await $.docker({ container: 'on-premise' })`backup.sh`;
 ```
 
-## 🔄 How Xec Compares
+## 🔄 How Xec Compares {#-how-xec-compares}
 
-| Feature | SSH Clients | Ansible | Terraform | kubectl/docker | zx/shelljs | **Xec** |
-|---------|------------|---------|-----------|----------------|------------|---------|
-| **Multi-environment** | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| **TypeScript native** | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
-| **Connection pooling** | ❌ | ✅ | ❌ | ❌ | ❌ | ✅ |
-| **Unified API** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| **Template literals** | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
-| **Imperative model** | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| **Declarative option** | ❌ | ✅ | ✅ | ✅ | ❌ | ✅ |
+Choose tools by the responsibility they own. Xec handles TypeScript automation and execution; Turbo can retain package graph caching, Terraform provisioning state, and Ansible desired-state configuration. See the [comparison guide](./comparison.md) for explicit boundaries and primary references.
 
-## 💡 Why Xec?
+## 💡 Why Xec? {#-why-xec}
 
-### Problems Xec Solves
+### Problems Xec Solves {#problems-xec-solves}
 
 | Problem | Xec Solution |
 |---------|--------------|
@@ -196,7 +188,7 @@ await $.docker({ container: 'on-premise' })`backup.sh`;
 | **"Error handling across systems is hard"** | Consistent Result pattern |
 | **"No type safety in shell scripts"** | Full TypeScript with IntelliSense |
 
-## 🎯 Who Uses Xec?
+## 🎯 Who Uses Xec? {#-who-uses-xec}
 
 - **DevOps Engineers** seeking unified command execution across environments
 - **Backend Developers** executing commands in containers and remote servers
@@ -207,9 +199,9 @@ await $.docker({ container: 'on-premise' })`backup.sh`;
 - **CI/CD Pipeline Authors** building deployment scripts
 - **Teams managing hybrid infrastructure** (local + cloud + containers)
 
-## 🚀 Quick Start
+## 🚀 Quick Start {#-quick-start}
 
-### Installation
+### Installation {#installation}
 
 ```bash
 # Install globally
@@ -219,7 +211,7 @@ npm install -g @xec-sh/cli
 npm install @xec-sh/core
 ```
 
-### Your First Script
+### Your First Script {#your-first-script}
 
 Create `deploy.ts`:
 ```typescript
@@ -248,7 +240,7 @@ Run it:
 xec deploy.ts
 ```
 
-### Using Configuration
+### Using Configuration {#using-configuration}
 
 Create `.xec/config.yaml`:
 ```yaml
@@ -280,21 +272,21 @@ Run it:
 xec deploy
 ```
 
-## 📚 Core Concepts
+## 📚 Core Concepts {#-core-concepts}
 
-### Execution Engine
+### Execution Engine {#execution-engine}
 The heart of Xec - a unified API that abstracts away environment differences while preserving full control.
 
-### Adapters
+### Adapters {#adapters}
 Environment-specific implementations that handle the details of execution while maintaining a consistent interface.
 
-### Targets
+### Targets {#targets}
 Named execution contexts (local, SSH hosts, Docker containers, K8s pods) that can be referenced in scripts and tasks.
 
-### Template Literals
+### Template Literals {#template-literals}
 Natural command syntax using JavaScript's template literal feature for intuitive command composition.
 
-## 🛠 Architecture
+## 🛠 Architecture {#-architecture}
 
 Your scripts call one execution API; an adapter translates each command for the environment it runs in:
 
@@ -311,7 +303,7 @@ flowchart TD
     CORE --> AD
 ```
 
-## 🔗 Next Steps
+## 🔗 Next Steps {#-next-steps}
 
 - **[Quick Start Guide](./quick-start.md)** - Get up and running in 5 minutes
 - **[Core Concepts](./core-concepts.md)** - Understand Xec's architecture
@@ -319,7 +311,7 @@ flowchart TD
 - **[Examples & Recipes](../recipes/index.md)** - Real-world usage patterns
 - **[API Documentation](../core/execution-engine/overview.md)** - Deep dive into the execution engine
 
-## 🤝 Join the Community
+## 🤝 Join the Community {#-join-the-community}
 
 - **GitHub**: [github.com/xec-sh/xec](https://github.com/xec-sh/xec)
 

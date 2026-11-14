@@ -4,22 +4,22 @@ description: Complete API reference for Xec core and CLI packages
 keywords: [api, reference, core, cli, types, interfaces]
 ---
 
-# API Reference
+# API Reference {#api-reference}
 
-## Overview
+## Overview {#overview}
 
 Complete API reference for the Xec ecosystem, including the core execution engine (@xec-sh/core) and CLI (@xec-sh/cli) packages.
 
-## Package Structure
+## Package Structure {#package-structure}
 
-### @xec-sh/core
+### @xec-sh/core {#xec-shcore}
 The core execution engine providing universal command execution across environments.
 
 - [Execution Engine API](./execution-engine.md) - Main execution interface
 - [Process Promise API](./process-promise.md) - Command execution results
 - [Types Reference](./types.md) - TypeScript type definitions
 
-### @xec-sh/ops
+### @xec-sh/ops {#xec-shops}
 The operations library the CLI is a thin wrapper over — deploys, pipelines,
 workflows, health checks, target discovery and secrets.
 
@@ -27,36 +27,36 @@ workflows, health checks, target discovery and secrets.
 - [Deploy](../ops/deploy.md), [Pipeline](../ops/pipeline.md), [Workflow](../ops/workflow.md)
 - [Health](../ops/health.md), [Discovery](../ops/discovery.md), [Secrets](../ops/secrets.md)
 
-### @xec-sh/cli
+### @xec-sh/cli {#xec-shcli}
 The command-line interface for Xec.
 
 - [Command System](../commands/overview.md) - Command system overview
 - [CLI Reference](../commands/cli-reference.md) - Complete CLI reference
 - [Configuration](../configuration/overview.md) - Configuration management
 
-### @xec-sh/loader
+### @xec-sh/loader {#xec-shloader}
 Script loading: the TypeScript transform, the module resolver, the REPL and
 watch mode. Used through `xec run`; also importable directly.
 
 - [First Script](../scripting/basics/first-script.md) - running scripts
 - [TypeScript Setup](../scripting/basics/typescript-setup.md) - types for the globals
 
-### @xec-sh/kit
+### @xec-sh/kit {#xec-shkit}
 Terminal UI: prompts, spinners, tables, progress and colour. Available to
 scripts as the `kit` global.
 
 - [Kit](../kit/index.md) - components and usage
 
-### @xec-sh/testing
+### @xec-sh/testing {#xec-shtesting}
 Test utilities — Docker fixture management, kind clusters, SSH helpers. No
 runtime edges; consumed only by test suites.
 
 See [Architecture](../introduction/architecture.md) for how these depend on
 one another.
 
-## Core Exports
+## Core Exports {#core-exports}
 
-### Main Function ($)
+### Main Function ($) {#main-function-}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -80,7 +80,7 @@ const dockerResult2 = await $.docker({ container: 'my-app' })`ps aux`;
 name string, an options object, or no arguments at all, which returns the
 fluent Docker API instead of a target-bound engine.
 
-### Programmatic Execution
+### Programmatic Execution {#programmatic-execution}
 
 `$.run` and `$.raw` are tagged templates. Calling them as ordinary functions
 (`$.run('echo hello')`) is rejected before execution. Use `$.exec()` for
@@ -105,7 +105,7 @@ const message = 'hello; this remains one argument';
 await $`printf '%s\n' ${message}`;
 ```
 
-### Type Definitions
+### Type Definitions {#type-definitions}
 
 ```typescript
 import type {
@@ -126,9 +126,9 @@ import type {
 } from '@xec-sh/core';
 ```
 
-## Quick Reference
+## Quick Reference {#quick-reference}
 
-### Execution Methods
+### Execution Methods {#execution-methods}
 
 | Method | Description | Returns |
 |--------|-------------|---------|
@@ -141,7 +141,7 @@ import type {
 | `$.local()` | Local execution context | `ExecutionEngine` |
 | `$.with(config)` | Derived engine with merged config | `ExecutionEngine` |
 
-### ProcessPromise Methods
+### ProcessPromise Methods {#processpromise-methods}
 
 | Method | Description | Returns |
 |--------|-------------|---------|
@@ -170,7 +170,7 @@ it is not safe for binary output; call `.buffer()` on the awaited
 `ExecutionResult` instead (`(await $`cmd`).buffer()`) to get the exact bytes
 the command wrote.
 
-### Adapter Option Types
+### Adapter Option Types {#adapter-option-types}
 
 ```typescript
 // SSH (programmatic API uses `username`; YAML target config uses `user`)
@@ -215,7 +215,7 @@ interface KubernetesAdapterOptions {
 }
 ```
 
-### Command Object
+### Command Object {#command-object}
 
 `$.execute()` takes a `Command`:
 
@@ -233,9 +233,9 @@ const command = {
 console.log((await $.execute(command)).stdout);
 ```
 
-## Error Handling
+## Error Handling {#error-handling}
 
-### Error Types
+### Error Types {#error-types}
 
 The error classes exported by `@xec-sh/core`:
 
@@ -263,7 +263,7 @@ try {
 }
 ```
 
-### Why a Failure Failed
+### Why a Failure Failed {#why-a-failure-failed}
 
 Every `ExecutionError` carries a `kind` — a stable, machine-readable
 classification — and a `recoverable` flag. Branch on those rather than on the
@@ -296,7 +296,7 @@ since the peer may be an impostor.
 `classifyFailure(error)` applies the same rules to any thrown value, including
 a raw stderr string from a tool you shelled out to yourself.
 
-### Result Pattern
+### Result Pattern {#result-pattern}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -311,9 +311,9 @@ if (result.ok) {
 }
 ```
 
-## Advanced Usage
+## Advanced Usage {#advanced-usage}
 
-### SSH Connection Reuse
+### SSH Connection Reuse {#ssh-connection-reuse}
 
 The SSH adapter pools connections automatically — repeated commands against
 the same host reuse one connection. There is no separate pool object to
@@ -330,7 +330,7 @@ await server`df -h`;
 await server`systemctl status app`;
 ```
 
-### Stream Processing
+### Stream Processing {#stream-processing}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -341,7 +341,7 @@ for await (const line of $`tail -f /var/log/app.log`) {
 }
 ```
 
-### Parallel Execution
+### Parallel Execution {#parallel-execution}
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -374,7 +374,7 @@ const { succeeded, failed } = await parallel(
 );
 ```
 
-## Related Documentation
+## Related Documentation {#related-documentation}
 
 - [Execution Engine](./execution-engine.md) - Detailed engine API
 - [Process Promise](./process-promise.md) - Promise chain API

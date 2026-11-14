@@ -4,43 +4,43 @@ description: Design patterns and best practices for Xec automation
 keywords: [patterns, best practices, design, architecture, automation]
 ---
 
-# Common Patterns & Best Practices
+# Common Patterns & Best Practices {#common-patterns--best-practices}
 
-## Overview
+## Overview {#overview}
 
 This section covers common patterns, best practices, and design approaches for building robust automation with Xec.
 
-## Pattern Categories
+## Pattern Categories {#pattern-categories}
 
-### Execution Patterns
+### Execution Patterns {#execution-patterns}
 - [Error Handling](../guides/advanced/error-handling.md) - Robust error management
 - [Parallel Execution](../core/execution-engine/performance/parallel-execution.md) - Concurrent command execution
 - [Async Patterns](../scripting/patterns/async-patterns.md) - Async/await usage
 
-### Target Patterns
+### Target Patterns {#target-patterns}
 - [Multi-Target Execution](../guides/infrastructure/multi-environment.md#running-one-step-against-many-targets) - Running one step across multiple hosts
 - [Handling Target Failures](../guides/infrastructure/multi-environment.md#naming-which-target-failed) - Reading failures honestly and stopping a rollout early
 - [Multi-Stage Pipelines](../guides/infrastructure/multi-environment.md#stages-that-depend-on-each-other) - Stages that depend on each other
 
-### Data Patterns
+### Data Patterns {#data-patterns}
 - [Stream Processing](../scripting/patterns/streaming.md) - Real-time data handling
 - [File Operations](../core/execution-engine/features/file-operations.md) - Cross-environment file management
 - [Secret Management](../commands/built-in/secrets.md) - Secure credential handling
 
-### Workflow Patterns
+### Workflow Patterns {#workflow-patterns}
 - [Chaining Commands](../scripting/patterns/chaining.md) - Method chaining patterns
 - [Error Handling](../scripting/patterns/error-handling.md) - Try/catch patterns
 - [Task Automation](../guides/automation/first-automation.md) - Building automation workflows
 
-### Integration Patterns
+### Integration Patterns {#integration-patterns}
 - [CI/CD Integration](../guides/automation/ci-cd-pipelines.md) - Pipeline automation
 - [Database Operations](../recipes/development/database-setup.md) - Database automation
 - [Container Orchestration](../guides/infrastructure/container-orchestration.md) - Docker/K8s patterns
 - [Deployment Automation](../guides/automation/deployment.md) - Deployment patterns
 
-## Quick Examples
+## Quick Examples {#quick-examples}
 
-### Error Handling Pattern
+### Error Handling Pattern {#error-handling-pattern}
 
 ```typescript
 import { retry } from '@xec-sh/ops';
@@ -55,7 +55,7 @@ async function probeWithRetry(host: string) {
 }
 ```
 
-### Parallel Execution Pattern
+### Parallel Execution Pattern {#parallel-execution-pattern}
 
 ```typescript
 // Execute commands across multiple targets in parallel
@@ -96,7 +96,7 @@ async function healthCheckAll(targets: string[]) {
 }
 ```
 
-### Pipeline Pattern
+### Pipeline Pattern {#pipeline-pattern}
 
 ```typescript
 // Build a data processing pipeline
@@ -118,7 +118,7 @@ async function processLogs(logFile: string) {
 }
 ```
 
-### State Management Pattern
+### State Management Pattern {#state-management-pattern}
 
 ```typescript
 import { Pipeline } from '@xec-sh/ops';
@@ -133,7 +133,7 @@ if (!result.success) throw new Error('Validation failed');
 // This result is an in-memory report, not durable deployment or rollback state.
 ```
 
-### Stream Processing Pattern
+### Stream Processing Pattern {#stream-processing-pattern}
 
 ```typescript
 import { createInterface } from 'node:readline';
@@ -158,9 +158,9 @@ async function inspectLogs(file: string) {
 }
 ```
 
-## Best Practices
+## Best Practices {#best-practices}
 
-### 1. Error Handling
+### 1. Error Handling {#1-error-handling}
 
 Handle expected failures and preserve unexpected ones:
 
@@ -179,7 +179,7 @@ const test = await $`npm test`.nothrow();
 if (!test.ok) throw new Error(`Tests exited ${test.exitCode}`);
 ```
 
-### 2. Resource Management
+### 2. Resource Management {#2-resource-management}
 
 Always clean up resources:
 
@@ -195,7 +195,7 @@ try {
 }
 ```
 
-### 3. Timeout Configuration
+### 3. Timeout Configuration {#3-timeout-configuration}
 
 Set appropriate timeouts:
 
@@ -208,7 +208,7 @@ if (!Number.isSafeInteger(timeout) || timeout < 1) throw new Error('Invalid back
 await $`npm run backup`.timeout(timeout);
 ```
 
-### 4. Logging and Monitoring
+### 4. Logging and Monitoring {#4-logging-and-monitoring}
 
 Add comprehensive logging:
 
@@ -225,7 +225,7 @@ try {
 }
 ```
 
-### 5. Configuration Management
+### 5. Configuration Management {#5-configuration-management}
 
 Externalize configuration:
 
@@ -236,9 +236,9 @@ import { targets } from '@xec-sh/ops';
 await targets.exec('hosts.production', 'cd /srv/app && npm run deploy');
 ```
 
-## Anti-Patterns to Avoid
+## Anti-Patterns to Avoid {#anti-patterns-to-avoid}
 
-### 1. Ignoring Exit Codes
+### 1. Ignoring Exit Codes {#1-ignoring-exit-codes}
 
 ```typescript
 // Ordinary execution already stops on failure.
@@ -250,7 +250,7 @@ const result = await $`npm test`.nothrow();
 if (!result.ok) throw new Error(`Tests failed: exit ${result.exitCode}`);
 ```
 
-### 2. No Timeout on Long Operations
+### 2. No Timeout on Long Operations {#2-no-timeout-on-long-operations}
 
 ```typescript
 // ❌ Bad - No timeout
@@ -260,7 +260,7 @@ await $`long-running-task`;
 await $`long-running-task`.timeout(300000);
 ```
 
-### 3. Mixing Concerns
+### 3. Mixing Concerns {#3-mixing-concerns}
 
 ```typescript
 async function build() { await $`npm run build`; }
@@ -271,9 +271,9 @@ await build();
 await deploy();
 ```
 
-## Performance Patterns
+## Performance Patterns {#performance-patterns}
 
-### Connection Reuse
+### Connection Reuse {#connection-reuse}
 
 ```typescript
 // Derive both commands from the same SSH engine; the root manages the pool.
@@ -283,7 +283,7 @@ await server`df -h`;
 // The Xec CLI owns final disposal of its global engine.
 ```
 
-### Batch Operations
+### Batch Operations {#batch-operations}
 
 ```typescript
 async function inspectHosts(servers: string[]) {
@@ -294,9 +294,9 @@ async function inspectHosts(servers: string[]) {
 }
 ```
 
-## Security Patterns
+## Security Patterns {#security-patterns}
 
-### Secret Management
+### Secret Management {#secret-management}
 
 ```typescript
 const apiKey = process.env.API_KEY;
@@ -305,7 +305,7 @@ if (!apiKey) throw new Error('API_KEY is required');
 await $`npm run deploy`.env({ API_KEY: apiKey });
 ```
 
-### Input Validation
+### Input Validation {#input-validation}
 
 ```typescript
 async function inspectHost(host: string) {
@@ -315,9 +315,9 @@ async function inspectHost(host: string) {
 }
 ```
 
-## Testing Patterns
+## Testing Patterns {#testing-patterns}
 
-### Unit Testing Commands
+### Unit Testing Commands {#unit-testing-commands}
 
 ```typescript
 import { it, expect } from 'vitest';
@@ -330,7 +330,7 @@ it('preserves arguments containing shell metacharacters', async () => {
 });
 ```
 
-### Integration Testing
+### Integration Testing {#integration-testing}
 
 ```typescript
 import { it, expect } from 'vitest';
@@ -344,7 +344,7 @@ it.skipIf(!isDockerAvailable())('executes inside the test image', async () => {
 });
 ```
 
-## Related Documentation
+## Related Documentation {#related-documentation}
 
 - [Error Handling](../guides/advanced/error-handling.md) - Detailed error handling patterns
 - [Parallel Execution](../core/execution-engine/performance/parallel-execution.md) - Concurrent execution strategies
