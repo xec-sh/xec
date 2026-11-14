@@ -1,63 +1,44 @@
-# Xec Documentation Site
+# Xec documentation
 
-Docusaurus site for [xec.sh](https://xec.sh) — the documentation of the Xec
-command execution system.
+Source for [xec.sh](https://xec.sh), built with Docusaurus. Contains the guides, API references, and examples for the Xec packages.
 
-## Development
+## Develop
 
-```bash
-# From the repository root
-corepack enable
-pnpm install
+From the repository root:
 
-# From website/
-pnpm start        # dev server with hot reload at http://localhost:3000
-pnpm build        # static production build (also reports broken links)
-pnpm serve        # serve the production build locally
-pnpm typecheck    # TypeScript check of site code
+```sh
+pnpm install --frozen-lockfile
+pnpm docs:start
 ```
 
-## Content layout
+The development server runs at `http://localhost:3000` with hot reload.
 
-```
-docs/
-├── introduction/     # What Xec is, quick start, installation
-├── core/             # @xec-sh/core: execution engine, adapters
-├── targets/          # Target configuration: local, SSH, Docker, Kubernetes
-├── commands/         # CLI command reference
-├── configuration/    # .xec/config.yaml, tasks, profiles
-├── scripting/        # Writing and running scripts
-├── api/              # Generated API reference
-├── guides/           # Task-oriented guides
-├── recipes/          # Short, focused how-tos
-├── patterns/         # Larger architectural patterns
-├── integrations/     # CI systems and external tooling
-├── migration/        # Moving from Make, npm scripts, shell scripts, ...
-├── ops/              # @xec-sh/ops documentation
-└── cli/              # CLI usage details
+## Verify
+
+```sh
+pnpm docs:check
+pnpm --dir website typecheck
+pnpm docs:build
+pnpm docs:serve
 ```
 
-Mermaid diagrams are enabled (` ```mermaid ` fences). Search is local
-(`@easyops-cn/docusaurus-search-local`), English only.
+Example checks validate documented APIs against source declarations. The production build checks links and anchors; inspect layout and interaction in the browser as well.
 
-## Writing rules
+## Structure
 
-The documentation standard for this site: every statement must match the
-implementation.
+| Path | Content |
+| --- | --- |
+| `docs/introduction` | Installation and architecture |
+| `docs/core`, `docs/targets`, `docs/api` | Execution contracts and API reference |
+| `docs/commands`, `docs/configuration`, `docs/scripting` | CLI and project workflows |
+| `docs/ops`, `docs/kit` | Orchestration and terminal UI |
+| `docs/guides`, `docs/recipes`, `docs/integrations` | Applied examples |
+| `src` | Site components and styling |
 
-1. Verify each code example against the built packages before committing —
-   examples that cannot run do not ship.
-2. Enumerate option values completely, or link to the source of truth, rather
-   than approximating.
-3. When a public API changes, its page changes in the same pull request.
-4. No superlatives; numbers only where they were measured.
+Keep examples executable, describe actual behavior and limitations, and update documentation with the corresponding API change. Link to the authoritative reference instead of duplicating long option lists. Mermaid diagrams and local English search are enabled.
 
-## Deployment
+## Deploy
 
-Pushes to `main` that touch `website/**` deploy automatically via
-`.github/workflows/deploy-website.yml`. `pnpm build` runs on pull requests as
-a check. Manual deployment: `GIT_USER=<github-username> pnpm deploy`.
+The [Pages workflow](../.github/workflows/deploy-website.yml) builds and deploys eligible changes to `main`. Its checks and path filters define the deployment trigger.
 
-## License
-
-MIT
+[Project overview](../README.md) · [MIT license](../LICENSE)

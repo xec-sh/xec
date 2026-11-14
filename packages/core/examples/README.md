@@ -1,69 +1,29 @@
-# @xec-sh/core examples
+# Core examples
 
-Runnable examples for the execution engine, ordered from basics to complete
-workflows.
+Runnable TypeScript examples of Xec's public execution API.
 
-## Structure
+## Run
 
-| Directory | Contents |
-|-----------|----------|
-| `01-basics/` | Template literals, environment variables, working directory, result status |
-| `02-adapters/` | One example per environment: local, SSH, Docker, Kubernetes |
-| `02-environments/` | Docker run modes and the simplified Docker API |
-| `03-advanced-features/` | Piping, parallel execution, streaming, retries, SSH pooling and tunnels |
-| `04-event-system/` | Event monitoring and lifecycle management |
-| `05-utilities/` | Temp files, transfers, prompts, passwords, shell escaping |
-| `06-real-world/` | Complete workflows: git, builds, monitoring, deployment |
+From the repository root:
 
-## Running
-
-```bash
-# From the repository root
-corepack enable && pnpm install && pnpm build
-
-npx tsx packages/core/examples/01-basics/01-hello-world.ts
+```sh
+pnpm install --frozen-lockfile
+pnpm build
+bun packages/core/examples/01-basics/01-hello-world.ts
 ```
 
-SSH, Docker, and Kubernetes examples need the corresponding fixtures or a
-real environment; the SSH test containers start with
-`pnpm --filter @xec-sh/core docker:start`.
+Start with the local examples. SSH, Docker, and Kubernetes examples require the declared target and relevant tooling. Review commands and target configuration before running workflows that change remote resources.
 
-## The shapes the examples cover
+## Contents
 
-```typescript
-import { $ } from '@xec-sh/core';
+| Directory | Topics |
+| --- | --- |
+| [01-basics](01-basics) | Commands, interpolation, environment, directories, results |
+| [02-adapters](02-adapters) | Local, SSH, Docker, and Kubernetes execution |
+| [02-environments](02-environments) | Docker run modes and container APIs |
+| [03-advanced-features](03-advanced-features) | Pipes, parallel work, streaming, retries, and tunnels |
+| [04-event-system](04-event-system) | Execution events and lifecycle |
+| [05-utilities](05-utilities) | Temporary files, transfers, prompts, and escaping |
+| [06-real-world](06-real-world) | Build, monitoring, and deployment workflows |
 
-// Local
-await $`echo "Hello, World!"`;
-
-// SSH
-const ssh = $.ssh({ host: 'server.com', username: 'deploy' });
-await ssh`uptime`;
-
-// Docker — ephemeral container from an image, or an existing container
-await $.docker({ image: 'node:20' })`node --version`;
-await $.docker({ container: 'my-app' })`npm test`;
-
-// Kubernetes
-const pod = $.k8s().pod('web-app');
-await pod.exec`hostname`;
-```
-
-```typescript
-import { parallel } from '@xec-sh/core';
-
-// Parallel execution with a result summary
-const { succeeded, failed } = await parallel([$`task1`, $`task2`, $`task3`]);
-
-// Error handling without throwing
-const result = await $`command`.nothrow();
-if (result.ok) {
-  console.log(result.stdout);
-} else {
-  console.log('Failed:', result.cause);
-}
-```
-
-## License
-
-MIT
+[Core API](https://xec.sh/docs/api/execution-engine) · [Package overview](../README.md)

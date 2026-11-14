@@ -1,162 +1,56 @@
 # @xec-sh/kit
 
-Terminal prompts, spinners, tables and colors for command-line applications.
-One runtime dependency (`sisteransi`). Node.js 20+ and Bun.
+Terminal UI components for TypeScript command-line applications: prompts, tables, progress, streaming output, and colors.
 
-[Run the examples with Bun](./examples/README.md) to explore prompts, tables, streaming, themes, and complete CLI flows.
-
-```bash
+```sh
 npm install @xec-sh/kit
 ```
 
-## Prompts
+Requires Node.js 20 or later, or Bun 1.2 or later. Runtime checks also cover Deno. The package has one runtime dependency: `sisteransi`.
+
+## Prompt with cancellation
 
 ```typescript
-import { text, select, confirm, password, isCancel } from '@xec-sh/kit';
+import { text, isCancel, log } from '@xec-sh/kit';
 
-const name = await text({ message: 'What is your name?' });
-if (isCancel(name)) process.exit(0);   // every prompt returns a cancel symbol on Ctrl-C
+async function main() {
+  const name = await text({
+    message: 'Project name',
+    validate: value => value?.trim() ? undefined : 'Enter a project name',
+  });
+  if (isCancel(name)) return;
+  log.success(`Selected ${name}`);
+}
 
-const color = await select({
-  message: 'Pick a color',
-  options: [
-    { value: 'red', label: 'Red' },
-    { value: 'blue', label: 'Blue', hint: 'recommended' },
-    { value: 'green', label: 'Green', disabled: true },
-  ],
-});
-
-const ok = await confirm({ message: 'Continue?' });
-const secret = await password({ message: 'Enter token:' });
+await main();
 ```
 
-```typescript
-import { multiline } from '@xec-sh/kit';
+Handle `isCancel` before using a prompt result. Prompt groups propagate cancellation; validation can be asynchronous or use Standard Schema. Input editing accounts for grapheme boundaries and terminal display width.
 
-// Enter inserts a newline; Enter twice at the end submits.
-const description = await multiline({
-  message: 'Describe the change',
-  placeholder: 'What, and why',
-});
+## Components
+
+| Area | Exports |
+| --- | --- |
+| Input | `text`, `password`, `confirm`, `multiline`, `date`, `path` |
+| Selection | `select`, `selectKey`, `multiselect`, `groupMultiselect`, `autocomplete`, `autocompleteMultiselect` |
+| Tables | `table`, `interactiveTable`, CSV/TSV/JSON/HTML/Markdown/text export |
+| Progress | `spinner`, `progress`, `taskLog`, `tasks` |
+| Output | `log`, `note`, `box`, `stream`, `intro`, `outro`, `cancel` |
+| Composition | `group`, `isCancel`, `settings`, `updateSettings`, `prism` |
+
+Components share theme roles, output settings, and cancellation behavior. `NO_COLOR` disables color; `ACCESSIBLE=1` selects plain presentation. Explicit component settings take precedence over environment defaults. Use a selected output stream to keep machine-readable stdout clean; `spinner({ enabled: false })` creates no terminal output or timer.
+
+## Explore
+
+All [21 examples](examples/README.md) run with Bun from the repository without building Kit first:
+
+```sh
+pnpm install --frozen-lockfile
+bun packages/kit/examples/01-text.ts
+bun packages/kit/examples/20-full-app.ts
+ACCESSIBLE=1 NO_COLOR=1 bun packages/kit/examples/20-full-app.ts
 ```
 
-```typescript
-import { multiselect, autocomplete, selectKey, groupMultiselect, date } from '@xec-sh/kit';
+Examples cover validation, themes, interactive tables, streaming, and complete prompt flows. They do not deploy services or persist configuration.
 
-const tools = await multiselect({
-  message: 'Select tools',
-  options: [{ value: 'git' }, { value: 'docker' }, { value: 'k8s' }],
-});
-
-// Autocomplete filters a fixed option list as the user types
-const pkg = await autocomplete({
-  message: 'Search packages',
-  options: [{ value: 'react' }, { value: 'vue' }, { value: 'svelte' }],
-  filter: (search, option) => option.value.includes(search),   // optional; label/hint/value by default
-});
-
-const when = await date({ message: 'Pick a date' });
-
-// Answer with a single keypress: the value is the key
-const action = await selectKey({
-  message: 'Action?',
-  options: [
-    { value: 'd', label: 'Deploy' },
-    { value: 'r', label: 'Rollback' },
-  ],
-});
-
-const features = await groupMultiselect({
-  message: 'Enable features',
-  options: {
-    Frontend: [{ value: 'react' }, { value: 'vue' }],
-    Backend: [{ value: 'express' }, { value: 'fastify' }],
-  },
-});
-```
-
-## Output
-
-```typescript
-import { log, note, box, spinner, progress, table, interactiveTable, prism } from '@xec-sh/kit';
-
-log.info('Processing...');
-log.success('Complete');
-log.warn('Caution');
-log.error('Failed');
-log.step('Step 1');
-
-note('Remember to commit', 'Reminder');
-box('Boxed content');
-
-const s = spinner();
-s.start('Loading...');
-await doWork();
-s.stop('Done');
-
-const bar = progress({ max: 100 });
-bar.start('Downloading');
-bar.advance(30);
-bar.stop('Downloaded');
-
-// Tables take row objects plus column definitions
-table({
-  data: [
-    { name: 'api', status: 'running' },
-    { name: 'web', status: 'stopped' },
-  ],
-  columns: [
-    { key: 'name', header: 'Name' },
-    { key: 'status', header: 'Status' },
-  ],
-});
-
-// Interactive: navigation, sorting, row selection
-const picked = await interactiveTable({
-  data: rows,
-  columns,
-  selectable: 'multiple',   // 'none' | 'single' | 'multiple'
-  sortable: true,
-});
-
-// Colors: 16/256/truecolor with automatic terminal detection
-const styled = prism.hex('#ff0000').bold('Error!');
-const green  = prism.rgb(0, 255, 0)('Green text');
-const blue   = prism.hsl(200, 100, 50)('Blue text');
-```
-
-Every component draws its colours from one theme of seven roles — accent,
-activity, success, warning, error, info, muted — so restyling the kit is one
-call:
-
-```typescript
-import { prism, updateSettings } from '@xec-sh/kit';
-
-updateSettings({ theme: { accent: prism.green, activity: prism.cyan } });
-```
-
-## Exports
-
-| Export | Description |
-|--------|-------------|
-| `text` / `confirm` / `password` | Basic input prompts |
-| `select` / `multiselect` / `groupMultiselect` | List selection; options support `label`, `hint`, `disabled` |
-| `autocomplete` / `autocompleteMultiselect` | Type-to-filter selection over an option list |
-| `selectKey` | Single-keypress selection |
-| `date` | Date picker |
-| `spinner` | Spinner with styles: braille, circle, dots, line, arrow, binary, moon |
-| `progress` | Progress bar (`max`, `advance(step)`, spinner-style start/stop) |
-| `note` / `box` | Bordered message blocks |
-| `table` / `interactiveTable` | Static render and interactive navigation/sort/selection |
-| `exportToCSV` / `exportToTSV` / `exportToJSON` / `exportToHTML` / `exportToMarkdown` / `exportToText` | Table data export |
-| `log` | Leveled output: info, success, warn, error, step |
-| `taskLog` / `tasks` / `group` / `intro` / `outro` / `cancel` | Flow helpers for multi-step CLIs |
-| `prism` | Color builder: hex/rgb/hsl/css names, 16/256/truecolor |
-| `isCancel` | Detect Ctrl-C cancellation of any prompt |
-| `stream` | Streamed output helpers |
-| `settings` / `updateSettings` | Global prompt appearance settings (e.g. `withGuide`, `theme`) |
-| `multiline` | Multi-line text input; Enter is a newline, Enter twice submits |
-
-## License
-
-MIT
+[Documentation](https://xec.sh/docs/kit) · [Examples](examples/README.md) · [MIT license](../../LICENSE)

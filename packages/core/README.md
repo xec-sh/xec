@@ -1,177 +1,58 @@
 # @xec-sh/core
 
-**One TypeScript API for commands, wherever they run** — local shell, SSH host, Docker container, Kubernetes pod.
+A TypeScript execution engine for local processes, SSH hosts, Docker containers, and Kubernetes pods.
 
-```bash
+```sh
 npm install @xec-sh/core
 ```
 
-## The idea
+## Execute
 
 ```typescript
 import { $ } from '@xec-sh/core';
 
-await $`pnpm build`;                                    // this machine
-await $.ssh('deploy@prod-1')`systemctl restart app`;    // an SSH host
-await $.docker('postgres-main')`pg_dump mydb`;          // a container
-await $.k8s('production/api')`cat /var/log/app.log`;    // a pod
+try {
+  const ref = 'main';
+  const revision = await $`git rev-parse ${ref}`.text();
+  const result = await $.exec(process.execPath, {
+    args: ['--version'],
+    shell: false,
+  });
+  console.log(revision, result.stdout);
+} finally {
+  await $.dispose();
+}
 ```
 
-Four environments, one `$`. Every target accepts the same template-literal
-syntax, the same chaining methods, and returns the same result shape. zx,
-execa, dax and Bun Shell stop at the local machine; this is the same
-ergonomics across the seam.
+Interpolated values are quoted for the target shell. Use `.exec(executable, { args, shell: false })` for explicit argument boundaries, and `$.raw` only for intentional shell syntax.
 
-## Safe by default
+## Select a target
 
 ```typescript
-const file = 'my file; rm -rf /';
-await $`cat ${file}`;        // runs `cat 'my file; rm -rf /'` — quoted, inert
+const host = $.ssh({ host: 'staging.example.com', username: 'deploy' });
+const container = $.docker('app');
+const pod = $.k8s('staging/api');
 
-const flags = ['-l', '-a'];
-await $`ls ${flags} src/`;   // arrays expand to escaped arguments
-
-await $.raw`echo $HOME`;     // raw interpolation, when you actually mean it
+await host`uptime`;
+await container.cd('/app')`node --version`;
+await pod.env({ LOG_LEVEL: 'debug' })`node healthcheck.js`;
 ```
 
-## Results you can use directly
+Target contexts provide transfers, SFTP, tunnels, shell sessions, container operations, and pod operations where applicable. SSH host verification and connection management remain inside Xec.
 
-```typescript
-const branch = await $`git branch --show-current`;
-console.log(`Branch: ${branch}`);            // "Branch: main" — like $(...) in a shell
+## Results and lifetime
 
-const result = await $`grep TODO src/ -r`.nothrow();
-result.ok          // exit 0 and not signalled
-result.stdout      // string
-result.exitCode    // 128+signum for signalled processes — a kill is never "success"
-result.cause       // why not ok
+- `await command` returns an `ExecutionResult`; nonzero exits throw unless `.nothrow()` is selected.
+- Results expose `stdout`, `stderr`, `stdall`, `exitCode`, `signal`, `ok`, and `cause`. A confirmed local cancellation also carries `aborted`.
+- `.text()`, `.json<T>()`, and `.lines()` return parsed output. Use `(await command).buffer()` for exact captured bytes.
+- `for await (const line of command)` streams output with backpressure. Breaking the loop waits for owned process cleanup.
+- `.timeout(...)`, `.signal(...)`, and `within({ signal }, callback)` bound execution. `parallel` bounds concurrent work; `withoutCancellation` provides an explicit cleanup scope.
+- Output limits fail visibly. Diagnostic masking applies to command echoes, events, and errors; exact API payload capture is available through `redactOutput: false`.
 
-const pkg   = await $`cat package.json`.json<{ version: string }>();
-const files = await $`ls -1`.lines();
-const image = await $`cat logo.png`.buffer();
+Cancellation of a remote request does not by itself prove that a remote effect was reversed. Preserve and inspect an unknown outcome before retrying an operation with side effects.
 
-for await (const line of $`journalctl -f`) { /* stream lines */ }
-```
+## Requirements
 
-Failures explain themselves — the error message carries the exit code *and*
-the head of stderr, so `catch (e)` logs are diagnostic without extra work.
+Node.js 20 or later; Core also has Bun and Deno runtime checks. Shell syntax depends on the target OS. Docker and Kubernetes use the installed `docker` and `kubectl` CLIs. SSH loads its bundled `ssh2` dependency when first needed.
 
-## Every environment is a chain
-
-```typescript
-const staging = $.ssh('deploy@staging')
-  .cd('/srv/app')                 // on the host
-  .env({ NODE_ENV: 'staging' })   // on the host
-  .timeout(60_000)
-  .retry({ maxRetries: 3 });
-
-await staging`pnpm migrate`;
-
-// The identical chain on a pod — .cd()/.env() apply inside the pod,
-// never to your local kubectl process:
-await $.k8s('staging/api').cd('/srv/app').env({ DEBUG: '1' })`node check.js`;
-
-// And in a container — .cd() maps to `docker exec -w`:
-await $.docker('builder').cd('/workspace')`make all`;
-```
-
-Environment-specific power stays available where it belongs:
-
-```typescript
-const ssh = $.ssh('deploy@prod');
-await ssh.uploadFile('./dist.tar.gz', '/srv/app/dist.tar.gz');
-const tunnel = await ssh.tunnel({ localPort: 5432, remoteHost: 'db', remotePort: 5432 });
-
-const pod = $.k8s('production/api').pod('api-7f9d');
-await pod.portForward(8080, 80);
-await pod.follow(line => audit(line));           // streaming logs
-await pod.copyFrom('/var/log/app.log', './app.log');
-```
-
-## The contract
-
-Enforced by tests, not aspirational:
-
-- An option either takes effect in its environment or fails loudly — nothing
-  is accepted and silently dropped. `AbortSignal` cancels on every adapter.
-- Output over `maxBuffer` kills the producer and fails with the truncated
-  head preserved — never an empty result with exit code 0.
-- Secrets are masked in command echoes, events and error messages: tokens,
-  API keys, URL credentials, PEM blocks. Masking is pattern-based, so a value
-  passed as a bare argument (`mysql -pP4ss`, `redis-cli -a P4ss`) can still slip
-  through — pass credentials by environment or stdin, not on the command line.
-- SSH connections are pooled, self-heal on drop, and are released by
-  `dispose()`. The library installs no global process handlers unless you
-  opt in with `installCleanupHandlers()`.
-- The same on Linux, macOS and Windows, and the unit suite runs on all three:
-  interpolated values are quoted for the shell that will parse them —
-  `cmd.exe` gets caret escaping — paths compose through `node:path`, `glob`
-  answers `/`-separated results everywhere, a line ends with `\n` or `\r\n`,
-  and a timeout takes down the whole process tree. What a command *means* is
-  still the shell's: `cmd.exe` has no `&&`, no `$VAR` and no `sleep`.
-
-## Utilities
-
-```typescript
-import { parallel, within, sleep, glob } from '@xec-sh/core';
-
-await parallel(['build A', 'build B'].map(t => $`run ${t}`), { maxConcurrent: 2 });
-
-await within(async () => {
-  $.defaults({ cwd: '/tmp', env: { NODE_ENV: 'test' } });
-  await $`npm test`;                 // scoped configuration
-});
-
-await $.withTempDir(async dir => {
-  await $`unzip release.zip -d ${dir}`;   // dir is a path; removed afterwards
-});
-
-$.verbose = true;                    // echo each command (redacted) to stderr
-
-// A command that owns the terminal — npm login, vim, ssh — runs attached to
-// it; output goes to the user, not into result.stdout
-await $.interactive()`npm login`.timeout(0);
-```
-
-## Cancellation scopes
-
-`within({ signal }, fn)` passes cancellation to Xec commands, including commands
-on newly created engines. Nested scopes and explicit command signals combine
-with the inherited signal. `getExecutionSignal()` exposes the current signal to
-cooperative callbacks; abort reasons are preserved. Cancelling one scope does
-not cancel a concurrent sibling. Core `sleep` also observes the scope.
-
-A cancelled scope refuses subsequent commands. In a `finally` block, use an
-explicit `withoutCancellation(fn)` section for commands needed to release
-resources. It retains the scope's directory, environment and other defaults,
-clears only inherited cancellation, and restores the parent when it returns or
-throws. Cleanup can provide a fresh signal or timeout:
-
-```typescript
-import { $, within, withoutCancellation } from '@xec-sh/core';
-
-const controller = new AbortController();
-await within({ signal: controller.signal }, async () => {
-  try {
-    await $`node scripts/build.mjs`;
-  } finally {
-    await withoutCancellation(() => $.execute({
-      command: process.execPath,
-      args: ['scripts/cleanup.mjs'],
-      shell: false,
-      signal: AbortSignal.timeout(2000),
-    }));
-  }
-});
-```
-
-## Dependencies
-
-One runtime dependency: `ssh2`, and it is not loaded until an SSH target is
-first used — importing the package pulls in Node builtins only. Docker and
-Kubernetes adapters speak the `docker`/`kubectl` CLIs, so behaviour matches
-what you would get by hand, and both load lazily. Works on Node.js 20+, Bun and Deno.
-
-## License
-
-MIT
+[API reference](https://xec.sh/docs/api/execution-engine) · [Examples](examples) · [MIT license](../../LICENSE)
