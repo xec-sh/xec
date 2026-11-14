@@ -672,29 +672,9 @@ export class DockerCommand extends SubcommandBase {
       if (mergedOptions.rm) container = container.autoRemove();
       if (mergedOptions.privileged) container = container.privileged();
 
-      // Add ports
-      if (mergedOptions.ports) {
-        for (const port of mergedOptions.ports) {
-          const [hostPort, containerPort] = port.split(':');
-          if (hostPort && containerPort) {
-            container = container.port(parseInt(hostPort), parseInt(containerPort));
-          } else if (hostPort) {
-            container = container.port(parseInt(hostPort), parseInt(hostPort));
-          }
-        }
-      }
-
-      // Add volumes
-      if (mergedOptions.volumes) {
-        for (const vol of mergedOptions.volumes) {
-          const [hostPath, containerPath] = vol.split(':');
-          if (hostPath && containerPath) {
-            container = container.volume(hostPath, containerPath);
-          } else if (hostPath) {
-            container = container.volume(hostPath, hostPath);
-          }
-        }
-      }
+      // Docker's own syntax preserves bind addresses, ranges and volume modes.
+      if (mergedOptions.ports) container = container.ports(mergedOptions.ports);
+      if (mergedOptions.volumes) container = container.volumes(mergedOptions.volumes);
 
       // Add env vars
       if (mergedOptions.env) {
@@ -722,7 +702,7 @@ export class DockerCommand extends SubcommandBase {
         container = container.entrypoint(mergedOptions.entrypoint);
       }
 
-      if (mergedOptions.dryRun) {
+      if (this.isDryRun()) {
         s.stop(prism.green('[DRY RUN] Would start container'));
         this.log(`[DRY RUN] Image: ${image}`, 'info');
         if (mergedOptions.name) this.log(`[DRY RUN] Name: ${mergedOptions.name}`, 'info');

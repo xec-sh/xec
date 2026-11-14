@@ -115,6 +115,8 @@ jobs:
           test/entry-point.test.ts
           test/graceful-cancellation.test.ts
           test/release-command.test.ts
+          test/docker-services/service-contracts.test.ts
+          test/commands/docker-prune.test.ts
 
       # Every code example in the documentation, compiled against the real
       # published types plus the globals a script receives. An example that
@@ -219,3 +221,5 @@ jobs:
           test/startup-budget.test.ts
           test/entry-point.test.ts
           test/release-command.test.ts
+          test/docker-services/service-contracts.test.ts
+          test/commands/docker-prune.test.ts

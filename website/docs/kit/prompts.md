@@ -244,6 +244,7 @@ import { stat } from 'node:fs/promises';
 const file = await text({
   message: 'Existing file',
   async validate(value) {
+    if (!value) return 'Enter a file path';
     try {
       return (await stat(value)).isFile() ? undefined : 'Select a file';
     } catch {

@@ -13,10 +13,11 @@
 import path from 'path';
 import { $ } from '@xec-sh/core';
 import { fileURLToPath } from 'url';
+import { randomUUID } from 'node:crypto';
 import { it, expect, afterAll, describe, beforeAll } from 'vitest';
 
 const cliEntry = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../dist/main.js');
-const NAME = 'xec-dxflags-probe';
+const NAME = `xec-dxflags-${randomUUID()}`;
 
 const SKIP = process.env['SKIP_DOCKER_TESTS'] === 'true' || process.env['CI'] === 'true';
 const describeDocker = SKIP ? describe.skip : describe;
@@ -32,7 +33,6 @@ const remove = async () => {
 
 describeDocker('docker container run flag plumbing', () => {
   beforeAll(async () => {
-    await remove();
     await $`node ${cliEntry} docker container run alpine:3 --name ${NAME} --label probe=yes --restart unless-stopped --entrypoint /bin/sleep --workdir /tmp -d`.nothrow();
   }, 120_000);
 

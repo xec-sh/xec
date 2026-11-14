@@ -69,14 +69,20 @@ One-line development services. Each takes `-p, --port`, `-n, --name`,
 flags below.
 
 `--persistent` alone is enough: without `--data-path` the data goes to a
-named docker volume derived from the container name, which outlives the
-container. (It used to mount nothing at all unless a path was given — the
-service started, reported itself persistent, and lost everything when the
-container was removed.)
+named Docker volume derived from the container name, which outlives the
+container. Removing a service retains user-supplied data paths and volumes.
+A Redis cluster removes only the network created by that instance; an
+existing shared network is retained. Failed stop or remove operations are
+reported as failures, including nodes left by an incomplete startup.
 
-Every service waits until it can answer before `start` returns. A service
-handed back before it is usable is one whose first request fails, and
-whether it does depends on how loaded the machine is.
+The Redis cluster startup checks every node and the expected membership before
+returning. Restarting saved nodes preserves their cluster configuration rather
+than issuing another cluster creation command.
+
+The SSH preset uses the Core SSH/SFTP transport for commands and file transfer.
+Its programmatic `connection` options use the same host-key policy as ordinary
+SSH targets, including `knownHostsPath` and `hostKeyChecking`; the preset does
+not disable verification or invoke a separate password helper.
 
 
 - `redis` - Redis (`--password`, `--config-path`)

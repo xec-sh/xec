@@ -176,17 +176,10 @@ export class KafkaFluentAPI extends DockerEphemeralFluentAPI implements ServiceM
     replicationFactor = 1,
     config?: Record<string, string>
   ): Promise<void> {
-    let cmd = `kafka-topics --bootstrap-server localhost:9092 --create --topic ${name}`;
-    cmd += ` --partitions ${partitions}`;
-    cmd += ` --replication-factor ${replicationFactor}`;
-
-    if (config) {
-      for (const [key, value] of Object.entries(config)) {
-        cmd += ` --config ${key}=${value}`;
-      }
-    }
-
-    await this.exec`${cmd}`;
+    const args = ['kafka-topics', '--bootstrap-server', 'localhost:9092', '--create',
+      '--topic', name, '--partitions', String(partitions), '--replication-factor', String(replicationFactor)];
+    for (const [key, value] of Object.entries(config ?? {})) args.push('--config', `${key}=${value}`);
+    await this.exec(args);
   }
 
   /**
@@ -216,10 +209,9 @@ export class KafkaFluentAPI extends DockerEphemeralFluentAPI implements ServiceM
    * Produce message to topic
    */
   async produce(topic: string, message: string, key?: string): Promise<void> {
-    const keyPart = key ? `--property "parse.key=true" --property "key.separator=:"` : '';
-    const msg = key ? `${key}:${message}` : message;
-    const cmd = `echo "${msg}" | kafka-console-producer --bootstrap-server localhost:9092 --topic ${topic} ${keyPart}`;
-    await this.exec`sh -c ${cmd}`;
+    const options = key === undefined ? [] : ['--property', 'parse.key=true', '--property', 'key.separator=:'];
+    const payload = key === undefined ? message : `${key}:${message}`;
+    await this.exec`printf '%s\n' ${payload} | kafka-console-producer --bootstrap-server localhost:9092 --topic ${topic} ${options}`;
   }
 
   /**
@@ -234,26 +226,13 @@ export class KafkaFluentAPI extends DockerEphemeralFluentAPI implements ServiceM
       group?: string;
     }
   ): Promise<string[]> {
-    let cmd = `kafka-console-consumer --bootstrap-server localhost:9092 --topic ${topic}`;
-
-    if (options?.fromBeginning) {
-      cmd += ' --from-beginning';
-    }
-
-    if (options?.maxMessages) {
-      cmd += ` --max-messages ${options.maxMessages}`;
-    }
-
-    if (options?.timeout) {
-      cmd += ` --timeout-ms ${options.timeout}`;
-    }
-
-    if (options?.group) {
-      cmd += ` --group ${options.group}`;
-    }
-
-    const result = await this.exec`${cmd}`;
-    return result.stdout.trim().split('\n').filter(m => m);
+    const args = ['kafka-console-consumer', '--bootstrap-server', 'localhost:9092', '--topic', topic];
+    if (options?.fromBeginning) args.push('--from-beginning');
+    if (options?.maxMessages !== undefined) args.push('--max-messages', String(options.maxMessages));
+    if (options?.timeout !== undefined) args.push('--timeout-ms', String(options.timeout));
+    if (options?.group !== undefined) args.push('--group', options.group);
+    const result = await this.exec(args);
+    return result.stdout.trim().split('\n').filter(Boolean);
   }
 
   /**
@@ -277,8 +256,8 @@ export class KafkaFluentAPI extends DockerEphemeralFluentAPI implements ServiceM
    */
   async resetConsumerOffset(group: string, topic: string, offset: 'earliest' | 'latest' | number): Promise<void> {
     const offsetArg = typeof offset === 'number'
-      ? `--to-offset ${offset}`
-      : `--to-${offset}`;
+      ? ['--to-offset', String(offset)]
+      : [`--to-${offset}`];
 
     await this.exec`kafka-consumer-groups --bootstrap-server localhost:9092 --group ${group} --topic ${topic} --reset-offsets ${offsetArg} --execute`;
   }
@@ -427,7 +406,7 @@ export class RabbitMQFluentAPI extends DockerEphemeralFluentAPI implements Servi
    * Enable multiple plugins
    */
   async enablePlugins(plugins: string[]): Promise<void> {
-    await this.exec`rabbitmq-plugins enable ${plugins.join(' ')}`;
+    await this.exec`rabbitmq-plugins enable ${plugins}`;
   }
 
   /**
@@ -465,7 +444,7 @@ export class RabbitMQFluentAPI extends DockerEphemeralFluentAPI implements Servi
   async createUser(username: string, password: string, tags: string[] = []): Promise<void> {
     await this.exec`rabbitmqctl add_user ${username} ${password}`;
     if (tags.length > 0) {
-      await this.exec`rabbitmqctl set_user_tags ${username} ${tags.join(' ')}`;
+      await this.exec`rabbitmqctl set_user_tags ${username} ${tags}`;
     }
   }
 
@@ -496,9 +475,8 @@ export class RabbitMQFluentAPI extends DockerEphemeralFluentAPI implements Servi
     durable = true,
     autoDelete = false
   ): Promise<void> {
-    const durableFlag = durable ? 'true' : 'false';
-    const autoDeleteFlag = autoDelete ? 'true' : 'false';
-    await this.exec`rabbitmqadmin -V ${vhost} declare exchange name=${name} type=${type} durable=${durableFlag} auto_delete=${autoDeleteFlag}`;
+    await this.exec(['rabbitmqadmin', '-V', vhost, 'declare', 'exchange', `name=${name}`,
+      `type=${type}`, `durable=${durable}`, `auto_delete=${autoDelete}`]);
   }
 
   /**
@@ -511,15 +489,10 @@ export class RabbitMQFluentAPI extends DockerEphemeralFluentAPI implements Servi
     autoDelete = false,
     queueArgs?: Record<string, any>
   ): Promise<void> {
-    const durableFlag = durable ? 'true' : 'false';
-    const autoDeleteFlag = autoDelete ? 'true' : 'false';
-    let cmd = `rabbitmqadmin -V ${vhost} declare queue name=${name} durable=${durableFlag} auto_delete=${autoDeleteFlag}`;
-
-    if (queueArgs) {
-      cmd += ` arguments='${JSON.stringify(queueArgs)}'`;
-    }
-
-    await this.exec`${cmd}`;
+    const args = ['rabbitmqadmin', '-V', vhost, 'declare', 'queue', `name=${name}`,
+      `durable=${durable}`, `auto_delete=${autoDelete}`];
+    if (queueArgs !== undefined) args.push(`arguments=${JSON.stringify(queueArgs)}`);
+    await this.exec(args);
   }
 
   /**
@@ -539,13 +512,10 @@ export class RabbitMQFluentAPI extends DockerEphemeralFluentAPI implements Servi
     vhost = '/',
     properties?: Record<string, any>
   ): Promise<void> {
-    let cmd = `rabbitmqadmin -V ${vhost} publish exchange=${exchange} routing_key=${routingKey} payload='${message}'`;
-
-    if (properties) {
-      cmd += ` properties='${JSON.stringify(properties)}'`;
-    }
-
-    await this.exec`${cmd}`;
+    const args = ['rabbitmqadmin', '-V', vhost, 'publish', `exchange=${exchange}`,
+      `routing_key=${routingKey}`, `payload=${message}`];
+    if (properties !== undefined) args.push(`properties=${JSON.stringify(properties)}`);
+    await this.exec(args);
   }
 
   /**
@@ -555,11 +525,9 @@ export class RabbitMQFluentAPI extends DockerEphemeralFluentAPI implements Servi
     const ackMode = ack ? 'ack' : 'nack';
     const result = await this.exec`rabbitmqadmin -V ${vhost} get queue=${queue} count=${count} ackmode=${ackMode} -f json`;
 
-    try {
-      return JSON.parse(result.stdout);
-    } catch {
-      return [];
-    }
+    const messages: unknown = JSON.parse(result.stdout);
+    if (!Array.isArray(messages)) throw new Error('RabbitMQ returned an invalid message list');
+    return messages;
   }
 
   /**
@@ -568,11 +536,9 @@ export class RabbitMQFluentAPI extends DockerEphemeralFluentAPI implements Servi
   async getQueueInfo(queue: string, vhost = '/'): Promise<any> {
     const result = await this.exec`rabbitmqadmin -V ${vhost} show queue name=${queue} -f json`;
 
-    try {
-      return JSON.parse(result.stdout)[0];
-    } catch {
-      return null;
-    }
+    const queues: unknown = JSON.parse(result.stdout);
+    if (!Array.isArray(queues)) throw new Error('RabbitMQ returned an invalid queue list');
+    return queues[0] ?? null;
   }
 
   /**

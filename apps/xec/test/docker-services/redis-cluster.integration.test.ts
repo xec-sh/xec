@@ -1,175 +1,95 @@
-
+import { createServer } from 'node:net';
 import { ExecutionEngine } from '@xec-sh/core';
+import { randomInt, randomUUID } from 'node:crypto';
 
-import { DockerRedisClusterAPI } from '../../src/docker-services/index.js';
+import { RedisClusterFluentAPI } from '../../src/docker-services/index.js';
 
-// Provisioning a full Redis cluster needs a running Docker daemon; follow the
-// same opt-out convention as the docker command tests.
-const SKIP_DOCKER_TESTS = process.env['SKIP_DOCKER_TESTS'] === 'true' || process.env['CI'] === 'true';
-const describeDocker = SKIP_DOCKER_TESTS ? describe.skip : describe;
-
-const TEST_PREFIXES = ['test-redis-cluster', 'test-redis-custom', 'test-redis-conn'];
-
-// A failed run leaves its nodes behind, and `redis-cli --cluster create`
-// refuses nodes that already carry cluster state — every test must start
-// from a clean slate.
-async function cleanupTestClusters(engine: ExecutionEngine): Promise<void> {
-  for (const prefix of TEST_PREFIXES) {
-    const result = await engine.run`docker ps -aq --filter ${`name=${prefix}`}`.nothrow();
-    const ids = result.stdout.trim().split('\n').filter(Boolean);
-    for (const id of ids) {
-      await engine.run`docker rm -f ${id}`.nothrow();
-    }
-  }
-  await engine.run`docker network rm redis-cluster-net`.nothrow();
-}
+const skipDocker = process.env['SKIP_DOCKER_TESTS'] === 'true' || process.env['CI'] === 'true';
+const describeDocker = skipDocker ? describe.skip : describe;
 
 describeDocker('Docker Redis Cluster', () => {
+  const runId = `xec-redis-fixture-${randomUUID().slice(0, 8)}`;
   let engine: ExecutionEngine;
-  let cluster: DockerRedisClusterAPI;
+  let cluster: RedisClusterFluentAPI | undefined;
+  let sequence = 0;
+  let basePort: number;
 
   beforeAll(async () => {
     engine = new ExecutionEngine();
-
-    // Check if Docker is available
-    try {
-      await engine.run`docker version`;
-    } catch {
-      console.log('Docker not available, skipping Redis cluster tests');
-      return;
+    // Explicit opt-out above is allowed; an unavailable requested dependency is a failure.
+    await engine.run`docker version`;
+    // Reserve a complete free range before releasing it to Docker. A later
+    // competing bind is a startup failure, never permission to stop its owner.
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const port = randomInt(20000, 40000);
+      const reservations = [];
+      try {
+        for (let offset = 0; offset < 6; offset++) {
+          const server = createServer();
+          await new Promise<void>((resolve, reject) => {
+            server.once('error', reject);
+            server.listen(port + offset, '127.0.0.1', resolve);
+          });
+          reservations.push(server);
+        }
+        basePort = port;
+        return;
+      } catch (error) {
+        if (!(error instanceof Error) || !('code' in error) || error.code !== 'EADDRINUSE') throw error;
+      } finally {
+        await Promise.all(reservations.map(server => new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()))));
+      }
     }
+    throw new Error('No free six-port range is available for the isolated Redis test');
   });
 
-  beforeEach(async () => {
-    await cleanupTestClusters(engine);
-  });
-
-  afterAll(async () => {
-    // Clean up cluster if it exists
+  afterEach(async () => {
     if (cluster) {
       await cluster.remove();
+      cluster = undefined;
     }
-    await cleanupTestClusters(engine);
-    await engine.dispose();
   });
 
-  test('should create a minimal Redis cluster', async () => {
-    // Check Docker availability
-    try {
-      await engine.run`docker version`;
-    } catch {
-      console.log('Skipping test - Docker not available');
-      return;
-    }
+  afterAll(async () => { await engine?.dispose(); });
 
-    cluster = new DockerRedisClusterAPI(engine, {
-      masters: 3,
-      replicas: 1,
-      containerPrefix: 'test-redis-cluster'
+  const create = (port: number, replicas = 0, config?: Record<string, string>) => {
+    const name = `${runId}-${sequence++}`;
+    cluster = new RedisClusterFluentAPI(engine, {
+      name, network: `${name}-net`, port, config: { maxmemory: '32mb', ...config },
+      cluster: { enabled: true, masters: 3, replicas },
     });
+    return cluster;
+  };
 
-    // Start the cluster
-    await cluster.start();
+  test('creates a usable cluster and stops all owned nodes', async () => {
+    const active = create(basePort, 1);
+    await active.start();
+    expect(await active.isRunning()).toBe(true);
+    expect(active.getContainerNames()).toHaveLength(6);
+    expect(await active.getClusterInfo()).toContain('cluster_state:ok');
+    const roles = (await active.getClusterNodes()).map(node => node.role);
+    expect(roles).toContain('master');
+    expect(roles).toContain('replica');
+    expect((await active.exec('SET test-key "test-value"')).stdout).toContain('OK');
+    expect((await active.exec('GET test-key')).stdout).toContain('test-value');
+    const identities = (await active.status()).containers.map(container => container.id);
+    await active.restart();
+    expect((await active.status()).containers.map(container => container.id)).toEqual(identities);
+    expect((await active.exec('GET test-key')).stdout).toContain('test-value');
+    await active.stop();
+    expect(await active.isRunning()).toBe(false);
+  }, 120_000);
 
-    expect(await cluster.isRunning()).toBe(true);
+  test('honors custom Redis settings on its own nodes', async () => {
+    const active = create(basePort, 0, { maxmemory: '100mb', 'maxmemory-policy': 'allkeys-lru' });
+    await active.start();
+    expect((await active.exec('CONFIG GET maxmemory')).stdout).toContain('104857600');
+    expect((await active.exec('CONFIG GET maxmemory-policy')).stdout).toContain('allkeys-lru');
+  }, 120_000);
 
-    // Check that we have the expected number of containers
-    const containerNames = cluster.getContainerNames();
-    expect(containerNames).toHaveLength(6); // 3 masters + 3 replicas
-
-    // Test cluster info
-    const info = await cluster.info();
-    expect(info).toContain('cluster_state:ok');
-
-    // Test cluster nodes
-    const nodes = await cluster.nodes();
-    expect(nodes).toContain('master');
-    expect(nodes).toContain('replica');
-
-    // Test executing Redis commands
-    const setResult = await cluster.exec('SET test-key "test-value"');
-    expect(setResult.stdout).toContain('OK');
-
-    const getResult = await cluster.exec('GET test-key');
-    expect(getResult.stdout).toContain('test-value');
-
-    // Stop the cluster
-    await cluster.stop();
-    expect(await cluster.isRunning()).toBe(false);
-
-    // Clean up
-    await cluster.remove();
-  }, 120000); // Generous timeout for image pull and cluster setup
-
-  test('should handle custom Redis configuration', async () => {
-    // Check Docker availability
-    try {
-      await engine.run`docker version`;
-    } catch {
-      console.log('Skipping test - Docker not available');
-      return;
-    }
-
-    cluster = new DockerRedisClusterAPI(engine, {
-      masters: 3,
-      replicas: 0, // No replicas for faster testing
-      containerPrefix: 'test-redis-custom',
-      basePort: 8001,
-      redisConfig: {
-        'maxmemory': '100mb',
-        'maxmemory-policy': 'allkeys-lru'
-      }
-    });
-
-    await cluster.start();
-
-    // Verify custom configuration
-    const configResult = await engine.run`docker exec test-redis-custom-1 redis-cli CONFIG GET maxmemory`;
-    expect(configResult.stdout).toContain('104857600');
-
-    const policyResult = await engine.run`docker exec test-redis-custom-1 redis-cli CONFIG GET maxmemory-policy`;
-    expect(policyResult.stdout).toContain('allkeys-lru');
-
-    await cluster.remove();
-  }, 120000);
-
-  test('should get connection string', async () => {
-    // Check Docker availability
-    try {
-      await engine.run`docker version`;
-    } catch {
-      console.log('Skipping test - Docker not available');
-      return;
-    }
-
-    cluster = new DockerRedisClusterAPI(engine, {
-      masters: 3,
-      replicas: 0,
-      basePort: 9001,
-      containerPrefix: 'test-redis-conn'
-    });
-
-    await cluster.start();
-
-    const connectionString = cluster.getConnectionString();
-    expect(connectionString).toBe('localhost:9001,localhost:9002,localhost:9003');
-
-    await cluster.remove();
-  }, 120000);
-
-  test('should validate minimum nodes requirement', () => {
-    expect(() => {
-      new DockerRedisClusterAPI(engine, {
-        masters: 2, // Less than minimum
-        replicas: 0
-      });
-    }).toThrow('Redis cluster requires at least 3 master nodes');
-
-    expect(() => {
-      new DockerRedisClusterAPI(engine, {
-        masters: 1,
-        replicas: 1 // Total nodes = 2, less than minimum
-      });
-    }).toThrow('Redis cluster requires at least 3 master nodes');
-  });
+  test('reports its configured connection endpoints', async () => {
+    const active = create(basePort);
+    await active.start();
+    expect(active.getConnectionString()).toBe([basePort, basePort + 1, basePort + 2].map(port => `localhost:${port}`).join(','));
+  }, 120_000);
 });

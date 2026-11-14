@@ -5,7 +5,7 @@
  * CLI convenience, not part of the execution engine.
  */
 
-import type { ServiceManager, ExecutionEngine } from '@xec-sh/core';
+import type { ServiceManager, ExecutionEngine, SSHAdapterOptions } from '@xec-sh/core';
 
 /**
  * Service preset configuration base
@@ -155,6 +155,8 @@ export interface RabbitMQServiceConfig extends ServicePresetConfig {
  * SSH service configuration
  */
 export interface SSHServiceConfig extends ServicePresetConfig {
+  /** Core SSH authentication and host-key policy; default verification is retained. */
+  connection?: Omit<SSHAdapterOptions, 'type' | 'host' | 'port' | 'username' | 'password'>;
   distro?: 'ubuntu' | 'alpine' | 'debian' | 'fedora' | 'centos' | 'rocky' | 'alma' | string;
   user?: string;
   password?: string;
@@ -180,24 +182,8 @@ export enum ServiceName {
   ElasticSearch = 'elasticsearch',
   Kafka = 'kafka',
   RabbitMQ = 'rabbitmq',
-  SSH = 'ssh',
-  Nginx = 'nginx',
-  Memcached = 'memcached',
-  InfluxDB = 'influxdb',
-  Consul = 'consul',
-  Vault = 'vault',
-  Grafana = 'grafana',
-  Prometheus = 'prometheus',
-  Jenkins = 'jenkins',
-  GitLab = 'gitlab',
-  MinIO = 'minio',
-  Cassandra = 'cassandra',
-  CockroachDB = 'cockroachdb',
-  ClickHouse = 'clickhouse',
-  Neo4j = 'neo4j',
-  ArangoDB = 'arangodb',
-  DynamoDB = 'dynamodb',
-  ScyllaDB = 'scylladb'
+  SSH = 'ssh'
+
 }
 
 /**

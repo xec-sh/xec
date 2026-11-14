@@ -88,7 +88,7 @@ export class PostgreSQLFluentAPI extends DockerEphemeralFluentAPI implements Ser
 
     // Health check
     this.healthcheck(
-      `pg_isready -U ${this.pgConfig.user} -d ${this.pgConfig.database}`,
+      ['pg_isready', '-U', this.pgConfig.user!, '-d', this.pgConfig.database!],
       {
         interval: '10s',
         timeout: '5s',
@@ -150,9 +150,7 @@ export class PostgreSQLFluentAPI extends DockerEphemeralFluentAPI implements Ser
   }
 
   async backup(backupPath: string): Promise<void> {
-    const cmd = `pg_dump -U ${this.pgConfig.user} -d ${this.pgConfig.database} -f /tmp/backup.sql`;
-    await this.exec`${cmd}`;
-    await this.exec`cp /tmp/backup.sql ${backupPath}`;
+    await this.exec`pg_dump -U ${this.pgConfig.user} -d ${this.pgConfig.database} -f ${backupPath}`;
   }
 
   async restore(backupPath: string): Promise<void> {
@@ -172,7 +170,7 @@ export class PostgreSQLFluentAPI extends DockerEphemeralFluentAPI implements Ser
 
   getConnectionString(): string {
     const { user, password, database, port } = this.pgConfig;
-    return `postgresql://${user}:${password}@localhost:${port}/${database}`;
+    return `postgresql://${encodeURIComponent(user!)}:${encodeURIComponent(password!)}@localhost:${port}/${encodeURIComponent(database!)}`;
   }
 
   getConnectionInfo(): Record<string, any> {
@@ -255,9 +253,8 @@ export class MySQLFluentAPI extends DockerEphemeralFluentAPI implements ServiceM
     // Custom config
     if (this.mysqlConfig.config && Object.keys(this.mysqlConfig.config).length > 0) {
       const configArgs = Object.entries(this.mysqlConfig.config)
-        .map(([key, value]) => `--${key}=${value}`)
-        .join(' ');
-      this.command(`mysqld ${configArgs}`);
+        .map(([key, value]) => `--${key}=${value}`);
+      this.command(['mysqld', ...configArgs]);
     }
 
     // Labels
@@ -268,7 +265,7 @@ export class MySQLFluentAPI extends DockerEphemeralFluentAPI implements ServiceM
 
     // Health check
     this.healthcheck(
-      `mysqladmin ping -h localhost -u root -p${this.mysqlConfig.rootPassword}`,
+      ['mysqladmin', 'ping', '-h', 'localhost', '-u', 'root', `-p${this.mysqlConfig.rootPassword}`],
       {
         interval: '10s',
         timeout: '5s',
@@ -364,7 +361,7 @@ export class MySQLFluentAPI extends DockerEphemeralFluentAPI implements ServiceM
 
   getConnectionString(): string {
     const { user, password, database, port } = this.mysqlConfig;
-    return `mysql://${user}:${password}@localhost:${port}/${database}`;
+    return `mysql://${encodeURIComponent(user!)}:${encodeURIComponent(password!)}@localhost:${port}/${encodeURIComponent(database!)}`;
   }
 
   getConnectionInfo(): Record<string, any> {
@@ -593,13 +590,13 @@ export class MongoDBFluentAPI extends DockerEphemeralFluentAPI implements Servic
     let connStr = 'mongodb://';
 
     if (rootUser && rootPassword) {
-      connStr += `${rootUser}:${rootPassword}@`;
+      connStr += `${encodeURIComponent(rootUser)}:${encodeURIComponent(rootPassword)}@`;
     }
 
-    connStr += `localhost:${port}/${database || 'admin'}`;
+    connStr += `localhost:${port}/${encodeURIComponent(database || 'admin')}`;
 
     if (replicaSet) {
-      connStr += `?replicaSet=${replicaSet}`;
+      connStr += `?replicaSet=${encodeURIComponent(replicaSet)}`;
     }
 
     return connStr;

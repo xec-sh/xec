@@ -332,6 +332,7 @@ export abstract class BaseCommand {
    * Initialize configuration for the command
    */
   protected async initializeConfig(options: ConfigAwareOptions): Promise<void> {
+    options = { ...this.options, ...Object.fromEntries(Object.entries(options).filter(([, value]) => value !== undefined)) };
     // -c was parsed into options.config but read as options.configPath, so
     // the flag was dead in every config-aware command. An explicit file
     // replaces discovery entirely (ConfigurationManager's contract).
@@ -751,9 +752,12 @@ export abstract class BaseCommand {
       this.options.output = output as OutputFormat;
       this.formatter.setFormat(output as OutputFormat);
     }
-    this.options.dryRun = Boolean(merged['dryRun']) || this.options.dryRun;
-    this.options.verbose = Boolean(merged['verbose']) || this.options.verbose;
-    this.options.quiet = Boolean(merged['quiet']) || this.options.quiet;
+    this.options.config = typeof merged['config'] === 'string' ? merged['config'] : undefined;
+    this.options.dryRun = Boolean(merged['dryRun']);
+    this.options.verbose = Boolean(merged['verbose']);
+    this.options.quiet = Boolean(merged['quiet']);
+    this.formatter.setVerbose(this.options.verbose);
+    this.formatter.setQuiet(this.options.quiet);
   }
 
   protected isQuiet(): boolean {
@@ -768,6 +772,7 @@ export abstract class SubcommandBase extends BaseCommand {
     const command = super.create();
     this.setupSubcommands(command);
     this.inheritCommonOptions(command);
+    command.hook('preAction', (_group, invoked) => this.adoptCommonOptions(invoked));
     return command;
   }
 

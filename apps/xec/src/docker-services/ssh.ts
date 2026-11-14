@@ -9,10 +9,10 @@ import type { SSHServiceConfig } from './types.js';
 import type {
   ProcessPromise,
   ExecutionEngine,
-  ContainerRuntimeInfo
+  SSHAdapterOptions
 } from '@xec-sh/core';
 
-import { DockerEphemeralFluentAPI } from '@xec-sh/core';
+import { quoteForShell, DockerEphemeralFluentAPI } from '@xec-sh/core';
 
 /**
  * SSH Container Fluent API
@@ -73,6 +73,11 @@ export class SSHFluentAPI extends DockerEphemeralFluentAPI {
 
     // Configure SSH-specific settings
     this.sshConfig = finalConfig;
+    this.pubKeys = [...(finalConfig.pubKeys ?? [])];
+    this.packages = [...(finalConfig.packages ?? [])];
+    this.setupCommands = [...(finalConfig.setupCommands ?? [])];
+    if (finalConfig.network) this.network(finalConfig.network);
+    if (finalConfig.env) this.env(finalConfig.env);
 
     // Set up container configuration
     this.ports([`${finalConfig.port}:22`]);
@@ -186,11 +191,14 @@ export class SSHFluentAPI extends DockerEphemeralFluentAPI {
   /**
    * Get SSH configuration for programmatic access
    */
-  getConnectionConfig() {
+  getConnectionConfig(): Omit<SSHAdapterOptions, 'type'> {
+    const username = this.sshConfig.user;
+    if (!username) throw new Error('SSH service username is required');
     return {
       host: 'localhost',
-      port: this.sshConfig.port,
-      username: this.sshConfig.user,
+      ...this.sshConfig.connection,
+      port: Number(this.sshConfig.port),
+      username,
       password: this.sshConfig.password
     };
   }
@@ -202,6 +210,11 @@ export class SSHFluentAPI extends DockerEphemeralFluentAPI {
     const distro = this.sshConfig.distro!;
     const user = this.sshConfig.user!;
     const password = this.sshConfig.password!;
+    const quote = (value: string) => quoteForShell(value, 'posix');
+    if (!/^[a-z_][a-z0-9_-]*[$]?$/.test(user)) throw new Error('Invalid SSH service username');
+    if (/[\r\n]/.test(password) || /[\r\n]/.test(this.sshConfig.rootPassword ?? '')) {
+      throw new Error('SSH service passwords cannot contain line breaks');
+    }
 
     // Package manager commands by distro
     const pkgManagers: Record<string, { update: string; install: string }> = {
@@ -256,7 +269,7 @@ export class SSHFluentAPI extends DockerEphemeralFluentAPI {
 
       // Install SSH and sudo
       const packagesToInstall = [sshPackage, sudoPackage, ...this.packages];
-      commands.push(`${pkgCmd.install} ${packagesToInstall.join(' ')}`);
+      commands.push(`${pkgCmd.install} ${packagesToInstall.map(quote).join(' ')}`);
     }
 
     // Create SSH run directory
@@ -277,11 +290,11 @@ export class SSHFluentAPI extends DockerEphemeralFluentAPI {
     }
 
     // Set user password
-    commands.push(`echo "${user}:${password}" | chpasswd`);
+    commands.push(`printf '%s\n' ${quote(`${user}:${password}`)} | chpasswd`);
 
     // Set root password if specified
     if (this.sshConfig.rootPassword) {
-      commands.push(`echo "root:${this.sshConfig.rootPassword}" | chpasswd`);
+      commands.push(`printf '%s\n' ${quote(`root:${this.sshConfig.rootPassword}`)} | chpasswd`);
     }
 
     // Configure sudo if requested
@@ -327,8 +340,8 @@ export class SSHFluentAPI extends DockerEphemeralFluentAPI {
     // Copy public keys if provided
     for (const pubKeyPath of this.pubKeys) {
       const containerName = this.config.name;
-      await this.engine.run`docker cp ${pubKeyPath} ${containerName}:/tmp/pubkey`;
-      await this.engine.run`docker exec ${containerName} sh -c "cat /tmp/pubkey >> /home/${this.sshConfig.user}/.ssh/authorized_keys && rm /tmp/pubkey"`;
+      await this.dockerCommand(['cp', pubKeyPath, `${containerName}:/tmp/pubkey`]);
+      await this.exec`cat /tmp/pubkey >> ${`/home/${this.sshConfig.user}/.ssh/authorized_keys`} && rm /tmp/pubkey`;
     }
 
     // Wait for SSH to be ready
@@ -339,12 +352,10 @@ export class SSHFluentAPI extends DockerEphemeralFluentAPI {
    * Wait for SSH service to be ready
    */
   private async waitForSSH(maxRetries = 30, delayMs = 1000): Promise<void> {
-    const containerName = this.config.name;
-
     for (let i = 0; i < maxRetries; i++) {
       try {
         // Check if SSH port is listening
-        const result = await this.engine.run`docker exec ${containerName} sh -c "netstat -tln | grep :22 || ss -tln | grep :22"`;
+        const result = await this.exec`netstat -tln | grep :22 || ss -tln | grep :22`;
         if (result.stdout.includes(':22')) {
           // SSH is ready
           console.log(`SSH container ready: ${this.getConnectionString()}`);
@@ -365,66 +376,21 @@ export class SSHFluentAPI extends DockerEphemeralFluentAPI {
    * Execute command via SSH
    */
   ssh(command: string): ProcessPromise {
-    const { host, port, username, password } = this.getConnectionConfig();
-
-    // Use sshpass for password authentication (requires sshpass to be installed)
-    return this.engine.run`sshpass -p ${password} ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p ${port} ${username}@${host} ${command}`;
+    return this.engine.ssh(this.getConnectionConfig())`sh -c ${command}`;
   }
 
   /**
    * Copy file to container via SSH
    */
-  scpTo(localPath: string, remotePath: string): ProcessPromise {
-    const { host, port, username, password } = this.getConnectionConfig();
-
-    return this.engine.run`sshpass -p ${password} scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -P ${port} ${localPath} ${username}@${host}:${remotePath}`;
+  scpTo(localPath: string, remotePath: string): Promise<void> {
+    return this.engine.ssh(this.getConnectionConfig()).uploadFile(localPath, remotePath);
   }
 
   /**
    * Copy file from container via SSH
    */
-  scpFrom(remotePath: string, localPath: string): ProcessPromise {
-    const { host, port, username, password } = this.getConnectionConfig();
-
-    return this.engine.run`sshpass -p ${password} scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -P ${port} ${username}@${host}:${remotePath} ${localPath}`;
+  scpFrom(remotePath: string, localPath: string): Promise<void> {
+    return this.engine.ssh(this.getConnectionConfig()).downloadFile(remotePath, localPath);
   }
 
-  /**
-   * Stop and remove the SSH container (override base method)
-   */
-  override async stop(): Promise<void> {
-    const containerName = this.config.name;
-    await this.engine.run`docker stop ${containerName}`;
-    if (!this.sshConfig.persistent) {
-      await this.engine.run`docker rm ${containerName}`;
-    }
-  }
-
-  /**
-   * Get container info (override base method)
-   */
-  override async info(): Promise<ContainerRuntimeInfo | null> {
-    try {
-      const containerName = this.config.name;
-      const result = await this.engine.run`docker inspect ${containerName}`;
-      const data = JSON.parse(result.stdout)[0];
-
-      // Transform Docker inspect data to ContainerRuntimeInfo
-      return {
-        id: data.Id,
-        name: data.Name?.replace(/^\//, '') || '',
-        image: data.Config?.Image || '',
-        status: data.State?.Status || '',
-        ports: this.sshConfig.port ? [`${this.sshConfig.port}:22`] : [],
-        networks: Object.keys(data.NetworkSettings?.Networks || {}),
-        created: new Date(data.Created),
-        started: data.State?.StartedAt ? new Date(data.State.StartedAt) : undefined,
-        ip: data.NetworkSettings?.IPAddress,
-        volumes: data.Mounts?.map((m: any) => `${m.Source}:${m.Destination}`) || [],
-        labels: data.Config?.Labels || {}
-      };
-    } catch {
-      return null;
-    }
-  }
 }

@@ -10,8 +10,7 @@ import {
   RabbitMQFluentAPI,
   createDockerService,
   PostgreSQLFluentAPI,
-  RedisClusterFluentAPI,
-  DockerRedisClusterAPI
+  RedisClusterFluentAPI
 } from '../../src/docker-services/index.js';
 
 describe('Docker Service Presets', () => {
@@ -140,7 +139,7 @@ describe('Docker Service Presets', () => {
       expect(config.image).toBe('redis:6.2-alpine');
       expect(config.ports).toContain('6380:6379');
       expect(config.name).toBe('custom-redis');
-      expect(config.env).toHaveProperty('REDIS_PASSWORD', 'mypassword');
+      expect(config.env).toHaveProperty('REDISCLI_AUTH', 'mypassword');
     });
   });
 
@@ -341,19 +340,18 @@ describe('Docker Service Presets', () => {
     });
   });
 
-  describe('DockerRedisClusterAPI (Legacy)', () => {
-    let api: DockerRedisClusterAPI;
+  describe('Redis cluster public lifecycle', () => {
+    let api: RedisClusterFluentAPI;
 
     beforeEach(() => {
-      api = new DockerRedisClusterAPI(engine, {
-        masters: 3,
-        replicas: 1,
-        basePort: 8000,
-        containerPrefix: 'test-cluster'
+      api = new RedisClusterFluentAPI(engine, {
+        cluster: { enabled: true, masters: 3, replicas: 1 },
+        port: 8000,
+        name: 'test-cluster'
       });
     });
 
-    test('should create legacy API wrapper', () => {
+    test('exposes the canonical cluster lifecycle', () => {
       expect(api).toBeDefined();
       expect(api.start).toBeDefined();
       expect(api.stop).toBeDefined();

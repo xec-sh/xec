@@ -1,7 +1,7 @@
 
 import { ExecutionEngine } from '@xec-sh/core';
 
-import { DockerRedisClusterAPI } from '../../src/docker-services/index.js';
+import { RedisClusterFluentAPI } from '../../src/docker-services/index.js';
 
 describe('Docker Redis Cluster API', () => {
   let engine: ExecutionEngine;
@@ -16,26 +16,23 @@ describe('Docker Redis Cluster API', () => {
 
   test('should validate minimum master nodes requirement', () => {
     expect(() => {
-      new DockerRedisClusterAPI(engine, {
-        masters: 2, // Less than minimum
-        replicas: 0
+      new RedisClusterFluentAPI(engine, {
+        cluster: { enabled: true, masters: 2, replicas: 0 }
       });
     }).toThrow('Redis cluster requires at least 3 master nodes');
   });
 
   test('should validate minimum total nodes requirement', () => {
     expect(() => {
-      new DockerRedisClusterAPI(engine, {
-        masters: 1,
-        replicas: 1 // Total = 2, less than minimum
+      new RedisClusterFluentAPI(engine, {
+        cluster: { enabled: true, masters: 1, replicas: 1 }
       });
     }).toThrow('Redis cluster requires at least 3 master nodes');
   });
 
   test('should accept valid configuration', async () => {
-    const cluster = new DockerRedisClusterAPI(engine, {
-      masters: 3,
-      replicas: 1
+    const cluster = new RedisClusterFluentAPI(engine, {
+      cluster: { enabled: true, masters: 3, replicas: 1 }
     });
 
     expect(cluster).toBeDefined();
@@ -44,7 +41,7 @@ describe('Docker Redis Cluster API', () => {
   });
 
   test('should use default values', async () => {
-    const cluster = new DockerRedisClusterAPI(engine);
+    const cluster = new RedisClusterFluentAPI(engine);
 
     // Check that defaults are applied
     expect(cluster).toBeDefined();
@@ -55,11 +52,10 @@ describe('Docker Redis Cluster API', () => {
   });
 
   test('should initialize with custom prefix', () => {
-    const cluster = new DockerRedisClusterAPI(engine, {
-      masters: 3,
-      replicas: 0,
-      basePort: 9000,
-      containerPrefix: 'test-redis'
+    const cluster = new RedisClusterFluentAPI(engine, {
+      cluster: { enabled: true, masters: 3, replicas: 0 },
+      port: 9000,
+      name: 'test-redis'
     });
 
     // Initially no containers until started
@@ -67,13 +63,11 @@ describe('Docker Redis Cluster API', () => {
   });
 
   test('should handle custom configuration', () => {
-    const cluster = new DockerRedisClusterAPI(engine, {
-      masters: 5,
-      replicas: 2,
-      basePort: 8000,
-      containerPrefix: 'custom-redis',
+    const cluster = new RedisClusterFluentAPI(engine, {
+      cluster: { enabled: true, masters: 5, replicas: 2 },
+      port: 8000,
+      name: 'custom-redis',
       network: 'custom-net',
-      nodeTimeout: 10000,
       persistent: true,
       dataPath: '/custom/path'
     });
@@ -86,20 +80,18 @@ describe('Docker Redis Cluster API', () => {
   });
 
   test('should throw when cluster is not running', async () => {
-    const cluster = new DockerRedisClusterAPI(engine, {
-      masters: 3,
-      replicas: 0
+    const cluster = new RedisClusterFluentAPI(engine, {
+      cluster: { enabled: true, masters: 3, replicas: 0 }
     });
 
     await expect(cluster.exec('GET key')).rejects.toThrow('Redis cluster is not running');
-    await expect(cluster.info()).rejects.toThrow('Redis cluster is not running');
-    await expect(cluster.nodes()).rejects.toThrow('Redis cluster is not running');
+    await expect(cluster.getClusterInfo()).rejects.toThrow('Redis cluster is not running');
+    await expect(cluster.getClusterNodes()).rejects.toThrow('Redis cluster is not running');
   });
 
   test('should handle stop when not running', async () => {
-    const cluster = new DockerRedisClusterAPI(engine, {
-      masters: 3,
-      replicas: 0
+    const cluster = new RedisClusterFluentAPI(engine, {
+      cluster: { enabled: true, masters: 3, replicas: 0 }
     });
 
     // Should not throw

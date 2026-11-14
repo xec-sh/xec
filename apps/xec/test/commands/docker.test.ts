@@ -2,6 +2,7 @@ import os from 'os';
 import path from 'path';
 import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
+import { randomUUID } from 'node:crypto';
 import { $, ExecutionEngine } from '@xec-sh/core';
 
 import { RedisFluentAPI } from '../../src/docker-services/index.js';
@@ -31,17 +32,23 @@ async function runXecCommand(args: string[]): Promise<{ stdout: string; stderr: 
 // Check if Docker is available - synchronous check using env var or detection
 const SKIP_DOCKER_TESTS = process.env['SKIP_DOCKER_TESTS'] === 'true' || process.env['CI'] === 'true';
 
-// Clean up test containers
-async function cleanupTestContainers(prefix: string) {
-  try {
-    const result = await $`docker ps -aq --filter "name=${prefix}"`.nothrow();
-    const containers = result.stdout.trim().split('\n').filter(Boolean);
-
-    for (const container of containers) {
-      await $`docker rm -f ${container}`.nothrow();
+// A random namespace belongs only to this suite invocation. Inventory failure
+// is a cleanup failure; it must never trigger a wider search or be swallowed.
+async function cleanupTestResources(prefix: string) {
+  const result = await $`docker ps -a --format ${'{{json .}}'}`;
+  for (const line of result.stdout.trim().split('\n').filter(Boolean)) {
+    const entry = JSON.parse(line) as { ID: string; Names: string };
+    if (entry.Names.startsWith(prefix)) await $`docker rm -f ${entry.ID}`;
+  }
+  for (const type of ['network', 'volume']) {
+    const result = await $`docker ${type} ls --format ${'{{.Name}}'}`;
+    for (const name of result.stdout.trim().split('\n').filter(name => name.startsWith(prefix))) {
+      await $`docker ${type} rm ${name}`;
     }
-  } catch {
-    // Ignore errors
+  }
+  const images = await $`docker images --format ${'{{.Repository}}:{{.Tag}}'}`;
+  for (const tag of new Set(images.stdout.trim().split('\n').filter(tag => tag.startsWith(prefix)))) {
+    await $`docker rmi ${tag}`;
   }
 }
 
@@ -49,14 +56,10 @@ async function cleanupTestContainers(prefix: string) {
 const describeDocker = SKIP_DOCKER_TESTS ? describe.skip : describe;
 
 describeDocker('Docker Command', () => {
-  const TEST_PREFIX = 'xec-test-docker-';
-
-  beforeAll(async () => {
-    await cleanupTestContainers(TEST_PREFIX);
-  });
+  const TEST_PREFIX = `xec-test-docker-${randomUUID()}-`;
 
   afterAll(async () => {
-    await cleanupTestContainers(TEST_PREFIX);
+    await cleanupTestResources(TEST_PREFIX);
   });
 
   describe('docker container run', () => {
@@ -562,7 +565,7 @@ CMD ["cat", "/arg.txt"]
     it('should handle compose up and down', async () => {
       const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'xec-compose-'));
       const composePath = path.join(tmpDir, 'docker-compose.yml');
-      const projectName = `xectestcompose${Date.now()}`;
+      const projectName = `xectestcompose${randomUUID().replaceAll('-', '')}`;
 
       await fs.writeFile(composePath, `
 services:
@@ -571,45 +574,21 @@ services:
     command: sleep 60
 `);
 
-      const upResult = await runXecCommand([
-        'docker', 'compose', 'up',
-        '-f', composePath,
-        '-p', projectName
-      ]);
-
-      expect(upResult.exitCode).toBe(0);
-      expect(upResult.output).toContain('Services started');
-
-      const downResult = await runXecCommand([
-        'docker', 'compose', 'down',
-        '-f', composePath,
-        '-p', projectName
-      ]);
-      expect(downResult.exitCode).toBe(0);
-
-      // Clean up
-      await fs.rm(tmpDir, { recursive: true });
+      try {
+        const upResult = await runXecCommand([
+          'docker', 'compose', 'up', '-f', composePath, '-p', projectName
+        ]);
+        expect(upResult.exitCode).toBe(0);
+        expect(upResult.output).toContain('Services started');
+      } finally {
+        // Compose cleanup addresses only this invocation's private project.
+        const downResult = await runXecCommand([
+          'docker', 'compose', 'down', '-f', composePath, '-p', projectName
+        ]);
+        expect(downResult.exitCode).toBe(0);
+        await fs.rm(tmpDir, { recursive: true });
+      }
     }, 120000);
-  });
-
-  describe('docker prune', () => {
-    it('should prune stopped containers', async () => {
-      // Create and stop a container
-      const containerName = `${TEST_PREFIX}prune-${Date.now()}`;
-      await $`docker create --name ${containerName} alpine:latest`;
-
-      // Prune
-      const result = await runXecCommand([
-        'docker', 'prune'
-      ]);
-
-      expect(result.exitCode).toBe(0);
-      expect(result.output).toContain('Cleanup complete');
-
-      // Verify container is gone
-      const psResult = await $`docker ps -a --filter ${`name=${containerName}`} -q`;
-      expect(psResult.stdout.trim()).toBe('');
-    }, 60000);
   });
 
   describe('docker help', () => {
@@ -637,14 +616,10 @@ services:
 
 // Test Docker Fluent API integration
 describeDocker('Docker Fluent API Integration', () => {
-  const TEST_PREFIX = 'xec-fluent-test-';
-
-  beforeAll(async () => {
-    await cleanupTestContainers(TEST_PREFIX);
-  });
+  const TEST_PREFIX = `xec-fluent-test-${randomUUID()}-`;
 
   afterAll(async () => {
-    await cleanupTestContainers(TEST_PREFIX);
+    await cleanupTestResources(TEST_PREFIX);
   });
 
   it('should use fluent API for ephemeral containers', async () => {
@@ -777,7 +752,7 @@ describeDocker('Docker Command Error Handling', () => {
 
   it('should handle non-existent containers', async () => {
     const result = await runXecCommand([
-      'docker', 'container', 'stop', 'xec-non-existent-container-xyz'
+      'docker', 'container', 'stop', `xec-non-existent-${randomUUID()}`
     ]);
 
     expect(result.exitCode).not.toBe(0);
@@ -795,7 +770,7 @@ RUN invalid-command
 
     const result = await runXecCommand([
       'docker', 'image', 'build',
-      '-t', 'xec-test-build-fail',
+      '-t', `xec-test-build-fail-${randomUUID()}`,
       tmpDir
     ]);
 

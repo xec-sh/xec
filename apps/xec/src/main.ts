@@ -330,7 +330,8 @@ export async function run(argv: string[] = process.argv): Promise<void> {
       // Check if first argument is a file
       const potentialFile = commandWord;
       const looksLikeScript = potentialFile.endsWith('.js') || potentialFile.endsWith('.ts') || potentialFile.endsWith('.mjs');
-      const isExistingFile = !looksLikeScript && fs.existsSync(potentialFile) && fs.statSync(potentialFile).isFile();
+      const isExistingFile = !looksLikeScript && !commandNames.includes(potentialFile) &&
+        fs.existsSync(potentialFile) && fs.statSync(potentialFile).isFile();
 
       if (looksLikeScript || isExistingFile) {
         await runViaRunCommand([potentialFile, args.slice(commandWordIndex + 1)], {}, rootOptions);
