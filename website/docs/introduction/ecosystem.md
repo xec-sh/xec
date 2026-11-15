@@ -7,7 +7,10 @@ description: Overview of the Xec ecosystem — packages, architecture, and integ
 
 # The Xec Ecosystem {#the-xec-ecosystem}
 
-Xec is an ecosystem of 6 packages providing a complete DevOps automation platform — from shell execution to deployment pipelines.
+Xec separates command execution, SSH connections, operations, script loading,
+terminal UI and test infrastructure into packages with explicit owners. The
+CLI composes those capabilities for project automation. The SSH package is
+introduced in the developing 0.13.0 release.
 
 ## Architecture {#architecture}
 
@@ -22,6 +25,7 @@ flowchart TD
         TESTING["@xec-sh/testing<br/>Test utilities"]
     end
     CLI["@xec-sh/cli<br/>Thin CLI wrapper"] --> OPS["@xec-sh/ops<br/>DevOps operations library"]
+    CORE --> SSH["@xec-sh/ssh<br/>Connections and channels"]
     OPS --> CORE
     OPS --> LOADER
     OPS --> KIT
@@ -61,6 +65,14 @@ await sleep('5s');
 echo`Build complete!`;
 const files = await glob('src/**/*.ts');
 ```
+
+### @xec-sh/ssh {#xec-shssh}
+
+The owned SSH client: host trust, cryptography, connection leases, channels,
+SFTP and forwarding. Core delegates these mechanics to it. Applications such
+as terminals and file managers can use it independently of command execution.
+See [the SSH library guide](../ssh/overview.md) and
+[comparison with ssh2](../ssh/comparison.md) for the developing 0.13.0 API.
 
 ### @xec-sh/ops {#xec-shops}
 The DevOps operations library. Use it standalone in any project — no CLI required.
@@ -200,6 +212,7 @@ xec in my-container "npm test"
 
 | Use Case | Package |
 |----------|---------|
+| SSH channels, file transfer and connection ownership | `@xec-sh/ssh` |
 | Shell scripting in TypeScript | `@xec-sh/core` |
 | DevOps automation library | `@xec-sh/ops` |
 | Building CLI tools | `@xec-sh/kit` |

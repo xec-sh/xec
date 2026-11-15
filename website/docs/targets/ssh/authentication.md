@@ -1,6 +1,6 @@
 ---
 title: SSH Authentication
-description: SSH password and private-key authentication, key validation, and host verification
+description: Configure keys, agents, passwords and strict host trust through the shared Xec SSH connection contract.
 keywords: [ssh, authentication, keys, passwords, security]
 sidebar_position: 2
 ---
@@ -9,106 +9,136 @@ sidebar_position: 2
 
 ## Overview {#overview}
 
-Xec exposes SSH authentication through its own `SSHConnectionConfig` contract. It supports private-key content or paths, passwords, agent authentication, agent forwarding, custom authentication order and keyboard-interactive callbacks. Applications import the client and types from `@xec-sh/core`.
-
-```typescript
-import { $ } from '@xec-sh/core';
-import { readFile } from 'node:fs/promises';
-
-// Password
-await $.ssh({ host: 'example.com', username: 'deploy', password: process.env['SSH_PASSWORD'] })`ls`;
-
-// Private key — content as a string, not a path
-await $.ssh({
-  host: 'example.com',
-  username: 'deploy',
-  privateKey: await readFile('/home/user/.ssh/id_ed25519', 'utf8'),
-})`ls`;
-```
+Xec's developing 0.13.0 API uses one `SSHConnectionConfig` from `@xec-sh/ssh`.
+Core accepts that connection policy in `$.ssh(...)`. Authentication can use
+private-key content or a path, a password, an agent, or a keyboard-interactive
+handler. Host authentication is a separate requirement and defaults to strict
+known-host verification.
 
 ## Private Key Authentication {#private-key-authentication}
 
-`privateKey` accepts key contents as a string or Buffer. `privateKeyPath` reads a file. Use `path.join(os.homedir(), ...)` for home-relative paths passed to Node filesystem APIs.
+`privateKey` contains the key, while `privateKeyPath` names a file. Supply one
+of those fields, not both. Filesystem APIs do not expand `~`; build an absolute
+home-relative path:
 
 ```typescript
-import { readFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { $ } from '@xec-sh/core';
 
-await $.ssh({
-  host: 'example.com',
-  username: 'deploy',
-  privateKey: await readFile(path.join(os.homedir(), '.ssh/id_ed25519'), 'utf8'),
-  passphrase: process.env['SSH_KEY_PASSPHRASE'], // only if the key is encrypted
-})`command`;
+try {
+  await $.ssh({
+    host: 'build.example.net',
+    username: 'builder',
+    privateKeyPath: join(homedir(), '.ssh', 'id_ed25519'),
+    passphrase: process.env.SSH_KEY_PASSPHRASE,
+    hostKeyChecking: 'strict',
+  })`uname -s`;
+} finally {
+  await $.dispose();
+}
 ```
 
-Key format is whatever `ssh2` (the underlying client library) accepts — OpenSSH and PEM formats. There is no PuTTY (`.ppk`) conversion anywhere in the codebase.
+OpenSSH and native PEM key formats are decoded with the same policy used by
+authentication. The supported algorithms and size/work limits are documented in
+[trust and cryptography](../../ssh/security.md#keys-and-signing). PuTTY PPK and
+legacy DSA keys are rejected.
 
 ### Validating a Key Before Use {#validating-a-key-before-use}
 
-`SSHKeyValidator` (`packages/core/src/adapters/ssh/ssh-key-validator.ts`) is a set of static methods, not an instantiable client:
+Use the SSH package when a settings form or provisioning tool needs a check
+before connecting. Validation does not authenticate a host or authorize use of
+a key.
 
 ```typescript
-import { readFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { SSHKeyValidator } from '@xec-sh/ssh';
 
-import { SSHKeyValidator } from '@xec-sh/core';
+const keyPath = join(homedir(), '.ssh', 'id_ed25519');
+const result = await SSHKeyValidator.validateKeyFile(keyPath);
+if (!result.isValid) throw new Error(result.issues.join('; '));
 
-const key = await readFile(path.join(os.homedir(), '.ssh/id_ed25519'), 'utf8');
-const result = await SSHKeyValidator.validatePrivateKey(key);
-// { isValid: boolean, keyType?: string, issues: string[] }
-
-if (!result.isValid) {
-  console.error('Invalid key:', result.issues.join(', '));
-}
-
-const perms = await SSHKeyValidator.checkKeyFilePermissions('/home/user/.ssh/id_ed25519');
-// { isSecure: boolean, issues: string[] } — flags anything but mode 600/400
+const access = await SSHKeyValidator.checkKeyFilePermissions(keyPath);
+if (!access.isSecure) throw new Error(access.issues.join('; '));
 ```
 
-Also available: `validatePublicKey(key)`, `validateKeyFile(path, passphrase?)`, and `validateSSHOptions({ host, username, port, privateKey, password })`, which checks that exactly one of `privateKey`/`password` is set. The adapter runs `validatePrivateKey` and `validateSSHOptions` itself before every new connection and throws `ConnectionError` if they fail — calling them yourself is only useful to fail earlier, e.g. before prompting a user for a passphrase.
+`validatePrivateKey` and `validatePublicKey` are asynchronous and decode real
+key material. `validateSSHOptions` checks connection inputs and the presence of
+an explicit authentication method. Authentication parses a key once; the pool
+does not separately parse it again before handing it to the transport.
+
+Permission checking is independent of cryptographic validation. POSIX checks
+reject group/other access and require an owner-readable regular file. Windows
+ACL protection needs a platform-appropriate check and is reported as unsupported
+by the POSIX helper.
 
 ## Password Authentication {#password-authentication}
 
+Require the credential before constructing the target, and keep it out of
+command arguments and diagnostics:
+
 ```typescript
-await $.ssh({
-  host: 'example.com',
-  username: 'admin',
-  password: process.env['SSH_PASSWORD'],
-})`command`;
+import { $ } from '@xec-sh/core';
+
+const password = process.env.SSH_PASSWORD;
+if (!password) throw new Error('Provide SSH_PASSWORD through the credential provider');
+try {
+  await $.ssh({
+    host: 'build.example.net',
+    username: 'builder',
+    password,
+    hostKeyChecking: 'strict',
+  })`uname -s`;
+} finally {
+  await $.dispose();
+}
 ```
 
-Set `hostKeyChecking` and `knownHostsPath` alongside the selected authentication method. Use an explicit `authHandler` when authentication must follow a particular sequence.
+For an agent, supply its socket path or a typed `SSHAgent` implementation.
+Forwarding an agent grants the remote side access to its signing capability;
+enable `agentForward` only for an intended target. `authHandler` controls an
+explicit authentication sequence; `tryKeyboard` and `onKeyboardInteractive`
+handle interactive challenges.
 
 ## Host Key Verification {#host-key-verification}
 
-Every connection is verified against `known_hosts` (`packages/core/src/adapters/ssh/known-hosts.ts`); `ssh2` itself performs no verification unless told to, so this is not optional.
+| Configuration | Effect |
+| --- | --- |
+| `hostKeyChecking: 'strict'` | Default: refuse an unknown, changed or revoked key |
+| `hostKeyChecking: 'accept-new'` | Explicitly record an unknown key; refuse changes and revocation |
+| `hostKeyChecking: 'off'` | Explicitly disable host authentication |
+| `expectedHostFingerprint` | Require an independently verified SHA256 fingerprint |
+| `hostVerifier` | Apply an application-supplied raw-key boolean/Promise verifier |
 
-```typescript
-await $.ssh({
-  host: 'example.com',
-  username: 'deploy',
-  hostKeyChecking: 'strict',            // 'accept-new' (default) | 'strict' | 'off'
-  knownHostsPath: '~/.ssh/known_hosts', // defaults to ~/.ssh/known_hosts
-})`command`;
-```
+Set `knownHostsPath` for an explicit trust file; otherwise the client uses
+`~/.ssh/known_hosts`. Do not combine a pin and a custom verifier. The legacy
+`hostHash` option is rejected. Algorithm constraints are supported but cannot
+enable algorithms that the runtime or package policy does not support.
 
-- `accept-new` (default) — trust and record a host's key the first time it's seen; refuse a later connection if the key has changed.
-- `strict` — the host must already be in `known_hosts`; an unknown host is refused. Use this in CI and production.
-- `off` — no verification. Only for disposable hosts whose keys are regenerated on every rebuild.
-
-A key that changed is reported as an `EHOSTKEY`-classified `ConnectionError` and is never retried automatically, since a changed key can mean the host was rebuilt or that the connection is being intercepted.
-
-There is no custom `hostVerifier` callback, no `hostHash`/`hostFingerprint` option, and no cipher/KEX/MAC algorithm selection in the public API.
+An authentication or host-key rejection is not automatically retried. A fresh
+key observed through `probeHostKey` is still untrusted until independently
+verified. For first-use write recovery and revocation behavior, see
+[host trust](../../ssh/security.md#host-trust).
 
 ## Security Best Practices {#security-best-practices}
 
-1. Prefer a private key over a password.
-2. `chmod 600` private key files; check with `SSHKeyValidator.checkKeyFilePermissions`.
-3. Read credentials from environment variables or a secrets manager, never hardcode them.
-4. Leave `hostKeyChecking` at `accept-new` or set it to `strict` in production; only use `off` for throwaway environments.
-5. For sudo passwords specifically, see [Secure Sudo Password Handling](./sudo-security.md) — the concerns and the API are different from connection authentication.
+Provision host trust before production connections. Keep private keys and
+passwords in an appropriate credential provider. Prefer an agent or key with
+the minimum required authority. Avoid forwarding an agent when the remote
+operation can use a dedicated credential.
+
+Key rotation changes the pool's authentication identity. Host trust is rechecked
+before a cached connection is lent again, but active sessions are not remotely
+revoked by a file edit. Retire those sessions according to the application's
+authorization policy.
+
+SSH login and sudo are distinct boundaries: sudo credential delivery is described
+in [sudo security](./sudo-security.md).
 
 ## Related Documentation {#related-documentation}
 
-- [SSH Overview](./overview.md) - fundamentals and command execution
-- [Connection Configuration](./connection-config.md) - pooling and adapter-wide settings
-- [Secure Sudo Password Handling](./sudo-security.md) - sudo password delivery methods
+- [SSH library](../../ssh/overview.md)
+- [Connection configuration](./connection-config.md)
+- [Interactive shells and host pins](./interactive-shell.md)
+- [Trust and cryptography](../../ssh/security.md)

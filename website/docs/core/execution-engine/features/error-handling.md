@@ -5,7 +5,9 @@ description: Error types, exit code explanation, and failure classification
 
 # Error Handling {#error-handling}
 
-The Xec execution engine provides comprehensive error handling with a Result pattern, automatic retries, and detailed error context for robust command execution.
+Use completed command results for exit-code decisions and classified errors for
+failures that prevented a reliable result. Retrying an operation is a separate
+decision: a lost response does not prove that its remote effect failed.
 
 ## Overview {#overview}
 
@@ -40,7 +42,19 @@ if (result.ok) {
 
 Import `ExecutionResult` from `@xec-sh/core`. Its `ok`, `exitCode`, `signal` and `cause` describe completion. `stdout`, `stderr`, `stdall` and `buffer()` expose captured output. Metadata includes `command`, `duration`, `startedAt`, `finishedAt`, `adapter`, `host` and `container`. `throwIfFailed()` converts an unsuccessful completed result into a `CommandError`.
 
-Transport or spawn failures can still reject a `.nothrow()` command. Preserve those errors separately from a completed nonzero exit.
+In the developing 0.13.0 implementation, `.nothrow()` changes only handling of
+a completed unsuccessful result. Input-resolution, authentication, spawn,
+cancellation and unknown-outcome errors remain rejections, including through `.text()` and
+`.cache()`. Rejected or uncertain attempts are not cached as completed results;
+completed nonzero results can be cached when `.nothrow()` is explicit. An adapter
+may report confirmed termination after cancellation as a result with its signal
+or `aborted` evidence. It must establish that terminal state instead of deriving
+it from a caught error.
+
+Published 0.12.0 has a defect that can convert those failures into a synthetic
+exit code 1 under `.nothrow()`. Do not treat that synthetic value as evidence of
+remote completion or as authorization to retry; use the throwing path until
+consuming the corrected release.
 
 ## Error Classes {#error-classes}
 
@@ -244,10 +258,11 @@ await $`graceful-shutdown`.timeout('10s', 'SIGTERM');
 grace-period option to force-kill after that signal fails to stop the
 process.
 
-A `TimeoutError` class exists and some adapters throw it directly, but
-others wrap it in an adapter-specific error while classifying it correctly —
-checking `error.kind === 'timeout'` is the one pattern that works
-consistently across every target.
+A confirmed local timeout can produce `TimeoutError`. After remote dispatch,
+a deadline may instead produce `ExecutionOutcomeUnknownError` because no
+completion was acknowledged. Handle both `timeout` and `outcome-unknown`
+according to their evidence; inspecting only `timeout` misses uncertain remote
+operations. A timeout or channel close alone does not prove remote termination.
 
 ### Cascading Timeouts {#cascading-timeouts}
 
@@ -357,10 +372,11 @@ class ErrorSummary {
 
 ### Error Logging {#error-logging}
 
-`command:error` fires only when a command could not complete at all — a
-timeout, a lost connection, a spawn failure. A command that ran and exited
-non-zero is not an error at the adapter level, so it reports through
-`command:complete` instead, with the exit code included:
+`command:complete` reports results returned by the adapter. A completed nonzero
+exit with `.nothrow()` therefore reaches that event. With the default throwing
+policy, the same exit becomes a `CommandError` and reaches `command:error`,
+alongside transport and execution errors. Keep result and rejection observers
+consistent with the policy used by the command:
 
 ```typescript
 $.on('command:complete', ({ command, exitCode, duration }) => {
@@ -389,12 +405,13 @@ await $`failing-command`;
 ### Error Telemetry {#error-telemetry}
 
 ```typescript
-// Send transport-level failures (timeouts, dropped connections) to a
-// monitoring service — a plain non-zero exit does not reach this event,
-// see command:complete above
-$.on('command:error', async ({ command, error, duration }) => {
-  await fetch('https://telemetry.example.com/errors', {
+// Event listeners do not turn background I/O into awaited execution work.
+// Handle delivery failure locally; do not let telemetry hide command failure.
+$.on('command:error', ({ command, error, duration }) => {
+  void fetch('https://telemetry.example.com/errors', {
     method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    signal: AbortSignal.timeout(5_000),
     body: JSON.stringify({
       service: 'xec-automation',
       command,
@@ -402,7 +419,9 @@ $.on('command:error', async ({ command, error, duration }) => {
       duration,
       timestamp: Date.now()
     })
-  });
+  }).then(response => {
+    if (!response.ok) console.error('Error telemetry was rejected', response.status);
+  }).catch(() => console.error('Error telemetry could not be delivered'));
 });
 ```
 

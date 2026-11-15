@@ -11,6 +11,10 @@
         },
         {
           "type": "doc",
+          "id": "introduction/security-and-privacy"
+        },
+        {
+          "type": "doc",
           "id": "introduction/installation"
         },
         {
@@ -147,6 +151,33 @@
               "id": "core/execution-engine/performance/parallel-execution"
             }
           ]
+        }
+      ]
+    },
+    {
+      "type": "category",
+      "label": "SSH library",
+      "href": "/docs/ssh/overview",
+      "items": [
+        {
+          "type": "doc",
+          "id": "ssh/overview"
+        },
+        {
+          "type": "doc",
+          "id": "ssh/connections"
+        },
+        {
+          "type": "doc",
+          "id": "ssh/channels-and-files"
+        },
+        {
+          "type": "doc",
+          "id": "ssh/security"
+        },
+        {
+          "type": "doc",
+          "id": "ssh/comparison"
         }
       ]
     },

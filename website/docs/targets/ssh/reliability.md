@@ -6,7 +6,7 @@ sidebar_position: 8
 
 # SSH reliability and ownership {#ssh-reliability-and-ownership}
 
-Use `@xec-sh/core` for target-oriented operations and `@xec-sh/core/ssh` when an application needs interactive channels or the complete SFTP client. Public types, authentication adapters and operation lifecycles belong to Xec. Applications do not install or import the underlying transport implementation or its type package. Xec currently uses `ssh2` internally; this does not require a system SSH executable.
+Use `@xec-sh/core` for target-oriented operations and `@xec-sh/ssh` when an application needs interactive channels or the complete SFTP client. Public types, authentication adapters and operation lifecycles belong to Xec. Applications import the owned SSH package and its contracts; its private protocol derives from ssh2. No system SSH executable or separate transport types are required. This page describes the developing 0.13.0 API.
 
 ## Commands and uncertain outcomes {#commands-and-uncertain-outcomes}
 
@@ -14,7 +14,7 @@ A successful command requires an exit status or signal and completed channel del
 
 Connection establishment can retry before dispatch. An explicit channel-open refusal can be retried within a bounded budget because the command has not started. Once execution might have begun, recovery requires inspecting its effects or using an application-level operation ID and durable receipt.
 
-`execCommand` bounds retained output to 10 MiB per stream by default. Configure `maxBuffer`, or use `collectStdout: false` / `collectStderr: false` with streaming consumers. UTF-8 output is decoded after packet assembly; `Buffer` input retains its bytes. `AbortSignal` cancels both queued and running work. It does not certify that a remote process or its descendants have terminated.
+`SSHClient.exec` bounds retained output to 10 MiB per stream by default. Configure `maxBuffer`, or use `collectStdout: false` / `collectStderr: false` with streaming consumers. UTF-8 output is decoded after packet assembly; `Buffer` input retains its bytes. `AbortSignal` cancels both queued and running work. It does not certify that a remote process or its descendants have terminated.
 
 ## Managed file transfers {#managed-file-transfers}
 
@@ -47,16 +47,16 @@ Pool diagnostics count connections with active leases as active and unleased con
 
 A reverse tunnel owns a **dedicated connection**, using the same target, credentials, host verification and connection budget as other operations. This isolates uncertain global SSH requests from commands and transfers. `reverseTunnel({ remotePort: 0, localPort: 3000, timeoutMs: 15_000, signal })` waits for a server-confirmed port. `timeoutMs` bounds allocation acknowledgement after authentication; the connection's `readyTimeout` bounds authentication. Cancellation applies to connection establishment and allocation, not an already returned tunnel; close that tunnel explicitly.
 
-`NodeSSH.forwardIn(address, port, onConnection, request)` and `forwardInStreamLocal(path, onConnection, request)` use the same 15-second default acknowledgement deadline. An explicit server refusal leaves the low-level connection reusable. A timeout, disconnect or cancellation after dispatch reports `EXECUTION_OUTCOME_UNKNOWN` and invalidates that connection, because the listener may already exist remotely and SSH global replies have no request IDs. A late reply cannot revive the listener. Low-level callers sharing a client must account for this connection-wide failure; use a dedicated client for reverse listeners.
+`SSHClient.forwardIn(address, port, onConnection, request)` and `forwardInStreamLocal(path, onConnection, request)` use the same 15-second default acknowledgement deadline. An explicit server refusal leaves the low-level connection reusable. A timeout, disconnect or cancellation after dispatch reports `SSH_OUTCOME_UNKNOWN` (mapped to `EXECUTION_OUTCOME_UNKNOWN` by Core) and invalidates that connection, because the listener may already exist remotely and SSH global replies have no request IDs. A late reply cannot revive the listener. Low-level callers sharing a client must account for this connection-wide failure; use a dedicated client for reverse listeners.
 
 A successful `close()` waits for unbind acknowledgement. If unbind is refused or times out, the handle remains owned and closure can be retried. `closed` also resolves when the transport disappears; that releases **local ownership**, not proof of immediate remote cleanup during a network partition. Do not blindly repeat an allocation with an unknown outcome.
 
 ## Interactive and advanced clients {#interactive-and-advanced-clients}
 
 ```typescript
-import { NodeSSH, type SFTPClient, type SSHChannel } from '@xec-sh/core/ssh';
+import { SSHClient, type SFTPClient, type SSHChannel } from '@xec-sh/ssh';
 
-const ssh = await new NodeSSH().connect({
+const ssh = await new SSHClient().connect({
   host: 'storage.example.com', username: 'deploy',
   agent: process.env['SSH_AUTH_SOCK'], hostKeyChecking: 'strict',
 });
@@ -68,7 +68,7 @@ try {
   await ssh.withShell(async (channel: SSHChannel) => {
     channel.setWindow(40, 120, 0, 0);
     await new Promise<void>((resolve, reject) => {
-      channel.once('close', resolve); channel.once('error', reject);
+      channel.once('close', () => resolve()); channel.once('error', reject);
       channel.end('exit\n');
     });
   }, { term: 'xterm-256color' });
@@ -81,7 +81,7 @@ Use `stat` to distinguish a missing file from a connection error. The compatibil
 
 ## One connection contract {#one-connection-contract}
 
-`$.ssh(...)`, `SSHAdapter` targets and `NodeSSH.connect(...)` share Xec's `SSHConnectionConfig`. Agent sockets and plain `SSHAgent` objects, keyboard-interactive handlers, explicit host fingerprints, algorithms and handshake cancellation do not require transport-library imports. Adapter defaults provide a common policy; defined target options override it.
+`$.ssh(...)`, `SSHAdapter` targets and `SSHClient.connect(...)` share Xec's `SSHConnectionConfig`. Agent sockets and plain `SSHAgent` objects, keyboard-interactive handlers, explicit host fingerprints, algorithms and handshake cancellation do not require transport-library imports. Adapter defaults provide a common policy; defined target options override it.
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -99,18 +99,36 @@ const host = $.ssh({
 await host`uname -s`;
 ```
 
-Pool identities cover the effective connection policy, including agent/callback identity and algorithm constraints. Key files are read before acquisition, so rotated key bytes cannot borrow the previous connection. Supplied sockets stay exclusive. A cancelled borrow cannot acquire an existing authenticated socket. Command timeouts cancel their channel; repeated failures retire a connection after its remaining users finish. Dispose existing sessions when revoking a mutable agent or changing an external trust file: changing the authority behind an existing object does not retroactively revoke an authenticated SSH session.
+Pool identities cover the effective connection policy, including agent/callback identity and algorithm constraints. Key files are read before acquisition, so rotated key bytes cannot borrow the previous connection. Supplied sockets stay exclusive. A cancelled borrow cannot acquire an existing authenticated socket. Command timeouts cancel their channel; repeated failures retire a connection after its remaining users finish. Current host trust is revalidated before each reuse; revoking an agent or authority does not retroactively stop active operations. Dispose those sessions according to application policy.
 
-## Transport patches and release artifacts {#transport-patches-and-release-artifacts}
+## Owned transport and release artifacts {#transport-patches-and-release-artifacts}
 
-Xec keeps `ssh2` as its internal protocol implementation. The reviewed 1.17.0 patch rejects zero-size channel packets and receive-window violations, settles writes parked behind exhausted window credit when a channel closes, isolates the ChaCha nonce during nested writes, and acknowledges SFTP channel closure while releasing buffered requests. The regressions correspond to upstream reports [1504](https://github.com/mscdex/ssh2/issues/1504), [1505](https://github.com/mscdex/ssh2/issues/1505), [1509](https://github.com/mscdex/ssh2/pull/1509), [1523](https://github.com/mscdex/ssh2/pull/1523) and [1522](https://github.com/mscdex/ssh2/issues/1522).
+The protocol and low-level lifecycle belong to @xec-sh/ssh. Core delegates to
+that package; root-only dependency patches, transport bundling and special
+prepack copies are removed. See [the comparison](../../ssh/comparison.md) for
+source provenance, specific fixes and intentional compatibility changes.
 
-`pnpm exec xec ssh security` copies the completed Core build into a temporary package, applies the patch to a separate verified dependency copy, packs it, installs the tarball offline, and tests that installed runtime. Build the candidate first; preparation never recompiles Core. Pass `--archive <file>` to check an existing archive without packing another one. The release gate checks receive credit directly in the installed stdout and stderr handlers. It verifies partial consumption, exact exhaustion, and refusal before excess bytes can be delivered. A refusal must preserve the balance and request a protocol disconnect. Network checks run on loopback with external deadlines. Six synthetic ChaCha cases check standalone and nested writes. SFTP checks cover 25 server-initiated closures on one connection, buffered read/write cancellation and a lost high-level read callback. Use `--consumer pnpm` to exercise the same artifact through pnpm; npm is the default. The test does not overwrite workspace dependencies or require Docker.
-
-Preparation canonicalizes CRLF to LF in its private copy and verifies the resulting bytes against the reviewed hashes. The prepared package bundles `ssh2` and its dependency closure, carries the upstream license and `SSH-TRANSPORT.json` checksums, and excludes machine-specific native binaries. Optional native acceleration can be built on the consumer's platform; the JavaScript path remains available. `pnpm exec xec ssh prepare <new-directory>` prepares an immutable package directory from existing build outputs. Missing outputs fail before creating the destination; an existing destination is never overwritten. The release recipe calls the same implementation after its one build and verifies the exact resulting archive before publication. Direct packing of an unprepared workspace is rejected. A root-only dependency patch would not protect npm consumers, so artifact installation is part of the gate.
+The SSH release gate installs the exact Core and SSH archives accepted for
+publication and checks their public API, strict declarations and hostile-peer
+behavior. In a development checkout, the same command can pack the existing
+builds once. Release preparation supplies its already packed files; acceptance
+does not rebuild or repack them. Synthetic network checks use loopback and
+external deadlines, without Docker or working application credentials.
 
 ## Verification and limits {#verification-and-limits}
 
-`pnpm exec xec ssh boundary` builds declarations into a temporary directory and type-checks a strict consumer with no transport package or transport types installed. CI runs this check on Linux and Windows. Unit tests inject missing callbacks, lost replies, cancellation, delayed progress and invalid remote paths; interoperability tests use independent OpenSSH fixtures. Set `XEC_SSH_TEST_CONTAINERS` to a comma-separated list to run an explicit fixture subset; required fixtures that cannot start fail setup.
+Native protocol tests exercise cryptography, keys, agent framing, rekeying,
+channel credit and SFTP acknowledgements. Lifecycle tests cover missing
+callbacks, cancellation, lost replies, bounded queues and filesystem paths.
+OpenSSH interoperability fixtures are a separate suite; an unavailable required
+fixture is a setup failure, not a passing test.
 
-These guarantees cover the Xec wrapper. They are not a claim that every upstream protocol defect has been eliminated. Dependency security review and adversarial peer tests remain a separate release acceptance gate. The release checklist records source verification separately from fleet activation.
+These are scenario-specific checks, not a claim that all possible protocol
+defects are eliminated. Publication and fleet activation have separate evidence
+and authorization boundaries.
+
+## See also {#see-also}
+
+- [SSH library](../../ssh/overview.md)
+- [Trust and cryptography](../../ssh/security.md)
+- [Comparison with ssh2](../../ssh/comparison.md)

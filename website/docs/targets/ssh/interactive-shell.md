@@ -1,6 +1,6 @@
 ---
 title: Interactive SSH shells
-description: Use the existing Xec NodeSSH connection for pinned interactive PTYs with cancellation and bounded shell requests.
+description: Use the existing Xec SSHClient connection for pinned interactive PTYs with cancellation and bounded shell requests.
 sidebar_position: 8
 ---
 
@@ -9,24 +9,24 @@ sidebar_position: 8
 Import the existing SSH implementation directly when building an interactive terminal:
 
 ```typescript
-import { NodeSSH, sshHostFingerprint } from '@xec-sh/core/ssh';
+import { SSHClient, sshHostFingerprint } from '@xec-sh/ssh';
 ```
 
-This entry exports the same `NodeSSH` class used by the SSH adapter. It does not introduce another SSH transport. Normal command execution, connection pooling, SFTP and tunnels continue to use the existing adapter.
+This developing 0.13.0 package owns the same client and pool used by Core's SSH adapter. See [the library guide](../../ssh/overview.md) for its public boundary.
 
 ## Pin the host before sending credentials {#pin-the-host-before-sending-credentials}
 
-`NodeSSH.probeHostKey({ host, port?, timeoutMs?, signal? })` observes a SHA256 host fingerprint without authenticating. The observed value is untrusted until compared with an independent source. `sshHostFingerprint(rawPublicKey)` computes the same OpenSSH-format fingerprint from a binary public key; an authorized key text line must first be decoded from base64.
+`SSHClient.probeHostKey({ host, port?, timeoutMs?, signal? })` observes a SHA256 host fingerprint without authenticating. The observed value is untrusted until compared with an independent source. `sshHostFingerprint(rawPublicKey)` computes the same OpenSSH-format fingerprint from a binary public key; an authorized key text line must first be decoded from base64.
 
 Supply a previously verified fingerprint to `connect`:
 
 ```typescript
-import { NodeSSH } from '@xec-sh/core/ssh';
+import { SSHClient } from '@xec-sh/ssh';
 
 const privateKey = process.env.SSH_PRIVATE_KEY;
 const fingerprint = process.env.SSH_HOST_FINGERPRINT;
 if (!privateKey || !fingerprint) throw new Error('Provide a private key and independently verified fingerprint');
-const ssh = new NodeSSH();
+const ssh = new SSHClient();
 try {
   await ssh.connect({
     host: 'edge-1.example.com',
@@ -45,7 +45,7 @@ try {
   shell.setWindow(40, 120, 0, 0); // rows, columns, pixel height, pixel width
   shell.write("printf 'connected\\n'\n");
   await new Promise<void>((resolve, reject) => {
-    shell.once('close', resolve);
+    shell.once('close', () => resolve());
     shell.once('error', reject);
     shell.end('exit\n');
   });
@@ -54,9 +54,9 @@ try {
 }
 ```
 
-Require both configuration values before using this example. In particular, an absent `expectedHostFingerprint` is not a strict host policy: low-level `NodeSSH` callers must supply their own verifier or pin. Do not assign the result of `probeHostKey()` directly to a trusted pin without independent verification.
+Require both configuration values before using this example. Without a pin, the client defaults to strict known-host verification. Do not assign the result of `probeHostKey()` directly to a trusted pin without independent verification.
 
-A mismatched pin fails before authentication with `EHOSTKEY`. `expectedHostFingerprint` cannot be combined with a custom `hostVerifier`; it hashes the raw key regardless of an inherited `hostHash` setting. Existing adapter users can retain `hostKeyChecking` and `knownHostsPath`: trust policy participates in the pool key and is preserved on reconnect.
+A mismatched pin fails before authentication with `EHOSTKEY`. `expectedHostFingerprint` cannot be combined with a custom `hostVerifier`; it hashes the raw key. The legacy `hostHash` option is rejected. Existing adapter users can retain `hostKeyChecking` and `knownHostsPath`: trust policy participates in the pool key and is preserved on reconnect.
 
 ## Lifecycle and byte handling {#lifecycle-and-byte-handling}
 

@@ -63,7 +63,11 @@ export function Home() {
             </p>
             <p className="hero-description">
               Turn the work around your code into clear, reusable TypeScript. From a local command to a release
-              pipeline, keep execution under your control.
+              pipeline, keep execution, credentials and data under your control.
+            </p>
+            <p className="hero-description">
+              Security and privacy are part of the execution contract.{' '}
+              <a href="/docs/introduction/security-and-privacy">Read the guarantees and current scope.</a>
             </p>
             <div className="hero-actions">
               <Button

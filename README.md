@@ -4,6 +4,12 @@ TypeScript scripting and automation across local processes, SSH hosts, Docker co
 
 [Documentation](https://xec.sh/docs/introduction/what-is-xec) · [Getting started](https://xec.sh/docs/introduction/quick-start) · [Examples](packages/core/examples) · [MIT license](LICENSE)
 
+
+Security and privacy are engineering requirements: explicit targets and effects,
+verified SSH identities, controlled diagnostics and reviewable release artifacts.
+See the [security and privacy contract](website/docs/introduction/security-and-privacy.md)
+for the implementation boundary and the remaining external dependencies.
+
 ## Get started
 
 ```sh
@@ -45,14 +51,15 @@ Xec can orchestrate a workspace runner such as Turborepo. Keep the package graph
 
 | Package | Responsibility |
 | --- | --- |
-| [@xec-sh/core](packages/core) | Execution, target adapters, transfers, and process lifetimes |
+| [@xec-sh/core](packages/core) | Command execution, target adapters, results and process lifetimes |
+| [@xec-sh/ssh](packages/ssh) | SSH connections, channels, SFTP and forwarding (developing 0.13.0) |
 | [@xec-sh/cli](apps/xec) | The `xec` command and project integration |
 | [@xec-sh/ops](packages/ops) | Pipelines, deployment strategies, configuration, and release tooling |
 | [@xec-sh/kit](packages/kit) | Terminal UI components and formatting |
 | [@xec-sh/loader](packages/loader) | TypeScript execution, module loading, watching, and REPL |
 | [@xec-sh/testing](packages/testing) | Vitest helpers and SSH/Kubernetes fixtures |
 
-Docker and Kubernetes operations require their respective `docker` and `kubectl` programs. SSH uses the bundled, reviewed `ssh2` transport and does not require a system SSH client.
+Docker and Kubernetes operations require their respective `docker` and `kubectl` programs. SSH uses the owned `@xec-sh/ssh` package and does not require a system SSH client.
 
 ## Develop
 

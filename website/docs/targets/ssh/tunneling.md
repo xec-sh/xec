@@ -9,16 +9,16 @@ sidebar_position: 4
 
 ## Overview {#overview}
 
-The SSH context exposes two tunnel types: a local forward (`ssh -L`) and a reverse forward (`ssh -R`), both implemented in `packages/core/src/adapters/ssh/index.ts` on top of the pooled connection. There is no dynamic/SOCKS forwarding and no built-in jump-host chaining — neither exists anywhere in the adapter.
+The SSH context exposes two tunnel types: a local forward (`ssh -L`) and a reverse forward (`ssh -R`), both owned by `@xec-sh/ssh` and exposed through the Core adapter in the upcoming 0.13 release. There is no dynamic/SOCKS forwarding and no built-in jump-host chaining — neither exists anywhere in the adapter.
 
-Both methods establish their connection when needed. Both kinds of forwarding bind directly to the SSH context’s target, including when different targets open tunnels concurrently; no preparatory command is required.
+The examples require a running SSH agent with the correct key and a verified entry in `known_hosts`; an absent agent is not implicit authentication. Both methods establish their connection when needed. Both kinds of forwarding bind directly to the SSH context’s target, including when different targets open tunnels concurrently; no preparatory command is required.
 
 ## Local Forwarding {#local-forwarding}
 
 Forwards a local port to a destination reachable from the remote host:
 
 ```typescript
-const tunnel = await $.ssh('deploy@bastion').tunnel({
+const tunnel = await $.ssh({ host: 'bastion', username: 'deploy', agent: process.env.SSH_AUTH_SOCK }).tunnel({
   localPort: 5432,           // 0 picks a free port — read back tunnel.localPort
   localHost: '127.0.0.1',    // default; the bind address for the local listener
   remoteHost: 'db.internal', // reachable from bastion, not necessarily from you
@@ -31,14 +31,14 @@ console.log(`listening on localhost:${tunnel.localPort}`);
 await tunnel.close();
 ```
 
-`tunnel.isOpen` reflects current state; `tunnel.open()` exists on the returned object but is a no-op — the tunnel is already listening when `tunnel()` resolves.
+`tunnel.isOpen` reflects current state. The tunnel is already listening when `tunnel()` resolves. The old no-op `open()` method is removed in 0.13; open a new tunnel to create another listener.
 
 Multiple tunnels can be open at once, including several through the same host:
 
 ```typescript
 const [http, db] = await Promise.all([
-  $.ssh('deploy@host').tunnel({ localPort: 8080, remoteHost: 'localhost', remotePort: 80 }),
-  $.ssh('deploy@host').tunnel({ localPort: 5432, remoteHost: 'localhost', remotePort: 5432 }),
+  $.ssh({ host: 'host', username: 'deploy', agent: process.env.SSH_AUTH_SOCK }).tunnel({ localPort: 8080, remoteHost: 'localhost', remotePort: 80 }),
+  $.ssh({ host: 'host', username: 'deploy', agent: process.env.SSH_AUTH_SOCK }).tunnel({ localPort: 5432, remoteHost: 'localhost', remotePort: 5432 }),
 ]);
 ```
 
@@ -56,7 +56,7 @@ The `closed` promise also resolves if the underlying SSH transport fails, and
 `isOpen` becomes false:
 
 ```typescript
-const tunnel = await $.ssh('deploy@bastion').tunnel({
+const tunnel = await $.ssh({ host: 'bastion', username: 'deploy', agent: process.env.SSH_AUTH_SOCK }).tunnel({
   localPort: 0, remoteHost: 'db.internal', remotePort: 5432,
 });
 await tunnel.closed;
@@ -64,7 +64,7 @@ await tunnel.closed;
 ```
 
 Opening each forwarded channel has a 15-second deadline. The low-level
-`NodeSSH.forwardOut` API accepts an optional `{ timeoutMs, signal }` argument;
+`SSHClient.forwardOut` API accepts an optional `{ timeoutMs, signal }` argument;
 cancellation, timeout or transport closure rejects the request and releases any
 channel returned after cancellation. A closed tunnel is not silently re-created:
 its caller owns reconnect/backoff policy and decides which operations can be
@@ -75,7 +75,7 @@ retried safely.
 Makes a local service reachable from the remote host:
 
 ```typescript
-const tunnel = await $.ssh('deploy@public-host').reverseTunnel({
+const tunnel = await $.ssh({ host: 'public-host', username: 'deploy', agent: process.env.SSH_AUTH_SOCK }).reverseTunnel({
   remotePort: 8080,        // 0 asks the server to pick a free port — read tunnel.remotePort
   remoteHost: '127.0.0.1', // default; binds loopback-only on the remote side
   localHost: 'localhost',  // default; where the remote's connections are forwarded to
@@ -91,8 +91,9 @@ await tunnel.close();
 
 Reverse tunnels are bound to the target of their SSH context. Identical remote
 ports on different servers remain separate resources, even when opened concurrently.
-No command needs to run first. A reverse tunnel keeps its pooled connection in use
-and exposes `closed`, just like a local forward.
+No command needs to run first. A reverse tunnel owns an exclusive connection
+lease, so an uncertain global allocation cannot invalidate another command's
+transport. It exposes `closed`, just like a local forward.
 
 For reverse forwarding, `close()` resolves after the server acknowledges removal of
 the listener. It also destroys local bridging sockets. A failed acknowledgement
@@ -103,7 +104,7 @@ the SSH transport releases local resources and resolves `closed`; this is eviden
 that the local tunnel is unusable, not proof of when a disconnected server noticed
 the loss. Xec never silently reconnects a reverse listener.
 
-The low-level TCP and Unix remote forwards (`NodeSSH.forwardIn` and
+The low-level TCP and Unix remote forwards (`SSHClient.forwardIn` and
 `forwardInStreamLocal`) use the same `dispose()`/`closed` contract. Local forwarding
 closure is confirmed by closing its local listener; a failed close similarly keeps
 the lease until successful retry or transport closure.

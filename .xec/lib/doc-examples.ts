@@ -116,7 +116,7 @@ export async function checkDocExamples(options: DocExamplesOptions): Promise<Doc
         typePaths[(name ?? manifest.name) + (subpath === '.' ? '' : subpath.slice(1))] = [path.resolve(folder, types)];
       }
     };
-    for (const location of ['packages/core', 'packages/ops', 'packages/kit', 'packages/loader', 'packages/testing', 'apps/xec']) {
+    for (const location of ['packages/core', 'packages/ssh', 'packages/ops', 'packages/kit', 'packages/loader', 'packages/testing', 'apps/xec']) {
       await addTypeExports(path.join(root, location));
     }
     const dependencyTypes: [string, string, string?][] = [

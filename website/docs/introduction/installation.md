@@ -12,14 +12,15 @@ published release. A global installation is useful for ad hoc terminal work.
 
 ## System requirements {#system-requirements}
 
-- The **CLI requires Node.js 22.18.0 or later**. Core, Ops, Loader and Kit declare
-  Node.js 20 or later; importing a library does not lower the CLI requirement.
+- The **CLI requires Node.js 22.18.0 or later**. Core and SSH require
+  Node.js 20.19.0 or later; other library floors are in their manifests; importing a library does not lower the CLI requirement.
 - Linux, macOS and Windows are supported targets. The current main unit-test
   workflow runs on Linux and Windows; that is not a claim that every native
   target is tested on every OS in each CI run.
 - Use npm or pnpm. A contributing checkout uses the version in `packageManager`.
-- SSH needs a reachable server, credentials and a host-key policy. Xec bundles
-  its `ssh2` transport; an external OpenSSH client is not required for execution.
+- SSH needs a reachable server, credentials and a host-key policy. The developing 0.13.0
+  packages use the owned `@xec-sh/ssh` client; an external OpenSSH executable
+  is not required for command execution.
 - Docker operations need a reachable Docker daemon and Docker CLI. Kubernetes
   operations need `kubectl`, a context and suitable cluster permissions.
 

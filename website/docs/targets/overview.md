@@ -28,7 +28,7 @@ The default. Commands run on the machine executing the script through the shared
 
 ### [SSH](./ssh/overview.md) {#ssh}
 
-Commands run on remote hosts over pooled `ssh2` connections. The section covers [connection configuration](./ssh/connection-config.md), [authentication](./ssh/authentication.md), [sudo and security](./ssh/sudo-security.md), [tunneling](./ssh/tunneling.md) and [batch operations](./ssh/batch-operations.md) across many hosts.
+Commands run on remote hosts over pooled connections owned by `@xec-sh/ssh`. The section covers [connection configuration](./ssh/connection-config.md), [authentication](./ssh/authentication.md), [sudo and security](./ssh/sudo-security.md), [tunneling](./ssh/tunneling.md) and [batch operations](./ssh/batch-operations.md) across many hosts.
 
 ### [Docker](./docker/overview.md) {#docker}
 

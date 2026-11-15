@@ -32,6 +32,7 @@ Published Xec commands manage the repository workflow; Turborepo manages the wor
   - `xec/` — CLI application (@xec-sh/cli) — thin wrapper
 - `packages/`
   - `core/` — Shell execution engine (@xec-sh/core)
+  - `ssh/` — SSH protocol, trust and connection ownership (@xec-sh/ssh)
   - `ops/` — DevOps operations library (@xec-sh/ops)
   - `kit/` — TUI/CLI components (@xec-sh/kit)
   - `loader/` — Script loading & modules (@xec-sh/loader)
@@ -53,6 +54,7 @@ flowchart TD
     CLI --> CORE["@xec-sh/core"]
     CLI --> KIT["@xec-sh/kit"]
     CLI --> LOADER["@xec-sh/loader"]
+    CORE --> SSH["@xec-sh/ssh"]
     OPS --> CORE
     OPS --> KIT
     OPS --> LOADER
@@ -132,6 +134,10 @@ try {
 ```
 
 #### SSH Connection Pool {#ssh-connection-pool}
+
+In the developing 0.13.0 architecture, @xec-sh/ssh owns this pool. Core owns
+command policy and result mapping, with no second connection registry. See
+[connections and failures](../ssh/connections.md).
 
 - Maintains persistent SSH connections
 - Configurable pool size and idle timeout
@@ -451,7 +457,8 @@ for prerequisites, cancellation, authentication and recovery.
 
 ### Distribution Channels {#distribution-channels}
 
-npm distributes the six public workspace packages. GitHub Releases records the
+npm distributes the public workspace packages, including the owned SSH client
+introduced for 0.13.0. GitHub Releases records the
 verified tag, release notes and package inventory; the current recipe does not
 publish standalone binaries, Docker images or a Homebrew formula.
 
@@ -480,3 +487,11 @@ with explicit failure and recovery policy. The CLI exposes those operations to
 people and agents with native argument validation. Documentation and tests must
 exercise the same public path; a reported success must describe an observed
 outcome, not a skipped or unimplemented operation.
+
+
+## See also {#related-documentation}
+
+- [Core concepts](./core-concepts.md).
+- [Execution engine](../core/execution-engine/overview.md).
+- [Adapter development](../core/execution-engine/adapters/concept.md).
+- [Performance and optimization](../core/execution-engine/performance/optimization.md).

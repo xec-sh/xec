@@ -30,7 +30,7 @@ The CLI uses Node.js 22.18 or newer. The Core libraries provide runtime adapters
 | Docker | A reachable Docker daemon | Image contents, volumes, networks and container lifecycle policy |
 | Kubernetes | `kubectl`, an authorized context and a selected pod/container | Cluster RBAC, workload state and tools available in the container |
 
-SSH uses Xec's private `ssh2` transport. Consumers call Xec APIs and do not import `ssh2`. An external OpenSSH client is not required for normal SSH execution; integrations with an SSH agent or external administration tools are separate choices.
+The developing 0.13.0 SSH path uses the owned `@xec-sh/ssh` client and private protocol. Consumers call Xec APIs and do not import `ssh2`. An external OpenSSH client is not required for normal SSH execution; integrations with an SSH agent or external administration tools are separate choices.
 
 A tagged command escapes interpolated values. It does not make arbitrary shell source safe or guarantee that two operating systems provide the same programs. Prefer direct arguments for untrusted values that do not need shell syntax.
 

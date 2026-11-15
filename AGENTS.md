@@ -37,7 +37,8 @@ of the same engineering contract.
 
 | Owner | Responsibility |
 | --- | --- |
-| `packages/core` | Execution, adapters, streams, resource lifecycle and failure classification |
+| `packages/core` | Command execution, target adapters, shell quoting, results and diagnostics |
+| `packages/ssh` | SSH protocol, native cryptography, trust, connections, channels, SFTP and tunnels |
 | `packages/ops` | Tasks, pipelines, workflows, deployment and release operations using Core |
 | `packages/loader` | Script loading and module resolution |
 | `packages/kit` | Terminal UI |
@@ -52,8 +53,8 @@ its managed application/runtime lifecycle. Preserve those boundaries. See
 [ecosystem](website/docs/introduction/ecosystem.md) and
 [Pipeline](website/docs/ops/pipeline.md).
 
-Keep Core dependencies minimal: its declared external runtime dependency is
-`ssh2`, loaded only when needed. Optional adapters and expensive CLI features
+Keep Core dependencies minimal: SSH mechanics belong to `@xec-sh/ssh`;
+its private protocol implementation is loaded only when needed. Optional adapters and expensive CLI features
 must remain lazy. Package manifests/exports and the lockfile are authoritative;
 do not duplicate version inventories or public interfaces in this guide.
 
@@ -63,6 +64,15 @@ with casts. Document changed public inputs, outputs, errors and limitations;
 examples must use the real API. Follow the repository formatter/linter.
 
 ## Critical operations and recovery
+
+Security and privacy are first-class product requirements within Xec's code,
+artifacts and behavior. Do not add telemetry, implicit network fallbacks or
+undisclosed data export. The target is an owned runtime dependency closure;
+bundling third-party code does not remove that dependency. Track remaining
+dependencies honestly, preserve licenses/provenance when adopting source, and
+qualify replacements before removing the existing implementation. Treat the
+runtime and OS as explicit preconditions, not excuses for an Xec failure.
+
 
 - Distinguish **known success**, **known failure** and **unknown outcome**.
   A lost response, deadline or transport closure does not prove a remote effect

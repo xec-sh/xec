@@ -170,6 +170,12 @@ compile-time declarations for an undeclared remote package. Install and pin the
 package when the script needs static type checking; avoid invented ambient
 interfaces that merely assume the remote API.
 
+In the developing 0.13.0 source, a missing bare import fails locally. The loader
+does not disclose an internal package name to a CDN or fetch a public package
+with that name. Remote resolution requires an explicit URL or a remote prefix
+such as `npm:`. Those modules are chosen by the application and are not Xec's
+own runtime dependencies.
+
 ### Remote Module Integrity {#remote-module-integrity}
 
 Fetched modules execute with the process's privileges. The loader verifies remote

@@ -9,10 +9,12 @@ sidebar_position: 1
 
 ## Overview {#overview}
 
-SSH targets run commands on remote hosts through Xec's connection pool, host verification, command lifecycle, SFTP and forwarding APIs. The protocol implementation is an internal dependency: applications import only Xec, including its SSH types. A connection failure before dispatch can be retried; a lost command reply cannot be replayed safely. See [SSH reliability and ownership](./reliability.md).
+SSH targets run commands on remote hosts through Xec's connection pool, host verification, command lifecycle, SFTP and forwarding APIs. The developing 0.13.0 adapter delegates connections and protocol lifetimes to [the SSH library](../../ssh/overview.md). A connection failure before dispatch can be retried; a lost command reply cannot be replayed safely. See [SSH reliability and ownership](./reliability.md).
 
 ```typescript
 import { $ } from '@xec-sh/core';
+import path from 'node:path';
+import os from 'node:os';
 
 // Shorthand: user@host[:port] — omitted user defaults to the local OS user
 await $.ssh('deploy@web-1')`systemctl status nginx`;
@@ -35,7 +37,7 @@ targets:
       port: 22                    # optional, default 22
       privateKey: ~/.ssh/id_ed25519
       passphrase: ${SSH_KEY_PASSPHRASE}
-      hostKeyChecking: strict     # accept-new (default) | strict | off
+      hostKeyChecking: strict     # strict (default) | accept-new | off
       knownHostsPath: ~/.ssh/known_hosts
       env:
         NODE_ENV: production
@@ -171,7 +173,7 @@ Other real events: `ssh:disconnect`, `ssh:execute`, `ssh:key-validated`, `ssh:po
 
 ## Interactive terminals {#interactive-terminals}
 
-Use the existing `NodeSSH` class through `@xec-sh/core/ssh` for [interactive PTY shells](./interactive-shell.md), independently verified host pins, cancellable setup and bounded shell requests.
+Use the existing `SSHClient` class through `@xec-sh/ssh` for [interactive PTY shells](./interactive-shell.md), independently verified host pins, cancellable setup and bounded shell requests.
 
 ## Related Documentation {#related-documentation}
 

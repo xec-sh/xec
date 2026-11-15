@@ -27,12 +27,12 @@ build also needs Bun. GitHub publication additionally needs an authenticated
 `gh` CLI. Run from a clean, committed checkout on the intended release branch.
 For an interactive public npm release, the publisher checks the current npm identity before pushing the release refs when archives still need uploading. If the session expired, run `npm login --auth-type=web --registry=https://registry.npmjs.org/` and `npm whoami --registry=https://registry.npmjs.org/`. An authenticated account still needs write access to each destination package or scope.
 
-Install the frozen dependencies in a separate checkout when the current installation serves applications. The root manifest pins published Xec CLI, Ops and Kit with explicit npm dependencies. Those installed packages run the project recipe; the candidate CLI is built only as a release artifact. No local CLI build is required to start. The examples use `0.12.0`; choose your actual next version.
+Install the frozen dependencies in a separate checkout when the current installation serves applications. The root manifest pins published Xec CLI, Ops and Kit with explicit npm dependencies. Those installed packages run the project recipe; the candidate CLI is built only as a release artifact. No local CLI build is required to start. The examples use the planned `0.13.0`; choose your actual next version.
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm release 0.12.0 --dry-run
-pnpm release 0.12.0 --prepare
+pnpm release 0.13.0 --dry-run
+pnpm release 0.13.0 --prepare
 ```
 
 The dry run reads local evidence only. It reports package inventory,
@@ -43,10 +43,12 @@ or contact a registry. Remote readiness is checked during execution.
 `--prepare` commits only the synchronized public package versions, preserving
 `workspace:` dependency declarations in source. Normal Git commit hooks still
 apply. It installs the frozen lockfile without install scripts in a new temporary
-snapshot, builds every public workspace, and packs in dependency order. The SSH
-core recipe includes the reviewed private transport and its license/checksums.
-Before sealing it, Xec installs the actual tarball in a clean offline consumer
-and runs the hostile-peer, ChaCha and SFTP failure checks. Resume verifies the
+snapshot, builds every public workspace, and packs in dependency order. Core and
+SSH use the normal package build and pack path; no prepack source copy or bundled
+ssh2 dependency is created. Before sealing the release, the recipe installs both
+exact archives together in a clean offline consumer, checks their public type
+boundary, and runs hostile-peer and SFTP failure cases. Native crypto and rekey
+regressions remain separately owned source checks. Resume verifies the
 identity and SHA-512 of those sealed bytes. Preparation builds the packages and
 runs the configured archive acceptance checks. The full repository tests, lint
 and documentation checks belong to qualification/CI, not each npm upload.
@@ -70,7 +72,7 @@ looks equivalent. Rebuilding a missing archive is not proof of equivalence.
 After reviewing the candidate and its required tests, the operator can publish:
 
 ```bash
-pnpm release 0.12.0 --resume
+pnpm release 0.13.0 --resume
 ```
 
 This pushes only the exact release commit and selected annotated tag, atomically,
@@ -98,7 +100,8 @@ the displayed execution plan in noninteractive use; it bypasses no checks.
 ## Published driver and development capabilities {#published-driver}
 
 The project currently pins Xec **0.12.0**. Its `verifyArtifact` callback runs the
-mandatory packed SSH check before archive acceptance. The recipe does not pass
+mandatory installed Core/SSH pair check when both archives are available,
+before the accepted release record is written. The recipe does not pass
 new options to an older API or import the candidate Ops sources to obtain them.
 A rejected archive stops preparation; it cannot be published by this recipe.
 
@@ -220,7 +223,7 @@ checkout holding the prepared archives.
   export GIT_CONFIG_COUNT=1
   export GIT_CONFIG_KEY_0='url.https://github.com/.insteadOf'
   export GIT_CONFIG_VALUE_0='git@github.com:'
-  pnpm release 0.12.0 --resume
+  pnpm release 0.13.0 --resume
 )
 ```
 

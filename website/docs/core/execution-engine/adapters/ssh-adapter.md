@@ -5,7 +5,7 @@ description: The Xec SSH API, its ownership rules and links to complete usage gu
 
 # SSH Adapter {#ssh-adapter}
 
-Use an SSH target for commands, file transfer and tunnels. The adapter owns host verification, pooled connections, bounded channel scheduling, cancellation and cleanup. Application code imports Xec only; transport libraries stay inside the adapter.
+Use an SSH target for commands, file transfer and tunnels. The adapter owns command composition, output delivery and execution results; @xec-sh/ssh owns host trust, pooled connections and channel lifetimes. The developing 0.13.0 boundary removes duplicate low-level mechanisms from Core.
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -22,7 +22,7 @@ await remote.downloadDirectory('/srv/app/reports', './reports', { operationTimeo
 | `uploadFile`, `downloadFile` | SFTP transfer with cancellation, inactivity limits and a retained pool lease. |
 | `uploadDirectory`, `downloadDirectory` | Bounded concurrent copies, including hidden files and empty directories; reject incomplete transfers. |
 | `tunnel`, `reverseTunnel` | Explicit target, close acknowledgement, `closed` promise and retained connection lease. |
-| `NodeSSH` from `@xec-sh/core/ssh` | Advanced client for channels, SFTP, custom authentication, subsystems and forwarding. |
+| `SSHClient` from `@xec-sh/ssh` | Advanced client for channels, SFTP, custom authentication, subsystems and forwarding. |
 | `SSHAgent`, `SSHChannel`, `SFTPClient` | Public Xec contracts; no additional transport type dependency. |
 
 An interrupted command can have an unknown outcome. Xec reports that condition and does not automatically replay it. A transfer can leave a partial destination. See [Reliability and ownership](../../../targets/ssh/reliability.md) before designing recovery.
