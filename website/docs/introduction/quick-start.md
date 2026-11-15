@@ -2,325 +2,162 @@
 sidebar_position: 2
 sidebar_label: Quick Start
 title: Quick Start
-description: Get started with Xec in 5 minutes
+description: Run a script, define a task, inspect configuration and select a target
 ---
 
 # Quick Start {#quick-start}
 
-Get up and running with Xec in just 5 minutes. This guide covers installation, basic usage, and your first multi-environment command.
+This guide starts with local, read-only operations. It then adds a named task
+and shows how to select a remote target explicitly. Use Node.js 22.18.0 or later.
 
-## Installation {#installation}
+## Install in your project {#installation}
 
-### Install the CLI {#install-the-cli}
-
-```bash
-npm install -g @xec-sh/cli
-```
-
-Or use npx without installation:
+In a directory containing `package.json`:
 
 ```bash
-npx @xec-sh/cli --help
+npm install --save-dev --save-exact @xec-sh/cli
+npx xec --version
 ```
 
-### Install the Core Library {#install-the-core-library}
+Commit the manifest and lockfile. In the examples below, `npx xec` uses this
+local installation. With pnpm, use `pnpm exec xec` instead.
 
-For use in Node.js projects:
+## Run a script {#execute-a-script}
+
+Create `inspect.ts`:
+
+```typescript
+/// <reference types="@xec-sh/cli/globals" />
+
+const label = args[0] ?? 'local';
+const version = await $`node --version`.text();
+console.log({ label, version });
+```
 
 ```bash
-npm install @xec-sh/core
+npx xec run inspect.ts workstation
 ```
 
-## Your First Command {#your-first-command}
+Xec supplies `$`, `args` and other documented script globals. The type reference
+helps an editor understand them; it does not launch Xec. If you run code inside
+an existing application instead, import `$` from `@xec-sh/core` explicitly.
 
-### Using the CLI {#using-the-cli}
+Use TypeScript when a workflow needs data parsing, typed inputs, branching or
+`try`/`finally`. A file loaded by Xec runs with the privileges of the CLI process;
+it is not sandboxed.
 
-Xec provides built-in commands for multi-environment execution:
+## Give repeated work a name {#project-configuration}
 
-```bash
-# Execute locally
-xec run -e "console.log('Hello, Xec!')"
-
-# Execute on SSH host
-xec on user@server.com "uptime"
-
-# Execute in Docker container
-xec in my-container "npm test"
-
-# Copy files between environments
-xec copy local.txt server.com:/remote/path/
-```
-
-### Execute a Script {#execute-a-script}
-
-```bash
-echo "await $\`echo 'Hello from script'\`" > hello.js
-xec run hello.js
-```
-
-### Using the Library {#using-the-library}
-
-Create a file `example.js`:
-
-```javascript
-import { $ } from '@xec-sh/core';
-
-// Execute locally
-const greeting = await $`echo "Hello, Xec!"`.text();
-console.log(greeting);  // "Hello, Xec!"
-
-// Get system information
-const info = await $`uname -a`.text();
-console.log(info);
-```
-
-Run it:
-
-```bash
-node example.js
-```
-
-## Working with Different Environments {#working-with-different-environments}
-
-### SSH Execution {#ssh-execution}
-
-Connect to a remote server:
-
-```javascript
-import { $ } from '@xec-sh/core';
-
-// String shorthand: [user@]host[:port]
-const server = $.ssh('user@example.com');
-
-// Or with full options — the programmatic API uses 'username'
-// (YAML target config uses 'user' instead)
-const serverWithKey = $.ssh({
-  host: 'example.com',
-  username: 'user',
-  privateKey: '~/.ssh/id_rsa'
-});
-
-const uptime = await server`uptime`.text();
-console.log(`Server uptime: ${uptime}`);
-```
-
-### Docker Execution {#docker-execution}
-
-Run commands in containers:
-
-```javascript
-import { $ } from '@xec-sh/core';
-
-// Use existing container
-await $.docker({ container: 'my-app' })`npm test`;
-
-// Create ephemeral container with configuration
-await $.docker({
-  image: 'node:24',
-  autoRemove: true,
-  volumes: ['./src:/app'],
-  workdir: '/app'
-})`npm install && npm run build`;
-
-// Or use fluent API
-await $.docker()
-  .ephemeral('node:24')
-  .volumes(['./src:/app'])
-  .workdir('/app')
-  .run`npm install && npm run build`;
-```
-
-### Kubernetes Execution {#kubernetes-execution}
-
-Execute in pods:
-
-```javascript
-import { $ } from '@xec-sh/core';
-
-// Execute command in pod
-const hostname = await $.k8s({
-  pod: 'web-server',
-  namespace: 'default'
-})`hostname`.text();
-console.log(`Pod hostname: ${hostname}`);
-
-// Get logs from pod (kubectl runs locally, not inside the pod)
-const logs = await $`kubectl logs web-server -n default --tail=100`.text();
-console.log(logs);
-```
-
-## Common Patterns {#common-patterns}
-
-### Error Handling {#error-handling}
-
-```javascript
-// Continue on error
-const result = await $`exit 1`.nothrow();
-if (!result.ok) {
-  console.log(`Failed with: ${result.cause}`);
-}
-
-// With timeout
-try {
-  await $`sleep 60`.timeout(5000);
-} catch (error) {
-  console.log('Command timed out');
-}
-```
-
-### Working with Output {#working-with-output}
-
-```javascript
-// Get text output (trimmed stdout)
-const text = await $`cat file.txt`.text();
-
-// Parse JSON
-const data = await $`cat config.json`.json();
-
-// Process lines (empty lines dropped)
-const files = await $`ls -1`.lines();
-files.forEach(file => console.log(file));
-```
-
-### Method Chaining {#method-chaining}
-
-```javascript
-await $.cd('/app')                      // Set working directory
-  .env({ NODE_ENV: 'test' })       // Set environment
-  .timeout(30000)`npm test`        // Set timeout before invocation
-  .quiet()                         // Suppress output
-  .nothrow();                      // Don't throw on error
-```
-
-### Parallel Execution {#parallel-execution}
-
-```javascript
-// Run commands in parallel
-const results = await $.parallel.all([
-  $`npm test`,
-  $`npm run lint`,
-  $`npm run type-check`
-]);
-
-// Run with concurrency limit
-const servers = ['web-1', 'web-2'];
-const serverCommands = servers.map(s =>
-  $.ssh({ host: s, username: 'deploy' })`apt update`
-);
-const results2 = await $.parallel.all(serverCommands, {
-  maxConcurrency: 3
-});
-```
-
-## Interactive REPL Mode {#interactive-repl-mode}
-
-Start an interactive REPL with Xec pre-loaded:
-
-```bash
-xec run --repl
-
-# Now in REPL with $ available
-> await $`ls -la`
-> const files = await $`find . -name "*.js"`.lines()
-> files.length
-```
-
-### Interactive Command Mode {#interactive-command-mode}
-
-Many commands support interactive mode for guided execution:
-
-```bash
-# Interactive file copy
-xec copy --interactive
-
-# Interactive port forwarding
-xec forward --interactive
-
-# Interactive command execution
-xec on --interactive
-```
-
-## Project Configuration {#project-configuration}
-
-Create `.xec/config.yaml` for project-specific settings:
+Create `.xec/config.yaml`:
 
 ```yaml
-defaults:
-  timeout: 30000
-  shell: /bin/bash
-
-targets:
-  hosts:
-    prod:
-      type: ssh
-      host: prod.example.com
-      user: deploy  # YAML targets use 'user' (the programmatic $.ssh() API uses 'username')
-      privateKey: ~/.ssh/deploy_key
-
-  containers:
-    staging:
-      type: docker
-      container: staging-app
+version: "1.0"
+name: first-xec-project
 
 tasks:
-  deploy:
-    description: Deploy to production
-    command: |
-      git pull &&
-      npm install &&
-      npm run build &&
-      pm2 restart app
-    targets: [hosts.prod]
-```
+  check-node:
+    description: Report the local Node.js version
+    command: node --version
 
-Run configured tasks:
+  greet:
+    description: Greet a named operator
+    params:
+      - name: name
+        type: string
+        default: engineer
+    env:
+      GREETING: "Hello, ${params.name}"
+    command: node -e "console.log(process.env.GREETING)"
+
+  check:
+    description: Run the project checks in order
+    steps:
+      - name: Node version
+        task: check-node
+      - name: Greeting
+        task: greet
+```
 
 ```bash
-xec run deploy
+npx xec inspect tasks
+npx xec inspect tasks check --explain
+npx xec run check
+npx xec run greet -p name=Ada
 ```
 
-## Creating Custom Commands {#creating-custom-commands}
+`check-node`, `greet` and `check` belong to this project. `xec run` is the built-in
+that runs them. The greeting travels through an environment variable rather
+than becoming part of a shell command. YAML `${...}` interpolation in command
+strings is textual in published 0.12.0; it does not provide the escaping of Core's
+tagged-template API.
 
-Create `.xec/commands/greet.js`:
+## Select a target {#working-with-different-environments}
 
-```javascript
-/** @param {import('commander').Command} program */
-export function command(program) {
-  program
-    .command('greet <name>')
-    .description('Greet someone')
-    .action(async (/** @type {string} */ name) => {
-      const { $ } = await import('@xec-sh/core');
-      await $`echo "Hello, ${name}!"`;
-      await $`date`;
-    });
+For an existing SSH server, extend the same configuration with:
+
+```yaml
+targets:
+  hosts:
+    build:
+      host: build.example.com
+      user: deploy
+      privateKey: ~/.ssh/deploy_key
+      hostKeyChecking: strict
+```
+
+Verify and record the server's host key through your SSH trust procedure before
+using strict mode. Then run:
+
+```bash
+npx xec inspect targets
+npx xec on hosts.build "node --version"
+```
+
+For an existing Docker container or Kubernetes pod, the corresponding built-ins
+are:
+
+```bash
+npx xec in containers.app "node --version"
+npx xec in pods.api "node --version"
+```
+
+Those last two commands require matching target definitions and running
+resources. Xec does not create an application or install Node in a target merely
+because its name appears on the command line.
+
+## Handle outcomes explicitly {#error-handling}
+
+In an Xec script:
+
+```typescript
+/// <reference types="@xec-sh/cli/globals" />
+
+const result = await $`node -e "process.exit(3)"`.nothrow();
+if (!result.ok) {
+  console.error(`The check exited with ${result.exitCode}`);
 }
 ```
 
-Use your custom command:
+Commands normally reject on a nonzero exit. `.nothrow()` lets you inspect a
+completed command result; transport failures and uncertain remote completion
+still require their own handling. Do not repeat a state-changing command merely
+because the caller lost its response.
 
-```bash
-xec greet World
-```
+## Grow the project interface {#creating-custom-commands}
 
-## What's Next? {#whats-next}
+Choose [dynamic commands](../commands/custom/creating-commands.md) when operators
+need structured options, contextual help or confirmation. Keep implementation
+in reusable functions, and use [Ops pipelines](../ops/pipeline.md) when steps
+need an explicit dependency graph. Neither requires an alternate shell runner.
 
-Now that you've seen the basics:
+`--dry-run` is specific to the selected command. In 0.12.0 it is **not safe as a
+non-execution guarantee for scripts**, including `script:` entries in tasks.
+Use `xec inspect tasks NAME --explain` to inspect a task definition; even
+configuration inspection can evaluate an explicitly trusted `${cmd:...}` value.
 
-1. **Explore the Philosophy** - Understand the [design principles](./philosophy.md) behind Xec
-2. **Learn When to Use Xec** - See [real-world use cases](./when-to-use.md)
-3. **Dive into Examples** - Check out [comprehensive examples](../recipes/index.md)
-4. **Read the Configuration Guide** - Explore [configuration options](../configuration/overview.md)
+## See also {#see-also}
 
-## Getting Help {#getting-help}
-
-- **Documentation**: [xec.sh](https://xec.sh)
-- **GitHub**: [github.com/xec-sh/xec](https://github.com/xec-sh/xec)
-
-## Tips for Success {#tips-for-success}
-
-1. **Start simple** - Begin with local execution before moving to remote environments
-2. **Use TypeScript** - Get full IntelliSense and type checking
-3. **Handle errors** - Always consider failure cases with `.nothrow()` or try/catch
-4. **Monitor execution** - Use the event system for debugging
-5. **Use parallel execution** - Leverage `$.parallel.all()` for concurrent operations
+- [Core concepts](./core-concepts.md): execution, targets and ownership.
+- [Configuration](../configuration/overview.md): files, profiles and variables.
+- [Tasks](../configuration/tasks/overview.md): supported task behavior and limits.
+- [`run` reference](../commands/built-in/run.md): arguments and execution modes.

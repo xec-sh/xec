@@ -1,326 +1,184 @@
 ---
 title: Installation
-description: How to install Xec on your system
+description: Install a reproducible project CLI or use Xec libraries directly
 keywords: [install, setup, npm, pnpm, global, local]
 ---
 
 # Installation {#installation}
 
-## System Requirements {#system-requirements}
+For a shared repository, install the CLI as an exact development dependency and
+commit the package-manager lockfile. Engineers, CI and agents then use the same
+published release. A global installation is useful for ad hoc terminal work.
 
-Before installing Xec, ensure your system meets these requirements:
+## System requirements {#system-requirements}
 
-- **Node.js**: Version 22.18.0 or higher — the CLI runs TypeScript files
-  through Node's own type stripping, on by default since 22.18. The
-  Core, Ops, Loader and Kit libraries support Node 20. The Testing package
-  requires Vitest 5.1, whose supported Node ranges are `^22.12.0`, `^24.0.0`
-  or `>=26.0.0`.
-- **Operating System**: macOS, Linux, or Windows — all three run the unit suite in CI
-- **Package Manager**: npm (included with Node.js) or pnpm
+- The **CLI requires Node.js 22.18.0 or later**. Core, Ops, Loader and Kit declare
+  Node.js 20 or later; importing a library does not lower the CLI requirement.
+- Linux, macOS and Windows are supported targets. The current main unit-test
+  workflow runs on Linux and Windows; that is not a claim that every native
+  target is tested on every OS in each CI run.
+- Use npm or pnpm. A contributing checkout uses the version in `packageManager`.
+- SSH needs a reachable server, credentials and a host-key policy. Xec bundles
+  its `ssh2` transport; an external OpenSSH client is not required for execution.
+- Docker operations need a reachable Docker daemon and Docker CLI. Kubernetes
+  operations need `kubectl`, a context and suitable cluster permissions.
 
-### Optional Dependencies {#optional-dependencies}
+The CLI loads TypeScript; running it does not require a global `tsx` or
+`ts-node` installation. Execution is not type checking: use your project's
+TypeScript check separately.
 
-For full functionality, you may also want:
+## Project installation {#project-installation}
 
-- **Docker**: For container execution features
-- **kubectl**: For Kubernetes pod execution
-SSH execution uses Xec's bundled, reviewed `ssh2` transport; an external
-OpenSSH client is not required. A reachable SSH server and appropriate
-credentials/host-key policy are still required.
-
-## Installation Methods {#installation-methods}
-
-### Global Installation (Recommended) {#global-installation-recommended}
-
-Install Xec globally to use it from anywhere on your system:
+In an existing Node.js project:
 
 ```bash
-# Using npm
-npm install -g @xec-sh/cli
-
-# Using pnpm
-pnpm add -g @xec-sh/cli
+npm install --save-dev --save-exact @xec-sh/cli
+npx xec --version
+npx xec --help
 ```
 
-Verify the installation:
+With pnpm:
 
 ```bash
-xec --version
+pnpm add --save-dev --save-exact @xec-sh/cli
+pnpm exec xec --version
 ```
 
-### Project Installation {#project-installation}
+If the project does not yet have a `package.json`, create it with `npm init -y`
+first. Commit the manifest and lockfile. Use `npm ci` or
+`pnpm install --frozen-lockfile` when reproducing that installation.
 
-Add Xec to your project for scripting and automation:
-
-```bash
-# Install the CLI as a dev dependency
-npm install --save-dev @xec-sh/cli
-
-# Install the core library for programmatic use
-npm install @xec-sh/core
-```
-
-Add to your `package.json` scripts:
+Inside package scripts, the local executable is already on `PATH`:
 
 ```json
 {
   "scripts": {
-    "deploy": "xec run scripts/deploy.ts",
-    "build": "xec run scripts/build.ts",
-    "test": "xec run scripts/test.ts"
+    "inspect-project": "xec run .xec/scripts/inspect.ts"
   }
 }
 ```
 
-Create those three project-owned script files before running the package
-scripts. `build`, `test` and `deploy` are not built-in Xec commands; their
-shorthands require matching project tasks or dynamic command definitions.
+Create the referenced script before running `npm run inspect-project`.
+`build`, `test`, `deploy` and `release` are project-defined tasks or commands,
+not universal built-ins.
 
-### Development Installation {#development-installation}
+## Library installation {#package-overview}
 
-For contributing to Xec or using the latest development version:
+Install the package that owns the capability you need:
 
-```bash
-# Clone the repository
-git clone https://github.com/xec-sh/xec.git
-cd xec
-
-# Enable Corepack for pnpm
-corepack enable
-
-# Install dependencies
-pnpm install
-
-# Build the project
-pnpm build
-
-# Link for global usage
-pnpm link --global
-```
-
-## Package Overview {#package-overview}
-
-Xec consists of multiple packages:
-
-### @xec-sh/cli {#xec-shcli}
-The command-line interface for Xec.
+| Package | Responsibility |
+| --- | --- |
+| `@xec-sh/core` | Local, SSH, Docker and Kubernetes command execution |
+| `@xec-sh/ops` | Configuration, tasks, pipelines, workflows and releases |
+| `@xec-sh/loader` | Script/module loading and runtime utilities |
+| `@xec-sh/kit` | Terminal prompts, progress and formatting |
+| `@xec-sh/testing` | Disposable fixtures and Vitest integration |
+| `@xec-sh/cli` | The `xec` executable and project command discovery |
 
 ```bash
-npm install -g @xec-sh/cli
+npm install --save-exact @xec-sh/core
 ```
 
-Features:
-- Command execution across environments
-- Task automation
-- Script running
-- Configuration management
+For an ESM project (`"type": "module"` in `package.json`), create `inspect.js`:
 
-### @xec-sh/core {#xec-shcore}
-The core execution engine for programmatic use.
+```javascript
+import { $ } from '@xec-sh/core';
+
+console.log(await $`node --version`.text());
+```
 
 ```bash
-npm install @xec-sh/core
+node inspect.js
 ```
 
-Features:
-- Template literal execution API
-- Multi-environment adapters
-- Connection pooling
-- Error handling
+The library does not inject CLI script globals. Import the APIs used by your
+application. Testing helpers require a compatible Vitest installation; consult
+that package's declared peer dependencies before adding it.
 
-### @xec-sh/testing {#xec-shtesting}
-Testing utilities for Xec scripts and commands.
+## Global installation {#global-installation-recommended}
 
 ```bash
-npm install --save-dev @xec-sh/testing vitest
+npm install --global @xec-sh/cli
+xec --version
 ```
 
-Features:
-- Test containers
-- Docker/SSH/kind fixture lifecycle
-- Vitest test helpers (run inside `vitest`, not directly with Node)
+A globally installed CLI can differ from a project's pinned CLI. Use
+`npm exec -- xec` or `pnpm exec xec` inside a project when reproducibility matters.
 
-## Platform-Specific Setup {#platform-specific-setup}
+## Platform behavior {#platform-specific-setup}
 
-### macOS {#macos}
+Shell syntax is not portable merely because the execution API is shared.
+For example, Windows `cmd.exe` supports `&&` but uses `%NAME%` rather than POSIX
+`$NAME` expansion. POSIX utilities are not automatically installed on Windows.
+Use Node.js APIs for portable file operations or select a shell explicitly when
+its presence is part of your environment contract. See
+[portable scripts](./portable-scripts.md).
 
-```bash
-npm install -g @xec-sh/cli
-```
+## Container installation {#docker-installation}
 
-### Linux {#linux}
-
-```bash
-# Ubuntu/Debian
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt-get install -y nodejs
-npm install -g @xec-sh/cli
-
-# Fedora/RHEL
-sudo dnf install nodejs
-npm install -g @xec-sh/cli
-
-# Arch Linux
-sudo pacman -S nodejs npm
-npm install -g @xec-sh/cli
-```
-
-### Windows {#windows}
-
-Native Windows is supported and tested:
-
-```powershell
-# Install Node.js from nodejs.org first
-npm install -g @xec-sh/cli
-```
-
-Commands there run through `cmd.exe` by default, and Xec's own behaviour —
-escaping, paths, globs, line endings, timeouts — is identical to the other
-platforms. What differs is what the shell itself understands: `cmd` has no
-`&&`, no `$VAR` expansion and none of the POSIX tools. See
-[Windows and cross-platform scripts](../targets/local/cross-platform.md).
-
-WSL2 is worth having if your scripts are written in POSIX shell syntax and
-you would rather not change them:
-
-```bash
-# In WSL2 terminal
-npm install -g @xec-sh/cli
-```
-
-## Docker Installation {#docker-installation}
-
-Run Xec in a container:
+Use a Node image meeting the CLI requirement. This example assumes a project
+lockfile that already pins `@xec-sh/cli` and an `inspect.ts` file:
 
 ```dockerfile
-FROM node:22-alpine
-RUN npm install -g @xec-sh/cli
+FROM node:24-alpine
 WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
 COPY . .
-CMD ["xec", "run", "script.ts"]
+CMD ["npm", "exec", "--", "xec", "run", "inspect.ts"]
 ```
 
+A container does not gain Docker-daemon or cluster access automatically. Grant
+those capabilities only when the workflow requires them.
 
-## Verifying Installation {#verifying-installation}
-
-After installation, verify everything is working:
+## Contributing installation {#development-installation}
 
 ```bash
-# Check version
-xec --version
-
-# Show help
-xec --help
-
-# Test execution
-xec -e "console.log('Hello from Xec!')"
+git clone https://github.com/xec-sh/xec.git
+cd xec
+corepack enable
+pnpm install --frozen-lockfile
+pnpm build
 ```
 
-## Configuration Setup {#configuration-setup}
+The development repository pins a published Xec for its own `.xec` project
+commands. Building candidate packages tests the product being developed; it is
+not a prerequisite for the published CLI to manage the repository. Follow the
+repository's current [contribution guide](https://github.com/xec-sh/xec/blob/main/CONTRIBUTING.md)
+for focused checks.
 
-Initialize Xec in your project:
+## Verify and troubleshoot {#verifying-installation}
 
 ```bash
-# Scaffold .xec/ in the current project (config, commands, scripts)
-xec new project
-
-# Or create individual artifacts
-xec new script deploy
-xec new command greet
+node --version
+npx xec --version
+npx xec run -e "console.log('Xec is ready')"
 ```
 
-## Environment Variables {#environment-variables}
+If startup fails, check the Node version, the resolved executable and whether
+the local dependencies were installed from the lockfile. A missing project
+module should be installed in that project; clearing every cache or adding a
+global transpiler does not repair its dependency declaration.
 
-Configure Xec behavior with environment variables:
+If a global install requires elevated privileges, prefer a project installation
+or a Node version manager with a user-owned installation directory.
+
+## Updating and uninstalling {#updating-xec}
+
+Update deliberately, review the lockfile and run the affected project checks:
 
 ```bash
-# Load an additional config file
-export XEC_CONFIG=/custom/path/config.yaml
-
-# Enable debug output
-export XEC_DEBUG=true
-
-# Disable colors
-export NO_COLOR=1
+npm install --save-dev --save-exact @xec-sh/cli@VERSION
+npm install --save-exact @xec-sh/core@VERSION
 ```
 
-## Troubleshooting Installation {#troubleshooting-installation}
+Replace `VERSION` with the release you intend to adopt. Only update packages your
+project actually uses. To uninstall, use `npm uninstall @xec-sh/cli` or
+`npm uninstall --global @xec-sh/cli`; keep project configuration and operational
+data unless you independently intend to remove them.
 
-### Common Issues {#common-issues}
+## See also {#see-also}
 
-**Permission Denied**
-```bash
-# Fix npm global permissions
-npm config set prefix ~/.npm-global
-export PATH=~/.npm-global/bin:$PATH
-```
-
-**Module Not Found**
-```bash
-# Clear npm cache
-npm cache clean --force
-
-# Reinstall
-npm install -g @xec-sh/cli
-```
-
-**Version Conflicts**
-```bash
-# Check Node.js version
-node --version  # Should be >= 22.18.0
-
-# Update Node.js if needed
-nvm install 22
-nvm use 22
-```
-
-**TypeScript Issues**
-```bash
-# Install TypeScript support
-npm install -g typescript tsx
-```
-
-## Updating Xec {#updating-xec}
-
-Keep Xec up to date:
-
-```bash
-# Update global installation
-npm update -g @xec-sh/cli
-
-# Update project installation
-npm update @xec-sh/core @xec-sh/cli
-
-# Check for updates
-npm outdated -g @xec-sh/cli
-```
-
-## Uninstalling {#uninstalling}
-
-To remove Xec from your system:
-
-```bash
-# Global uninstall
-npm uninstall -g @xec-sh/cli
-
-# Project uninstall
-npm uninstall @xec-sh/core @xec-sh/cli
-
-# Remove configuration (optional)
-rm -rf ~/.xec
-rm -rf .xec/
-```
-
-## Next Steps {#next-steps}
-
-- [Quick Start Guide](./quick-start.md) - Get started with your first script
-- [Core Concepts](./core-concepts.md) - Understand Xec's architecture
-- [Configuration](../configuration/overview.md) - Set up your environment
-- [Examples](../recipes/index.md) - Learn from real-world examples
-
-## Getting Help {#getting-help}
-
-If you encounter issues:
-
-- Check the [Troubleshooting Guide](../configuration/advanced/troubleshooting.md)
-- Visit our [GitHub Issues](https://github.com/xec-sh/xec/issues)
+- [Quick start](./quick-start.md): a complete first workflow.
+- [Package ecosystem](./ecosystem.md): package boundaries and entry points.
+- [Configuration troubleshooting](../configuration/advanced/troubleshooting.md).
