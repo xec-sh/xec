@@ -878,14 +878,6 @@ summary {
 .lumen-search-error {
   color: #f89c9c;
 }
-:root[data-prism-color-scheme='dark'] .shiki span[style] {
-  color: var(--shiki-dark, inherit);
-  font-style: var(--shiki-dark-font-style, normal);
-}
-:root[data-prism-color-scheme='light'] .shiki span[style] {
-  color: var(--shiki-light, inherit);
-  font-style: var(--shiki-light-font-style, normal);
-}
 .lumen-code-block,
 .example-code pre {
   scrollbar-width: thin;
