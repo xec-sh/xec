@@ -1,6 +1,6 @@
 import * as jsYaml from 'js-yaml';
 import { prism } from '@xec-sh/kit';
-import { getExecutionSignal } from '@xec-sh/core';
+import { getExecutionSignal, sanitizeForDiagnostics, sanitizeCommandForError, sanitizeErrorForDiagnostics } from '@xec-sh/core';
 
 import { ValidationError } from './validation.js';
 import { UntrustedConfigError } from '../config/configuration-manager.js';
@@ -141,24 +141,25 @@ export function handleError(error: any, options: CommandOptions): void {
   }
 
   // Don't show errors in quiet mode unless it's critical
-  if (options.quiet && !isCriticalError(error)) {
-    process.exit(1);
+  if (options.quiet && options.output !== 'json' && options.output !== 'yaml' && !isCriticalError(error)) {
+    process.exit(getExitCode(error));
   }
 
   // Enhance error with core system if not already enhanced
   const enhancedError = enhanceErrorWithContext(error, options);
 
   // Log detailed error info in debug mode
-  if (process.env['XEC_DEBUG'] === '1' || process.env['XEC_DEBUG'] === 'true') {
+  if ((!options.output || options.output === 'text') && (process.env['XEC_DEBUG'] === '1' || process.env['XEC_DEBUG'] === 'true')) {
+    const safeError = sanitizeErrorForDiagnostics(error);
     console.error(prism.red('\n=== DEBUG ERROR INFO ==='));
-    console.error(prism.gray('Error type:'), error.constructor.name);
-    console.error(prism.gray('Error code:'), error.code || 'none');
-    console.error(prism.gray('Error message:'), error.message);
-    if (error.path) console.error(prism.gray('Path:'), error.path);
-    if (error.syscall) console.error(prism.gray('Syscall:'), error.syscall);
-    if (error.stack) {
+    console.error(prism.gray('Error type:'), safeError.name);
+    console.error(prism.gray('Error code:'), (safeError as NodeJS.ErrnoException).code || 'none');
+    console.error(prism.gray('Error message:'), safeError.message);
+    if ((safeError as NodeJS.ErrnoException).path) console.error(prism.gray('Path:'), (safeError as NodeJS.ErrnoException).path);
+    if ((safeError as NodeJS.ErrnoException).syscall) console.error(prism.gray('Syscall:'), (safeError as NodeJS.ErrnoException).syscall);
+    if (safeError.stack) {
       console.error(prism.gray('\nStack trace:'));
-      console.error(prism.gray(error.stack));
+      console.error(prism.gray(safeError.stack));
     }
     console.error(prism.red('======================\n'));
   }
@@ -246,16 +247,16 @@ function enhanceErrorWithContext(error: any, options: CommandOptions): EnhancedE
  */
 function displayUserError(error: UserError, options: CommandOptions): void {
   if (options.output === 'json') {
-    console.error(JSON.stringify({ error: true, message: error.message, code: 'USER_ERROR' }, null, 2));
+    console.error(JSON.stringify({ error: true, message: sanitizeCommandForError(error.message), code: 'USER_ERROR', exitCode: error.exitCode }, null, 2));
     return;
   }
 
   if (options.output === 'yaml') {
-    console.error(jsYaml.dump({ error: true, message: error.message, code: 'USER_ERROR' }));
+    console.error(jsYaml.dump({ error: true, message: sanitizeCommandForError(error.message), code: 'USER_ERROR', exitCode: error.exitCode }));
     return;
   }
 
-  const [first, ...rest] = error.message.split('\n');
+  const [first, ...rest] = sanitizeCommandForError(error.message).split('\n');
   console.error(`${prism.red('✗')} ${first}`);
   for (const line of rest) {
     console.error(prism.dim(line));
@@ -265,8 +266,8 @@ function displayUserError(error: UserError, options: CommandOptions): void {
 /**
  * Format enhanced error as JSON
  */
-function formatEnhancedErrorAsJSON(error: EnhancedExecutionError): any {
-  return {
+function formatEnhancedErrorAsJSON(error: EnhancedExecutionError): Record<string, unknown> {
+  return sanitizeForDiagnostics({
     error: true,
     message: error.message,
     code: error.code || 'UNKNOWN_ERROR',
@@ -275,8 +276,9 @@ function formatEnhancedErrorAsJSON(error: EnhancedExecutionError): any {
     suggestions: error.suggestions,
     causes: error.causes,
     systemInfo: error.systemInfo,
-    type: error.name
-  };
+    type: error.name,
+    ...error.commandDiagnostic,
+  });
 }
 
 /**
@@ -284,7 +286,7 @@ function formatEnhancedErrorAsJSON(error: EnhancedExecutionError): any {
  */
 function displayEnhancedError(error: EnhancedExecutionError, options: CommandOptions): void {
   // Use the formatted output from enhanced error
-  const formatted = error.format ? error.format(options.verbose) : error.message;
+  const formatted = sanitizeCommandForError(error.format ? error.format(options.verbose) : error.message);
 
   // Split by lines and apply CLI coloring
   const lines = formatted.split('\n');

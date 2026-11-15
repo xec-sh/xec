@@ -1,8 +1,49 @@
 import type { ErrorContext, ErrorSuggestion, EnhancedErrorDetails } from '@xec-sh/core';
 
-import { ExecutionError, sanitizeCommandForError, sanitizeErrorForDiagnostics } from '@xec-sh/core';
+import { stripVTControlCharacters } from 'node:util';
+import { ExecutionError, sanitizeForDiagnostics, sanitizeCommandForError, sanitizeErrorForDiagnostics } from '@xec-sh/core';
 
 export type { ErrorContext, ErrorSuggestion, EnhancedErrorDetails };
+
+/** Diagnostic previews are bounded independently of the API capture limit. */
+const OUTPUT_PREVIEW_BYTES = 16_384;
+
+interface CommandDiagnostic {
+  exitCode?: number;
+  signal?: string;
+  stdout?: string;
+  stderr?: string;
+  outputTruncated?: { stdout: boolean; stderr: boolean };
+}
+
+function commandDiagnostic(value: unknown): CommandDiagnostic {
+  if (!(value instanceof Error)) return {};
+  const fields = value as Error & { exitCode?: unknown; signal?: unknown; stdout?: unknown; stderr?: unknown };
+  const diagnostic: CommandDiagnostic = {};
+  if (typeof fields.exitCode === 'number') diagnostic.exitCode = fields.exitCode;
+  if (typeof fields.signal === 'string') diagnostic.signal = sanitizeCommandForError(fields.signal);
+  for (const stream of ['stdout', 'stderr'] as const) {
+    if (typeof fields[stream] !== 'string') continue;
+    // Mask before cutting: a secret spanning the preview boundary must not leak.
+    const bytes = Buffer.from(stripVTControlCharacters(sanitizeCommandForError(fields[stream])));
+    const truncated = bytes.length > OUTPUT_PREVIEW_BYTES;
+    diagnostic[stream] = truncated
+      ? new TextDecoder().decode(bytes.subarray(0, OUTPUT_PREVIEW_BYTES), { stream: true })
+      : bytes.toString();
+    diagnostic.outputTruncated ??= { stdout: false, stderr: false };
+    diagnostic.outputTruncated[stream] = truncated;
+  }
+  return diagnostic;
+}
+
+function appendCommandDiagnostic(lines: string[], diagnostic: CommandDiagnostic): void {
+  if (diagnostic.exitCode !== undefined) lines.push(`Exit code: ${diagnostic.exitCode}`);
+  if (diagnostic.signal !== undefined) lines.push(`Signal: ${diagnostic.signal}`);
+  for (const stream of ['stdout', 'stderr'] as const) {
+    if (!diagnostic[stream]) continue;
+    lines.push(`${stream}${diagnostic.outputTruncated?.[stream] ? ' (truncated to 16 KiB)' : ''}:`, diagnostic[stream]);
+  }
+}
 
 /**
  * Enhanced error class with suggestions and detailed context
@@ -19,10 +60,12 @@ export class EnhancedExecutionError extends ExecutionError {
     context: ErrorContext = {},
     suggestions: ErrorSuggestion[] = []
   ) {
-    super(message, code, { context, suggestions });
+    const safeContext = sanitizeForDiagnostics(context);
+    const safeSuggestions = sanitizeForDiagnostics(suggestions);
+    super(sanitizeCommandForError(message), code, { context: safeContext, suggestions: safeSuggestions });
     this.name = 'EnhancedExecutionError';
-    this.context = context;
-    this.suggestions = suggestions;
+    this.context = safeContext;
+    this.suggestions = safeSuggestions;
 
     // Add system info
     this.systemInfo = {
@@ -36,13 +79,16 @@ export class EnhancedExecutionError extends ExecutionError {
    * Add a suggestion to the error
    */
   addSuggestion(suggestion: ErrorSuggestion): this {
-    this.suggestions.push(suggestion);
+    this.suggestions.push(sanitizeForDiagnostics(suggestion));
     return this;
   }
 
+  /** Captured command output is diagnostic data here, never a raw API payload. */
+  get commandDiagnostic(): CommandDiagnostic { return commandDiagnostic(this); }
+
   /** Bounded diagnostic causes, shared by text and structured CLI output. */
-  get causes(): Array<{ name: string; message: string }> {
-    const result: Array<{ name: string; message: string }> = [];
+  get causes(): Array<{ name: string; message: string } & CommandDiagnostic> {
+    const result: Array<{ name: string; message: string } & CommandDiagnostic> = [];
     const pending: unknown[] = this.cause === undefined ? [] : [this.cause];
     const seen = new Set<unknown>();
     let truncated = false;
@@ -53,6 +99,7 @@ export class EnhancedExecutionError extends ExecutionError {
       result.push({
         name: sanitizeCommandForError(value instanceof Error ? value.name : 'Error'),
         message: sanitizeCommandForError(value instanceof Error ? value.message : String(value)),
+        ...commandDiagnostic(value),
       });
       if (value instanceof Error && value.cause !== undefined) pending.push(value.cause);
       if (value instanceof AggregateError) {
@@ -75,7 +122,11 @@ export class EnhancedExecutionError extends ExecutionError {
     // Main error message
     lines.push(`Error: ${this.message}`);
     lines.push(`Code: ${this.code}`);
-    for (const cause of this.causes) lines.push(`Caused by ${cause.name}: ${cause.message}`);
+    appendCommandDiagnostic(lines, this.commandDiagnostic);
+    for (const cause of this.causes) {
+      lines.push(`Caused by ${cause.name}: ${cause.message}`);
+      appendCommandDiagnostic(lines, cause);
+    }
 
     // Context information
     if (Object.keys(this.context).length > 0) {
@@ -121,7 +172,7 @@ export class EnhancedExecutionError extends ExecutionError {
       lines.push(this.stack);
     }
 
-    return lines.join('\n');
+    return sanitizeCommandForError(lines.join('\n'));
   }
 }
 

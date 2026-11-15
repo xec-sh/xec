@@ -63,7 +63,10 @@ arguments from Xec's options.
 
 A task may also be invoked by its name (`xec check`) when no registered command
 owns that name. `xec run check` makes task intent explicit. Built-in and dynamic
-commands take precedence over the task shorthand.
+commands take precedence over the task shorthand. To run a local executable
+unambiguously, use `xec -- <executable> [arguments]`. Current source preserves
+literal argv and bypasses project discovery for this form; remote execution
+requires an explicit `on`, `in` or task target.
 
 ## Native project commands {#command-development}
 

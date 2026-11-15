@@ -48,6 +48,14 @@ xec -e 'console.log(process.version)'
 xec -- node --version
 ```
 
+For explicit local execution, `xec -- <executable> [arguments]` preserves each
+argument as data. Spaces, quotes, dollar signs and shell operators are not
+reinterpreted. Request a shell explicitly when that is the intended operation,
+for example `xec -- sh -c 'printf "%s\\n" hello | wc -l'` on POSIX.
+Current source bypasses project command/configuration discovery for this form and
+never guesses a host, container or pod. Use `on` or `in` for remote execution.
+These argv and discovery corrections are newer than npm 0.12.0.
+
 ## Command options {#command-options}
 
 Use `xec <command> --help` and subcommand help for the installed schema. `--config`,
@@ -172,6 +180,16 @@ code `1` alone does not classify an operation's remote outcome.
 | 11 | `EACCES` |
 | 12 / 13 | `ENOTDIR` / `EISDIR` |
 | 130 / 143 | `SIGINT` / `SIGTERM` cancellation |
+
+A completed child command retains its nonzero exit code, including in quiet mode.
+For a successful direct command, stdout and stderr retain their stream and
+whitespace; quiet mode suppresses both captured streams. Failed commands use
+stderr for diagnostics. Current source includes a redacted preview of each
+captured stream, bounded to 16 KiB, and explicitly marks truncation. JSON/YAML
+errors retain `exitCode`, `signal`, `stdout`, `stderr` and `outputTruncated` when
+available; debug mode does not add text around that document. Nested command
+causes use the same preview. This fixes missing output/status in npm 0.12.0.
+The limit applies to diagnostic display, not the Core result capture contract.
 
 ### Cancellation {#cancellation}
 

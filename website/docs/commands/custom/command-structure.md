@@ -12,7 +12,7 @@ key_functions:
   - BaseCommand.execute()
   - findCommand()
   - loadDynamicCommands()
-verification_date: 2026-08-05
+verification_date: 2026-11-15
 ---
 
 # Command Structure {#command-structure}
@@ -36,9 +36,8 @@ write your own commands; for that, see
 ## The Command Manifest {#the-command-manifest}
 
 `xec --help` needs a name and one line of description per command — not the
-implementations. Every command module statically imports `@xec-sh/ops`, so
-importing all of them just to list their names cost ~140 ms on every
-invocation. Instead, a manifest carries what help needs, and a command's
+implementations. A manifest carries the metadata help needs without eagerly importing every
+implementation and its dependencies. A command's
 module is imported only when that command is actually invoked:
 
 ```typescript
@@ -53,7 +52,7 @@ export interface CommandManifestEntry {
 export const COMMAND_MANIFEST: readonly CommandManifestEntry[] = [
   { name: 'config', description: 'Manage Xec configuration', aliases: ['conf', 'cfg'], module: 'config' },
   { name: 'copy',   description: 'Copy files between targets', aliases: ['cp'], module: 'copy' },
-  // ... twelve entries in total
+  // Other built-in commands are declared by the same manifest.
 ];
 ```
 
@@ -62,13 +61,12 @@ Drift between the manifest and the real modules is caught by
 if the two disagree.
 
 At startup, `registerBuiltInCommands()` (in `main.ts`) imports the one
-module the first non-flag argument refers to (`findCommand()` resolves
+module the resolved command word refers to (`findCommand()` resolves
 names and aliases — `xec cfg` loads the `config` module). Every other
 command is registered as a stub with just the manifest's name, description
-and aliases. If a stub is nevertheless invoked — the requested command
-wasn't recognisable up front, for instance `xec --cwd /x config get` where
-the first non-flag token is `/x` — its action imports the real module into
-a fresh program and re-parses `argv`.
+and aliases. The root parser distinguishes option values from the command word:
+`xec --cwd /x config get` selects `config`, not `/x`. If a described stub is
+invoked, its action registers the actual native schema and parses the invocation.
 
 Dynamic commands get the same treatment: their name, description and
 literal `.alias()` strings are read out of the source text without
@@ -108,15 +106,17 @@ export abstract class BaseCommand {
 
 `create()` adds three options to every command — `-o, --output <format>`
 (`text|json|yaml|csv`), `-c, --config <path>` and `--dry-run` — plus the
-declared arguments, aliases and custom options. `-v/--verbose` and
-`-q/--quiet` are root-program options inherited by all commands, not
-re-declared per command. Declared examples are appended to `--help` output.
+declared arguments, aliases and custom options. Short `-v` and `-q` belong to the root; long `--verbose` and `--quiet` are
+also registered on the command. A declared flag is not evidence that every
+command supports every output format or preview: the owning action validates
+those combinations before effects. Declared examples are appended to `--help` output.
 
 ### From argv to execute() {#from-argv-to-execute}
 
 The action handler `create()` installs unpacks commander's
 `(...positionals, options, command)` call shape, merges command options
-with the root program's `verbose`/`quiet`, runs the `validateOptions` hook
+with the root program's `verbose`/`quiet`, retains Commander option provenance,
+runs the `validateOptions` hook
 if declared, configures the output formatter, and finally calls:
 
 `this.execute([...positionalArgs, this.options])`. This is an internal call shape, not a standalone script.
@@ -157,7 +157,9 @@ project configuration; all of it is initialized on demand by
   `--config` and profile), a `TargetResolver` and a `TaskManager`.
 - `getCommandDefaults()` — the command's own defaults from the
   `commands.<name>` section of the configuration; `applyDefaults()` merges
-  them under explicitly passed options.
+  only after validating against the actual native schema. Explicit values win
+  over configured values, and configuration overrides parser defaults. Only
+  commands declaring configuration-default support participate.
 - `resolveTarget(spec)` / `findTargets(pattern)` — configured-target lookup
   (`hosts.web-1`, `containers.*`).
 - `createTargetEngine(target)` — maps a resolved target to an execution
@@ -170,9 +172,7 @@ project configuration; all of it is initialized on demand by
 Uniform UX comes from the base class rather than each command:
 `output()`/`table()` go through the `OutputFormatter` and respect
 `-o text|json|yaml|csv`; `startSpinner()`/`stopSpinner()` and `log()` are
-quiet-aware; `confirm()`/`prompt()`/`select()`/`multiselect()` wrap
-`@xec-sh/kit` prompts and short-circuit to their defaults under `--quiet`
-(a cancelled prompt also falls back instead of throwing);
+quiet-aware; interactive actions use `@xec-sh/kit` and must handle cancellation explicitly;
 `isDryRun()`/`isVerbose()`/`isQuiet()` read the merged options.
 
 ### SubcommandBase {#subcommandbase}
@@ -186,25 +186,25 @@ some modules still import it under that name.
 
 ## Invocation Routing {#invocation-routing}
 
-`run()` in `main.ts` routes an invocation in this order — the first match
-wins, and only the last step involves commander dispatch:
+`run()` in `main.ts` routes the current source in this order. The explicit local
+argv boundary and corrected option scope are newer than npm 0.12.0:
 
 1. A lone `--version`/`-V` prints the version and exits — no command
    loading, no config read.
-2. `-e <code>` / `--eval <code>` anywhere in argv evaluates the code.
-3. `--repl` anywhere in argv starts the REPL.
-4. A first argument that is a file (by `.js`/`.ts`/`.mjs` extension, or an
-   existing file path) runs as a script.
-5. A first argument matching a configured task (and not a command name)
-   runs that task, with `--key=value` / `--key value` parsed as task
-   parameters.
-6. A first argument that `isDirectCommand()` accepts executes as a direct
-   command (`xec echo hi`, target-prefixed forms).
-7. Everything else goes to commander: built-in and dynamic commands,
-   resolved by name or alias. An unknown command prints a
-   did-you-mean suggestion (`checkForCommandTypo` from `@xec-sh/core`) and
-   exits `1`.
-8. No arguments at all shows help.
+2. Resolve root options and apply `--cwd`. Explicit `-- <executable> [args]`
+   runs local argv without loading project commands, configuration or targets.
+3. Discover the selected native command. Root `-e` / `--eval` and `--repl`
+   route through the run command; the same spellings after a command word belong
+   to that command or script.
+4. A command word that is a script path runs through the script runtime.
+5. A configured task name not owned by a command runs through TaskManager, with
+   the same named-parameter grammar as `xec run <task>`.
+6. Other executable names run locally with literal argv. There are no
+   target-prefixed direct forms; `on`, `in` and task definitions own target
+   selection. A probable typo of a built-in that is not on PATH receives a
+   suggestion and exits `127`.
+7. Native Commander dispatch handles built-in and project commands by name or
+   alias. No arguments shows help; invalid options/arguments are parser errors.
 
 ## Related Topics {#related-topics}
 

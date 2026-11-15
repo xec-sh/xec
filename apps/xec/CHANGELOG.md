@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Explicit `xec -- <executable> [args]` bypasses project discovery and always executes local argv. It never guesses Docker, Kubernetes or SSH targets; use explicit `on`/`in` commands. Failed command output and exit codes survive ordinary and quiet diagnostics.
+
 - Command configuration defaults use the native option schema and Commander provenance: explicit CLI values win, configured values override parser defaults, and unknown/invocation-only keys are rejected. `config doctor` validates its proposed document before writing.
 - Project/task/profile scaffolds use the execution configuration contract and preserve existing named definitions unless `--force` is explicit. Nonfunctional extensions and unused scaffold flags are removed; unsupported previews or machine output fail before filesystem effects. Confirmed Git initialization no longer stages or commits unrelated project files.
 

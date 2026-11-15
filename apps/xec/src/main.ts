@@ -237,7 +237,7 @@ export async function run(argv: string[] = process.argv): Promise<void> {
     // Apply the root context before project discovery or module loading.
     // Reapplying a relative cwd in preAction would resolve it a second time.
     program.parseOptions(rootRegion);
-    const parsed = program.opts<{ verbose?: boolean; quiet?: boolean; cwd?: string; color?: boolean }>();
+    const parsed = program.opts<{ verbose?: boolean; quiet?: boolean; cwd?: string; color?: boolean; eval?: string; repl?: boolean }>();
     if (parsed.cwd !== undefined) {
       try {
         process.chdir(parsed.cwd);
@@ -254,6 +254,14 @@ export async function run(argv: string[] = process.argv): Promise<void> {
     };
     if (parsed.color === false) {
       process.env['NO_COLOR'] = '1';
+    }
+
+    // Explicit local argv bypasses project discovery and module evaluation.
+    // A similarly named host/container or project command cannot change scope.
+    if (args[commandWordIndex] === '--' && parsed.eval === undefined && !parsed.repl) {
+      const { executeDirectCommand } = await loadOps();
+      await executeDirectCommand(args.slice(commandWordIndex + 1), rootOptions);
+      return;
     }
 
     // User modules may import Xec even when the selected project has not
@@ -303,18 +311,6 @@ export async function run(argv: string[] = process.argv): Promise<void> {
 
       if (looksLikeScript || isExistingFile) {
         await runViaRunCommand([potentialFile, args.slice(commandWordIndex + 1)], {}, rootOptions);
-        return;
-      }
-    }
-
-    // A leading `--` is the explicit escape hatch: everything after it is a
-    // shell command, never a task or a subcommand. `xec -- echo hello` used
-    // to die on "Unknown command 'echo'".
-    if (args[commandWordIndex] === '--') {
-      const command = args.slice(commandWordIndex + 1);
-      if (command.length > 0) {
-        const { executeDirectCommand } = await loadOps();
-        await executeDirectCommand(command, rootOptions);
         return;
       }
     }

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Local direct execution preserves argv and captured stream whitespace without shell reconstruction or target discovery. Shared failure diagnostics include bounded redacted stdout/stderr previews, truncation flags, status and nested causes in text/JSON/YAML; quiet mode preserves exit codes and structured errors.
+
 - Configuration saves resolve the explicit or discovered project source instead of creating a second config file.
 - Configuration loading, editors and scaffolds share one minimal baseline; adapter and CLI defaults stay with their owners. Task validation uses TaskParser rather than a separate weaker schema.
 - The unimplemented `extensions` configuration contract is rejected before provider initialization or command evaluation, including profile files. The obsolete public extension type is removed.

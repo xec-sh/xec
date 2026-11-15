@@ -455,6 +455,7 @@ export {
   // able to tell truncated output from a command that genuinely printed
   // little, and `instanceof` is how they do it.
   MaxBufferExceededError,
+  sanitizeForDiagnostics,
   sanitizeCommandForError,
   sanitizeErrorForDiagnostics,
   ExecutionOutcomeUnknownError,
