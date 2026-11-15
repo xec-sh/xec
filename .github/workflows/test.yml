@@ -53,7 +53,7 @@ jobs:
           cache: pnpm
 
       # Bun is a build dependency, not just a smoke target: @xec-sh/kit
-      # builds with `bun scripts/build.ts`.
+      # uses the shared Xec package pipeline with Bun bundling.
       - uses: oven-sh/setup-bun@v2
 
       # Deno exists here so the runtime smoke actually runs. Without it the
@@ -69,7 +69,7 @@ jobs:
 
       - name: Published Xec bootstrap before building candidate packages
         run: |
-          node --test scripts/test/repository-bootstrap.test.js
+          node --test scripts/test/repository-bootstrap.test.js .xec/tests/package-build.test.js
 
       - run: pnpm build:full
 
@@ -168,7 +168,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Published Xec bootstrap before building candidate packages
-        run: node --test scripts/test/repository-bootstrap.test.js
+        run: node --test scripts/test/repository-bootstrap.test.js .xec/tests/package-build.test.js
 
       - name: Prepare a release and resume from its frozen workspace
         shell: bash

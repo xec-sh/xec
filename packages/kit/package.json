@@ -52,14 +52,14 @@
     "xec"
   ],
   "scripts": {
-    "build": "bun scripts/build.ts",
-    "build:watch": "bun scripts/build.ts --watch",
+    "build": "pnpm --dir ../.. exec xec package build packages/kit --project tsconfig.build.json --bundle src/index.ts",
+    "build:watch": "pnpm --dir ../.. exec xec watch local \"packages/kit/src/**/*.ts\" --initial --command \"xec package build packages/kit --project tsconfig.build.json --bundle src/index.ts --development\"",
     "typecheck": "tsc --noEmit",
     "test": "FORCE_COLOR=1 vitest run",
     "test:watch": "FORCE_COLOR=1 vitest watch",
     "prettier:write": "prettier --write .",
     "prettier:check": "prettier --check .",
-    "clean": "node ../../scripts/build-package.mjs --clean"
+    "clean": "pnpm --dir ../.. exec xec package clean packages/kit"
   },
   "dependencies": {
     "sisteransi": "^2.0.0"

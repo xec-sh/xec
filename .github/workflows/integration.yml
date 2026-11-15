@@ -55,7 +55,7 @@ jobs:
           node-version: '24'
           cache: pnpm
 
-      # Bun is a build dependency: @xec-sh/kit builds with `bun scripts/build.ts`.
+      # Bun is a build dependency: @xec-sh/kit uses the shared Xec package pipeline with Bun bundling.
       # No Deno here — test.yml carries it for the runtime smoke, which is
       # unit-tier.
       - uses: oven-sh/setup-bun@v2

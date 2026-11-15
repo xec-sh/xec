@@ -39,8 +39,9 @@
   },
   "globalDependencies": [
     "tsconfig.json",
-    "scripts/build-package.mjs",
-    "scripts/typescript-compiler.mjs",
+    ".xec/commands/package.ts",
+    ".xec/lib/package-build.ts",
+    ".xec/lib/typescript-compiler.js",
     ".xec/ssh-transport-policy.json",
     ".xec/lib/ssh-transport.js"
   ]

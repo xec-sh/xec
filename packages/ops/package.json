@@ -69,10 +69,10 @@
     "!dist/**/*.map"
   ],
   "scripts": {
-    "build": "node ../../scripts/build-package.mjs",
+    "build": "pnpm --dir ../.. exec xec package build packages/ops",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "clean": "node ../../scripts/build-package.mjs --clean"
+    "clean": "pnpm --dir ../.. exec xec package clean packages/ops"
   },
   "dependencies": {
     "@xec-sh/core": "workspace:*",

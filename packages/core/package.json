@@ -40,7 +40,7 @@
     "system-administration"
   ],
   "scripts": {
-    "build": "node ../../scripts/build-package.mjs",
+    "build": "pnpm --dir ../.. exec xec package build packages/core",
     "test": "vitest run",
     "test:unit": "vitest run test/unit/",
     "test:integration": "vitest run test/integration/",
@@ -54,7 +54,7 @@
     "docker:stop": "../testing/docker-ssh-manager.sh stop",
     "docker:status": "../testing/docker-ssh-manager.sh status",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
-    "clean": "node ../../scripts/build-package.mjs --clean",
+    "clean": "pnpm --dir ../.. exec xec package clean packages/core",
     "prepack": "pnpm --dir ../.. exec xec ssh guard packages/core"
   },
   "dependencies": {

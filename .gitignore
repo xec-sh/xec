@@ -64,3 +64,6 @@ reports/
 
 # Sealed release archives, publication receipts and the single-writer lock
 .release-artifacts/
+
+# Incomplete package build artifacts are retained for inspection after interruption.
+.dist-build-*/

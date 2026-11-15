@@ -40,11 +40,11 @@
     "scripting"
   ],
   "scripts": {
-    "build": "node ../../scripts/build-package.mjs",
+    "build": "pnpm --dir ../.. exec xec package build apps/xec",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "clean": "node ../../scripts/build-package.mjs --clean"
+    "clean": "pnpm --dir ../.. exec xec package clean apps/xec"
   },
   "bin": {
     "xec": "bin/xec"

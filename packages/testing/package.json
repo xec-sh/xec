@@ -15,8 +15,8 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "node ../../scripts/build-package.mjs",
-    "clean": "node ../../scripts/build-package.mjs --clean",
+    "build": "pnpm --dir ../.. exec xec package build packages/testing",
+    "clean": "pnpm --dir ../.. exec xec package clean packages/testing",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

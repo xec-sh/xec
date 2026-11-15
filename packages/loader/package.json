@@ -32,13 +32,13 @@
     "!dist/**/*.map"
   ],
   "scripts": {
-    "build": "node ../../scripts/build-package.mjs",
+    "build": "pnpm --dir ../.. exec xec package build packages/loader",
     "dev": "tsc --watch",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
-    "clean": "node ../../scripts/build-package.mjs --clean"
+    "clean": "pnpm --dir ../.. exec xec package clean packages/loader"
   },
   "dependencies": {
     "@xec-sh/kit": "workspace:*",

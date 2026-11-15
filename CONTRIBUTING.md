@@ -40,7 +40,7 @@ operations; that entry point is the product under test.
 | `.xec/config.yaml` | Project tasks that invoke the owning tools and APIs |
 | `turbo.json` | Workspace task dependencies, inputs and cache |
 | `website` | Lumen/Prism documentation, examples and browser acceptance |
-| `scripts` | Remaining package/compiler helpers and native test fixtures |
+| `scripts/test` | Repository verifier fixtures and native acceptance tests |
 
 Xec owns workflows; Turbo owns the package DAG and cache. Keep new project
 operations in native `.xec` commands or tasks. Reuse package APIs and migrate
@@ -61,9 +61,13 @@ pnpm typecheck   # Workspace types and native project commands
 pnpm lint        # Source, project commands and website components
 ```
 
-These root scripts delegate to `xec run <task>`. Package compilation and
-incremental caching remain with Turbo. A cached build does not establish native
-adapter behavior or release acceptance.
+These root scripts delegate to `xec run <task>`. Turbo owns the dependency graph
+and incremental cache. Each package invokes `xec package build` through the
+published driver at the repository root. The shared pipeline compiles TypeScript,
+optionally bundles Kit with Bun, checks its outputs and then replaces `dist`.
+A failed compilation leaves the previous output available. The build and clean
+commands use the same per-package ownership lock as release preparation.
+A cached build does not establish native adapter behavior or release acceptance.
 
 Do not rebuild shared `dist` or replace dependencies while applications use them.
 Build an isolated checkout for those checks. On the development Mac, use mounted

@@ -393,6 +393,21 @@ how a package compiles invalidates the affected cached results. Repository
 commands have a separate type check in `.xec/tsconfig.json` and are linted with
 the package sources.
 
+Each package script calls the published driver from the repository root:
+`pnpm --dir ../.. exec xec package build packages/core`, for example. The common
+Ops pipeline validates the compiler configuration, emits to a private sibling
+of `dist`, optionally bundles Kit with Bun, and checks the output before replacing
+`dist`. It preserves source-map paths and excludes compiler cache files from the
+artifact. `xec package clean` removes only that package's generated `dist`.
+Both operations acquire the same per-package lock as release preparation.
+
+Compilation failures leave the previous artifact intact. A failed installation
+restores it when the filesystem confirms that recovery; failed recovery retains
+the old and new directories and ownership lock for inspection. This two-rename
+publication is not a crash-atomic filesystem transaction: process death between
+renames requires reconciliation of those exact paths. Cleanup errors preserve
+the original failure instead of masking it.
+
 A Turbo cache hit is a reusable task result, not release acceptance. The release
 API separately checks source identity, archive bytes and consumer contracts
 before publication. Native integration checks still require their actual runtime
