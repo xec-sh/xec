@@ -6,6 +6,59 @@ import path from "node:path";
 import { homedir } from "node:os";
 import { existsSync } from "node:fs";
 
+/** Configuration keys are data, never a JavaScript prototype traversal. */
+function assertConfigKey(key: string): void {
+  if (['__proto__', 'constructor', 'prototype'].includes(key)) {
+    throw new Error(`Unsafe reserved configuration key: ${key}`);
+  }
+}
+
+/** Reject dangerous keys throughout a value, including objects inside arrays. */
+export function assertConfigData(value: unknown, ancestors = new Set<object>()): void {
+  if (!value || typeof value !== 'object') return;
+  if (ancestors.has(value)) throw new Error('Configuration cannot contain circular values');
+  ancestors.add(value);
+  for (const [key, item] of Object.entries(value)) {
+    assertConfigKey(key);
+    assertConfigData(item, ancestors);
+  }
+  ancestors.delete(value);
+}
+
+function configPathParts(valuePath: string): string[] {
+  const parts = valuePath.split('.');
+  for (const part of parts) {
+    if (!part) throw new Error('Configuration path must not contain empty segments');
+    assertConfigKey(part);
+  }
+  return parts;
+}
+
+/** Read only declared properties, shared by config access and interpolation. */
+export function getConfigValue(value: unknown, valuePath: string): unknown {
+  if (!valuePath) return value;
+  let current = value;
+  for (const part of configPathParts(valuePath)) {
+    if (!current || typeof current !== 'object' || !Object.hasOwn(current, part)) return undefined;
+    current = (current as Record<string, unknown>)[part];
+  }
+  return current;
+}
+
+/** Validate the entire path/value before applying a configuration mutation. */
+export function setConfigValue(value: object, valuePath: string, replacement: unknown): void {
+  const parts = configPathParts(valuePath);
+  assertConfigData(replacement);
+  const last = parts.pop()!;
+  let current = value as Record<string, unknown>;
+  for (const part of parts) {
+    const child = Object.hasOwn(current, part) ? current[part] : undefined;
+    if (!child || typeof child !== 'object') current[part] = {};
+    current = current[part] as Record<string, unknown>;
+  }
+  current[last] = replacement;
+}
+
 /**
  * Deep merge objects
  * Arrays are replaced, not merged
@@ -13,6 +66,12 @@ import { existsSync } from "node:fs";
  * Special key $merge forces array concatenation
  */
 export function deepMerge(target: any, source: any, options?: { skipUndefined?: boolean }): any {
+  assertConfigData(target);
+  assertConfigData(source);
+  return mergeConfigValues(target, source, options);
+}
+
+function mergeConfigValues(target: any, source: any, options?: { skipUndefined?: boolean }): any {
   if (source === null || source === undefined) {
     return target;
   }
@@ -68,7 +127,7 @@ export function deepMerge(target: any, source: any, options?: { skipUndefined?: 
       typeof result[key] === 'object' &&
       !Array.isArray(result[key])
     ) {
-      result[key] = deepMerge(result[key], sourceValue, options);
+      result[key] = mergeConfigValues(result[key], sourceValue, options);
     } else {
       result[key] = sourceValue;
     }
@@ -339,6 +398,7 @@ export function flattenObject(obj: any, prefix = ''): Record<string, any> {
   const flattened: Record<string, any> = {};
 
   for (const [key, value] of Object.entries(obj)) {
+    assertConfigKey(key);
     const fullKey = prefix ? `${prefix}.${key}` : key;
 
     if (value && typeof value === 'object' && !Array.isArray(value)) {

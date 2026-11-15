@@ -3,6 +3,8 @@ import { tmpdir } from 'node:os';
 import { existsSync } from 'node:fs';
 import { rm, mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 
+import { deepMerge } from '../../../src/config/utils.js';
+import { VariableInterpolator } from '../../../src/config/variable-interpolator.js';
 import { ConfigurationManager, UntrustedConfigError } from '../../../src/config/configuration-manager.js';
 
 const prefix = 'XEC_PROVENANCE_TEST_';
@@ -66,6 +68,35 @@ describe('configuration source provenance', () => {
     expect(existsSync(marker)).toBe(false);
     await manager({ profile: 'test', onUntrustedConfig: () => true }).load();
     expect(existsSync(marker)).toBe(true);
+  });
+
+  it('rejects prototype keys at every config merge depth', () => {
+    const payload = JSON.parse('{"__proto__":{"unexpected":"inherited"}}');
+    for (const value of [payload, { vars: payload }, { vars: { list: [payload] } }]) {
+      expect(() => deepMerge({}, value)).toThrow(/reserved configuration key/);
+    }
+    expect(Object.prototype).not.toHaveProperty('unexpected');
+  });
+
+  it('rejects prototype paths before mutating a configuration', async () => {
+    await config('vars: {}\n');
+    const current = manager();
+    await current.load();
+    const marker = 'xecSyntheticPrototypeMarker';
+    try {
+      for (const path of [`vars.__proto__.${marker}`, `vars.constructor.prototype.${marker}`]) {
+        expect(() => current.set(path, 'forbidden')).toThrow(/reserved configuration key/);
+      }
+      expect(Object.prototype).not.toHaveProperty(marker);
+    } finally {
+      // A regression against old source must not contaminate another test.
+      Reflect.deleteProperty(Object.prototype, marker);
+    }
+  });
+
+  it('does not resolve inherited properties as declared variables', () => {
+    const vars = Object.create({ inherited: 'not declared' });
+    expect(() => new VariableInterpolator().resolveValue('vars.inherited', { vars })).toThrow(/not defined/);
   });
 
   it.each(['TASKS_PROBE_COMMAND', 'PROFILES_PROBE_VARS_VALUE', 'EXTENSIONS_0_PATH'])('refuses executable config from environment override %s', async key => {

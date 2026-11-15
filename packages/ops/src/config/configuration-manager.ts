@@ -20,7 +20,7 @@ import * as fs from 'node:fs/promises';
 import { SecretManager } from '../secrets/index.js';
 import { TargetResolver } from './target-resolver.js';
 import { ConfigValidator } from './config-validator.js';
-import { deepMerge, getGlobalConfigDir } from './utils.js';
+import { deepMerge, getConfigValue, setConfigValue, getGlobalConfigDir } from './utils.js';
 import { isTrusted, untrustedMessage, trustedByEnvironment, usesCommandSubstitution } from './command-trust.js';
 import { VariableInterpolator, type InterpolateOptions, DynamicValueUnavailableError } from './variable-interpolator.js';
 
@@ -175,11 +175,11 @@ export class ConfigurationManager {
     // Preserve the uninterpolated configuration for save()
     this.rawMerged = JSON.parse(JSON.stringify(this.merged)) as Configuration;
     for (const literalPath of this.literalConfigPaths) {
-      const value = this.getByPath(this.rawMerged, literalPath);
+      const value = getConfigValue(this.rawMerged, literalPath);
       if (typeof value === 'string') {
         // Persist terminal data with the existing literal-reference syntax;
         // save/reload must not promote an environment value into program text.
-        this.setByPath(this.rawMerged, literalPath, value.replace(/\$\{/g, '\\${'));
+        setConfigValue(this.rawMerged, literalPath, value.replace(/\$\{/g, '\\${'));
       }
     }
 
@@ -224,7 +224,7 @@ export class ConfigurationManager {
       throw new Error('Configuration not loaded. Call load() first.');
     }
 
-    return this.getByPath(this.merged, p) as T;
+    return getConfigValue(this.merged, p) as T;
   }
 
   /**
@@ -237,9 +237,9 @@ export class ConfigurationManager {
       throw new Error('Configuration not loaded. Call load() first.');
     }
 
-    this.setByPath(this.merged, p, value);
+    setConfigValue(this.merged, p, value);
     if (this.rawMerged) {
-      this.setByPath(this.rawMerged, p, value);
+      setConfigValue(this.rawMerged, p, value);
     }
   }
 
@@ -695,7 +695,7 @@ export class ConfigurationManager {
         if (['tasks', 'profiles', 'extensions'].includes(p.split('.')[0]!)) {
           throw new Error(`${key} cannot define executable configuration; declare it in a trusted configuration file and pass runtime data through vars`);
         }
-        this.setByPath(envConfig, p, value);
+        setConfigValue(envConfig, p, value);
       }
     }
 
@@ -909,35 +909,6 @@ export class ConfigurationManager {
     }
 
     return resolved;
-  }
-
-  private getByPath(obj: any, p: string): any {
-    const parts = p.split('.');
-    let current = obj;
-
-    for (const part of parts) {
-      if (current == null || typeof current !== 'object') {
-        return undefined;
-      }
-      current = current[part];
-    }
-
-    return current;
-  }
-
-  private setByPath(obj: any, p: string, value: any): void {
-    const parts = p.split('.');
-    const lastPart = parts.pop()!;
-    let current = obj;
-
-    for (const part of parts) {
-      if (!(part in current) || typeof current[part] !== 'object') {
-        current[part] = {};
-      }
-      current = current[part];
-    }
-
-    current[lastPart] = value;
   }
 
   /**

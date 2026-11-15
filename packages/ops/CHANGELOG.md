@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Configuration merges, mutations and interpolation share an own-property path boundary. Prototype keys and circular data are rejected before mutation, including nested array entries.
+
 - Task commands use the Core literal/data boundary. Runtime parameters, environment, secrets, command stdout and registered outputs are terminal data; only explicitly authored config variable templates recurse.
 - Task pipelines inherit target, working directory, environment and command timeout. Fan-out is bounded and validates every target before starting. Unsupported option combinations are rejected instead of being ignored.
 - Fail-fast stops queued ordinary steps while alwaysRun cleanup still executes; parallel cleanup waits for all started steps. Results retain source indices and skipped reasons. Explicit recovery is recorded separately and does not relabel a failed operation as success; only confirmed nonzero command exits may be retried.

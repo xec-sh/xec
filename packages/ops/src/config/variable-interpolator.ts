@@ -8,6 +8,7 @@ import type { Configuration, VariableContext } from './types.js';
 import { $ } from '@xec-sh/core';
 
 import { SecretManager } from '../secrets/index.js';
+import { getConfigValue, assertConfigData } from './utils.js';
 
 /**
  * Variable reference types
@@ -203,6 +204,7 @@ export class VariableInterpolator {
     context: VariableContext,
     options?: InterpolateOptions
   ): Promise<Configuration> {
+    assertConfigData(config);
     const opts = this.resolveOptions(options);
 
     // First pass: resolve vars section itself
@@ -522,7 +524,7 @@ export class VariableInterpolator {
 
     switch (parsed.type) {
       case 'vars':
-        value = this.getByPath(context.vars || {}, parsed.path);
+        value = getConfigValue(context.vars || {}, parsed.path);
         break;
 
       case 'env':
@@ -542,7 +544,7 @@ export class VariableInterpolator {
         break;
 
       case 'params':
-        value = this.getByPath(context.params || {}, parsed.path);
+        value = getConfigValue(context.params || {}, parsed.path);
         break;
 
       // An unrecognised reference stays undefined, which the fallback below
@@ -572,7 +574,7 @@ export class VariableInterpolator {
 
     switch (parsed.type) {
       case 'vars':
-        value = this.getByPath(context.vars || {}, parsed.path);
+        value = getConfigValue(context.vars || {}, parsed.path);
         break;
 
       case 'env':
@@ -590,7 +592,7 @@ export class VariableInterpolator {
         break;
 
       case 'params':
-        value = this.getByPath(context.params || {}, parsed.path);
+        value = getConfigValue(context.params || {}, parsed.path);
         break;
 
       // An unrecognised reference stays undefined, which the fallback below
@@ -746,24 +748,6 @@ export class VariableInterpolator {
     }
 
     return undefined;
-  }
-
-  private getByPath(obj: any, path: string): any {
-    if (!path) {
-      return obj;
-    }
-
-    const parts = path.split('.');
-    let current = obj;
-
-    for (const part of parts) {
-      if (current == null || typeof current !== 'object') {
-        return undefined;
-      }
-      current = current[part];
-    }
-
-    return current;
   }
 
   /**
