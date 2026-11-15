@@ -4,10 +4,12 @@ import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { it, expect, describe, afterAll, beforeAll } from 'vitest';
 
 const root = fileURLToPath(new URL('../../../..', import.meta.url));
 const cli = path.join(root, 'apps/xec/bin/xec');
+const publishedCli = path.join(path.dirname(createRequire(path.join(root, 'package.json')).resolve('@xec-sh/cli/package.json')), 'bin/xec');
 const variants = ['basic-js', 'basic-ts', 'advanced-js', 'advanced-ts'] as const;
 let directory: string;
 
@@ -120,7 +122,7 @@ it('all eight generated files compile against the real public API in strict mode
   }
   const examples = path.join(directory, 'generated.md');
   await fs.writeFile(examples, blocks.join('\n'));
-  const result = await execute([path.join(root, 'scripts/check-doc-examples.mjs'), '--file', examples, '--strict'], root);
+  const result = await execute([publishedCli, 'docs', 'check', '--file', examples, '--strict'], root);
   expect(result.code, result.output).toBe(0);
   expect(result.output).toContain('8 examples checked. 0 failing blocks');
 });

@@ -12,11 +12,20 @@ source_files:
 
 ## System Overview {#system-overview}
 
-Xec is designed as a modular, extensible system for universal command execution across multiple environments. The architecture emphasizes separation of concerns, type safety, and performance.
+Xec has three entry points for the same execution model: the CLI for direct
+operations, TypeScript scripts and library calls for programmatic control, and
+project tasks for repeatable workflows. Core owns command execution; Ops owns
+operation composition. The CLI adds parsing, configuration and interaction
+without creating a separate execution engine.
+
+This page describes the repository architecture. Installed versions expose only
+their published API; an unreleased source change is not available merely because
+its documentation has changed. [When to use Xec](./when-to-use.md) explains the
+choice between the entry points and their boundaries.
 
 ## Monorepo Structure {#monorepo-structure}
 
-Xec uses a monorepo architecture managed by Turborepo:
+Published Xec commands manage the repository workflow; Turborepo manages the workspace build graph and cache:
 
 :::filetree{title="xec/"}
 - `apps/`
@@ -27,8 +36,12 @@ Xec uses a monorepo architecture managed by Turborepo:
   - `kit/` — TUI/CLI components (@xec-sh/kit)
   - `loader/` — Script loading & modules (@xec-sh/loader)
   - `testing/` — Shared test utilities (@xec-sh/testing)
+- `.xec/`
+  - `commands/` — Native project commands and their argument schemas
+  - `lib/` — Shared repository command implementation
+  - `config.yaml` — Project workflows
 - `website/` — Lumen + Prism documentation site
-- `turbo.json` — Build orchestration
+- `turbo.json` — Workspace task graph and cache
 :::
 ### Package Dependencies {#package-dependencies}
 
@@ -431,28 +444,24 @@ publish standalone binaries, Docker images or a Homebrew formula.
 
 ### Lumen and Prism {#planned-enhancements}
 
-The website is built with the published Lumen and Prism 0.4.8 packages. Lumen owns Markdown compilation, code highlighting, corpus link checks, search indexing and selective React hydration. Prism provides the shared theme, controls and accessible interaction primitives.
+The website is built with the published Lumen and Prism packages pinned in `website/package.json`. Lumen owns Markdown compilation, code highlighting, corpus link checks, search indexing and selective React hydration. Prism provides the shared theme, controls and accessible interaction primitives.
 
-Xec runs the site build and verifies the public route/anchor contract. The homepage examples come from one typed source inventory, shared by server rendering, interactive tabs, copy actions and the documentation compiler check. Browser tests verify the actual generated pages.
+Xec runs the site build and verifies the public route/anchor contract. The
+homepage examples come from one source inventory, shared by server rendering,
+interactive tabs, copy actions and the documentation compiler check. The native
+`xec docs check` command compiles examples against built workspace public
+exports; it does not execute them or substitute API stubs. Browser tests verify
+the generated pages. [Contributing](https://github.com/xec-sh/xec/blob/main/CONTRIBUTING.md)
+describes the scoped checks and the distinction between the published driver
+and candidate workspace declarations.
 
 Task dependencies, pipelines and workflow orchestration are existing [Ops](../ops/index.md) capabilities; the website does not implement a separate task engine.
 
-## Summary {#summary}
+## Architectural responsibilities {#summary}
 
-Xec's architecture is designed for:
-
-- **Modularity**: Clear separation of concerns
-- **Extensibility**: Easy to add new adapters and features
-- **Performance**: Optimized for speed and efficiency
-- **Type Safety**: Full TypeScript throughout
-- **Testability**: Comprehensive testing at all levels
-- **Security**: Built-in security measures
-
-This architecture enables Xec to provide a unified, powerful interface for command execution across any environment while maintaining simplicity and performance.
-
-## Related Documentation {#related-documentation}
-
-- [Core Concepts](./core-concepts.md) - Fundamental concepts
-- [Execution Engine](../core/execution-engine/overview.md) - Engine details
-- [Adapter Development](../core/execution-engine/adapters/concept.md) - Creating adapters
-- [Performance](../core/execution-engine/performance/optimization.md) - Performance guide
+Keep each guarantee with its owner. Core preserves execution identity, result,
+stream and lifecycle semantics. Ops composes those capabilities into operations
+with explicit failure and recovery policy. The CLI exposes those operations to
+people and agents with native argument validation. Documentation and tests must
+exercise the same public path; a reported success must describe an observed
+outcome, not a skipped or unimplemented operation.

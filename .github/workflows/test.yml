@@ -110,6 +110,7 @@ jobs:
           pnpm --filter @xec-sh/cli test
           test/utils
           test/command-manifest.test.ts
+          test/direct-argv.test.ts
           test/dynamic-command-imports.test.ts
           test/eval-exit-code.test.ts
           test/globals-parity.test.ts
@@ -224,6 +225,7 @@ jobs:
           pnpm --filter @xec-sh/cli test
           test/utils
           test/command-manifest.test.ts
+          test/direct-argv.test.ts
           test/startup-budget.test.ts
           test/entry-point.test.ts
           test/docker-services/service-contracts.test.ts

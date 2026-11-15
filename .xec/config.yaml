@@ -26,14 +26,14 @@ tasks:
         command: pnpm exec tsc -p .xec/tsconfig.json
   lint:
     description: Lint package sources, project commands and website components.
-    command: pnpm exec eslint "{apps,packages}/**/*.{js,jsx,ts,tsx}" ".xec/commands/**/*.ts" "website/src/**/*.{js,jsx,ts,tsx}"
+    command: pnpm exec eslint "{apps,packages}/**/*.{js,jsx,ts,tsx}" ".xec/{commands,lib}/**/*.ts" "website/src/**/*.{js,jsx,ts,tsx}"
   docs:check:
     description: Verify documentation examples against the declared APIs.
     steps:
       - name: Documentation verifier contracts
         command: node --test scripts/test/doc-examples.test.js
       - name: Typecheck documented examples
-        command: node scripts/check-doc-examples.mjs --strict
+        command: xec docs check --strict
   docs:build:
     description: Build the Lumen documentation site.
     command: pnpm --dir website build

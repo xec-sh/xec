@@ -1,15 +1,17 @@
-import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
+import { tmpdir } from 'node:os';
 import { test } from 'node:test';
+import { promisify } from 'node:util';
+import assert from 'node:assert/strict';
+import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+import { execFile } from 'node:child_process';
+import { rm, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 
 const run = promisify(execFile);
 const root = fileURLToPath(new URL('../../', import.meta.url));
-const checker = path.join(root, 'scripts/check-doc-examples.mjs');
+const require = createRequire(path.join(root, 'package.json'));
+const cli = path.join(path.dirname(require.resolve('@xec-sh/cli/package.json')), 'bin/xec');
 
 async function check(markdown) {
   const directory = await mkdtemp(path.join(tmpdir(), 'xec-doc-check-test-'));
@@ -20,13 +22,14 @@ async function check(markdown) {
     let status = 0;
     let output;
     try {
-      const result = await run(process.execPath, [checker, '--file', file, '--report', report], { cwd: root });
+      const result = await run(process.execPath, [cli, 'docs', 'check', '--file', file, '--report', report], { cwd: root });
       output = result.stdout + result.stderr;
     } catch (error) {
       status = error.code;
       output = error.stdout + error.stderr;
     }
-    return { status, output, report: JSON.parse(await readFile(report, 'utf8')) };
+    const reportText = await readFile(report, 'utf8').catch(error => { throw new Error(`Documentation command did not produce its report (exit ${status}):\n${output}`, { cause: error }); });
+    return { status, output, report: JSON.parse(reportText) };
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -108,4 +111,21 @@ test('public CLI globals package references resolve without suppressing semantic
   assert.equal(result.status, 1, result.output);
   assert.equal(result.report.failures.length, 1);
   assert.deepEqual(result.report.failures[0].errors.map(error => error.code), ['TS2322'], result.output);
+});
+
+
+test('native docs command owns help and rejects malformed arguments before report writes', async () => {
+  const help = await run(process.execPath, [cli, 'docs', 'check', '--help'], { cwd: root });
+  assert.match(help.stdout, /--file <markdown>/);
+  assert.match(help.stdout, /--strict/);
+  for (const args of [['--strcit'], ['unexpected'], ['--file'], ['--report'], ['--only']]) {
+    await assert.rejects(run(process.execPath, [cli, 'docs', 'check', ...args], { cwd: root }),
+      error => /unknown option|too many arguments|argument missing/.test(error.stderr));
+  }
+});
+
+test('an empty selection still writes a truthful structured report', async () => {
+  const result = await check('# Only prose\n');
+  assert.equal(result.status, 0, result.output);
+  assert.deepEqual(result.report, { checkedBlocks: 0, syntaxBlocks: 0, failures: [] });
 });

@@ -160,7 +160,7 @@ do not run every command by default.
 | Focused Core contract | `pnpm --filter @xec-sh/core exec vitest run test/unit/PATH.test.ts` |
 | Package types | `pnpm --filter @xec-sh/ops typecheck` |
 | Changed-file lint / formatting | `pnpm exec eslint PATH --max-warnings 0` / `pnpm exec prettier --check PATH` |
-| One page's examples | `node scripts/check-doc-examples.mjs --file website/docs/ops/release.md --strict` |
+| One page's examples | `pnpm exec xec docs check --file website/docs/ops/release.md --strict` |
 | Website types / build / browser acceptance | `pnpm --dir website typecheck` / `pnpm docs:build` / `pnpm --dir website test:browser` |
 
 Broaden checks when a change or observed failure justifies it. Full CI,
