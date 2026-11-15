@@ -1,3 +1,4 @@
+import { assertExecutionResource } from '../../../src/types/process-handle.js';
 import {
   DockerError,
   AdapterError,
@@ -8,6 +9,7 @@ import {
   KubernetesError,
   explainExitCode,
   MaxBufferExceededError,
+  ExecutionOutcomeUnknownError,
 } from '../../../src/core/error.js';
 
 /**
@@ -22,6 +24,27 @@ import {
  * killed it for memory.
  */
 describe('what an error carries', () => {
+  it.each([
+    { type: 'docker-container', operationId: 'bad', daemonId: 'one' },
+    { type: 'docker-container', operationId: '00000000-0000-4000-8000-000000000001' },
+    { type: 'docker-container', operationId: '00000000-0000-4000-8000-000000000001', daemonId: 'one', id: 'name' },
+    { type: 'docker-container', operationId: '00000000-0000-4000-8000-000000000001', daemonId: 'one', password: 'hidden' },
+  ])('rejects incomplete or augmented persisted ownership evidence: %j', value => {
+    expect(() => assertExecutionResource(value)).toThrow();
+  });
+
+  it('keeps typed uncertain ownership while sanitizing diagnostic causes', () => {
+    const operationId = '00000000-0000-4000-8000-000000000001';
+    const resource = { type: 'docker-container' as const, operationId, id: 'a'.repeat(64), daemonId: 'daemon-one' };
+    const failure = new ExecutionOutcomeUnknownError({ adapter: 'docker', operationId, resource,
+      cause: new Error('password=private-value daemon unavailable') });
+    expect(failure.kind).toBe('outcome-unknown');
+    expect(failure.recoverable).toBe(false);
+    expect(failure.resource).toEqual(resource);
+    expect(failure.details).toEqual({ adapter: 'docker', operationId, resource });
+    expect((failure.cause as Error).message).not.toContain('private-value');
+  });
+
   describe('a failed command', () => {
     const failure = (overrides: Partial<{
       command: string; exitCode: number; signal: string | undefined;

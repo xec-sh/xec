@@ -14,6 +14,7 @@ class ProtocolDocker extends DockerAdapter {
   createReply = id;
   createFailure: Error | undefined;
   executionId = '';
+  daemonId = 'daemon-one';
   reportedLabel: string | undefined;
   multipleCreations = false;
   invisibleCreationPolls = 0;
@@ -30,6 +31,7 @@ class ProtocolDocker extends DockerAdapter {
   protected override async executeDockerCommand(args: string[], options: Partial<Command>) {
     this.calls.push({ args, options });
     switch (args[0]) {
+      case 'info': return output(JSON.stringify(this.daemonId));
       case 'create': {
         this.executionId = args.find(value => value.startsWith('sh.xec.execution='))!.slice('sh.xec.execution='.length);
         if (this.createFailure) throw this.createFailure;
@@ -55,7 +57,8 @@ class ProtocolDocker extends DockerAdapter {
         : this.replacementPresent ? JSON.stringify({ ID: replacement, Names: 'owned' }) : '');
       }
       case 'inspect': return this.stateFailure ? output('', 1, 'No such container') : output(JSON.stringify(args.includes('{{json .Config.Labels}}')
-        ? { 'sh.xec.execution': this.reportedLabel ?? this.executionId } : this.state));
+        ? { 'sh.xec.execution': this.reportedLabel ?? this.executionId }
+        : args.includes('{{json .}}') ? { Id: id, State: this.state, Config: { Labels: { 'sh.xec.execution': this.reportedLabel ?? this.executionId } } } : this.state));
       case 'stop': {
         if (!this.stopFailure || this.exitDuringStop) this.state = { Running: false, Status: 'exited', Pid: 0 };
         return this.stopFailure ? output('', 1, 'stop denied') : output();
@@ -70,12 +73,130 @@ const command: Command = { command: 'fixture', shell: false,
   adapterOptions: { type: 'docker', container: 'owned', image: 'fixture', runMode: 'run' } };
 
 describe('owned Docker execution contract', () => {
+  const operationId = '00000000-0000-4000-8000-000000000001';
+  const resource = { type: 'docker-container' as const, operationId, daemonId: 'daemon-one', id };
+
+  it('awaits durable UUID admission before create and full-ID admission before start', async () => {
+    const adapter = new ProtocolDocker();
+    let admit!: () => void;
+    let admitId!: () => void;
+    const intent = new Promise<void>(resolve => { admit = resolve; });
+    const ownership = new Promise<void>(resolve => { admitId = resolve; });
+    const onResource = vi.fn(value => value.id ? ownership : intent);
+    const pending = adapter.execute({ ...command, operationId, onResource });
+    await vi.waitFor(() => expect(onResource).toHaveBeenCalledOnce());
+    expect(onResource.mock.calls[0]![0]).toEqual({ type: 'docker-container', operationId, daemonId: 'daemon-one' });
+    expect(adapter.calls.some(call => ['create', 'start'].includes(call.args[0]!))).toBe(false);
+    admit();
+    await vi.waitFor(() => expect(onResource).toHaveBeenCalledTimes(2));
+    expect(onResource.mock.calls[1]![0]).toEqual(resource);
+    expect(adapter.calls.some(call => call.args[0] === 'start')).toBe(false);
+    admitId();
+    await pending;
+    expect(adapter.present).toBe(false);
+  });
+
+  it.each(['intent', 'identity'])('refuses effects after rejected %s registration', async stage => {
+    const adapter = new ProtocolDocker();
+    const onResource = vi.fn(value => { if (stage === 'intent' || value.id) throw new Error('journal unavailable'); });
+    await expect(adapter.execute({ ...command, operationId, onResource })).rejects.toThrow('journal unavailable');
+    expect(adapter.calls.some(call => call.args[0] === 'start')).toBe(false);
+    if (stage === 'intent') expect(adapter.calls.some(call => call.args[0] === 'create')).toBe(false);
+    else expect(adapter.present).toBe(false);
+  });
+
+  it('bounds blocked admission and exposes cancellation to the hook before any create', async () => {
+    vi.useFakeTimers();
+    try {
+      const adapter = new ProtocolDocker();
+      let signal: AbortSignal | undefined;
+      const pending = adapter.execute({ ...command, operationId, timeout: 20,
+        onResource: (_value, request) => { signal = request; return new Promise(() => {}); },
+      }).catch(error => error);
+      await vi.advanceTimersByTimeAsync(20);
+      expect(await pending).toBeInstanceOf(TimeoutError);
+      expect(signal?.aborted).toBe(true);
+      expect(adapter.calls.some(call => ['create', 'start'].includes(call.args[0]!))).toBe(false);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('refuses cleanup on another daemon even if its inventory would be healthy and empty', async () => {
+    const adapter = new ProtocolDocker();
+    adapter.onAttach = () => { adapter.daemonId = 'another-daemon'; adapter.present = false; };
+    await expect(adapter.execute({ ...command, operationId, nothrow: true })).rejects.toMatchObject({
+      kind: 'outcome-unknown', resource,
+    });
+    expect(adapter.calls.some(call => ['stop', 'rm'].includes(call.args[0]!))).toBe(false);
+  });
+
+  it('reconciles only the journalled ID and UUID through the public engine', async () => {
+    const { ExecutionEngine } = await import('../../../src/core/execution-engine.js');
+    const engine = new ExecutionEngine();
+    const adapter = new ProtocolDocker();
+    adapter.executionId = operationId;
+    adapter.state = { Running: true, Status: 'running', Pid: 123 };
+    engine.registerAdapter('docker', adapter);
+    await expect(engine.inspectExecution(resource)).resolves.toEqual({ resource, state: 'running' });
+    expect(adapter.calls.some(call => ['stop', 'rm'].includes(call.args[0]!))).toBe(false);
+    await engine.terminateExecution(resource);
+    expect(adapter.calls.filter(call => ['stop', 'rm'].includes(call.args[0]!)).map(call => call.args.at(-1))).toEqual([id, id]);
+    await expect(engine.inspectExecution(resource)).resolves.toEqual({ resource, state: 'absent' });
+    await engine.terminateExecution(resource);
+    expect(adapter.calls.filter(call => call.args[0] === 'rm')).toHaveLength(1);
+    await engine.dispose();
+  });
+
+  it.each(['wrong daemon', 'wrong label', 'different ID', 'unacknowledged absent'])('cannot reconcile %s into safe termination', async mode => {
+    const adapter = new ProtocolDocker();
+    adapter.executionId = operationId;
+    let request: typeof resource | Omit<typeof resource, 'id'> = resource;
+    if (mode === 'wrong daemon') adapter.daemonId = 'another-daemon';
+    if (mode === 'wrong label') adapter.reportedLabel = 'someone-else';
+    if (mode === 'different ID') request = { ...resource, id: replacement };
+    if (mode === 'unacknowledged absent') { adapter.present = false; const { id: _id, ...intent } = resource; request = intent; }
+    await expect(adapter.terminateExecution(request)).rejects.toMatchObject({ kind: 'outcome-unknown', resource: request });
+    expect(adapter.calls.some(call => ['stop', 'rm'].includes(call.args[0]!))).toBe(false);
+  });
+
+  it('keeps a journalled attempt UUID in creation, process ownership and unknown outcomes', async () => {
+    const adapter = new ProtocolDocker();
+    const operationId = '00000000-0000-4000-8000-000000000001';
+    const onSpawn = vi.fn();
+    adapter.inventoryFailure = true;
+    const failure = await adapter.execute({ ...command, operationId, onSpawn, nothrow: true }).catch(error => error);
+    expect(adapter.executionId).toBe(operationId);
+    expect(onSpawn).toHaveBeenCalledOnce();
+    expect(onSpawn.mock.calls[0]![0].resource).toEqual({ type: 'docker-container', operationId, id, daemonId: 'daemon-one' });
+    expect(failure).toMatchObject({ kind: 'outcome-unknown', code: 'EXECUTION_OUTCOME_UNKNOWN',
+      recoverable: false, adapter: 'docker', operationId, resource: { type: 'docker-container', operationId, id, daemonId: 'daemon-one' } });
+    expect(failure.cause).toBeInstanceOf(Error);
+  });
+
+  it.each(['not-a-uuid', '00000000-0000-0000-0000-000000000000', ''])('refuses invalid operation identity %j before any request', async operationId => {
+    const adapter = new ProtocolDocker();
+    await expect(adapter.execute({ ...command, operationId })).rejects.toThrow('UUID');
+    expect(adapter.calls).toEqual([]);
+  });
+
+  it('refuses automatic replay of a journalled attempt through the public engine', async () => {
+    const { ExecutionEngine } = await import('../../../src/core/execution-engine.js');
+    const engine = new ExecutionEngine().with({ retry: { maxRetries: 2 } });
+    const adapter = new ProtocolDocker();
+    engine.registerAdapter('docker', adapter);
+    const operationId = '00000000-0000-4000-8000-000000000001';
+    await expect(engine.execute({ ...command, adapter: 'docker', operationId })).rejects.toThrow('automatic retries');
+    expect(adapter.calls).toEqual([]);
+    await expect(engine.execute({ ...command, adapter: 'docker', operationId, retry: { maxRetries: 0 } })).resolves.toMatchObject({ exitCode: 0 });
+    expect(adapter.calls.filter(call => call.args[0] === 'create')).toHaveLength(1);
+    await engine.dispose();
+  });
+
   it('exposes one immutable resource on the ordinary process handle and preserves retained exit state', async () => {
     const adapter = new ProtocolDocker();
     const onSpawn = vi.fn();
     await adapter.execute({ ...command, onSpawn, adapterOptions: { ...command.adapterOptions as Extract<Command['adapterOptions'], { type: 'docker' }>, autoRemove: false } });
     expect(onSpawn).toHaveBeenCalledOnce();
-    expect(onSpawn.mock.calls[0]![0].resource).toEqual({ type: 'docker-container', id });
+    expect(onSpawn.mock.calls[0]![0].resource).toEqual({ type: 'docker-container', id, operationId: adapter.executionId, daemonId: 'daemon-one' });
     expect(adapter.calls.find(call => call.args[0] === 'start')!.args).toEqual(['start', '--attach', '--', id]);
     expect(adapter.calls.some(call => ['rm', 'stop'].includes(call.args[0]!))).toBe(false);
   });
@@ -118,8 +239,8 @@ describe('owned Docker execution contract', () => {
     if (mode === 'running resource') adapter.state = { Running: true, Status: 'running', Pid: 42 };
     if (mode === 'daemon unavailable') adapter.inventoryFailure = true;
     const failure = await adapter.execute({ ...command, nothrow: true }).catch(error => error);
-    expect(failure).toMatchObject({ operation: 'terminate', message: expect.stringContaining('cleanup remains unconfirmed') });
-    expect(failure.container).toBe(`sh.xec.execution=${adapter.executionId}`);
+    expect(failure).toMatchObject({ kind: 'outcome-unknown', code: 'EXECUTION_OUTCOME_UNKNOWN', adapter: 'docker' });
+    expect(failure.resource).toEqual({ type: 'docker-container', operationId: adapter.executionId, daemonId: 'daemon-one' });
     expect(adapter.calls.some(call => ['start', 'stop', 'rm'].includes(call.args[0]!))).toBe(false);
   });
 
@@ -131,7 +252,7 @@ describe('owned Docker execution contract', () => {
       adapter.present = false;
       const pending = adapter.execute(command).catch(error => error);
       await vi.advanceTimersByTimeAsync(20);
-      expect(await pending).toMatchObject({ operation: 'terminate', message: expect.stringContaining('cleanup remains unconfirmed') });
+      expect(await pending).toMatchObject({ kind: 'outcome-unknown', code: 'EXECUTION_OUTCOME_UNKNOWN', adapter: 'docker' });
       expect(adapter.calls.some(call => ['start', 'stop', 'rm'].includes(call.args[0]!))).toBe(false);
     } finally { vi.useRealTimers(); }
   });
@@ -145,7 +266,7 @@ describe('owned Docker execution contract', () => {
       const pending = adapter.execute(command).catch(error => error);
       const disposal = adapter.dispose().catch(error => error);
       await vi.advanceTimersByTimeAsync(20);
-      expect(await pending).toMatchObject({ operation: 'terminate' });
+      expect(await pending).toMatchObject({ kind: 'outcome-unknown', code: 'EXECUTION_OUTCOME_UNKNOWN' });
       expect(await disposal).toBeInstanceOf(AggregateError);
     } finally { vi.useRealTimers(); }
   });
@@ -167,7 +288,7 @@ describe('owned Docker execution contract', () => {
     finish();
     if (refuseCleanup) {
       expect(await disposal).toBeInstanceOf(AggregateError);
-      expect(await pending).toMatchObject({ operation: 'terminate' });
+      expect(await pending).toMatchObject({ kind: 'outcome-unknown', code: 'EXECUTION_OUTCOME_UNKNOWN' });
     } else {
       await disposal;
       expect(disposed).toBe(true);
@@ -183,14 +304,14 @@ describe('owned Docker execution contract', () => {
     expect(result.exitCode).toBe(124);
     expect(adapter.present).toBe(false);
     expect(adapter.calls.filter(call => ['stop', 'rm'].includes(call.args[0]!)).map(call => call.args.at(-1))).toEqual([id, id]);
-    expect(adapter.calls.at(-1)!.args[0]).toBe('ps');
+    expect(adapter.calls.filter(call => call.args[0] !== 'info').at(-1)!.args[0]).toBe('ps');
   });
 
   it.each(['inventoryFailure', 'stateFailure', 'stopFailure', 'removalFailure'] as const)('never masks %s with nothrow', async field => {
     const adapter = new ProtocolDocker();
     adapter.failure = new TimeoutError('fixture', 50);
     adapter[field] = true;
-    await expect(adapter.execute({ ...command, nothrow: true })).rejects.toMatchObject({ operation: 'terminate' });
+    await expect(adapter.execute({ ...command, nothrow: true })).rejects.toMatchObject({ kind: 'outcome-unknown', code: 'EXECUTION_OUTCOME_UNKNOWN' });
   });
 
   it('accepts natural exit racing cancellation only after observing the stopped state', async () => {

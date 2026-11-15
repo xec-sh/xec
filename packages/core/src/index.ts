@@ -370,9 +370,11 @@ export type {
 
 // A value learned at runtime is redacted by identity, where the patterns can
 // only redact by resemblance. See utils/secret-registry.ts.
-export { registerSecret, isRegisteredSecret, registeredSecretCount } from './utils/secret-registry.js';
+export { assertOperationId, assertExecutionResource } from './types/process-handle.js';
 
+export { registerSecret, isRegisteredSecret, registeredSecretCount } from './utils/secret-registry.js';
 export type { DockerOptions, DockerEphemeralOptions, DockerPersistentOptions } from './types/execution.js';
+export type { ProcessHandle, ExecutionResource, ExecutionResourceObservation } from './types/process-handle.js';
 
 export type { K8sPod, K8sLogStream, K8sLogOptions, K8sPortForward, K8sExecutionContext, K8sPortForwardOptions } from './adapters/kubernetes/kubernetes-api.js';
 // The result of running one command across many targets — the shape a
@@ -399,6 +401,9 @@ export { findSimilar, CommandRegistry, checkForCommandTypo, getCommandCompletion
 export type {
   Command,
   AdapterType,
+  DockerResources,
+  DockerRunOptions,
+  DockerPullPolicy,
   SSHAdapterOptions,
   DockerAdapterOptions,
   KubernetesAdapterOptions

@@ -67,7 +67,7 @@ export function isRecoverable(kind: FailureKind): boolean {
  * locale-independent.
  */
 const ERRNO_KINDS: Readonly<Record<string, FailureKind>> = {
-  SSH_OUTCOME_UNKNOWN: 'outcome-unknown',
+  EXECUTION_OUTCOME_UNKNOWN: 'outcome-unknown',
   EHOSTKEY: 'host-key-mismatch',
   ECONNREFUSED: 'connection-refused',
   ENOTFOUND: 'connection-refused',

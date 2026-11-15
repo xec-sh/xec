@@ -487,3 +487,35 @@ The Docker adapter is implemented across:
 - [SSH Adapter](/docs/core/execution-engine/adapters/ssh-adapter)
 - [Kubernetes Adapter](/docs/core/execution-engine/adapters/k8s-adapter)
 - [Streaming](/docs/core/execution-engine/features/streaming)
+
+
+## Durable ownership
+
+Persist the operation intent before execution. Set `operationId` to its UUID and
+`retry: { maxRetries: 0 }`. `onResource(resource, signal)` is awaited before create
+with daemon identity and again before start with the full container ID. Persist
+each value in the same journal. Callback rejection prevents the next effect;
+its supplied signal enforces the command deadline.
+
+`ExecutionResource` contains only `type`, `operationId`, `daemonId` and optional
+`id`. Use `assertExecutionResource` to validate persisted values.
+`inspectExecution(resource)` is read-only. `terminateExecution(resource)` stops
+and removes only the verified owned resource. Both verify the native daemon ID;
+a changed context or unreachable daemon cannot prove absence. An unacknowledged
+create with no full ID remains unknown even when an inventory is empty.
+
+`ExecutionOutcomeUnknownError` carries `code: 'EXECUTION_OUTCOME_UNKNOWN'`,
+`kind: 'outcome-unknown'` and typed resource evidence. Retain the operation's
+lifecycle fence until reconciliation. An ordinary run-mode return confirms
+cleanup; with `autoRemove: true` the recorded full ID is absent, without another
+inspection request.
+
+An operation ID identifies one attempt. Admission and idempotent replay belong
+to the caller's durable journal, not an in-memory cache. Automatic retries with
+an explicit operation ID are refused; another attempt requires a new ID and a
+confirmed previous outcome. Exec inside an existing container cannot provide
+this ownership contract.
+
+For a constrained job, use an immutable local image ID, `pull: 'never'`, and
+`resources: { cpus: 0.5, memoryBytes: 268435456, pidsLimit: 32 }`. These settings
+are enforced by the ordinary run adapter, without a separate Docker command.

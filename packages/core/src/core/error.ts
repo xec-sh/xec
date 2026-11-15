@@ -1,3 +1,6 @@
+import type { AdapterType } from '../types/command.js';
+import type { ExecutionResource } from '../types/process-handle.js';
+
 import { createOptimizedMasker } from '../utils/optimized-masker.js';
 import { isRecoverable, classifyFailure, type FailureKind } from './failure-kind.js';
 import { DEFAULT_REDACTION, defaultSensitiveRules } from '../utils/sensitive-patterns.js';
@@ -33,13 +36,22 @@ export class ExecutionError extends Error {
   }
 }
 
-/** The transport lost evidence of completion; this error never authorizes replay. */
+/** Completion or resource cleanup is unconfirmed. This error never authorizes replay. */
 export class ExecutionOutcomeUnknownError extends ExecutionError {
-  constructor(public readonly originalError?: Error) {
-    super('Remote execution outcome is unknown; verify the effect before retrying',
-      'SSH_OUTCOME_UNKNOWN', undefined, 'outcome-unknown');
+  readonly adapter: AdapterType;
+  readonly operationId?: string;
+  readonly resource?: ExecutionResource;
+
+  constructor(evidence: { adapter: AdapterType; operationId?: string; resource?: ExecutionResource; cause?: Error }) {
+    super('Execution outcome is unknown; reconcile ownership and effects before retrying',
+      'EXECUTION_OUTCOME_UNKNOWN', {
+        adapter: evidence.adapter, operationId: evidence.operationId, resource: evidence.resource,
+      }, 'outcome-unknown');
     this.name = 'ExecutionOutcomeUnknownError';
-    if (originalError) this.cause = originalError;
+    this.adapter = evidence.adapter;
+    this.operationId = evidence.operationId;
+    this.resource = evidence.resource && Object.freeze({ ...evidence.resource });
+    if (evidence.cause) this.cause = sanitizeErrorForDiagnostics(evidence.cause);
   }
 }
 

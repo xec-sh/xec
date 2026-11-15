@@ -102,7 +102,7 @@ export function requestRemoteListener<T, R>(
     const uncertain = (error: Error) => {
       if (settled) return;
       settled = true; cleanup();
-      const failure = new ExecutionOutcomeUnknownError(error);
+      const failure = new ExecutionOutcomeUnknownError({ adapter: 'ssh', cause: error });
       failure.message = 'Remote SSH listener allocation is unconfirmed; its connection was closed. Verify remote state before retrying';
       reject(failure);
       invalidate();

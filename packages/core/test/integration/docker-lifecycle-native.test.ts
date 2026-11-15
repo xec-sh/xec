@@ -37,11 +37,15 @@ describe.skipIf(process.platform === 'win32')('Docker native lifecycle', () => {
 const fs = require('node:fs');
 const path = require('node:path');
 let args = process.argv.slice(2);
-fs.appendFileSync(path.join(__dirname, 'calls.jsonl'), JSON.stringify({pid:process.pid,args,localEnv:process.env['REMOTE_ONLY']??null})+'\\n');
+const target = [];
+while (args[0] === '--context' || args[0] === '--host') target.push(...args.splice(0,2));
+fs.appendFileSync(path.join(__dirname, 'calls.jsonl'), JSON.stringify({pid:process.pid,args,target,localEnv:process.env['REMOTE_ONLY']??null})+'\\n');
 if (args[0] === 'start' && args.includes('--attach')) args = ['run', ...JSON.parse(fs.readFileSync(path.join(__dirname,'owned-run'),'utf8')).slice(1)];
 const hang = () => { process.on('SIGTERM',()=>{}); setInterval(()=>{},1000); };
 const kind = args.at(-1);
-if (args[0] === 'ps') {
+if (args[0] === 'context') process.stdout.write('fixture-context');
+else if (args[0] === 'info') process.stdout.write(JSON.stringify('fixture-daemon'));
+else if (args[0] === 'ps') {
   if (fs.existsSync(path.join(__dirname,'offline'))) { process.stderr.write('daemon unavailable');process.exitCode=1; }
   else if (fs.existsSync(path.join(__dirname,'malformed'))) process.stdout.write('invalid-json');
   else if (fs.existsSync(path.join(__dirname,'created'))) process.stdout.write(JSON.stringify({ID:(fs.existsSync(path.join(__dirname,'replaced'))?'b':'a').repeat(64),Names:fs.readFileSync(path.join(__dirname,'created'),'utf8')}));
@@ -191,7 +195,7 @@ else if (args[0] === 'rm') {
     expect(lines.filter(line => !line.startsWith('stderr'))).toEqual(expect.arrayContaining(['Ж🙂\n', '\n', '  \r\n', 'unterminated']));
     expect(lines.filter(line => line === '\n')).toHaveLength(2);
     expect(lines).toContain('stderr\n');
-    expect((await records())[0]?.args).toEqual(['logs', '--tail', '4', '--since', '2026-01-01', '--until', '2026-01-02', '-t', 'lines']);
+    expect((await records()).find(call => call.args[0] === 'logs')?.args).toEqual(['logs', '--tail', '4', '--since', '2026-01-01', '--until', '2026-01-02', '-t', 'lines']);
   });
 
   it('fails on log callback errors and bounded output without losing the cleanup result', async () => {
@@ -229,7 +233,7 @@ else if (args[0] === 'rm') {
 
   it('passes compose env only to its local helper and masks error diagnostics', async () => {
     await adapter.composeDown({ env: { REMOTE_ONLY: 'compose-only' } });
-    expect((await records())[0]?.localEnv).toBe('compose-only');
+    expect((await records()).find(call => call.args[0] === 'compose')?.localEnv).toBe('compose-only');
     expect(process.env['REMOTE_ONLY']).toBeUndefined();
     const error = await adapter.getLogs('failed').catch(error => error);
     expect(error.message).toContain('[REDACTED]');
@@ -242,7 +246,7 @@ else if (args[0] === 'rm') {
     try {
       await expect(managed.execute({ command: 'true', shell: false,
         adapterOptions: { type: 'docker', container: 'absent' } })).rejects.toThrow('daemon unavailable');
-      expect((await records()).map(call => call.args[0])).toEqual(['ps']);
+      expect((await records()).map(call => call.args[0])).toEqual(['context', 'ps']);
     } finally { await managed.dispose(); }
   });
 

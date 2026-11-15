@@ -8,7 +8,7 @@ describe('Docker timeout policy', () => {
     failCreation = false;
     protected override async executeDockerCommand(args: string[]) {
       if ((args[0] === 'create' && this.failCreation) || args[0] === 'start') throw new TimeoutError('fixture', 50);
-      const stdout = args[0] === 'create' ? 'a'.repeat(64) : '';
+      const stdout = args[0] === 'info' ? JSON.stringify('daemon-one') : args[0] === 'create' ? 'a'.repeat(64) : '';
       return { stdout, stderr: '', stdall: stdout, exitCode: 0, signal: null };
     }
   }
@@ -27,7 +27,7 @@ describe('Docker timeout policy', () => {
     const adapter = new TimeoutDocker({ managementTimeout: 1 });
     adapter.failCreation = true;
     try {
-      await expect(adapter.execute({ ...command, nothrow: true })).rejects.toMatchObject({ operation: 'terminate' });
+      await expect(adapter.execute({ ...command, nothrow: true })).rejects.toMatchObject({ kind: 'outcome-unknown', code: 'EXECUTION_OUTCOME_UNKNOWN' });
     } finally { await adapter.dispose(); }
   });
 });

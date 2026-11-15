@@ -656,7 +656,7 @@ export class NodeSSH {
         if (settled) return
         settled = true; cleanup(); terminate(); reject(error)
       }
-      const transportFailed = (error: Error) => failed(new ExecutionOutcomeUnknownError(error))
+      const transportFailed = (error: Error) => failed(new ExecutionOutcomeUnknownError({ adapter: 'ssh', cause: error }))
       const cancelled = () => failed(new SSHError('SSH execution cancelled; remote termination is not confirmed', 'ABORT_ERR'))
       const capture = (name: 'stdout' | 'stderr', chunk: Buffer) => {
         if (settled) return
@@ -677,7 +677,7 @@ export class NodeSSH {
       const closed = (status?: number | null, exitSignal?: string | null) => {
         if (settled) return
         code ??= status ?? null; signal ??= exitSignal ?? null
-        if (code === null && signal === null) { failed(new ExecutionOutcomeUnknownError()); return }
+        if (code === null && signal === null) { failed(new ExecutionOutcomeUnknownError({ adapter: 'ssh' })); return }
         settled = true; cleanup()
         const decode = (chunks: Buffer[]) => {
           const text = Buffer.concat(chunks).toString(options.encoding)
@@ -685,7 +685,7 @@ export class NodeSSH {
         }
         resolve({ code, signal, stdout: decode(output.stdout), stderr: decode(output.stderr) })
       }
-      const timer = setTimeout(() => failed(new ExecutionOutcomeUnknownError(new SSHError('SSH exec acknowledgement timed out', 'ETIMEDOUT'))), openTimeout)
+      const timer = setTimeout(() => failed(new ExecutionOutcomeUnknownError({ adapter: 'ssh', cause: new SSHError('SSH exec acknowledgement timed out', 'ETIMEDOUT') })), openTimeout)
       const unwatch = watchConnection(connection, transportFailed)
       options.signal?.addEventListener('abort', cancelled, { once: true })
       if (options.signal?.aborted) { cancelled(); return }
@@ -695,7 +695,7 @@ export class NodeSSH {
           clearTimeout(timer)
           if (error) {
             const refused = (error as Error & { reason?: number }).reason !== undefined
-            failed(refused ? error : new ExecutionOutcomeUnknownError(error)); return
+            failed(refused ? error : new ExecutionOutcomeUnknownError({ adapter: 'ssh', cause: error })); return
           }
           channel = opened
           channel.on('error', failed)

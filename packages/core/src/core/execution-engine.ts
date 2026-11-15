@@ -1,6 +1,7 @@
 import type { UshEventMap } from '../types/events.js';
 import type { Disposable } from '../types/disposable.js';
 import type { ProcessPromise } from '../types/process.js';
+import type { ExecutionResource, ExecutionResourceObservation } from '../types/process-handle.js';
 import type { DockerOptions, ExecutionEngineConfig, DockerEphemeralOptions, DockerPersistentOptions } from '../types/execution.js';
 
 import * as os from 'node:os';
@@ -10,7 +11,6 @@ import { stream } from '../utils/stream.js';
 import { ExecutionResult } from './result.js';
 import { TransferEngine } from '../utils/transfer.js';
 import { SSHAdapter } from '../adapters/ssh/index.js';
-import { BaseAdapter } from '../adapters/base-adapter.js';
 // Note: Unhandled rejection handling is managed centrally in index.ts
 // using branded symbols (XEC_PROMISE_BRAND) instead of fragile string checks
 import { LocalAdapter } from '../adapters/local/index.js';
@@ -25,6 +25,7 @@ import { DockerFluentAPI } from '../adapters/docker/docker-fluent-api.js';
 import { ProcessContext, ProcessPromiseBuilder } from './process-context.js';
 import { parseK8sTarget, parseSSHTarget } from '../utils/target-shorthand.js';
 import { AdapterError, CommandError, sanitizeForDiagnostics } from './error.js';
+import { BaseAdapter, validateOperationIdentity } from '../adapters/base-adapter.js';
 import { ParallelEngine, ParallelResult, ParallelOptions } from '../utils/parallel.js';
 import { select, confirm, Spinner, question, password } from '../utils/interactive.js';
 import { RetryError, RetryOptions, withExecutionRetry } from '../utils/retry-adapter.js';
@@ -376,6 +377,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     }
 
     const mergedCommand = finalCommand;
+    validateOperationIdentity(mergedCommand);
     mergedCommand.signal?.throwIfAborted();
     const adapter = await this.selectAdapter(mergedCommand);
 
@@ -634,6 +636,22 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
   // Optimized: Create a process promise (reduced from 289 lines to 3 lines!)
   createProcessPromise(command: Command): ProcessPromise {
     return this.processBuilder.createProcessPromise(command);
+  }
+
+  /** Observe durable ownership without starting or stopping any execution. */
+  async inspectExecution(resource: ExecutionResource): Promise<ExecutionResourceObservation> {
+    if (resource.type !== 'docker-container') throw new TypeError('Unsupported execution resource');
+    const adapter = await this.selectAdapter({ command: '', adapterOptions: { type: 'docker', container: 'ephemeral' } });
+    if (!adapter) throw new AdapterError('docker', 'inspectExecution', new Error('Docker adapter is unavailable'));
+    return adapter.inspectExecution(resource);
+  }
+
+  /** Terminate only the recorded owned resource, awaiting independently verified cleanup. */
+  async terminateExecution(resource: ExecutionResource): Promise<void> {
+    if (resource.type !== 'docker-container') throw new TypeError('Unsupported execution resource');
+    const adapter = await this.selectAdapter({ command: '', adapterOptions: { type: 'docker', container: 'ephemeral' } });
+    if (!adapter) throw new AdapterError('docker', 'terminateExecution', new Error('Docker adapter is unavailable'));
+    return adapter.terminateExecution(resource);
   }
 
   // Adapter selection

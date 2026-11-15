@@ -1,4 +1,3 @@
-import type { Command } from '../../src/types/command.js';
 import type { ProcessHandle } from '../../src/types/process-handle.js';
 
 import { promisify } from 'node:util';
@@ -18,17 +17,10 @@ describe.skipIf(!image)('owned execution against Docker', () => {
   let neighbor: string;
   let adapter: DockerAdapter;
 
-  class LimitedDocker extends DockerAdapter {
-    protected override executeDockerCommand(args: string[], options: Partial<Command>, cleanup = false) {
-      // Test-only resource cap, leaving the real Docker transport and lifecycle intact.
-      if (args[0] === 'create') args = ['create', '--pull=never', '--cpus=0.25', '--memory=32m', '--pids-limit=16', ...args.slice(1)];
-      return super.executeDockerCommand(args, options, cleanup);
-    }
-  }
   const target = () => ({ type: 'docker' as const, container: `xec-owned-${randomUUID()}`, image: image!, runMode: 'run' as const,
-    network: 'none', labels: { 'xec.ownership-test': label.split('=')[1]! }, autoRemove: false });
+    network: 'none', pull: 'never' as const, resources: { cpus: 0.25, memoryBytes: 32 * 1024 ** 2, pidsLimit: 16 }, labels: { 'xec.ownership-test': label.split('=')[1]! }, autoRemove: false });
   const remember = (handle: ProcessHandle) => {
-    expect(handle.resource).toEqual({ type: 'docker-container', id: expect.stringMatching(/^[a-f0-9]{64}$/) });
+    expect(handle.resource).toEqual({ type: 'docker-container', id: expect.stringMatching(/^[a-f0-9]{64}$/), operationId: expect.stringMatching(/^[a-f0-9-]{36}$/), daemonId: expect.any(String) });
     ids.add(handle.resource!.id);
   };
   const state = async (id: string) => JSON.parse(await docker(['inspect', '--format', '{{json .State}}', '--', id]));
@@ -39,7 +31,7 @@ describe.skipIf(!image)('owned execution against Docker', () => {
     ids.add(neighbor);
     await docker(['start', '--', neighbor]);
   });
-  beforeEach(() => { adapter = new LimitedDocker({ managementTimeout: 8_000 }); });
+  beforeEach(() => { adapter = new DockerAdapter({ managementTimeout: 8_000 }); });
   afterEach(async () => { await adapter.dispose(); });
   afterAll(async () => {
     // Reconcile an interrupted create response by this invocation's unique label.

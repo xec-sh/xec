@@ -1,5 +1,39 @@
 import type { Readable, Writable } from 'node:stream';
 
+/** Persistable ownership evidence; no credentials, command text or mutable names. */
+export interface ExecutionResource {
+  readonly type: 'docker-container';
+  readonly operationId: string;
+  /** Native Docker engine ID; an absent container on another daemon proves nothing. */
+  readonly daemonId: string;
+  /** Absent only when creation was not acknowledged. Reconcile by operationId. */
+  readonly id?: string;
+}
+
+export function assertOperationId(value: unknown): asserts value is string {
+  if (typeof value !== 'string' || !/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(value)) {
+    throw new TypeError('operationId must be a UUID');
+  }
+}
+
+/** Validate persisted/wire ownership evidence without contacting any adapter. */
+export function assertExecutionResource(value: unknown): asserts value is ExecutionResource {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('Invalid execution resource');
+  const resource = value as Record<string, unknown>;
+  assertOperationId(resource['operationId']);
+  if (resource['type'] !== 'docker-container' || typeof resource['daemonId'] !== 'string' ||
+    !/^[a-z0-9][a-z0-9_.:-]{0,255}$/i.test(resource['daemonId']) ||
+    (resource['id'] !== undefined && (typeof resource['id'] !== 'string' || !/^[a-f0-9]{64}$/.test(resource['id']))) ||
+    Object.keys(resource).some(key => !['type', 'operationId', 'daemonId', 'id'].includes(key))) {
+    throw new TypeError('Invalid execution resource identity');
+  }
+}
+
+export interface ExecutionResourceObservation {
+  readonly resource: ExecutionResource;
+  readonly state: 'running' | 'stopped' | 'absent' | 'unknown';
+}
+
 /**
  * Live access to a command while it runs.
  *
@@ -31,7 +65,7 @@ export interface ProcessHandle {
   readonly pid?: number;
 
   /** Immutable remote resource owned by this execution, never an exec target. */
-  readonly resource?: { readonly type: 'docker-container'; readonly id: string };
+  readonly resource?: ExecutionResource & { readonly id: string };
 
   /** Input stream, for commands that read from stdin. */
   readonly stdin: Writable | null;

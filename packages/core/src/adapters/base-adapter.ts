@@ -1,10 +1,12 @@
 import type { UshEventMap } from '../types/events.js';
 import type { Disposable } from '../types/disposable.js';
+import type { ExecutionResource, ExecutionResourceObservation } from '../types/process-handle.js';
 
 import { Command } from '../types/command.js';
 import { StreamHandler } from '../utils/stream.js';
 import { resolveCallSite } from '../utils/call-site.js';
 import { ProgressReporter } from '../utils/progress.js';
+import { assertOperationId } from '../types/process-handle.js';
 import { EnhancedEventEmitter } from '../utils/event-emitter.js';
 import { MaskingStreamFilter } from '../utils/masking-stream.js';
 import { parseDuration, type Duration } from '../utils/helpers.js';
@@ -52,6 +54,15 @@ interface ResolvedBaseAdapterConfig extends Omit<Required<BaseAdapterConfig>, 's
  * type says so rather than leaving each adapter to remember.
  */
 export type ResolvedCommand = Omit<Command, 'timeout'> & { timeout?: number };
+
+/** One caller-journalled attempt cannot be replayed by adapter or engine retries. */
+export function validateOperationIdentity(command: Command): void {
+  if (command.operationId === undefined) return;
+  assertOperationId(command.operationId);
+  if ((command.retry?.maxRetries ?? 0) > 0) {
+    throw new TypeError('A journalled operationId cannot use automatic retries; admit a new attempt after confirming the previous outcome');
+  }
+}
 
 export abstract class BaseAdapter extends EnhancedEventEmitter implements Disposable {
   protected config: ResolvedBaseAdapterConfig;
@@ -134,6 +145,15 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
   // Synchronous execution (optional - adapters can implement if they support it)
   executeSync?(command: Command): ExecutionResult;
 
+  /** Reconcile only resources for which the adapter supplies durable ownership. */
+  async inspectExecution(_resource: ExecutionResource): Promise<ExecutionResourceObservation> {
+    throw new AdapterError(this.adapterName, 'inspectExecution', new Error('This adapter has no durable owned-resource capability'));
+  }
+
+  async terminateExecution(_resource: ExecutionResource): Promise<void> {
+    throw new AdapterError(this.adapterName, 'terminateExecution', new Error('This adapter has no durable owned-resource capability'));
+  }
+
   /**
    * Fill a command in with this adapter's defaults.
    *
@@ -143,6 +163,7 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
    * once, under a message that claimed the whole duration had elapsed.
    */
   protected mergeCommand(command: Command): ResolvedCommand {
+    validateOperationIdentity(command);
     const timeout = command.timeout ?? this.config.defaultTimeout;
 
     return {

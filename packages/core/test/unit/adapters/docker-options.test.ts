@@ -112,7 +112,7 @@ describe('Docker target options through the public engine', () => {
     calls: string[][] = [];
     protected override async executeDockerCommand(args: string[]) {
       this.calls.push(args);
-      const stdout = args[0] === 'create' ? 'a'.repeat(64) : args[0] === 'ps' && !args.includes('--filter') ? JSON.stringify({ ID: 'a'.repeat(64), Names: 'api' }) : '';
+      const stdout = args[0] === 'info' ? JSON.stringify('daemon-one') : args[0] === 'create' ? 'a'.repeat(64) : args[0] === 'ps' && !args.includes('--filter') ? JSON.stringify({ ID: 'a'.repeat(64), Names: 'api' }) : '';
       return { stdout, stderr: '', stdall: stdout, exitCode: 0, signal: null };
     }
   }
@@ -130,9 +130,10 @@ describe('Docker target options through the public engine', () => {
       ports: ['127.0.0.1:18080:8080'],
       network: 'private',
       platform: 'linux/arm64',
-      pull: true,
+      pull: 'always',
       labels: { project: 'test' },
       privileged: true,
+      resources: { memoryBytes: 256 * 1024 ** 2, cpus: 0.5, pidsLimit: 32 },
     });
     await target.execute({ command: 'node', args: ['--version'], shell: false, env: { SHARED: 'command' } });
     const argv = adapter.calls.find(args => args[0] === 'create')!;
@@ -140,10 +141,45 @@ describe('Docker target options through the public engine', () => {
       '-w', '/app', '-p', '127.0.0.1:18080:8080', '--network', 'private',
       '--platform', 'linux/arm64', '--pull', 'always', '--label', 'project=test',
       '-e', 'TARGET=one=two', 'SHARED=command', '--privileged',
+      '--memory', '268435456', '--cpus', '0.5', '--pids-limit', '32',
     ]));
     expect(argv).not.toContain('--rm');
     expect(argv).not.toContain('SHARED=target');
     expect(argv.slice(-3)).toEqual(['node:24-alpine', 'node', '--version']);
+  });
+
+
+  it.each(['never', 'missing', 'always'] as const)('preserves the explicit %s image pull policy', async pull => {
+    const { ExecutionEngine } = await import('../../../src/core/execution-engine.js');
+    const engine = new ExecutionEngine();
+    const adapter = new CaptureDocker();
+    engine.registerAdapter('docker', adapter);
+    await engine.docker({ image: 'sha256:' + 'a'.repeat(64), pull }).execute({ command: 'true', shell: false });
+    const argv = adapter.calls.find(args => args[0] === 'create')!;
+    expect(argv[argv.indexOf('--pull') + 1]).toBe(pull);
+    await engine.dispose();
+  });
+
+  it.each([
+    { pull: false }, { pull: 'sometimes' }, { resources: null },
+    { resources: { memoryBytes: 1024 } }, { resources: { memoryBytes: 6.5 } },
+    { resources: { cpus: 0 } }, { resources: { cpus: Infinity } },
+    { resources: { pidsLimit: -1 } }, { resources: { pidsLimit: 1.5 } },
+  ])('rejects unsupported limits or policy before Docker create: %j', async extra => {
+    const { ExecutionEngine } = await import('../../../src/core/execution-engine.js');
+    const engine = new ExecutionEngine();
+    const adapter = new CaptureDocker();
+    engine.registerAdapter('docker', adapter);
+    await expect(engine.docker({ image: 'fixture', ...extra } as any).execute({ command: 'true' })).rejects.toThrow();
+    expect(adapter.calls).toEqual([]);
+    await engine.dispose();
+  });
+
+  it('rejects resource caps on exec rather than silently running without them', async () => {
+    const adapter = new CaptureDocker();
+    await expect(adapter.execute({ command: 'true', adapterOptions: { type: 'docker', container: 'api',
+      resources: { memoryBytes: 256 * 1024 ** 2 } } })).rejects.toThrow('resources requires runMode');
+    expect(adapter.calls.some(args => args[0] === 'exec')).toBe(false);
   });
 
   it('uses named containers in exec mode and retains target env and equals signs', async () => {

@@ -40,7 +40,7 @@ export function manageSFTP(sftp: SFTPWrapper, connection: EventEmitter, options:
     const callbacks = [...pending]; pending.clear();
     for (const finish of callbacks) finish(error);
     for (const [stream, owned] of streams) {
-      owned.cleanup(); stream.destroy(owned.write ? new ExecutionOutcomeUnknownError(error) : error);
+      owned.cleanup(); stream.destroy(owned.write ? new ExecutionOutcomeUnknownError({ adapter: 'ssh', cause: error }) : error);
     }
     streams.clear();
     if (destroy) sftp.destroy();
@@ -105,10 +105,10 @@ export function manageSFTP(sftp: SFTPWrapper, connection: EventEmitter, options:
             const code = (error as (Error & { code?: unknown }) | undefined)?.code;
             const uncertain = error && !READS.has(property) && typeof code !== 'number'
               && code !== 'ENOENT' && code !== 'EACCES' && code !== 'EINVAL';
-            const outcome = uncertain && !(error instanceof ExecutionOutcomeUnknownError) ? new ExecutionOutcomeUnknownError(error) : error;
+            const outcome = uncertain && !(error instanceof ExecutionOutcomeUnknownError) ? new ExecutionOutcomeUnknownError({ adapter: 'ssh', cause: error }) : error;
             queueMicrotask(() => callback(outcome, ...values));
           };
-          const lost = (error: Error) => finish(READS.has(property) ? error : new ExecutionOutcomeUnknownError(error));
+          const lost = (error: Error) => finish(READS.has(property) ? error : new ExecutionOutcomeUnknownError({ adapter: 'ssh', cause: error }));
           const timedOut = () => stop(new SSHError(`SFTP ${property} made no progress before its deadline`, 'ETIMEDOUT'));
           const renew = () => { if (!settled) { clearTimeout(timer); timer = setTimeout(timedOut, timeoutMs); } };
           pending.add(lost); renew();

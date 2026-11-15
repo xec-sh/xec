@@ -44,7 +44,7 @@ describe('SSH execution acknowledgement and lifetime', () => {
   });
   it('does not turn a closed channel without exit evidence into success', async () => {
     const { ssh, channel, connection } = fixture();
-    const waiting = expect(ssh.execCommand('mutate')).rejects.toMatchObject({ code: 'SSH_OUTCOME_UNKNOWN', recoverable: false });
+    const waiting = expect(ssh.execCommand('mutate')).rejects.toMatchObject({ code: 'EXECUTION_OUTCOME_UNKNOWN', recoverable: false });
     await started(connection); channel.emit('close'); await waiting;
     expect(connection.listenerCount('close')).toBe(0);
     expect(connection.listenerCount('error')).toBe(0);
@@ -107,10 +107,10 @@ describe('SSH execution acknowledgement and lifetime', () => {
     expect(await waiting).toMatchObject({ exitCode: 143, signal: 'SIGTERM' });
   });
   it('keeps unknown completion separate from a reconnectable transport failure', () => {
-    expect(classifyFailure({ code: 'SSH_OUTCOME_UNKNOWN', message: 'Connection lost' })).toBe('outcome-unknown');
+    expect(classifyFailure({ code: 'EXECUTION_OUTCOME_UNKNOWN', message: 'Connection lost' })).toBe('outcome-unknown');
   });
   it('does not replay unknown execution through the high-level retry policy', async () => {
-    const execute = vi.fn(async () => { throw new ExecutionOutcomeUnknownError(); });
+    const execute = vi.fn(async () => { throw new ExecutionOutcomeUnknownError({ adapter: 'ssh' }); });
     await expect(withExecutionRetry(execute, { maxRetries: 3, initialDelay: 1 })).rejects.toMatchObject({ kind: 'outcome-unknown' });
     expect(execute).toHaveBeenCalledOnce();
   });

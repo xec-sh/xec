@@ -1,8 +1,8 @@
 import type { Duration } from '../utils/helpers.js';
 import type { Readable, Writable } from 'node:stream';
-import type { ProcessHandle } from './process-handle.js';
 import type { RetryOptions } from '../utils/retry-adapter.js';
 import type { SSHConnectionConfig } from '../adapters/ssh/contracts.js';
+import type { ProcessHandle, ExecutionResource } from './process-handle.js';
 
 /**
  * Stream configuration options for command execution
@@ -33,6 +33,17 @@ export interface SSHAdapterOptions extends SSHConnectionConfig {
 /**
  * Docker adapter configuration options
  */
+export type DockerPullPolicy = 'never' | 'missing' | 'always';
+
+export interface DockerResources {
+  /** Hard memory limit, in bytes (Docker requires at least 6 MiB). */
+  memoryBytes?: number;
+  /** CPU quota in cores, for example 0.5. */
+  cpus?: number;
+  /** Positive process limit for this owned container. */
+  pidsLimit?: number;
+}
+
 export interface DockerRunOptions {
   image?: string;
   autoRemove?: boolean;
@@ -40,7 +51,8 @@ export interface DockerRunOptions {
   env?: Record<string, string>;
   network?: string;
   platform?: string;
-  pull?: boolean;
+  pull?: DockerPullPolicy;
+  resources?: DockerResources;
   entrypoint?: string | string[];
   workingDir?: string;
   workdir?: string;
@@ -103,6 +115,14 @@ export type AdapterSpecificOptions =
  * Command execution configuration
  */
 export interface Command {
+  /**
+   * Caller-journalled UUID of one execution attempt, fixed before effects.
+   * It is ownership identity, not an in-memory deduplication cache. A caller
+   * supplying it must persist admission and never replay the same attempt.
+   * Automatic retries are refused: another attempt requires another UUID.
+   */
+  operationId?: string;
+
   // Basic
   command: string;                      // Command to execute
   args?: string[];                      // Command arguments
@@ -161,6 +181,13 @@ export interface Command {
    * needs to reach it, and this is the seam between them.
    */
   onSpawn?: (handle: ProcessHandle) => void;
+
+  /**
+   * Awaited write-ahead ownership registration. Docker run invokes it with
+   * daemon/operation identity before create and with the full ID before start.
+   * Rejection prevents the next effect. Must honor the signal passed by Xec.
+   */
+  onResource?: (resource: ExecutionResource, signal: AbortSignal) => void | Promise<void>;
 
   /**
    * Opaque stack holder recording where the caller wrote this command.
