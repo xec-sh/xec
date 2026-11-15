@@ -367,39 +367,41 @@ fixture skips must remain visible in test results.
 
 ### Turborepo Pipeline {#turborepo-pipeline}
 
-```json
-{
-  "tasks": {
-    "build": {
-      "dependsOn": ["^build"],
-      "outputs": ["dist/**"]
-    },
-    "test": {
-      "dependsOn": ["build"],
-      "outputs": []
-    },
-    "lint": {
-      "outputs": []
-    }
-  }
-}
-```
+The repository uses the pinned, published Xec CLI to run project tasks from
+`.xec/config.yaml`. Xec owns the workflow and release policy; Turbo owns the
+workspace dependency graph, build ordering and task cache. `pnpm build` invokes
+`xec run build`, which runs `turbo run build --filter=@xec-sh/cli`. This selects
+the CLI and its prerequisite builds. `pnpm build:full` builds all workspaces.
+
+Builds depend on their workspace dependencies' builds. Type checks wait for those
+built public declarations, then reuse Turbo's task cache. The shared TypeScript
+configuration and compiler launchers are explicit global cache inputs: changing
+how a package compiles invalidates the affected cached results. Repository
+commands have a separate type check in `.xec/tsconfig.json` and are linted with
+the package sources.
+
+A Turbo cache hit is a reusable task result, not release acceptance. The release
+API separately checks source identity, archive bytes and consumer contracts
+before publication. Native integration checks still require their actual runtime
+and external fixtures. They cannot be replaced by a previously cached unit result.
 
 ### TypeScript Configuration {#typescript-configuration}
 
-```json
-{
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
-  }
-}
-```
+Builds and type checks use **TypeScript 7** through the declared
+`@typescript/native` alias. Its `tsc` executable is selected by package scripts
+and the shared compiler launcher. The `typescript` import is separately bound
+to the TypeScript 6 JavaScript Compiler API for tools that inspect source ASTs;
+it does not select the build compiler.
+
+The root `tsconfig.json` supplies strict checking and NodeNext module semantics.
+Package configurations declare their own source/output boundaries. JavaScript
+emission and declaration generation are part of the package build; `typecheck`
+uses `--noEmit`. The exact installed versions come from the frozen lockfile.
+
+Changing an orchestrator does not make the compiler faster. Evaluate end-to-end
+build speed with the same source, compiler, machine and cache state, including
+the unchanged-build and single-package-change cases. Keep the graph/cache owner
+explicit instead of adding a second build scheduler inside a project command.
 
 ## Deployment Architecture {#deployment-architecture}
 

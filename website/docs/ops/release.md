@@ -17,6 +17,11 @@ not a global built-in. `pnpm release` and `xec release` invoke the same recipe
 when run in this checkout. Other projects register their own recipe using the
 shared Ops API.
 
+The recipe declares arguments and options through Xec's project command API.
+Run `xec release --help` for generated usage and defaults. Unknown options,
+extra arguments and mutually exclusive modes are rejected before release work
+begins; the recipe does not maintain a second command-line parser.
+
 Use Node.js, the pnpm version in `packageManager`, Git, npm, and `tar`. Xec's
 build also needs Bun. GitHub publication additionally needs an authenticated
 `gh` CLI. Run from a clean, committed checkout on the intended release branch.

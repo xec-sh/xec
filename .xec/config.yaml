@@ -18,8 +18,12 @@ tasks:
     description: Run workspace tests through Turbo.
     command: pnpm exec turbo run test
   typecheck:
-    description: Check the types of all workspaces.
-    command: pnpm --recursive run typecheck
+    description: Check workspace types through the package graph and validate project commands.
+    steps:
+      - name: Workspace types
+        command: pnpm exec turbo run typecheck
+      - name: Project command types
+        command: pnpm exec tsc -p .xec/tsconfig.json
   lint:
     description: Lint package sources, project commands and website components.
     command: pnpm exec eslint "{apps,packages}/**/*.{js,jsx,ts,tsx}" ".xec/commands/**/*.ts" "website/src/**/*.{js,jsx,ts,tsx}"

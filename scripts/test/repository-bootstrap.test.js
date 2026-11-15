@@ -36,6 +36,16 @@ test('published Xec discovers the release policy and real project tasks before a
   ]);
   const tasks = await invoke(root, ['inspect', 'tasks']);
   for (const task of ['bootstrap', 'build:full', 'docs:check', 'check:ssh-security']) assert.ok(tasks.includes(task));
+  const help = await invoke(root, ['release', '--help']);
+  assert.match(help, /release.*\[version\]/);
+  assert.match(help, /--notes-from <sha>/);
+  assert.match(help, /--no-push/);
+  await assert.rejects(invoke(root, ['release', '--preapre']), /unknown option.*--preapre/);
+  await assert.rejects(invoke(root, ['release', '1.0.0', 'extra']), /too many arguments/);
+  for (const flags of [
+    ['--prepare', '--resume'], ['--prepare', '--github-only'], ['--resume', '--github-only'],
+    ['--notes-from', '0'.repeat(40), '--skip-github'],
+  ]) await assert.rejects(invoke(root, ['release', '1.0.0', ...flags]), /cannot be used with/);
   await assert.rejects(invoke(root, ['release', 'not-a-version', '--dry-run']), /invalid|Invalid|version/);
   await assert.rejects(access(join(root, 'scripts/release.ts')), { code: 'ENOENT' });
 });
@@ -74,6 +84,10 @@ test('published release API refuses archive rejection through the actual project
   const before = await releaseCommand(fixture, 'git', ['rev-parse', 'HEAD']);
   const plan = JSON.parse(await invoke(fixture, ['release', version, '--resume', '--workspace', fixture, '--dry-run', '--notes-from', before]));
   assert.equal(plan.notesFrom, before);
+  const localOnly = JSON.parse(await invoke(fixture, ['release', version, '--dry-run', '--no-push', '--skip-npm', '--skip-github']));
+  assert.equal(localOnly.push, false);
+  assert.equal(localOnly.npm, false);
+  assert.equal(localOnly.github, false);
   await assert.rejects(invoke(fixture, ['release', version, '--dry-run', '--notes-from', 'HEAD']), /full lowercase commit/);
   await assert.rejects(invoke(fixture, ['release', version, '--prepare', '--offline', '--yes']), /SYNTHETIC_ARCHIVE_REJECTED/);
   assert.equal(await releaseCommand(fixture, 'git', ['rev-parse', 'HEAD']), before);

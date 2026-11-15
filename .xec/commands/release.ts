@@ -2,7 +2,6 @@ import type { Command } from 'commander';
 import type { ReleaseCommand, ReleaseArtifact } from '@xec-sh/ops/release';
 
 import semver from 'semver';
-import { parseArgs } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { join, dirname, resolve } from 'node:path';
 import { select, confirm, password, isCancel } from '@xec-sh/kit';
@@ -15,23 +14,21 @@ import {
 } from '@xec-sh/ops/release';
 
 const repository = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const usage = `xec release [version] [options]
-  --dry-run           Read-only plan; no build, files, hooks, git writes or publication
-  --prepare           Commit versions, build isolated archives and create a local tag
-  --resume            Use existing sealed archives; never rebuild or change versions
-  --workspace <path>  Resume an existing sealed release in the given checkout
-  --github-only       Finish GitHub for the exact checked-out release tag
-  --skip-npm          Skip npm publication
-  --skip-github       Skip GitHub release creation
-  --no-push           Leave the exact branch/tag push to the operator
-  --offline           Install isolated build dependencies from the local pnpm store
-  --registry <url>    npm destination (default: https://registry.npmjs.org/)
-  --notes-from <sha>  Full commit of a caller-verified published release; otherwise full history
-  --list-packages     List publishable workspaces in dependency order
-  --yes               Confirm the displayed plan without a prompt
-Credentials come from npm/gh login or their supported environment configuration.
-A failed publication retains its version commit, tag and archives for --resume.
-`;
+interface ReleaseOptions {
+  dryRun?: boolean;
+  prepare?: boolean;
+  resume?: boolean;
+  githubOnly?: boolean;
+  skipNpm?: boolean;
+  skipGithub?: boolean;
+  push?: boolean;
+  offline?: boolean;
+  workspace?: string;
+  registry?: string;
+  notesFrom?: string;
+  listPackages?: boolean;
+  yes?: boolean;
+}
 
 async function verifyCoreArchive(context: { workspace: string; artifact: ReleaseArtifact; run: ReleaseCommand }): Promise<void> {
   if (context.artifact.name !== '@xec-sh/core') return;
@@ -39,27 +36,16 @@ async function verifyCoreArchive(context: { workspace: string; artifact: Release
   await context.run(context.workspace, process.execPath, [join(context.workspace, 'scripts/check-ssh-security.mjs'), '--archive', context.artifact.file]);
 }
 
-export async function runRelease(args: string[]): Promise<void> {
-  const { values, positionals } = parseArgs({ args, allowPositionals: true, options: {
-    'dry-run': { type: 'boolean', short: 'd' }, prepare: { type: 'boolean' }, resume: { type: 'boolean' },
-    'github-only': { type: 'boolean' }, 'skip-npm': { type: 'boolean' }, 'skip-github': { type: 'boolean' },
-    'no-push': { type: 'boolean' }, offline: { type: 'boolean' }, workspace: { type: 'string' }, registry: { type: 'string' }, 'notes-from': { type: 'string' },
-    'list-packages': { type: 'boolean' }, yes: { type: 'boolean', short: 'y' }, help: { type: 'boolean', short: 'h' },
-  } });
-  if (values.help) { console.log(usage); return; }
-  if (values.workspace && !values.resume && !values['github-only']) throw new Error('--workspace requires --resume or --github-only');
+async function runRelease(version: string | undefined, values: ReleaseOptions): Promise<void> {
+  if (values.workspace && !values.resume && !values.githubOnly) throw new Error('--workspace requires --resume or --github-only');
   const root = values.workspace ? resolve(values.workspace) : repository;
-  if (positionals.length > 1) throw new Error('Expected at most one release version');
-  if ([values.prepare, values.resume, values['github-only']].filter(Boolean).length > 1) throw new Error('Choose only one of --prepare, --resume or --github-only');
-  if ((values.resume || values['github-only']) && !positionals[0]) throw new Error('--resume and --github-only require the exact release version');
-  if (values['notes-from'] !== undefined && values['skip-github']) throw new Error('--notes-from cannot be combined with --skip-github');
+  if ((values.resume || values.githubOnly) && !version) throw new Error('--resume and --github-only require the exact release version');
   const packages = await discoverReleasePackages(root);
-  if (values['list-packages']) { console.log(JSON.stringify(packages, null, 2)); return; }
-  let version = positionals[0];
+  if (values.listPackages) { console.log(JSON.stringify(packages, null, 2)); return; }
   if (!version) {
     const current = packages.find(pkg => pkg.name === '@xec-sh/core')?.version;
     if (!current) throw new Error('Specify the exact release version');
-    if (values['dry-run']) version = semver.inc(current, 'patch')!;
+    if (values.dryRun) version = semver.inc(current, 'patch')!;
     else {
       if (!process.stdin.isTTY) throw new Error('Specify the release version in non-interactive mode');
       const choice = await select({ message: `Release version (current ${current})`, options: ['patch', 'minor', 'major'].map(type => ({ value: semver.inc(current, type as 'patch' | 'minor' | 'major')!, label: `${type}: ${semver.inc(current, type as 'patch' | 'minor' | 'major')}` })) });
@@ -68,15 +54,15 @@ export async function runRelease(args: string[]): Promise<void> {
   }
   releaseTag(version);
   const evidence = await planRelease(root, version);
-  if (values['notes-from'] !== undefined) await assertReleaseNotesBase(root, values['notes-from'], evidence.commit);
+  if (values.notesFrom !== undefined) await assertReleaseNotesBase(root, values.notesFrom, evidence.commit);
   const plan = { version, tag: evidence.tag, npmTag: evidence.npmTag, source: evidence.commit, blockers: evidence.blockers, remoteState: 'not checked by dry-run',
-    mode: values.prepare ? 'prepare' : values.resume ? 'resume' : values['github-only'] ? 'github-only' : 'release',
-    notesFrom: values['notes-from'] ?? null,
+    mode: values.prepare ? 'prepare' : values.resume ? 'resume' : values.githubOnly ? 'github-only' : 'release',
+    notesFrom: values.notesFrom ?? null,
     packages: packages.map(pkg => ({ name: pkg.name, path: pkg.path, from: pkg.version, to: version })),
-    build: values.resume || values['github-only'] ? false : 'isolated committed snapshot', push: !values['no-push'] && !values.prepare,
-    npm: !values['skip-npm'] && !values.prepare && !values['github-only'], github: !values['skip-github'] && !values.prepare };
+    build: values.resume || values.githubOnly ? false : 'isolated committed snapshot', push: values.push !== false && !values.prepare,
+    npm: !values.skipNpm && !values.prepare && !values.githubOnly, github: !values.skipGithub && !values.prepare };
   console.log(JSON.stringify(plan, null, 2));
-  if (values['dry-run']) { if (evidence.blockers.length) process.exitCode = 1; return; }
+  if (values.dryRun) { if (evidence.blockers.length) process.exitCode = 1; return; }
   if (evidence.blockers.length) throw new Error(evidence.blockers.join('\n'));
   if (!values.yes) {
     if (!process.stdin.isTTY) throw new Error('Review --dry-run, then use --yes for a non-interactive release');
@@ -89,14 +75,14 @@ export async function runRelease(args: string[]): Promise<void> {
     const tagExists = await assertReleaseHead(root, version);
     if (values.workspace && !tagExists) throw new Error('--workspace requires a tagged release checkout');
     // A colliding remote release is refused before any version changes.
-    if (!values.prepare && !values['no-push']) await verifyRemoteReleaseTag(root, version);
-    if (!values.resume && !values['github-only']) {
+    if (!values.prepare && values.push !== false) await verifyRemoteReleaseTag(root, version);
+    if (!values.resume && !values.githubOnly) {
       await commitReleaseVersion(root, version);
       // pnpm verifies installed workspace versions before it can invoke --resume.
       await releaseCommand(root, 'pnpm', ['install', '--frozen-lockfile', '--ignore-scripts', ...(values.offline ? ['--offline'] : [])], { timeoutMs: 600000 });
       await assertCleanReleaseTree(root);
     }
-    if (!values['github-only']) {
+    if (!values.githubOnly) {
       if (values.resume) await loadPreparedRelease(root, version);
       else {
         await prepareReleaseArtifacts(root, version, {
@@ -115,10 +101,10 @@ export async function runRelease(args: string[]): Promise<void> {
       }
       await ensureReleaseTag(root, version);
     }
-    if (values.prepare) { console.log(`Prepared ${version}. Review .release-artifacts, then use: xec release ${version} --resume${values['notes-from'] ? ` --notes-from ${values['notes-from']}` : ''}`); return; }
-    if (values['no-push'] && (!values['skip-github'] || !values['skip-npm'])) await verifyRemoteReleaseTag(root, version, true);
-    const push = values['no-push'] ? undefined : () => pushReleaseRefs(root, version);
-    if (values['skip-npm'] || values['github-only']) await push?.();
+    if (values.prepare) { console.log(`Prepared ${version}. Review .release-artifacts, then use: xec release ${version} --resume${values.notesFrom ? ` --notes-from ${values.notesFrom}` : ''}`); return; }
+    if (values.push === false && (!values.skipGithub || !values.skipNpm)) await verifyRemoteReleaseTag(root, version, true);
+    const push = values.push === false ? undefined : () => pushReleaseRefs(root, version);
+    if (values.skipNpm || values.githubOnly) await push?.();
     else await publishPreparedRelease(root, version, {
       registry: values.registry, progress: console.log, beforeUpload: push,
       otp: async () => {
@@ -128,10 +114,10 @@ export async function runRelease(args: string[]): Promise<void> {
         return value;
       },
     });
-    if (!values['skip-github']) {
+    if (!values.skipGithub) {
       const origin = await releaseCommand(root, 'git', ['remote', 'get-url', 'origin']);
       const target = await releaseCommand(root, 'gh', ['repo', 'view', origin, '--json', 'nameWithOwner', '--jq', '.nameWithOwner']);
-      const notes = await releaseNotes(root, version, target, { from: values['notes-from'] });
+      const notes = await releaseNotes(root, version, target, { from: values.notesFrom });
       console.log(await createGithubRelease(root, version, target, notes));
     }
     console.log(`Release ${version} verified. Prepared archives and receipts remain in .release-artifacts.`);
@@ -142,9 +128,29 @@ export async function runRelease(args: string[]): Promise<void> {
 
 /** Project release policy, executed by the pinned published Xec runtime. */
 export function command(program: Command): void {
-  program.command('release [args...]')
+  const release = program.command('release [version]')
     .description('Prepare immutable packages and resume verified npm/GitHub publication')
-    .allowUnknownOption(true)
-    .helpOption(false)
-    .action((args: string[]) => runRelease(args));
+    .option('-d, --dry-run', 'Print a read-only plan without builds, hooks, Git writes or publication')
+    .addOption(program.createOption('--prepare', 'Commit versions, prepare isolated archives and create a local tag')
+      .conflicts(['resume', 'githubOnly']))
+    .addOption(program.createOption('--resume', 'Publish existing sealed archives without rebuilding or changing versions')
+      .conflicts(['prepare', 'githubOnly']))
+    .addOption(program.createOption('--github-only', 'Finish GitHub for the exact checked-out release tag')
+      .conflicts(['prepare', 'resume']))
+    .option('--workspace <path>', 'Checkout containing the sealed release; requires --resume or --github-only')
+    .option('--skip-npm', 'Skip npm publication')
+    .option('--skip-github', 'Skip GitHub release creation')
+    .option('--no-push', 'Leave the exact branch/tag push to the operator')
+    .option('--offline', 'Install isolated build dependencies from the local pnpm store')
+    .option('--registry <url>', 'npm destination', 'https://registry.npmjs.org/')
+    .addOption(program.createOption('--notes-from <sha>', 'Full commit of a verified published release; otherwise use full history')
+      .conflicts('skipGithub'))
+    .option('--list-packages', 'List publishable workspaces in dependency order')
+    .option('-y, --yes', 'Confirm the displayed plan without prompting')
+    .allowExcessArguments(false)
+    .addHelpText('after', `
+Credentials come from npm/gh login or their supported environment configuration.
+A failed publication retains its version commit, tag and archives for --resume.
+`);
+  release.action((version: string | undefined, options: ReleaseOptions) => runRelease(version, options));
 }

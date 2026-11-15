@@ -29,6 +29,17 @@
         "coverage/**"
       ]
     },
-    "lint": {}
-  }
+    "lint": {},
+    "typecheck": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": []
+    }
+  },
+  "globalDependencies": [
+    "tsconfig.json",
+    "scripts/build-package.mjs",
+    "scripts/typescript-compiler.mjs"
+  ]
 }

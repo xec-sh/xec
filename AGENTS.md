@@ -169,7 +169,11 @@ there is no unconditional exhaustive pre-commit loop. Do not launch remote jobs
 or production operations merely to make a local change look more validated.
 
 Keep website guidance, public API docs and the owning changelog consistent with
-finished behavior. Use shared Lumen/Prism/MUI components; check actual provider/
+finished behavior. Read the whole affected page: explain the use case before
+options, integrate additions into the correct section, keep related links at the
+end, and distinguish published behavior from unreleased source. Validate examples
+against the ordinary entry point and preserve public anchors. Use shared
+Lumen/Prism/MUI components; check actual provider/
 CSS, keyboard states and mobile rendering, not imports alone. Do not duplicate
 the component system in local wrappers. Keep tutorials, changing status
 inventories and benchmark reports in their owning documentation, out of this file.
