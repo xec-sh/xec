@@ -454,7 +454,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
 
   // Helper to await any thenables in values
   private async awaitThenables(values: any[]): Promise<any[]> {
-    const results = [];
+    const results: unknown[] = [];
     for (const value of values) {
       if (value && typeof value === 'object' && typeof value.then === 'function') {
         // This is a thenable (Promise or Promise-like object)
