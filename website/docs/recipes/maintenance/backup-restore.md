@@ -121,6 +121,26 @@ RESTORE_SERVICE=isolated-restore xec run scripts/restore.ts backups/postgres-exa
 
 Configure the PostgreSQL service names and the application's `verify:restored-db` command first. Schedule the backup command through an existing service scheduler. Store an independently authenticated manifest or trusted digest when detecting malicious archive replacement matters; a colocated checksum alone is not a signature.
 
+## PostgreSQL service preset {#postgresql-service-preset}
+
+`PostgreSQLFluentAPI.backup(path)` writes a plain SQL dump inside its container.
+`restore(path)` reads that container path into the configured, existing database
+using `psql -X -v ON_ERROR_STOP=1 --single-transaction -f`. It ignores `.psqlrc`,
+rejects SQL errors and disables inherited automatic retries and `nothrow`.
+Ordinary dumps produced by `backup()` commit together or roll back on SQL errors.
+
+Restore only trusted dumps into a destination you have prepared for restoration;
+the preset does not stop application writers or verify destination ownership.
+Custom-format archives require `pg_restore`, as in the recipe above. Scripts with
+`CREATE DATABASE` or `VACUUM` are incompatible with this transaction. Scripts that
+issue their own `BEGIN`/`COMMIT`, switch connections, or change `ON_ERROR_STOP` are
+unsupported and can defeat its atomicity or error detection. There is no fallback
+to a nontransactional restore. See the [psql transaction contract](https://www.postgresql.org/docs/current/app-psql.html).
+
+A lost connection or reply does not prove that the database rolled back: the
+commit may already have completed. Inspect the destination before repeating a
+restore. This method has no durable restore journal or automatic resume.
+
 ## Best Practices {#best-practices}
 
 1. **Test restore procedures** regularly

@@ -153,8 +153,26 @@ export class PostgreSQLFluentAPI extends DockerEphemeralFluentAPI implements Ser
     await this.exec`pg_dump -U ${this.pgConfig.user} -d ${this.pgConfig.database} -f ${backupPath}`;
   }
 
+  /**
+   * Restore a trusted plain SQL dump into the configured, existing database.
+   * Ordinary dumps from backup() run in one transaction and stop on SQL errors.
+   * Scripts that change connections, transaction boundaries or ON_ERROR_STOP
+   * are unsupported; CREATE DATABASE and VACUUM cannot run in this transaction.
+   * A transport failure can leave the commit outcome unknown. Inspect the
+   * destination before retrying; this operation never retries automatically.
+   */
   async restore(backupPath: string): Promise<void> {
-    await this.exec`psql -U ${this.pgConfig.user} -d ${this.pgConfig.database} -f ${backupPath}`;
+    try {
+      const container = this.config.name;
+      if (!container) throw new Error('PostgreSQL restore requires a named existing container');
+      // A caller's nothrow/retry defaults must not hide or repeat a restore.
+      const restore = this.engine.docker({
+        container, env: this.config.env, workdir: this.config.workdir, user: this.config.user,
+      }).with({ nothrow: false, throwOnNonZeroExit: true, retry: { maxRetries: 0 } });
+      await restore.run`psql -X -v ON_ERROR_STOP=1 --single-transaction -U ${this.pgConfig.user} -d ${this.pgConfig.database} -f ${backupPath}`;
+    } catch (cause) {
+      throw new Error('PostgreSQL restore was not confirmed. Inspect the destination before retrying; no automatic retry was performed.', { cause });
+    }
   }
 
   /**

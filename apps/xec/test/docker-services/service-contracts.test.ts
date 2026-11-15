@@ -129,7 +129,10 @@ if (name === 'kafka-console-producer') {
   let stdin = ''; process.stdin.setEncoding('utf8');
   process.stdin.on('data', chunk => stdin += chunk);
   process.stdin.on('end', () => record(stdin));
-} else record('');
+} else {
+  record('');
+  if (name === 'psql') process.exitCode = Number(process.env.XEC_PSQL_EXIT || 0);
+}
 `;
     for (const name of ['psql', 'pg_dump', 'kafka-topics', 'kafka-console-producer', 'kafka-console-consumer', 'kafka-consumer-groups', 'rabbitmq-plugins', 'rabbitmqctl', 'rabbitmqadmin', 'redis-cli']) {
       await writeFile(join(directory, name), executable, { mode: 0o700 });
@@ -146,11 +149,19 @@ if (name === 'kafka-console-producer') {
   function local<T extends DockerEphemeralFluentAPI>(service: T): T {
     // The container boundary is replaced by the ordinary local Core engine.
     // Programs are private fixtures; no Docker executable can be invoked.
-    vi.spyOn(service, 'exec').mockImplementation(((command: string | string[] | TemplateStringsArray, ...values: unknown[]) => {
+    const nativeDocker = engine.docker.bind(engine);
+    function localDocker(options: unknown): ExecutionEngine;
+    function localDocker(): ReturnType<typeof engine.docker>;
+    function localDocker(options?: unknown): ExecutionEngine | ReturnType<typeof engine.docker> {
+      return options === undefined ? nativeDocker() : engine;
+    }
+    vi.spyOn(engine, 'docker').mockImplementation(localDocker);
+    const base: DockerEphemeralFluentAPI = service;
+    vi.spyOn(base, 'exec').mockImplementation(((command: string | string[] | TemplateStringsArray, ...values: unknown[]) => {
       if (Array.isArray(command) && 'raw' in command) return engine.run(command as TemplateStringsArray, ...values);
       if (Array.isArray(command)) return engine.run`${command}`;
       return engine.raw`${command}`;
-    }) as T['exec']);
+    }) as DockerEphemeralFluentAPI['exec']);
     return service;
   }
 
@@ -160,6 +171,28 @@ if (name === 'kafka-console-producer') {
     const service = local(new PostgreSQLFluentAPI(engine, { user: 'user name', database: 'data name' }));
     await service.backup('/synthetic path/backup.sql');
     expect(await rows()).toEqual([{ name: 'pg_dump', args: ['-U', 'user name', '-d', 'data name', '-f', '/synthetic path/backup.sql'], stdin: '' }]);
+  });
+
+  it('passes the restore path unchanged with isolated psql startup and one transaction', async () => {
+    const service = local(new PostgreSQLFluentAPI(engine, { user: 'user name', database: 'data name' }));
+    const file = "/synthetic path/backup 'quoted'.sql";
+    await service.restore(file);
+    expect(await rows()).toEqual([{ name: 'psql', args: [
+      '-X', '-v', 'ON_ERROR_STOP=1', '--single-transaction', '-U', 'user name', '-d', 'data name', '-f', file,
+    ], stdin: '' }]);
+  });
+
+  it('rejects a failed restore once even when the caller suppresses failures and retries them', async () => {
+    const onRetry = vi.fn();
+    engine = engine.with({ nothrow: true, throwOnNonZeroExit: false,
+      retry: { maxRetries: 2, initialDelay: 0, isRetryable: () => true, onRetry } });
+    engine.config.set({ defaultEnv: { XEC_PSQL_EXIT: '3' } });
+    const service = local(new PostgreSQLFluentAPI(engine));
+    const pending = service.restore('/synthetic.sql');
+    await expect(pending).rejects.toThrow('Inspect the destination before retrying');
+    await expect(pending).rejects.toMatchObject({ cause: { exitCode: 3 } });
+    expect(await rows()).toHaveLength(1);
+    expect(onRetry).not.toHaveBeenCalled();
   });
 
   it('preserves Kafka topics, config, payload, flags and offset without shell expansion', async () => {
