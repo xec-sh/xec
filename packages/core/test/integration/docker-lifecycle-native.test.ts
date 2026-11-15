@@ -26,8 +26,9 @@ describe.skipIf(process.platform === 'win32')('Docker native lifecycle', () => {
     });
     return text.trim().split('\n').filter(Boolean).map(line => JSON.parse(line));
   };
-  const waitForCalls = async (count = 1) => {
-    await vi.waitFor(async () => expect((await records()).length).toBeGreaterThanOrEqual(count), { timeout: 3000, interval: 20 });
+  // Target pinning also spawns a helper; wait for the operation being cancelled.
+  const waitForLogStreams = async (count = 1) => {
+    await vi.waitFor(async () => expect((await records()).filter(call => call.args[0] === 'logs').length).toBeGreaterThanOrEqual(count), { timeout: 3000, interval: 20 });
   };
 
   beforeEach(async () => {
@@ -214,7 +215,7 @@ else if (args[0] === 'rm') {
     expect(await records()).toEqual([]);
     const active = new AbortController();
     const failure = adapter.streamLogs('hang', () => {}, { follow: true, signal: active.signal }).catch(error => error);
-    await waitForCalls();
+    await waitForLogStreams();
     active.abort(new Error('caller cancelled'));
     expect(await failure).toMatchObject({ originalError: { message: 'caller cancelled' } });
     for (const { pid } of await records()) expect(alive(pid)).toBe(false);
@@ -223,7 +224,7 @@ else if (args[0] === 'rm') {
   it('owns pending management calls and followed streams during disposal', async () => {
     const finite = adapter.getLogs('hang').catch(error => error);
     const followed = adapter.streamLogs('hang', () => {}, { follow: true });
-    await waitForCalls(2);
+    await waitForLogStreams(2);
     await adapter.dispose();
     expect(await finite).toMatchObject({ message: expect.stringContaining('stopped before completion') });
     await expect(followed).resolves.toBeUndefined();
