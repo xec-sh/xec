@@ -97,7 +97,9 @@ test('published release API refuses archive rejection through the actual project
   await copyFile(join(fixture, 'packages/core/build.js'), join(fixture, 'packages/ssh/build.js'));
   await writeFile(join(fixture, '.xec/lib/ssh-security.js'),
     "import { stat } from 'node:fs/promises'; export async function checkSSHSecurity(_root, { coreArchive, sshArchive }) { if (coreArchive === sshArchive || !(await stat(coreArchive)).isFile() || !(await stat(sshArchive)).isFile()) throw new Error('Both exact archives must be supplied'); throw new Error('SYNTHETIC_ARCHIVE_REJECTED'); }");
-  await releaseCommand(fixture, 'pnpm', ['install', '--ignore-scripts', '--offline'], { timeoutMs: 60_000 });
+  // Bootstrap the fixture explicitly; a clean runner need not cache its pinned manager metadata.
+  // The release below still runs offline and must reject the exact prepared archives.
+  await releaseCommand(fixture, 'pnpm', ['install', '--ignore-scripts'], { timeoutMs: 60_000 });
   for (const args of [
     ['init', '--initial-branch', 'main'], ['config', 'user.name', 'Release fixture'],
     ['config', 'user.email', 'release-fixture@example.invalid'], ['add', '--', '.'], ['commit', '-m', 'Synthetic rejection fixture'],

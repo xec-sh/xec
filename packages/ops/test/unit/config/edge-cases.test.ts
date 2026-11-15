@@ -26,6 +26,7 @@ describe('Configuration System Edge Cases', () => {
   });
 
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await fs.rm(tempDir, { recursive: true, force: true });
   });
 
@@ -41,7 +42,7 @@ describe('Configuration System Edge Cases', () => {
       expect(loaded.targets?.local?.type).toBe('local');
     });
 
-    it('should handle corrupted YAML files', async () => {
+    it.each([true, false])('rejects corrupted YAML with strict=%s', async (strict) => {
       const corruptedYaml = `
 version: "1.0"
 tasks:
@@ -54,7 +55,7 @@ tasks:
 
       const manager = new ConfigurationManager({
         projectRoot: tempDir,
-        strict: true
+        strict
       });
 
       await expect(manager.load()).rejects.toThrow();
@@ -91,8 +92,8 @@ profiles:
     });
 
     it('should handle environment variable overrides', async () => {
-      process.env.XEC_VARS_TEST = 'env_override';
-      process.env.XEC_TASKS_CUSTOM = 'echo from env';
+      vi.stubEnv('XEC_VARS_TEST', 'env_override');
+      vi.stubEnv('XEC_TASKS_CUSTOM', 'echo from env');
 
       const config = `
 version: "1.0"
@@ -109,14 +110,11 @@ tasks:
         envPrefix: 'XEC_'
       });
 
+      await expect(manager.load()).rejects.toThrow(/execution|tasks/i);
+      vi.stubEnv('XEC_TASKS_CUSTOM', undefined);
       const loaded = await manager.load();
-
-      // Environment variables should override config
       expect(loaded.vars?.test).toBe('env_override');
-      expect(loaded.tasks?.custom).toBe('echo from env');
-
-      delete process.env.XEC_VARS_TEST;
-      delete process.env.XEC_TASKS_CUSTOM;
+      expect(loaded.tasks?.custom).toBe('echo original');
     });
   });
 
@@ -142,8 +140,9 @@ tasks:
         }
       };
 
-      // Should stop at max depth
-      expect(() => interpolator.interpolate('${vars.a}', context))
+      // Only authored templates recurse; runtime values remain literal data.
+      expect(interpolator.interpolate('${vars.a}', context)).toBe('${vars.b}');
+      expect(() => interpolator.interpolate('${vars.a}', { ...context, varsAreTemplates: true }))
         .toThrow('Maximum variable interpolation depth (10) exceeded');
     });
 
@@ -180,22 +179,22 @@ tasks:
       };
 
       expect(() => interpolator.interpolate('${vars..test}', context))
-        .toThrow(/'\.test' is not defined/);
+        .toThrow('Configuration path must not contain empty segments');
       expect(() => interpolator.interpolate('${vars.test.}', context))
-        .toThrow(/'test\.' is not defined/);
+        .toThrow('Configuration path must not contain empty segments');
     });
 
-    it("should keep malformed references literal with onUndefined: 'keep'", () => {
+    it("rejects malformed references even with onUndefined: 'keep'", () => {
       const interpolator = new VariableInterpolator();
 
       const context = {
         vars: { test: 'value' }
       };
 
-      expect(interpolator.interpolate('${vars..test}', context, { onUndefined: 'keep' }))
-        .toBe('${vars..test}');
-      expect(interpolator.interpolate('${vars.test.}', context, { onUndefined: 'keep' }))
-        .toBe('${vars.test.}');
+      expect(() => interpolator.interpolate('${vars..test}', context, { onUndefined: 'keep' }))
+        .toThrow('Configuration path must not contain empty segments');
+      expect(() => interpolator.interpolate('${vars.test.}', context, { onUndefined: 'keep' }))
+        .toThrow('Configuration path must not contain empty segments');
       // A defined value with an (empty) default still resolves normally
       expect(interpolator.interpolate('${vars.test:}', context)).toBe('value');
     });
@@ -424,7 +423,7 @@ tasks:
       };
 
       const errors = await validator.validate(config);
-      expect(errors.some(e => e.message.includes('Invalid parameter type'))).toBe(true);
+      expect(errors.some(e => e.message.includes('Invalid type: invalid'))).toBe(true);
     });
 
     it('should handle missing required parameters', () => {

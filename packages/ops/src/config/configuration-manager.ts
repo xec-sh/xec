@@ -534,7 +534,7 @@ export class ConfigurationManager {
 
   /**
    * Try to load a configuration file
-   * @returns The configuration or undefined if not found/invalid
+   * @returns The configuration or undefined only when an optional file is absent
    */
   private async tryLoadConfigFile(filePath: string): Promise<Configuration | undefined> {
     try {
@@ -543,21 +543,13 @@ export class ConfigurationManager {
       this.assertSupportedCapabilities(config);
       await this.assertCommandSubstitutionAllowed(filePath, content);
       return config;
-    } catch (error: any) {
-      // A refused configuration stops the command. Degrading to a warning
-      // and an empty config would let everything carry on against defaults,
-      // which is a different run than the one that was asked for — and it
-      // would make the refusal look advisory.
-      if (error instanceof UntrustedConfigError || error instanceof DynamicValueUnavailableError || error instanceof ConfigValidationError) {
+    } catch (error: unknown) {
+      // Only an absent optional discovery candidate permits continuing. A file
+      // that exists but cannot be read or parsed must never become defaults.
+      if (typeof error !== 'object' || error === null || !('code' in error) || error.code !== 'ENOENT') {
         throw error;
       }
-
-      if (error.code !== 'ENOENT') {
-        if (this.options.strict && error.name === 'YAMLException') {
-          throw error;
-        }
-        console.warn(`Failed to load config from ${filePath}: ${error.message}`);
-      } else if (process.env['XEC_DEBUG']) {
+      if (process.env['XEC_DEBUG']) {
         console.log(`[ConfigManager] File not found: ${filePath}`);
       }
       return undefined;
@@ -606,10 +598,8 @@ export class ConfigurationManager {
           priority: 20,
           config
         });
-      } else if (this.options.strict) {
-        throw new Error(`Config file not found: ${explicit}`);
       } else {
-        console.warn(`Config warning: config file not found: ${explicit}`);
+        throw new Error(`Config file not found: ${explicit}`);
       }
       return;
     }

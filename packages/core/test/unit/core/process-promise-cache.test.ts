@@ -266,9 +266,9 @@ describe('ProcessPromise Cache', () => {
     it('should generate cache key based on command, cwd, and env', async () => {
       // Same command with different parameters should have different cache keys
       const timestamp = Date.now();
-      const result1 = await mockEngine.run`echo "${timestamp}-1"`.cache();
-      const result2 = await mockEngine.run`echo "${timestamp}-2"`.cwd('/tmp').cache();
-      const result3 = await mockEngine.run`echo "${timestamp}-3"`.env({ FOO: 'bar' }).cache();
+      const result1 = await mockEngine.run`echo ${`${timestamp}-1`}`.cache();
+      const result2 = await mockEngine.run`echo ${`${timestamp}-2`}`.cwd('/tmp').cache();
+      const result3 = await mockEngine.run`echo ${`${timestamp}-3`}`.env({ FOO: 'bar' }).cache();
       
       // All should have different outputs
       expect(result1.stdout).toContain(`${timestamp}-1`);
@@ -349,7 +349,7 @@ describe('ProcessPromise Cache', () => {
   describe('Cache TTL and cleanup', () => {
     it('should handle zero TTL (no expiry)', async () => {
       const data = `no-expiry-${Date.now()}`;
-      const result1 = await mockEngine.run`echo "${data}"`.cache({ key: 'no-ttl', ttl: 0 });
+      const result1 = await mockEngine.run`echo ${data}`.cache({ key: 'no-ttl', ttl: 0 });
       const result2 = await mockEngine.run`echo "wrong"`.cache({ key: 'no-ttl' });
       
       expect(result1.stdout).toContain(data);
@@ -358,7 +358,7 @@ describe('ProcessPromise Cache', () => {
     
     it('should handle negative TTL as no expiry', async () => {
       const data = `negative-ttl-${Date.now()}`;
-      const result1 = await mockEngine.run`echo "${data}"`.cache({ key: 'neg-ttl', ttl: -1 });
+      const result1 = await mockEngine.run`echo ${data}`.cache({ key: 'neg-ttl', ttl: -1 });
       const result2 = await mockEngine.run`echo "wrong"`.cache({ key: 'neg-ttl' });
       
       expect(result1.stdout).toContain(data);
@@ -369,8 +369,8 @@ describe('ProcessPromise Cache', () => {
   describe('Cache key generation', () => {
     it('should generate unique keys for different commands', async () => {
       const time = Date.now();
-      const result1 = await mockEngine.run`echo "${time}-cmd1"`.cache();
-      const result2 = await mockEngine.run`echo "${time}-cmd2"`.cache();
+      const result1 = await mockEngine.run`echo ${`${time}-cmd1`}`.cache();
+      const result2 = await mockEngine.run`echo ${`${time}-cmd2`}`.cache();
       
       expect(result1.stdout).toContain(`${time}-cmd1`);
       expect(result2.stdout).toContain(`${time}-cmd2`);
@@ -443,7 +443,7 @@ describe('ProcessPromise Cache', () => {
       const time = Date.now();
       
       // Local execution
-      const local = await mockEngine.run`echo "${time}-local"`.cache({ key: 'adapter-test' });
+      const local = await mockEngine.run`echo ${`${time}-local`}`.cache({ key: 'adapter-test' });
       expect(local.stdout).toContain(`${time}-local`);
       
       // The cache key generation includes the adapter configuration,

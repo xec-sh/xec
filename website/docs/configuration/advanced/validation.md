@@ -15,7 +15,10 @@ The CLI can report a valid default configuration after a malformed YAML file was
 skipped by the non-strict loader. Do not use `xec config validate` alone as a
 fail-closed admission check for an untrusted or newly edited file. The explicit
 strict library check below rejects load failures. This limitation remains in
-0.13.0; it is not fixed by updating the documentation.
+0.13.0. The next release rejects malformed or unreadable configuration files in
+every loader mode and rejects a missing explicitly selected file. Optional
+discovery paths may still be absent. Until that release is installed, use the
+strict check below.
 :::
 
 ## What is checked {#validation-levels}

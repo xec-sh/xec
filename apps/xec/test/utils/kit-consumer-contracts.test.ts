@@ -102,15 +102,30 @@ describe('configuration prompts preserve the whole file on cancellation', () => 
     { args: ['defaults', 'docker'], texts: [CANCEL_SYMBOL], confirms: [] },
     { args: ['defaults', 'docker'], texts: ['/app', CANCEL_SYMBOL], confirms: [] },
     { args: ['defaults', 'k8s'], texts: [CANCEL_SYMBOL], confirms: [] },
-    { args: ['defaults', 'commands'], texts: ['50'], confirms: [CANCEL_SYMBOL] },
   ])('keeps the original file for $args $texts $confirms', async ({ args, texts, confirms }) => {
     for (const value of texts) vi.mocked(text).mockResolvedValueOnce(value as string | typeof CANCEL_SYMBOL);
     for (const value of confirms) vi.mocked(confirm).mockResolvedValueOnce(value as boolean | typeof CANCEL_SYMBOL);
-    vi.mocked(select).mockResolvedValueOnce('logs');
     await runConfig(...args);
     expect(await readFile(configFile(), 'utf8')).toBe(initial);
     expect(vi.mocked(text).mock.calls).toHaveLength(texts.length);
     expect(vi.mocked(confirm).mock.calls).toHaveLength(confirms.length);
+  });
+
+  it.each(['command', 'option', 'value', 'confirmation'])('cancels command defaults at %s without writing', async (stage) => {
+    if (stage === 'command') vi.mocked(select).mockResolvedValueOnce(CANCEL_SYMBOL);
+    else {
+      vi.mocked(select).mockImplementationOnce(async ({ options }) => options.find(option => option.label === 'logs')!.value);
+      if (stage === 'option') vi.mocked(select).mockResolvedValueOnce(CANCEL_SYMBOL);
+      else vi.mocked(select).mockImplementationOnce(async ({ options }) =>
+        options.find(option => option.label === (stage === 'confirmation' ? '--follow' : '--tail'))!.value);
+    }
+    vi.mocked(text).mockResolvedValueOnce(CANCEL_SYMBOL);
+    vi.mocked(confirm).mockResolvedValueOnce(CANCEL_SYMBOL);
+    await runConfig('defaults', 'commands');
+    expect(await readFile(configFile(), 'utf8')).toBe(initial);
+    expect(select).toHaveBeenCalledTimes(stage === 'command' ? 1 : 2);
+    expect(text).toHaveBeenCalledTimes(stage === 'value' ? 1 : 0);
+    expect(confirm).toHaveBeenCalledTimes(stage === 'confirmation' ? 1 : 0);
   });
 
   it('cancels doctor before defaults or file changes are committed', async () => {
@@ -132,6 +147,7 @@ describe('configuration prompts preserve the whole file on cancellation', () => 
   });
 
   it('keeps doctor warnings visible without claiming complete health', async () => {
+    await writeFile(configFile(), initial.replace('  defaults:\n', '  pods:\n    diagnostic:\n      pod: selected-pod\n      selector: app=ignored\n  defaults:\n'));
     vi.mocked(text).mockResolvedValueOnce('');
     const written = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     const printed = vi.spyOn(console, 'log').mockImplementation(() => {});

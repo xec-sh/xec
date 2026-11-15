@@ -59,7 +59,7 @@ describe('LocalModuleResolver', () => {
   });
 
   it('should throw for non-existent file:// URLs', async () => {
-    const nonExistentUrl = 'file:///non/existent/path/test.js';
+    const nonExistentUrl = pathToFileURL(path.join(tempDir, 'absent.js')).href;
     expect(resolver.canResolve(nonExistentUrl)).toBe(true);
     await expect(resolver.resolve(nonExistentUrl)).rejects.toThrow('Local module not found');
   });

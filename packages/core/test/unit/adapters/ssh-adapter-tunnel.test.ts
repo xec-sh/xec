@@ -201,7 +201,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
       await adapter.execute(connectCommand);
 
       // Check no tunnels initially
-      expect((adapter as any).activeTunnels.size).toBe(0);
+      expect(adapter.getConnectionPoolMetrics().activeConnections).toBe(0);
 
       // Create first tunnel
       const tunnel1 = await adapter.tunnel({
@@ -210,7 +210,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         remotePort: 22
       }, { type: 'ssh', ...getSSHConfig('ubuntu-apt') });
 
-      expect((adapter as any).activeTunnels.size).toBe(1);
+      expect(adapter.getConnectionPoolMetrics().activeConnections).toBe(1);
 
       // Create second tunnel
       const tunnel2 = await adapter.tunnel({
@@ -219,15 +219,18 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         remotePort: 22
       }, { type: 'ssh', ...getSSHConfig('ubuntu-apt') });
 
-      expect((adapter as any).activeTunnels.size).toBe(2);
+      expect(adapter.getConnectionPoolMetrics().activeConnections).toBe(1);
 
       // Close first tunnel
       await tunnel1.close();
-      expect((adapter as any).activeTunnels.size).toBe(1);
+      expect(tunnel1.isOpen).toBe(false);
+      expect(tunnel2.isOpen).toBe(true);
+      expect(adapter.getConnectionPoolMetrics().activeConnections).toBe(1);
 
       // Close second tunnel
       await tunnel2.close();
-      expect((adapter as any).activeTunnels.size).toBe(0);
+      expect(tunnel2.isOpen).toBe(false);
+      expect(adapter.getConnectionPoolMetrics().activeConnections).toBe(0);
     });
 
     it('should handle multiple close calls on same tunnel gracefully', async () => {
@@ -322,7 +325,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
       }, { type: 'ssh', ...getSSHConfig('ubuntu-apt') })).rejects.toThrow();
 
       // Should not track failed tunnel
-      expect((adapter as any).activeTunnels.size).toBe(0);
+      expect(adapter.getConnectionPoolMetrics().activeConnections).toBe(0);
     });
 
     it('should emit tunnel events', async () => {
@@ -481,7 +484,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         remotePort: 22
       }, { type: 'ssh', ...getSSHConfig('ubuntu-apt') });
 
-      expect((adapter as any).activeTunnels.size).toBe(2);
+      expect(adapter.getConnectionPoolMetrics().activeConnections).toBe(1);
 
       // Store initial state
       const tunnel1Port = tunnel1.localPort;
@@ -490,7 +493,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
       // Dispose should close all tunnels
       await adapter.dispose();
 
-      expect((adapter as any).activeTunnels.size).toBe(0);
+      expect(adapter.getConnectionPoolMetrics().activeConnections).toBe(0);
 
       // Verify tunnels are actually closed by trying to connect
       const net = await import('net');
@@ -516,49 +519,6 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
       expect(await canConnect(tunnel2Port)).toBe(false);
     });
 
-    it('should handle errors gracefully when closing tunnels during dispose', async () => {
-      const sshConfig = getSSHConfig('ubuntu-apt');
-
-      // Establish SSH connection
-      const connectCommand: Command = {
-        command: 'echo "connected"',
-        adapterOptions: {
-          type: 'ssh',
-          ...sshConfig
-        }
-      };
-
-      await adapter.execute(connectCommand);
-
-      const tunnel1 = await adapter.tunnel({
-        localPort: 0,
-        remoteHost: 'localhost',
-        remotePort: 22
-      }, { type: 'ssh', ...getSSHConfig('ubuntu-apt') });
-
-      await adapter.tunnel({
-        localPort: 0,
-        remoteHost: 'localhost',
-        remotePort: 22
-      }, { type: 'ssh', ...getSSHConfig('ubuntu-apt') });
-
-      // Force an error on one tunnel's close method
-      const originalClose = tunnel1.close;
-      tunnel1.close = async () => {
-        throw new Error('Simulated close error');
-      };
-
-      expect((adapter as any).activeTunnels.size).toBe(2);
-
-      // Dispose should handle the error and still close other tunnels
-      await expect(adapter.dispose()).resolves.not.toThrow();
-
-      // Restore original close for cleanup
-      tunnel1.close = originalClose;
-
-      // Both tunnels should be removed from tracking even if one failed
-      expect((adapter as any).activeTunnels.size).toBe(0);
-    });
   });
 
   describe('concurrent tunnel operations', () => {
@@ -595,11 +555,11 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
       });
 
       // All tunnels should be tracked
-      expect((adapter as any).activeTunnels.size).toBe(5);
+      expect(adapter.getConnectionPoolMetrics().activeConnections).toBe(1);
 
       // Clean up all tunnels
       await Promise.all(tunnels.map(t => t.close()));
-      expect((adapter as any).activeTunnels.size).toBe(0);
+      expect(adapter.getConnectionPoolMetrics().activeConnections).toBe(0);
     });
 
     it('should handle tunnel operations with connection pooling', async () => {

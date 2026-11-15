@@ -133,7 +133,7 @@ export const emitErr = (text: string): string =>
  */
 export const keepLines = (needle: string, invert = false): string =>
   `let b='';process.stdin.on('data',c=>b+=c).on('end',()=>{` +
-  `const m=b.split('\\n').filter(l=>l.length&&(l.includes(${JSON.stringify(needle)})!==${invert}));` +
+  `const m=b.split('\\n').filter(l=>l.length&&(l.includes(${JSON.stringify(needle)})===${!invert}));` +
   `process.stdout.write(m.map(l=>l+'\\n').join(''));process.exit(m.length?0:1)})`;
 
 /** A body for `node -e` that upper-cases stdin. Standing in for `tr a-z A-Z`. */

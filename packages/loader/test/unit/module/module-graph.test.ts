@@ -1,11 +1,12 @@
 import { build } from 'esbuild';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { promisify } from 'node:util';
+import { join, dirname } from 'node:path';
+import { createRequire } from 'node:module';
 import { execFile } from 'node:child_process';
 import { it, afterAll, beforeAll } from 'vitest';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { rm, mkdir, mkdtemp, symlink } from 'node:fs/promises';
+import { rm, mkdir, mkdtemp, symlink, realpath } from 'node:fs/promises';
 
 const execute = promisify(execFile);
 const root = fileURLToPath(new URL('../../../', import.meta.url));
@@ -20,7 +21,9 @@ beforeAll(async () => {
   await build({ entryPoints: [join(root, 'src/module/module-graph.ts')],
     outfile: join(temporary, 'graph.mjs'), bundle: true, packages: 'external',
     platform: 'node', format: 'esm', target: 'es2022' });
-  await symlink(join(root, 'node_modules'), join(temporary, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir');
+  const esbuildRoot = await realpath(dirname(createRequire(import.meta.url).resolve('esbuild/package.json')));
+  await mkdir(join(temporary, 'node_modules'));
+  await symlink(esbuildRoot, join(temporary, 'node_modules/esbuild'), process.platform === 'win32' ? 'junction' : 'dir');
   moduleURL = pathToFileURL(join(temporary, 'graph.mjs')).href;
 });
 afterAll(async () => { await rm(temporary, { recursive: true, force: true }); });

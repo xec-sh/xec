@@ -928,10 +928,10 @@ describe('ConfigurationManager option wiring', () => {
     expect(config.vars?.['probe']).toBe('from-explicit');
   });
 
-  it('a missing configFilePath fails loudly in strict mode', async () => {
+  it.each([true, false])('a missing explicit config file fails with strict=%s', async (strict) => {
     const manager = makeManager({
       configFilePath: path.join(tmpDir, 'absent.yaml'),
-      strict: true,
+      strict,
     });
 
     await expect(manager.load()).rejects.toThrow('absent.yaml');

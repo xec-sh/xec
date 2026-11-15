@@ -102,6 +102,6 @@ describe('configuration source provenance', () => {
   it.each(['TASKS_PROBE_COMMAND', 'PROFILES_PROBE_VARS_VALUE', 'EXTENSIONS_0_PATH'])('refuses executable config from environment override %s', async key => {
     await config('tasks:\n  status: node --version\n');
     process.env[prefix + key] = 'echo never';
-    await expect(manager().load()).rejects.toThrow(/cannot define executable configuration/);
+    await expect(manager().load()).rejects.toThrow(key.startsWith('EXTENSIONS_') ? /Unsupported configuration/ : /cannot define executable configuration/);
   });
 });

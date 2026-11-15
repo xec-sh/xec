@@ -173,7 +173,10 @@ describe('native line iterator lifetime and backpressure', () => {
     const iterator = command[Symbol.asyncIterator]();
     try {
       await expect(iterator.next()).resolves.toMatchObject({ value: 'ready' });
-      await expect(iterator.return!()).rejects.toThrow('Output destination did not finish');
+      const error = await iterator.return!().then(() => { throw new Error('Cleanup unexpectedly succeeded'); }, value => value);
+      const causes: string[] = [];
+      for (let current: unknown = error; current instanceof Error; current = current.cause) causes.push(current.message);
+      expect(causes.join('\n')).toContain('Output destination did not finish');
       expect(alive(command.pid)).toBe(false);
     } finally { sink.destroy(); }
   });

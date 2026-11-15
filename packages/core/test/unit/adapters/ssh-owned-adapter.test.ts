@@ -5,6 +5,7 @@ import { it, vi, expect, describe, afterEach, beforeEach } from 'vitest';
 import { SSHError, SSHClient, SSHOutputLimitError, SSHOutcomeUnknownError } from '@xec-sh/ssh';
 
 import { globalCache } from '../../../src/utils/cache.js';
+import { posixShellPath } from '../../helpers/platform.js';
 import { SSHAdapter } from '../../../src/adapters/ssh/index.js';
 import { ExecutionEngine, createCallableEngine } from '../../../src/index.js';
 import {
@@ -73,7 +74,7 @@ describe('Core delegates SSH transport ownership to its package', () => {
     });
     const shell = vi.mocked(SSHClient.prototype.exec).mock.calls[0]![0];
     try {
-      execFileSync('/bin/sh', ['-c', shell], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+      execFileSync(posixShellPath(), ['-c', shell], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
       throw new Error('cd unexpectedly succeeded');
     } catch (error) {
       expect((error as { stdout: string }).stdout).toBe('');
@@ -84,7 +85,7 @@ describe('Core delegates SSH transport ownership to its package', () => {
     const payload = "a b; $(printf injected) ' \\ `printf injected`\nline";
     await execute(value, { args: ['%s', payload] });
     const shell = vi.mocked(SSHClient.prototype.exec).mock.calls[0]![0];
-    expect(execFileSync('/bin/sh', ['-c', shell], { encoding: 'utf8' })).toBe(payload);
+    expect(execFileSync(posixShellPath(), ['-c', shell], { encoding: 'utf8' })).toBe(payload);
   });
   it('forwards declared adapter environment defaults with command precedence', async () => {
     const value = adapter({ defaultEnv: { DEFAULT: 'from-adapter', SHARED: 'old' } });
@@ -92,6 +93,28 @@ describe('Core delegates SSH transport ownership to its package', () => {
     expect(vi.mocked(SSHClient.prototype.exec).mock.calls[0]![0]).toBe(
       'export DEFAULT=from-adapter; export SHARED=from-command; printf %s literal'
     );
+  });
+  it('preserves transport trust, liveness defaults and per-target overrides', async () => {
+    const value = adapter({ hostKeyChecking: 'strict', knownHostsPath: '/trusted/hosts',
+      defaultConnectOptions: { readyTimeout: 1234 },
+      connectionPool: { maxConnections: 1, keepAlive: true, keepAliveInterval: 15000 } });
+    await execute(value);
+    await execute(value, { adapterOptions: { ...target, host: 'other.invalid' } });
+    expect(SSHClient.prototype.connect).toHaveBeenLastCalledWith(expect.objectContaining({
+      host: 'other.invalid', hostKeyChecking: 'strict', knownHostsPath: '/trusted/hosts',
+      readyTimeout: 1234, keepaliveInterval: 15000, keepaliveCountMax: 3,
+    }));
+    expect(value.getConnectionPoolMetrics()).toMatchObject({ totalConnections: 1, connectionsCreated: 2, connectionsDestroyed: 1 });
+  });
+  it('carries agent authentication and keeps distinct trust policies separate', async () => {
+    const value = adapter();
+    const identity = { type: 'ssh' as const, host: 'agent.invalid', username: 'operator', agent: '/fixture/agent' };
+    await execute(value, { adapterOptions: { ...identity, hostKeyChecking: 'strict' } });
+    await execute(value, { adapterOptions: { ...identity, hostKeyChecking: 'accept-new' } });
+    const calls = vi.mocked(SSHClient.prototype.connect).mock.calls;
+    expect(calls).toHaveLength(2);
+    expect(calls[0]![0]).toMatchObject({ agent: '/fixture/agent', hostKeyChecking: 'strict' });
+    expect(calls[1]![0]).toMatchObject({ agent: '/fixture/agent', hostKeyChecking: 'accept-new' });
   });
   it('shares pool leases for concurrent commands without interrupting the older channel', async () => {
     const value = adapter({ connectionPool: { maxConnections: 1 } });

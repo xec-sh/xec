@@ -2284,7 +2284,7 @@ export class ConfigCommand extends BaseCommand {
         });
       }
 
-      for (const error of validation.errors) log.error(error);
+      this.reportValidationDiagnostics(validation);
       if (!validation.valid) log.warning('No fixes were written because validation failed.');
       if (recommendations.length === 0 && validation.valid && validation.warnings.length === 0) {
         note('Configuration is healthy! No changes needed.', '🏥 Doctor', {
@@ -2292,6 +2292,30 @@ export class ConfigCommand extends BaseCommand {
         });
       }
     });
+  }
+
+  /** Keep doctor and standalone validation diagnostics identical. */
+  private reportValidationDiagnostics({ errors, warnings }: { errors: string[]; warnings: string[] }): void {
+    if (errors.length > 0) {
+      const content = errors.map(error => `❌ ${error}`).join('\n');
+      box(content, '⚠️ Configuration Errors', {
+        contentAlign: 'left',
+        contentPadding: 1,
+        rounded: true,
+        formatBorder: (text_) => prism.red(text_)
+      });
+    }
+
+    if (warnings.length > 0) {
+      const content = warnings.map(warning => `⚠️  ${warning}`).join('\n');
+      box(content, '⚠️ Configuration Warnings', {
+        contentAlign: 'left',
+        contentPadding: 1,
+        rounded: true,
+        formatBorder: (text_) => prism.yellow(text_)
+      });
+    }
+
   }
 
   private async validateConfig(report = true, candidate?: Configuration): Promise<{ valid: boolean; errors: string[]; warnings: string[] }> {
@@ -2329,25 +2353,7 @@ export class ConfigCommand extends BaseCommand {
     if (report) this.emitResult(validation, () => {
       if (this.options.quiet) return;
       // Report results
-      if (errors.length > 0) {
-        const content = errors.map(error => `❌ ${error}`).join('\n');
-        box(content, '⚠️ Configuration Errors', {
-          contentAlign: 'left',
-          contentPadding: 1,
-          rounded: true,
-          formatBorder: (text_) => prism.red(text_)
-        });
-      }
-
-      if (warnings.length > 0) {
-        const content = warnings.map(warning => `⚠️  ${warning}`).join('\n');
-        box(content, '⚠️ Configuration Warnings', {
-          contentAlign: 'left',
-          contentPadding: 1,
-          rounded: true,
-          formatBorder: (text_) => prism.yellow(text_)
-        });
-      }
+      this.reportValidationDiagnostics(validation);
 
       if (errors.length === 0 && warnings.length === 0) {
         note('Configuration is valid!', '✅ Validation', {

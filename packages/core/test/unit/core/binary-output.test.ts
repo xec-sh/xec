@@ -33,7 +33,7 @@ describe('binary output survives intact', () => {
   it('round-trips a longer binary payload', async () => {
     const script = 'process.stdout.write(Buffer.from(Array.from({length: 4096}, (_, i) => i % 256)))';
     const expected = execFileSync('node', ['-e', script]);
-    const result = await $.exec(nodeCommand(script)).nothrow();
+    const result = await $.exec(process.execPath, { args: ['-e', script], shell: false }).nothrow();
 
     expect(Buffer.compare(result.buffer(), expected)).toBe(0);
   }, 20_000);

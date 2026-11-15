@@ -1,3 +1,5 @@
+import { join } from 'node:path';
+import { rm, mkdtemp, readFile } from 'node:fs/promises';
 
 import { globalCache } from '../../../src/utils/cache.js';
 import { $, dispose, configure, ExecutionEngine, createCallableEngine } from '../../../src/index.js';
@@ -211,12 +213,15 @@ describe('Simplified API', () => {
       // Configure to not throw so we can use nothrow() for retry logic
       const retryEngine = $.retry({ maxRetries: 2, initialDelay: 10 });
       
-      // Create a command that fails once then succeeds
-      const testFile = `/tmp/retry-test-${Date.now()}`;
-      const result = await retryEngine`sh -c "if [ ! -f ${testFile} ]; then touch ${testFile} && exit 1; else echo success && rm ${testFile}; fi"`.nothrow();
-      
-      expect(result.stdout.trim()).toBe('success');
-      expect(result.exitCode).toBe(0);
+      const directory = await mkdtemp(join(tempRoot(), 'xec-retry-'));
+      const testFile = join(directory, 'attempt');
+      try {
+        const script = "const fs=require('node:fs');const p=process.argv[1];const n=fs.existsSync(p)?Number(fs.readFileSync(p,'utf8')):0;fs.writeFileSync(p,String(n+1));if(n===0)process.exit(1);process.stdout.write('success')";
+        const result = await retryEngine.exec(process.execPath, { args: ['-e', script, testFile], shell: false }).nothrow();
+        expect(result.stdout).toBe('success');
+        expect(result.exitCode).toBe(0);
+        expect(await readFile(testFile, 'utf8')).toBe('2');
+      } finally { await rm(directory, { recursive: true, force: true }); }
     });
 
     test('should support shell method', async () => {

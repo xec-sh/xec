@@ -177,19 +177,15 @@ describeSSH('SSHAdapter - Real SSH Tests', () => {
       const sshConfig = getSSHConfig(container.name);
 
       const startTime = Date.now();
-      const result = await adapter.execute({
+      await expect(adapter.execute({
         command: 'sleep 10',
-        timeout: 1000, // 1 second timeout
+        timeout: 1000,
         nothrow: true,
-        adapterOptions: {
-          type: 'ssh',
-          ...sshConfig
-        }
-      });
+        adapterOptions: { type: 'ssh', ...sshConfig }
+      })).rejects.toMatchObject({ name: 'ExecutionOutcomeUnknownError', cause: { code: 'SSH_OUTCOME_UNKNOWN' } });
 
       const duration = Date.now() - startTime;
       expect(duration).toBeLessThan(2000); // Should timeout in ~1 second
-      expect(result.exitCode).not.toBe(0);
     });
   });
 

@@ -554,10 +554,7 @@ describe('Security Test Suite', () => {
     test('should handle control characters safely', async () => {
       // Test with various control characters (except null byte)
       const controlChars = '\x01\x02\x03\x04\x05';
-      const result = await $`echo "test${controlChars}test"`;
-      
-      expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('test');
+      expect(await argEcho($, `test${controlChars}test`)).toBe(`test${controlChars}test`);
     });
 
     test('should validate temp directory creation permissions', async () => {

@@ -8,23 +8,14 @@ const run = promisify(execFile);
 
 const PACKAGE_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
-/**
- * For a tool that executes infrastructure commands, third-party code on the
- * critical path is attack surface, not a styling preference. zx answers this
- * by vendoring everything at build time (`dependencies: {}`); our answer is
- * one declared dependency — ssh2 — loaded only when an SSH target is used.
- *
- * These tests pin both halves so a stray import cannot silently regress them.
- * They run against the built dist with plain node, because that is what a
- * consumer actually loads.
- */
+/** The owned SSH dependency stays lazy; local commands load no external runtime modules. */
 describe('dependency surface of the execution core', () => {
-  it('declares ssh2 as the only runtime dependency', () => {
+  it('declares @xec-sh/ssh as the only runtime dependency', () => {
     const pkg = JSON.parse(
       fs.readFileSync(path.join(PACKAGE_ROOT, 'package.json'), 'utf8')
     ) as { dependencies?: Record<string, string> };
 
-    expect(Object.keys(pkg.dependencies ?? {})).toEqual(['ssh2']);
+    expect(Object.keys(pkg.dependencies ?? {})).toEqual(['@xec-sh/ssh']);
   });
 
   it('loads zero external modules for local execution', async () => {
@@ -54,8 +45,8 @@ describe('dependency surface of the execution core', () => {
     expect(external).toEqual([]);
   }, 90_000);
 
-  it('does not import ssh2 anywhere except the ssh transport', () => {
-    // A static import outside the transport would drag ssh2 back onto the
+  it('does not import @xec-sh/ssh anywhere except the ssh transport', () => {
+    // A static import outside the transport would drag @xec-sh/ssh back onto the
     // local path via the module graph, defeating the lazy require.
     const offenders: string[] = [];
 
@@ -69,7 +60,7 @@ describe('dependency surface of the execution core', () => {
         if (!entry.name.endsWith('.ts')) continue;
 
         const source = fs.readFileSync(full, 'utf8');
-        const valueImport = /^import\s+(?!type\b)[^;]*from\s+'ssh2'/m.test(source);
+        const valueImport = /^import\s+(?!type\b)[^;]*from\s+'@xec-sh\/ssh'/m.test(source);
         if (valueImport && !full.includes(`${path.sep}adapters${path.sep}ssh${path.sep}`)) {
           offenders.push(full);
         }

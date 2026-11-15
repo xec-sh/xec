@@ -15,6 +15,7 @@ describe('Configuration API', () => {
   let projectDir: string;
   let configPath: string;
   let api: ConfigAPI;
+  let originalDirectory: string;
 
   beforeEach(async () => {
     // Create temporary directory structure
@@ -27,6 +28,7 @@ describe('Configuration API', () => {
     configPath = path.join(projectDir, '.xec', 'config.yaml');
 
     // Change to project directory
+    originalDirectory = process.cwd();
     process.chdir(projectDir);
 
     // Create fresh API instance for each test
@@ -34,7 +36,8 @@ describe('Configuration API', () => {
   });
 
   afterEach(async () => {
-    // Clean up
+    // Restore the process before removing its former working directory.
+    process.chdir(originalDirectory);
     await fs.rm(tempDir, { recursive: true, force: true });
   });
 
@@ -94,17 +97,9 @@ describe('Configuration API', () => {
       expect(apiWithOverrides.get('vars.debug')).toBe(true);
     });
 
-    it('should handle empty configuration file', async () => {
+    it('rejects an explicitly selected empty configuration instead of running defaults', async () => {
       await fs.writeFile(configPath, '');
-
-      await api.load();
-
-      // Should load default configuration when file is empty
-      const config = api.getAll();
-      expect(config.version).toBe('1.0');
-      expect(config.targets).toBeDefined();
-      expect(config.targets.local).toEqual({ type: 'local' });
-      expect(config.commands).toBeDefined();
+      await expect(api.load()).rejects.toThrow('expected a document, but the input is empty');
     });
   });
 

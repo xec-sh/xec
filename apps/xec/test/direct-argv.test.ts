@@ -1,15 +1,15 @@
 import { tmpdir } from 'node:os';
 import { promisify } from 'node:util';
-import { fileURLToPath } from 'node:url';
 import { join, resolve } from 'node:path';
 import { createRequire } from 'node:module';
 import { execFile } from 'node:child_process';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { rm, mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { it, expect, afterAll, describe, beforeAll } from 'vitest';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const cli = join(root, 'apps/xec/src/main.ts');
-const tsx = createRequire(import.meta.url).resolve('tsx');
+const tsx = pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href;
 const execute = promisify(execFile);
 let fixture: string;
 let config: string;

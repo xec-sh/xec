@@ -1,11 +1,12 @@
 import { build } from 'esbuild';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { promisify } from 'node:util';
+import { join, dirname } from 'node:path';
+import { createRequire } from 'node:module';
 import { execFile } from 'node:child_process';
 import { it, afterAll, beforeAll } from 'vitest';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { rm, mkdtemp, symlink, readFile, writeFile } from 'node:fs/promises';
+import { rm, mkdir, mkdtemp, symlink, realpath, readFile, writeFile } from 'node:fs/promises';
 
 const execute = promisify(execFile);
 const root = fileURLToPath(new URL('../../../', import.meta.url));
@@ -19,8 +20,10 @@ beforeAll(async () => {
   // test runner cannot rewrite imports, supply a graph, or mask hook failures.
   await build({ stdin: { contents: `export { ModuleLoader } from './src/module/module-loader.ts'; export { ModuleGraph } from './src/module/module-graph.ts';export { ModuleIntegrityVerifier } from './src/module/module-integrity.ts';export { ModuleFetcher } from './src/module/module-fetcher.ts';export { MemoryCache } from './src/module/module-cache.ts';`, resolveDir: root },
     outfile, bundle: true, packages: 'external', platform: 'node', format: 'esm', target: 'es2022' });
-  await symlink(join(root, 'node_modules'), join(directory, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir');
-  const esbuild = JSON.parse(await readFile(join(root, 'node_modules/esbuild/package.json'), 'utf8')) as { version: string };
+  const esbuildRoot = await realpath(dirname(createRequire(import.meta.url).resolve('esbuild/package.json')));
+  await mkdir(join(directory, 'node_modules'));
+  await symlink(esbuildRoot, join(directory, 'node_modules/esbuild'), process.platform === 'win32' ? 'junction' : 'dir');
+  const esbuild = JSON.parse(await readFile(join(esbuildRoot, 'package.json'), 'utf8')) as { version: string };
   await writeFile(join(directory, 'package.json'), JSON.stringify({ type: 'module', dependencies: { esbuild: esbuild.version } }));
   moduleURL = pathToFileURL(outfile).href;
 });
