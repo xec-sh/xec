@@ -71,9 +71,13 @@ jobs:
         run: |
           node --test scripts/test/repository-bootstrap.test.js .xec/tests/package-build.test.js
 
-      - run: pnpm build:full
+      - name: build
+        id: build
+        run: pnpm build:full
 
+      # Collect independent failures in one run; any failed check still fails CI.
       - name: Packaged SSH security and artifact integrity
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           pnpm --filter @xec-sh/ssh test
           pnpm --filter @xec-sh/ssh test:transport
@@ -81,30 +85,37 @@ jobs:
           pnpm check:ssh-security
 
       - name: core unit
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pnpm --filter @xec-sh/core test:unit test/integration/kubernetes-lifecycle-native.test.ts test/integration/docker-lifecycle-native.test.ts
 
       - name: core property
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pnpm --filter @xec-sh/core test:property
 
       - name: loader unit
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pnpm --filter @xec-sh/loader test test/unit
 
       - name: kit
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pnpm --filter @xec-sh/kit test
 
       - name: ops
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pnpm --filter @xec-sh/ops test
 
       # The fixture helpers run inside every other package's suite, so a
       # fault in them fails the wrong tests — or worse, makes one skip and
       # report green having proven nothing.
       - name: testing
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pnpm --filter @xec-sh/testing test
 
       # The CLI's docker-free tier. test/commands and test/docker-services
       # spawn containers and kind clusters — they belong to the future
       # integration job.
       - name: cli unit
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: >
           pnpm --filter @xec-sh/cli test
           test/utils
@@ -126,11 +137,13 @@ jobs:
       # names something the API does not have is a defect the reader hits
       # and the page never admits to.
       - name: doc examples
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pnpm docs:check
 
       # The built CLI must start under Node, Bun and Deno and deliver the
       # script globals. Runs last: it proves the artifact, not the sources.
       - name: runtime smoke
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pnpm --filter @xec-sh/cli test test/runtime-smoke.test.ts
 
   # Windows is not a platform this project has ever tested, and it is one
