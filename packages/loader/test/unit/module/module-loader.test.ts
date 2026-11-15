@@ -130,18 +130,19 @@ describe('ModuleLoader', () => {
       expect(typeof module.join).toBe('function');
     });
 
-    it('should fallback to CDN for non-existent bare specifier', async () => {
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        text: async () => 'export const fallback = true;',
-        headers: new Map([['content-type', 'application/javascript']]),
-      };
-      (global.fetch as any).mockResolvedValue(mockResponse);
-
-      const module = await loader.import('non-existent-package-12345');
-      expect(module.fallback).toBe(true);
+    it('never fetches an absent bare package, including concurrent private package names', async () => {
+      const results = await Promise.allSettled([
+        loader.import('@private/internal-project'),
+        loader.import('@private/internal-project'),
+        loader.import('missing-project-package-12345'),
+      ]);
+      for (const result of results) {
+        expect(result.status).toBe('rejected');
+        if (result.status === 'rejected') expect(result.reason).toHaveProperty('message', expect.stringContaining('Module not found'));
+      }
+      expect(global.fetch).not.toHaveBeenCalled();
     });
+
   });
 
   describe('Caching', () => {

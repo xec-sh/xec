@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- Remove implicit CDN fallback for missing local packages. Bare imports fail locally without disclosing package names or fetching a public namesake; remote loading requires an explicit remote specifier.
+
 - Add `LocalModuleGraph` for local ESM/TypeScript command graphs using Node's synchronous module hooks. It preserves authored paths, relative and deferred imports, native package conditions and explicit graph lifetime, without temporary source files. The capability requires `module.registerHooks`; existing library engine and script-runtime contracts are unchanged.
 - Add synchronous transformation through the same TypeScript transformer, including `.mts` and `.cts`. Graph identity uses a private URL query; disposal deregisters hooks but does not unload Node's module cache.
 
@@ -192,20 +194,6 @@ See [Migration Guide](./README.md#migration-guide) for details.
 ### Contributors
 
 - Xec Team
-
----
-
-## [Unreleased]
-
-### Planned
-
-- Browser adapter for WebContainers
-- Remote execution protocol
-- Distributed execution support
-- Advanced caching strategies
-- Plugin system
-- Performance optimizations
-- Enhanced monitoring
 
 ---
 

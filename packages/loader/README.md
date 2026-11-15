@@ -59,6 +59,8 @@ keep native caching. Keep the graph alive through deferred callbacks and call
 native ESM cache; use a fresh process for unbounded reloads. This API is not
 available in npm 0.12.0 and does not change existing Node/Bun/Deno script paths.
 
+In the developing 0.13.0 source, a missing bare package fails locally: its name is never sent to a CDN as a fallback. Remote loading requires an explicit remote specifier.
+
 CDN loading supports `npm:`, `jsr:`, `esm:`, `unpkg:`, `skypack:`, `jsdelivr:`, and HTTPS URLs. The default integrity policy records content hashes; strict mode requires existing trusted entries. Configure allowed hosts and integrity policy for the intended environment.
 
 [Script guide](https://xec.sh/docs/scripting/basics/typescript-setup) · [Watch reference](https://xec.sh/docs/commands/built-in/watch) · [MIT license](../../LICENSE)

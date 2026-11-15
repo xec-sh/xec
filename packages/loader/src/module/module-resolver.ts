@@ -178,8 +178,6 @@ export class CDNModuleResolver implements ModuleResolver {
  * NodeModuleResolver handles bare specifiers (node_modules)
  */
 export class NodeModuleResolver implements ModuleResolver {
-  constructor(private cdnFallback?: CDNModuleResolver) {}
-
   canResolve(specifier: ModuleSpecifier): boolean {
     // Can resolve bare specifiers and node: prefixed specifiers
     const isNodePrefixed = specifier.startsWith('node:');
@@ -206,13 +204,7 @@ export class NodeModuleResolver implements ModuleResolver {
         };
       }
     } catch {
-      // Error occurred, fall through to CDN fallback
-    }
-
-    // If not resolved locally, fallback to CDN if available
-    if (this.cdnFallback) {
-      const cdnSpecifier = `npm:${specifier}`;
-      return this.cdnFallback.resolve(cdnSpecifier);
+      // Local resolution failure never authorizes a request to an external registry.
     }
 
     throw new Error(`Module not found: ${specifier}`);

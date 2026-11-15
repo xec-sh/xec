@@ -147,11 +147,9 @@ describe('CDNModuleResolver', () => {
 
 describe('NodeModuleResolver', () => {
   let resolver: NodeModuleResolver;
-  let cdnFallback: CDNModuleResolver;
 
   beforeEach(() => {
-    cdnFallback = new CDNModuleResolver('esm.sh');
-    resolver = new NodeModuleResolver(cdnFallback);
+    resolver = new NodeModuleResolver();
   });
 
   it('should resolve bare specifiers', () => {
@@ -183,15 +181,10 @@ describe('NodeModuleResolver', () => {
     expect(result.resolved).toBe('node:fs');
   });
 
-  it('should fallback to CDN for non-existent packages', async () => {
-    const result = await resolver.resolve('non-existent-package-12345');
-    expect(result.resolved).toBe('https://esm.sh/non-existent-package-12345?bundle');
+  it('rejects missing local packages instead of disclosing their names to a CDN', async () => {
+    await expect(resolver.resolve('@internal/private-project')).rejects.toThrow('Module not found');
   });
 
-  it('should throw if no CDN fallback is provided', async () => {
-    const resolverNoCdn = new NodeModuleResolver();
-    await expect(resolverNoCdn.resolve('non-existent-package-12345')).rejects.toThrow('Module not found');
-  });
 });
 
 describe('CompositeModuleResolver', () => {
@@ -200,7 +193,7 @@ describe('CompositeModuleResolver', () => {
   beforeEach(() => {
     const local = new LocalModuleResolver();
     const cdn = new CDNModuleResolver('esm.sh');
-    const node = new NodeModuleResolver(cdn);
+    const node = new NodeModuleResolver();
     resolver = new CompositeModuleResolver([local, node, cdn]);
   });
 

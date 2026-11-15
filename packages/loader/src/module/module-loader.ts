@@ -54,7 +54,7 @@ export class ModuleLoader {
     // Set up resolver
     const cdnResolver = new CDNModuleResolver(this.options.preferredCDN);
     const localResolver = new LocalModuleResolver();
-    const nodeResolver = new NodeModuleResolver(cdnResolver);
+    const nodeResolver = new NodeModuleResolver();
 
     if (this.options.cdnOnly) {
       this.resolver = new CompositeModuleResolver([localResolver, cdnResolver]);
