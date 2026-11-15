@@ -67,6 +67,10 @@ jobs:
       - name: Audit locked dependencies
         run: pnpm audit --audit-level low
 
+      - name: Published Xec bootstrap before building candidate packages
+        run: |
+          node --test scripts/test/repository-bootstrap.test.js
+
       - run: pnpm build:full
 
       - name: SSH public dependency boundary
@@ -114,7 +118,6 @@ jobs:
           test/startup-budget.test.ts
           test/entry-point.test.ts
           test/graceful-cancellation.test.ts
-          test/release-command.test.ts
           test/docker-services/service-contracts.test.ts
           test/commands/docker-prune.test.ts
 
@@ -163,6 +166,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Published Xec bootstrap before building candidate packages
+        run: node --test scripts/test/repository-bootstrap.test.js
+
       - name: Prepare a release and resume from its frozen workspace
         shell: bash
         env:
@@ -174,7 +180,7 @@ jobs:
           git clone --local --no-tags . "$RUNNER_TEMP/xec-release-check"
           cd "$RUNNER_TEMP/xec-release-check"
           pnpm install --frozen-lockfile
-          pnpm --filter @xec-sh/cli... build
+          pnpm exec xec release --list-packages
           version=$(node -e 'const current = require("./packages/core/package.json").version; console.log(require("semver").inc(current, "patch") + "-ci.0")')
           pnpm release "$version" --dry-run
           pnpm release "$version" --prepare --yes
@@ -220,6 +226,5 @@ jobs:
           test/command-manifest.test.ts
           test/startup-budget.test.ts
           test/entry-point.test.ts
-          test/release-command.test.ts
           test/docker-services/service-contracts.test.ts
           test/commands/docker-prune.test.ts

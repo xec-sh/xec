@@ -1,59 +1,50 @@
 version: '1.0'
 name: Xec
-description: Modern, type-safe command execution system built with TypeScript
-targets:
-  local:
-    type: local
-  defaults:
-    ssh:
-      port: 22
-      keepAlive: true
-      keepAliveInterval: 30000
-      timeout: 60000
-    docker:
-      workdir: /app
-      tty: true
-      interactive: true
-    kubernetes:
-      namespace: default
-  hosts: {}
-commands:
-  in:
-    defaultTimeout: 30s
-  'on':
-    parallel: false
-  copy:
-    compress: true
-    progress: true
-  forward:
-    dynamic: true
-  watch:
-    interval: 2
-    clear: true
-  exec:
-    shell: /bin/sh
-    tty: true
-    interactive: true
-  logs:
-    tail: '50'
-    timestamps: false
-    follow: false
-    prefix: false
-    color: true
-  cp:
-    recursive: true
-    preserveMode: true
-    preserveTimestamps: false
-    followSymlinks: false
-  sync:
-    delete: false
-    exclude: []
-    dryRun: false
-secrets:
-  provider: env
-vars: {}
-debug: '1'
-test:
-  value: test
-  value2: test2
-tasks: {}
+description: Published Xec drives this repository; Turbo owns the package DAG and cache.
+tasks:
+  bootstrap:
+    description: Install the pinned workspace and published Xec driver.
+    command: pnpm install --frozen-lockfile
+  build:
+    description: Build the candidate CLI and its workspace dependencies.
+    command: pnpm exec turbo run build --filter=@xec-sh/cli
+  build:full:
+    description: Build every workspace through the package DAG.
+    command: pnpm exec turbo run build
+  dev:
+    description: Run workspace development tasks through Turbo.
+    command: pnpm exec turbo run dev
+  test:
+    description: Run workspace tests through Turbo.
+    command: pnpm exec turbo run test
+  typecheck:
+    description: Check the types of all workspaces.
+    command: pnpm --recursive run typecheck
+  lint:
+    description: Lint package sources, project commands and website components.
+    command: pnpm exec eslint "{apps,packages}/**/*.{js,jsx,ts,tsx}" ".xec/commands/**/*.ts" "website/src/**/*.{js,jsx,ts,tsx}"
+  docs:check:
+    description: Verify documentation examples against the declared APIs.
+    steps:
+      - name: Documentation verifier contracts
+        command: node --test scripts/test/doc-examples.test.js
+      - name: Typecheck documented examples
+        command: node scripts/check-doc-examples.mjs --strict
+  docs:build:
+    description: Build the Lumen documentation site.
+    command: pnpm --dir website build
+  docs:start:
+    description: Serve the documentation with live updates.
+    command: pnpm --dir website start
+  docs:serve:
+    description: Preview the built documentation site.
+    command: pnpm --dir website serve
+  check:lockfile:
+    description: Verify frozen dependency resolution without installing packages.
+    command: pnpm install --frozen-lockfile --lockfile-only
+  check:ssh-boundary:
+    description: Verify the Core SSH dependency boundary.
+    command: node scripts/check-ssh-boundary.mjs
+  check:ssh-security:
+    description: Verify the packed SSH runtime against hostile peers.
+    command: node scripts/check-ssh-security.mjs

@@ -117,7 +117,7 @@ xec/
 │   └── testing/      # Shared testing utilities
 ├── docker/           # Test containers
 ├── .xec/             # Project-specific commands
-├── scripts/release.ts # Verified release entry point
+├── .xec/             # Project tasks and release command
 ├── AGENTS.md         # AI assistant instructions
 └── turbo.json        # Build orchestration
 ```
@@ -462,7 +462,9 @@ Brief description of changes
 
 ## 📦 Release Process
 
-Releases are explicit operator actions. Start with a clean checkout and current
+Releases are explicit operator actions. The root dependencies pin the published
+Xec driver; the release policy lives in `.xec/commands/release.ts`. A candidate
+CLI build is not required to bootstrap it. Start with a clean checkout and
 frozen dependencies, then review and prepare immutable archives:
 
 ```bash

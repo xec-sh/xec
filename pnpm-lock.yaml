@@ -236,12 +236,15 @@ importers:
       '@typescript/native':
         specifier: npm:typescript@^7.0.2
         version: typescript@7.0.2
+      '@xec-sh/cli':
+        specifier: npm:@xec-sh/cli@0.12.0
+        version: 0.12.0
       '@xec-sh/kit':
-        specifier: workspace:*
-        version: link:packages/kit
+        specifier: npm:@xec-sh/kit@0.12.0
+        version: 0.12.0
       '@xec-sh/ops':
-        specifier: workspace:*
-        version: link:packages/ops
+        specifier: npm:@xec-sh/ops@0.12.0
+        version: 0.12.0
       add:
         specifier: ^2.0.9
         version: 2.0.9

@@ -417,19 +417,6 @@ describe('retained release producer acceptance', () => {
     expect(runner.builds()).toBe(1);
   });
 
-  it('refuses an older built Ops API before recipe discovery, version changes or dependency installation', async () => {
-    const discover = vi.fn(async () => { throw new Error('unexpected inventory'); });
-    vi.doMock('@xec-sh/ops/release', async () => ({
-      ...await vi.importActual<object>('@xec-sh/ops/release'), RELEASE_PRODUCER_PROTOCOL: undefined, discoverReleasePackages: discover,
-    }));
-    vi.resetModules();
-    try {
-      const { runRelease } = await import('../../../../scripts/release.js');
-      await expect(runRelease(['1.0.0-rc.1', '--prepare', '--yes'])).rejects.toMatchObject({ code: 'RELEASE_PRODUCER_PROTOCOL_UNSUPPORTED' });
-      expect(discover).not.toHaveBeenCalled();
-    } finally { vi.doUnmock('@xec-sh/ops/release'); vi.resetModules(); }
-  });
-
   it('rejects invalid retention contracts before executing commands', async () => {
     const root = await temporary();
     const run: ReleaseCommand = async () => { throw new Error('unexpected execution'); };
@@ -546,25 +533,6 @@ describe('release inventory, refs and sealed artifacts', () => {
       await expect(releaseNotes(root, '1.0.0-rc.1', 'fixture/repository', { from })).rejects.toThrow(reason!);
     }
     expect(await releaseCommand(root, 'git', ['show-ref'])).toBe(refs);
-    expect(await releaseCommand(root, 'git', ['rev-parse', 'HEAD'])).toBe(head);
-    expect(await releaseCommand(root, 'git', ['status', '--porcelain'])).toBe('');
-    await expect(readdir(join(root, '.release-artifacts'))).rejects.toMatchObject({ code: 'ENOENT' });
-  });
-
-  it('validates --notes-from during the read-only CLI plan before any preparation', async () => {
-    const { runRelease } = await import('../../../../scripts/release.js');
-    const root = await repository();
-    const head = await releaseCommand(root, 'git', ['rev-parse', 'HEAD']);
-    const output: string[] = [];
-    const print = vi.spyOn(console, 'log').mockImplementation(value => { output.push(String(value)); });
-    try {
-      await runRelease(['1.0.0-rc.1', '--resume', '--workspace', root, '--dry-run', '--notes-from', head]);
-      expect(JSON.parse(output[0]!).notesFrom).toBe(head);
-      output.length = 0;
-      await expect(runRelease(['1.0.0-rc.1', '--resume', '--workspace', root, '--dry-run', '--notes-from', 'HEAD']))
-        .rejects.toThrow('full lowercase commit');
-      expect(output).toHaveLength(0);
-    } finally { print.mockRestore(); }
     expect(await releaseCommand(root, 'git', ['rev-parse', 'HEAD'])).toBe(head);
     expect(await releaseCommand(root, 'git', ['status', '--porcelain'])).toBe('');
     await expect(readdir(join(root, '.release-artifacts'))).rejects.toMatchObject({ code: 'ENOENT' });

@@ -22,11 +22,10 @@ build also needs Bun. GitHub publication additionally needs an authenticated
 `gh` CLI. Run from a clean, committed checkout on the intended release branch.
 For an interactive public npm release, the publisher checks the current npm identity before pushing the release refs when archives still need uploading. If the session expired, run `npm login --auth-type=web --registry=https://registry.npmjs.org/` and `npm whoami --registry=https://registry.npmjs.org/`. An authenticated account still needs write access to each destination package or scope.
 
-Install the frozen dependencies and build the repository CLI in a separate checkout when an existing installation serves applications. This bootstrap supplies the Xec engine used by the release recipe; preparation independently rebuilds the package archives from the exact release commit. The examples use `0.12.0`; choose your actual next version.
+Install the frozen dependencies in a separate checkout when the current installation serves applications. The root manifest pins published Xec CLI, Ops and Kit with explicit npm dependencies. Those installed packages run the project recipe; the candidate CLI is built only as a release artifact. No local CLI build is required to start. The examples use `0.12.0`; choose your actual next version.
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm --filter @xec-sh/cli... build
 pnpm release 0.12.0 --dry-run
 pnpm release 0.12.0 --prepare
 ```
@@ -53,8 +52,7 @@ sealed record is written. Local artifacts live at:
 
 ```text
 .release-artifacts/<version>/<source-commit>/
-  producer.json          # optional complete producer; not permission to publish
-  release.json           # appears only after acceptance and cleanup
+  release.json           # accepted archive identities
   %40scope%2Fpackage.tgz
   publication.jsonl       # appears during publication
 ```
@@ -81,52 +79,49 @@ checkout of its release commit; it completes GitHub without republishing npm.
 `--notes-from <full-commit>` selects the published ancestor used as the release
 notes baseline. Xec verifies that it is a full commit and an ancestor; the caller
 is responsible for choosing the published baseline. Without it, notes explicitly
-cover committed history, not a guessed release delta. Long histories retain the
-newest complete commit entries within GitHub’s body limit, keep the source and
-full package inventory, and link to the complete history at the exact commit or
-comparison range. Caller-supplied oversized notes fail before remote writes.
+cover committed history, not a guessed release delta. The pinned 0.12.0 driver
+does not bound long GitHub notes: use an explicit verified baseline for this
+repository's next release. The development API limits generated notes to complete
+commit entries within GitHub's body limit, preserves source and package identity,
+and links to the full history. It also rejects oversized supplied notes before
+remote writes; those improvements become active when the published API pin is
+updated.
 `--skip-npm` and `--skip-github` are explicit stage selections. `--offline` makes
 the isolated dependency installation use the existing pnpm store. `--yes` accepts
 the displayed execution plan in noninteractive use; it bypasses no checks.
 
-## Retain a producer when acceptance fails {#retain-a-producer}
+## Published driver and development capabilities {#published-driver}
 
-Producer retention is available in the development branch after npm 0.12.0.
-The current recipe checks `RELEASE_PRODUCER_PROTOCOL === 1` before preparation
-writes anything. An older built Ops package cannot silently ignore the new
-acceptance contract. Build the matching CLI/Ops in the isolated tool checkout.
+The project currently pins Xec **0.12.0**. Its `verifyArtifact` callback runs the
+mandatory packed SSH check before archive acceptance. The recipe does not pass
+new options to an older API or import the candidate Ops sources to obtain them.
+A rejected archive stops preparation; it cannot be published by this recipe.
 
-Preparation first builds, packs and validates every archive. It then persists
-`producer.json` and read-only archives before running consumer acceptance. A
-consumer rejection, interruption or cleanup failure leaves those bytes available.
-Only completed acceptance **and** temporary workspace cleanup allow the final
-`release.json` to appear. The producer record alone cannot be published.
+The published API does not retain a complete producer after consumer rejection.
+It also writes its accepted archive record before deleting the temporary build
+workspace. Cleanup failure is reported as a failure: inspect and resolve it
+before resuming, even if `release.json` exists. The next API addresses both
+limitations; a source improvement is not a capability of an installed package.
 
-Retry the same preparation after resolving its reported failure:
+The development Ops API adds `RELEASE_PRODUCER_PROTOCOL === 1` and the optional
+`retainProducer` contract. It saves validated, read-only archives and a
+`producer.json` receipt before acceptance. The final `release.json` appears only
+after acceptance **and** temporary workspace cleanup succeed. A producer receipt
+alone cannot authorize publication.
 
-```sh
-pnpm release 0.12.0 --prepare --yes
-```
+A retry checks the exact source, package inventory, runtime, build argv,
+callback identity, declared policy/input digests and every archive's SHA-512.
+It repeats acceptance in a fresh source-only checkout, skipping the isolated
+producer's dependency installation, build and packing. No successful consumer
+result is cached. A changed input or archive causes refusal; it never causes an
+implicit rebuild or replacement of an existing batch. An interrupted partial
+producer still needs inspection.
 
-Xec verifies the source commit, package inventory, runtime, build argv, callback
-identity, policy and declared input digests, then checks every retained archive's
-SHA-512. It skips dependency installation, compilation and packing for that
-producer. Acceptance runs again against a fresh source-only snapshot and the
-same archives. No successful consumer result is cached by this feature.
-
-The Xec recipe binds the Node executable, reported pnpm/Bun/npm versions and a
-digest of its inherited environment; credential values are never written to the
-receipt. Preserve that environment for a retry. Changed inputs or bytes cause a
-refusal, with the evidence retained. They never trigger an implicit rebuild or
-replacement of an existing batch. An interrupted partial producer still requires
-inspection; a temporary file is not a committed receipt.
-
-This boundary also applies to automation and AI agents: inspect structured
-`producer.json`/`release.json` and exit/error outcomes rather than treating log
-text or elapsed time as success. `--prepare` does not publish. Publication
-`--resume` requires a sealed release and does not build or run acceptance. An
-unknown command or remote outcome must be reconciled before retrying a side
-effect. The same CLI/API and ownership rules apply to people and agents.
+This development API is qualified separately. The repository recipe will adopt
+it only after a published driver/API supports it and the pinned dependencies
+are updated. Until then, `--prepare` uses published 0.12.0 acceptance, and
+publication `--resume` requires its already accepted archives. Do not select a
+self-built CLI as a recovery shortcut.
 
 ## Failure and recovery {#failure-and-recovery}
 
@@ -273,8 +268,8 @@ packaging belongs here; version, Git, registry and recovery logic remain shared.
 run acceptance against each packed archive before sealing; rejection or a change
 to those bytes prevents preparation from completing.
 
-For retained production, pass `retainProducer: { policy, inputs, verify }` instead
-of `verifyArtifact`. `policy` is a SHA-256 digest of the owner's verification
+For the development producer API described above, pass
+`retainProducer: { policy, inputs, verify }` instead of `verifyArtifact`. `policy` is a SHA-256 digest of the owner's verification
 policy; each named `inputs` value is a SHA-256 digest of an actual external
 build, packaging or verifier input. Committed inputs are already bound by the
 source commit. The owner must include toolchain configuration, inherited
@@ -288,8 +283,8 @@ snapshot with **no** producer `dist` or `node_modules`, both initially and on
 retry. It must exercise the immutable archives and await all security-relevant
 resource cleanup before returning. Archive bytes and the producer receipt are
 checked again afterward. Keep consumer checks outside the opaque `build`
-command: a failure inside that command precedes producer retention. The legacy
-`verifyArtifact` callback retains its built-workspace contract and cannot be
+command: a failure inside that command precedes producer retention. The
+`verifyArtifact` callback receives its built workspace and cannot be
 combined with `retainProducer`.
 
 Hold `acquireReleaseLock` over the whole operation as in the example. Retention
@@ -307,21 +302,32 @@ interoperability and application acceptance tests. Xec's CI runs the release
 failure suite and its packaged SSH security gate. A source change is not a
 published package and does not activate a running daemon or application.
 
-See [npm dist-tags](https://docs.npmjs.com/adding-dist-tags-to-packages/) and
-[GitHub's verified-tag publication](https://cli.github.com/manual/gh_release_create)
-for the underlying registry and hosting behavior.
-
 ## Run the recipe through Xec {#run-the-recipe-through-xec}
 
-The repository's `pnpm release` invokes its built Xec CLI. The dynamic command
-imports the recipe in the scripting runtime and calls the built
-`@xec-sh/ops/release` package directly. It does not spawn a separate `tsx` process
-or reach into an operations package's TypeScript source tree. Run
-`pnpm install --frozen-lockfile` and `pnpm build` when preparing a fresh checkout.
+`pnpm release` is an alias for the pinned published `xec release` command.
+The complete project policy lives in `.xec/commands/release.ts`; there is no
+forwarding release script or dependency on the candidate CLI's `dist` directory.
+The project also declares build, test, types and documentation tasks in
+`.xec/config.yaml`. Xec executes those tasks; Turbo retains ownership of the
+package build graph and cache.
 
-Consumer repositories can register `.xec/commands/release.ts` and compose the
-release functions with `Pipeline` for their own qualification policy. Keep
-project-specific build/CI decisions in that recipe and use the existing shared
-release API for locking, version commits, exact refs, archive sealing and npm
-reconciliation. A project recipe is executable configuration for the Xec engine;
-it should not introduce another process launcher, SSH client or release state machine.
+```sh
+pnpm install --frozen-lockfile
+pnpm exec xec inspect tasks
+pnpm exec xec release --list-packages
+pnpm exec xec run build
+```
+
+Consumer repositories register their own `.xec/commands/release.ts` and compose
+the published release functions with their qualification policy. Keep
+project-specific build/CI decisions in that command and use the shared release
+API for locking, version commits, exact refs, archive sealing and registry
+reconciliation. A project command should not introduce another process
+launcher, SSH client or release state machine.
+
+## See also {#see-also}
+
+- [Configuration tasks](/docs/configuration/tasks/overview)
+- [Pipeline](/docs/ops/pipeline)
+- [npm dist-tags](https://docs.npmjs.com/adding-dist-tags-to-packages/)
+- [GitHub verified-tag publication](https://cli.github.com/manual/gh_release_create)

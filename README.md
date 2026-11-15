@@ -56,11 +56,12 @@ Docker and Kubernetes operations require their respective `docker` and `kubectl`
 
 ## Develop
 
-Use the pnpm version in `packageManager` and install Bun for Kit's build and examples.
+Use the pnpm version in `packageManager` and install Bun for Kit's build and examples. The root dependencies pin the published Xec CLI; `.xec` owns repository commands and tasks, while Turbo owns the package DAG and cache. Building the candidate CLI is not a prerequisite for running repository automation.
 
 ```sh
 corepack enable
 pnpm install --frozen-lockfile
+pnpm exec xec inspect tasks
 pnpm build
 pnpm --filter @xec-sh/core test:unit
 pnpm --filter @xec-sh/kit test
