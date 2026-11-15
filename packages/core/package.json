@@ -9,7 +9,6 @@
   "types": "./dist/index.d.ts",
   "files": [
     "dist",
-    "SSH-TYPES-LICENSE",
     "!dist/**/*.map"
   ],
   "keywords": [
@@ -54,11 +53,10 @@
     "docker:stop": "../testing/docker-ssh-manager.sh stop",
     "docker:status": "../testing/docker-ssh-manager.sh status",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
-    "clean": "pnpm --dir ../.. exec xec package clean packages/core",
-    "prepack": "pnpm --dir ../.. exec xec ssh guard packages/core"
+    "clean": "pnpm --dir ../.. exec xec package clean packages/core"
   },
   "dependencies": {
-    "ssh2": "1.17.0"
+    "@xec-sh/ssh": "workspace:*"
   },
   "devDependencies": {
     "@stryker-mutator/core": "^10.1.1",
@@ -67,14 +65,13 @@
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^26.6.6",
     "@types/ssh2": "^1.15.6",
-    "@types/ssh2-streams": "^0.1.13",
     "@typescript/native": "npm:typescript@^7.0.2",
     "@xec-sh/testing": "workspace:*",
     "dockerode": "^5.0.1",
     "node-pty": "^1.1.0",
-    "ssh2-streams": "^0.4.10",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.0",
+    "ssh2": "1.17.0"
   },
   "repository": {
     "type": "git",
@@ -90,16 +87,9 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./package.json": "./package.json",
-    "./ssh": {
-      "types": "./dist/adapters/ssh/ssh.d.ts",
-      "import": "./dist/adapters/ssh/ssh.js"
-    }
+    "./package.json": "./package.json"
   },
   "engines": {
-    "node": ">=20.0.0"
-  },
-  "bundleDependencies": [
-    "ssh2"
-  ]
+    "node": ">=20.19.0"
+  }
 }

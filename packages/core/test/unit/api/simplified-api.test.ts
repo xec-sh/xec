@@ -11,8 +11,6 @@ describe('Simplified API', () => {
     await dispose();
     // Clear the global cache to prevent command interference
     globalCache.clear();
-    // Add a small delay to ensure all processes are cleaned up
-    await new Promise(resolve => setTimeout(resolve, 10));
     // Reset to default configuration
     configure({ 
       throwOnNonZeroExit: true, 
@@ -28,8 +26,6 @@ describe('Simplified API', () => {
     await dispose();
     // Clear the global cache
     globalCache.clear();
-    // Add a small delay to ensure all processes are cleaned up
-    await new Promise(resolve => setTimeout(resolve, 10));
   });
   describe('$ function', () => {
     test('should execute commands with template literals', async () => {
@@ -46,34 +42,14 @@ describe('Simplified API', () => {
       expect(await argEcho($, `Hello ${name}`)).toBe('Hello USH');
     });
 
-    test.skip('should handle command failure', async () => {
-      // KNOWN ISSUE: This test passes when run in isolation but fails when run with other tests.
-      // The functionality has been verified to work correctly (see integration tests).
-      // This appears to be a Jest-specific test isolation issue with async error handling.
-      // throwOnNonZeroExit is already true from beforeEach  
-      const config = $.config.get();
-      expect(config.throwOnNonZeroExit).toBe(true);
-      
-      // Test with nothrow to verify behavior without throwing
-      const result = await $`exit 42`.nothrow();
-      expect(result.exitCode).toBe(42);
-      expect(result.ok).toBe(false);
-      
-      // Create isolated engine instance to test throwing behavior
-      // (Known Jest issue: global $ instance can have isolation problems)
-      const engine = new ExecutionEngine({ throwOnNonZeroExit: true });
-      const local$ = createCallableEngine(engine);
-      const { CommandError } = await import('../../../src/index.js');
-      
-      let error: any;
+    test('should handle command failure', async () => {
+      const run = createCallableEngine(new ExecutionEngine({ throwOnNonZeroExit: true }));
       try {
-        await local$`exit 42`;
-      } catch (e) {
-        error = e;
-      }
-      expect(error).toBeInstanceOf(CommandError);
-      expect(error.exitCode).toBe(42);
-      expect(error.command).toContain('exit 42');
+        const result = await run.with({ shell: false, nothrow: true }).exec(process.execPath, { args: ['-e', 'process.exit(42)'] });
+        expect(result).toMatchObject({ exitCode: 42, ok: false });
+        await expect(run.with({ shell: false }).exec(process.execPath, { args: ['-e', 'process.exit(42)'] }))
+          .rejects.toMatchObject({ name: 'CommandError', exitCode: 42 });
+      } finally { await run.dispose(); }
     });
 
     test('should support method chaining', async () => {
@@ -83,22 +59,12 @@ describe('Simplified API', () => {
       expect(result.exitCode).toBe(0);
     });
 
-    test.skip('should support timeout', async () => {
-      // KNOWN ISSUE: Jest isolation issue with async timeout errors (see integration tests)
-      // Use a command that can be interrupted cleanly
-      // Create isolated instance to avoid Jest issues
-      const engine = new ExecutionEngine();
-      const local$ = createCallableEngine(engine);
-      const { AdapterError } = await import('../../../src/index.js');
-      
-      let error: any;
+    test('should support timeout', async () => {
+      const run = createCallableEngine(new ExecutionEngine());
       try {
-        await local$.timeout(50)`sh -c "while true; do echo waiting; sleep 0.1; done"`;
-      } catch (e) {
-        error = e;
-      }
-      expect(error).toBeInstanceOf(AdapterError);
-      expect(error.message).toMatch(/timed out|timeout/i);
+        await expect(run.with({ shell: false, timeout: 50 }).exec(process.execPath, { args: ['-e', 'setInterval(() => {}, 1000)'] }))
+          .rejects.toMatchObject({ name: 'TimeoutError', timeout: 50 });
+      } finally { await run.dispose(); }
     });
 
     test('should support cd', async () => {
@@ -117,21 +83,12 @@ describe('Simplified API', () => {
       expect(result.exitCode).toBe(1);
     });
 
-    test.skip('should apply timeout configuration', async () => {
-      // KNOWN ISSUE: Jest isolation issue with async timeout errors (see integration tests)
-      // Create isolated instance with custom timeout
-      const engine = new ExecutionEngine({ defaultTimeout: 50 });
-      const local$ = createCallableEngine(engine);
-      const { AdapterError } = await import('../../../src/index.js');
-      
-      let error: any;
+    test('should apply timeout configuration', async () => {
+      const run = createCallableEngine(new ExecutionEngine({ defaultTimeout: 50 }));
       try {
-        await local$`sh -c "while true; do echo waiting; sleep 0.1; done"`;
-      } catch (e) {
-        error = e;
-      }
-      expect(error).toBeInstanceOf(AdapterError);
-      expect(error.message).toMatch(/timed out|timeout/i);
+        await expect(run.with({ shell: false }).exec(process.execPath, { args: ['-e', 'setInterval(() => {}, 1000)'] }))
+          .rejects.toMatchObject({ name: 'TimeoutError', timeout: 50 });
+      } finally { await run.dispose(); }
     });
   });
 
@@ -218,13 +175,14 @@ describe('Simplified API', () => {
     test('should export advanced types', async () => {
       const {
         DockerContainer,
-        SecurePasswordHandler,
-        SSHKeyValidator
+        SecurePasswordHandler
       } = await import('../../../src/index.js');
       
       expect(DockerContainer).toBeDefined();
       expect(SecurePasswordHandler).toBeDefined();
-      expect(SSHKeyValidator).toBeDefined();
+      const ssh = await import('@xec-sh/ssh');
+      expect(ssh.SSHKeyValidator.validatePrivateKey).toBeTypeOf('function');
+      expect(await import('../../../src/index.js')).not.toHaveProperty('SSHKeyValidator');
     });
 
     test('should export helper functions', async () => {
@@ -322,61 +280,31 @@ describe('Simplified API', () => {
   });
 
   describe('error handling', () => {
-    test.skip('should handle CommandError properly', async () => {
-      // KNOWN ISSUE: Jest isolation issue with async command errors (see integration tests)
-      // Create isolated instance to avoid Jest issues
-      const engine = new ExecutionEngine({ throwOnNonZeroExit: true });
-      const local$ = createCallableEngine(engine);
-      const { CommandError } = await import('../../../src/index.js');
-      
-      let error: any;
+    test('should handle CommandError properly', async () => {
+      const run = createCallableEngine(new ExecutionEngine());
       try {
-        await local$`exit 123`;
-      } catch (e) {
-        error = e;
-      }
-      expect(error).toBeInstanceOf(CommandError);
-      expect(error.exitCode).toBe(123);
-      expect(error.command).toContain('exit 123');
+        await expect(run.with({ shell: false }).exec(process.execPath, { args: ['-e', 'process.stderr.write("failure"); process.exit(123)'] }))
+          .rejects.toMatchObject({ name: 'CommandError', exitCode: 123, stderr: 'failure' });
+      } finally { await run.dispose(); }
     });
 
-    test.skip('should handle TimeoutError properly', async () => {
-      // KNOWN ISSUE: Jest isolation issue with async timeout errors (see integration tests)
-      // Create isolated instance to avoid Jest issues
-      const engine = new ExecutionEngine();
-      const local$ = createCallableEngine(engine);
-      const { TimeoutError, AdapterError } = await import('../../../src/index.js');
-      
-      let error: any;
+    test('should handle TimeoutError properly', async () => {
+      const run = createCallableEngine(new ExecutionEngine());
       try {
-        await local$.timeout(50)`sh -c "while true; do echo waiting; sleep 0.1; done"`;
-      } catch (e) {
-        error = e;
-      }
-      expect(error).toBeInstanceOf(AdapterError);
-      expect(error.message).toMatch(/timed out|timeout/i);
-      if (error.cause) {
-        expect(error.cause).toBeInstanceOf(TimeoutError);
-      }
+        const { TimeoutError } = await import('../../../src/index.js');
+        await expect(run.with({ shell: false, timeout: '50ms' }).exec(process.execPath, { args: ['-e', 'setInterval(() => {}, 1000)'] }))
+          .rejects.toBeInstanceOf(TimeoutError);
+      } finally { await run.dispose(); }
     });
 
-    test.skip('should work with try-catch for error handling', async () => {
-      // KNOWN ISSUE: Jest isolation issue with async error handling (see integration tests)
-      // Create isolated instance to avoid Jest issues
-      const engine = new ExecutionEngine({ throwOnNonZeroExit: true });
-      const local$ = createCallableEngine(engine);
-      
-      let caught = false;
-      let caughtError: any;
+    test('should work with try-catch for error handling', async () => {
+      const run = createCallableEngine(new ExecutionEngine());
+      let caught: unknown;
       try {
-        await local$`sh -c "exit 1"`;
-      } catch (e) {
-        caught = true;
-        caughtError = e;
-      }
-      expect(caught).toBe(true);
-      expect(caughtError).toBeDefined();
-      expect(caughtError.exitCode).toBe(1);
+        await run.with({ shell: false }).exec(process.execPath, { args: ['-e', 'process.exit(1)'] });
+      } catch (error) { caught = error; }
+      finally { await run.dispose(); }
+      expect(caught).toMatchObject({ name: 'CommandError', exitCode: 1 });
     });
   });
 

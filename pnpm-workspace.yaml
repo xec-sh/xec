@@ -49,8 +49,8 @@ allowBuilds:
   protobufjs: true
   sharp: true
   esbuild: true
-  ssh2: true
-  cpu-features: true
+  ssh2: false
+  cpu-features: false
   node-pty: true
   unrs-resolver: true
 verifyDepsBeforeRun: error
@@ -80,5 +80,4 @@ minimumReleaseAgeExclude:
   - "@xec-sh/loader@0.12.0"
   - "@xec-sh/ops@0.12.0"
 patchedDependencies:
-  ssh2@1.17.0: patches/ssh2@1.17.0.patch
   node-pty@1.1.0: patches/node-pty@1.1.0.patch

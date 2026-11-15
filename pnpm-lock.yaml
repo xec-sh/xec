@@ -206,7 +206,6 @@ overrides:
 
 patchedDependencies:
   node-pty@1.1.0: e9522946f3d5a1fe0903a40d3b5f33005097448a167e601f16bda82a1ee77bc6
-  ssh2@1.17.0: b093aff52296daf3419c28723468ce8f5488950e3053c6a644826e44dc789a94
 
 importers:
 
@@ -357,9 +356,9 @@ importers:
 
   packages/core:
     dependencies:
-      ssh2:
-        specifier: 1.17.0
-        version: 1.17.0(patch_hash=b093aff52296daf3419c28723468ce8f5488950e3053c6a644826e44dc789a94)
+      '@xec-sh/ssh':
+        specifier: workspace:*
+        version: link:../ssh
     devDependencies:
       '@stryker-mutator/core':
         specifier: ^10.1.1
@@ -379,9 +378,6 @@ importers:
       '@types/ssh2':
         specifier: ^1.15.6
         version: 1.15.6
-      '@types/ssh2-streams':
-        specifier: ^0.1.13
-        version: 0.1.13
       '@typescript/native':
         specifier: npm:typescript@^7.0.2
         version: typescript@7.0.2
@@ -394,9 +390,9 @@ importers:
       node-pty:
         specifier: ^1.1.0
         version: 1.1.0(patch_hash=e9522946f3d5a1fe0903a40d3b5f33005097448a167e601f16bda82a1ee77bc6)
-      ssh2-streams:
-        specifier: ^0.4.10
-        version: 0.4.10
+      ssh2:
+        specifier: 1.17.0
+        version: 1.17.0
       typescript:
         specifier: npm:@typescript/typescript6@^6.0.2
         version: '@typescript/typescript6@6.0.2'
@@ -514,6 +510,34 @@ importers:
       typescript:
         specifier: npm:@typescript/typescript6@^6.0.2
         version: '@typescript/typescript6@6.0.2'
+      vitest:
+        specifier: ^5.1.0
+        version: 5.1.0(@types/node@26.6.6)(@vitest/coverage-v8@5.1.0)(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@1.21.7)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/ssh:
+    dependencies:
+      asn1:
+        specifier: 0.2.6
+        version: 0.2.6
+      bcrypt-pbkdf:
+        specifier: 1.0.2
+        version: 1.0.2
+    devDependencies:
+      '@types/node':
+        specifier: ^26.6.6
+        version: 26.6.6
+      '@types/ssh2':
+        specifier: ^1.15.6
+        version: 1.15.6
+      '@typescript/native':
+        specifier: npm:typescript@^7.0.2
+        version: typescript@7.0.2
+      node-pty:
+        specifier: ^1.1.0
+        version: 1.1.0(patch_hash=e9522946f3d5a1fe0903a40d3b5f33005097448a167e601f16bda82a1ee77bc6)
+      ssh2:
+        specifier: 1.17.0
+        version: 1.17.0
       vitest:
         specifier: ^5.1.0
         version: 5.1.0(@types/node@26.6.6)(@vitest/coverage-v8@5.1.0)(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@1.21.7)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
@@ -2672,9 +2696,6 @@ packages:
 
   '@types/semver@7.8.0':
     resolution: {integrity: sha512-1mAINjtQCXXeLkJ9ehXkwOcBpqtLxiVtKhpUf83DdRNdQKV0iXZpaHYqRr7nj+wvxuJzoAmAwXI+sCNMv1CzLQ==}
-
-  '@types/ssh2-streams@0.1.13':
-    resolution: {integrity: sha512-faHyY3brO9oLEA0QlcO8N2wT7R0+1sHWZvQ+y3rMLwdY1ZyS1z0W3t65j9PqT4HmQ6ALzNe7RZlNuCNE0wBSWA==}
 
   '@types/ssh2@1.15.6':
     resolution: {integrity: sha512-oGdxhBqcRTwSTKFm+9EiKzkNVYRLEFkcW44lhguvBalGJbWfGnDt/ezwSUZc+SF9m9bMc3VyklNAtp7zICjS5w==}
@@ -5080,10 +5101,6 @@ packages:
   sprintf-js@1.0.3:
     resolution: {integrity: sha512-D9cPgkvLlV3t3IzL0D0YLvGA9Ahk4PcvVwUbN0dSGr1aP0Nrt4AEnTUbuGvquEC0mA64Gqt1fzirlRs5ibXx8g==}
 
-  ssh2-streams@0.4.10:
-    resolution: {integrity: sha512-8pnlMjvnIZJvmTzUIIA5nT4jr2ZWNNVHwyXfMGdRJbug9TpI3kd99ffglgfSWqujVv/0gxwMsDn9j9RVst8yhQ==}
-    engines: {node: '>=5.2.0'}
-
   ssh2@1.17.0:
     resolution: {integrity: sha512-wPldCk3asibAjQ/kziWQQt1Wh3PgDFpC0XpwclzKcdT1vql6KeYxf5LIt4nlFkUeR8WuphYMKqUA56X4rjbfgQ==}
     engines: {node: '>=10.16.0'}
@@ -5094,10 +5111,6 @@ packages:
 
   std-env@4.3.0:
     resolution: {integrity: sha512-OtU/EgQ1kIm5KwqQpBC6ZEMXrZRui11w8zgfTWp8cdO9B8OaPsbA8bTHO2P+HNo1VlUTGMVBwPhydu6poeXiag==}
-
-  streamsearch@0.1.2:
-    resolution: {integrity: sha512-jos8u++JKm0ARcSUTAZXOVC0mSox7Bhn6sBgty73P1f3JGf7yG2clTbBNHUdde/kdvP2FESam+vM6l8jBrNxHA==}
-    engines: {node: '>=0.8.0'}
 
   string-width@4.2.3:
     resolution: {integrity: sha512-wKyQRQpjJ0sIp62ErSZdGsjMJWsap5oRNihHhu6G7JVO/9jIB6UyevL+tXuOqrng8j/cxKTWyWUwvSTriiZz/g==}
@@ -7841,10 +7854,6 @@ snapshots:
 
   '@types/semver@7.8.0': {}
 
-  '@types/ssh2-streams@0.1.13':
-    dependencies:
-      '@types/node': 26.6.6
-
   '@types/ssh2@1.15.6':
     dependencies:
       '@types/node': 18.19.130
@@ -8684,7 +8693,7 @@ snapshots:
       debug: 4.4.3(supports-color@8.1.1)
       readable-stream: 3.6.2
       split-ca: 1.0.1
-      ssh2: 1.17.0(patch_hash=b093aff52296daf3419c28723468ce8f5488950e3053c6a644826e44dc789a94)
+      ssh2: 1.17.0
     transitivePeerDependencies:
       - supports-color
 
@@ -10599,13 +10608,7 @@ snapshots:
 
   sprintf-js@1.0.3: {}
 
-  ssh2-streams@0.4.10:
-    dependencies:
-      asn1: 0.2.6
-      bcrypt-pbkdf: 1.0.2
-      streamsearch: 0.1.2
-
-  ssh2@1.17.0(patch_hash=b093aff52296daf3419c28723468ce8f5488950e3053c6a644826e44dc789a94):
+  ssh2@1.17.0:
     dependencies:
       asn1: 0.2.6
       bcrypt-pbkdf: 1.0.2
@@ -10616,8 +10619,6 @@ snapshots:
   stable-hash-x@0.2.0: {}
 
   std-env@4.3.0: {}
-
-  streamsearch@0.1.2: {}
 
   string-width@4.2.3:
     dependencies:

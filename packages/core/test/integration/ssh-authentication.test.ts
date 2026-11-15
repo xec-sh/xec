@@ -1,4 +1,4 @@
-import type { SSHAgent } from '../../src/adapters/ssh/contracts.js';
+import type { SSHAgent } from '@xec-sh/ssh';
 
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -7,7 +7,7 @@ import { promises as fs } from 'fs';
 import { describeSSH, getSSHConfig, testEachPackageManager } from '@xec-sh/testing';
 
 import { $ } from '../../src/index.js';
-import { NodeSSH } from '../../src/adapters/ssh/ssh.js';
+import { SSHClient } from '@xec-sh/ssh';
 import { SSHAdapter } from '../../src/adapters/ssh/index.js';
 
 /** Isolated fixture credentials; restore the container's previous keys even on failure. */
@@ -18,13 +18,13 @@ async function withAuthorizedKey(
 ) {
   const directory = await fs.mkdtemp(join(tmpdir(), 'xec-ssh-auth-'));
   const privateKeyPath = join(directory, 'id_rsa');
-  const admin = new NodeSSH();
+  const admin = new SSHClient();
   try {
     await $`ssh-keygen -t rsa -b 2048 -m PEM -f ${privateKeyPath} -N ${passphrase} -q`.timeout('10s');
     const privateKey = await fs.readFile(privateKeyPath, 'utf8');
     const publicKey = (await fs.readFile(`${privateKeyPath}.pub`, 'utf8')).trim();
     await admin.connect(getSSHConfig(name));
-    const setup = await admin.execCommand('mkdir -p .ssh && chmod 700 .ssh');
+    const setup = await admin.exec('mkdir -p .ssh && chmod 700 .ssh');
     expect(setup.code).toBe(0);
     await admin.withSFTP(async sftp => {
       const path = '.ssh/authorized_keys';

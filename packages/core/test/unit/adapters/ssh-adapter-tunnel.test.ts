@@ -58,8 +58,8 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
       expect(tunnel.isOpen).toBe(true);
 
       // Test that we can connect through the tunnel to SSH
-      const { NodeSSH } = await import('../../../src/adapters/ssh/ssh.js');
-      const tunnelSSH = new NodeSSH();
+      const { SSHClient } = await import('@xec-sh/ssh');
+      const tunnelSSH = new SSHClient();
 
       const connected = await tunnelSSH.connect({
         host: '127.0.0.1',
@@ -74,7 +74,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
 
       if (connected) {
         // Execute a command through the tunneled SSH connection
-        const tunnelResult = await tunnelSSH.execCommand('echo "tunneled"');
+        const tunnelResult = await tunnelSSH.exec('echo "tunneled"');
         expect(tunnelResult.stdout.trim()).toBe('tunneled');
         await tunnelSSH.dispose();
       }
@@ -111,8 +111,8 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
       expect(tunnel.isOpen).toBe(true);
 
       // Test connectivity through the dynamically allocated port
-      const { NodeSSH } = await import('../../../src/adapters/ssh/ssh.js');
-      const tunnelSSH = new NodeSSH();
+      const { SSHClient } = await import('@xec-sh/ssh');
+      const tunnelSSH = new SSHClient();
 
       const connected = await tunnelSSH.connect({
         host: '127.0.0.1',
@@ -159,8 +159,8 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
       expect(tunnel.localPort).toBeGreaterThan(0);
 
       // Verify we can connect through the tunnel to SSH
-      const { NodeSSH } = await import('../../../src/adapters/ssh/ssh.js');
-      const tunnelSSH = new NodeSSH();
+      const { SSHClient } = await import('@xec-sh/ssh');
+      const tunnelSSH = new SSHClient();
 
       // Try to connect through the tunnel
       const connected = await tunnelSSH.connect({
@@ -176,7 +176,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
 
       if (connected) {
         // Execute a simple command through the tunneled connection to verify it works
-        const result = await tunnelSSH.execCommand('echo "tunnel_test_success"');
+        const result = await tunnelSSH.exec('echo "tunnel_test_success"');
         expect(result.stdout.trim()).toBe('tunnel_test_success');
         await tunnelSSH.dispose();
       }
@@ -418,8 +418,8 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
 
       // Verify we can connect through the tunnel
       // We'll use another SSH connection through the tunnel to verify it works
-      const { NodeSSH } = await import('../../../src/adapters/ssh/ssh.js');
-      const ssh = new NodeSSH();
+      const { SSHClient } = await import('@xec-sh/ssh');
+      const ssh = new SSHClient();
 
       const connected = await ssh.connect({
         host: '127.0.0.1',
@@ -434,7 +434,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
 
       if (connected) {
         // Read the file we created earlier through the tunneled connection
-        const result = await ssh.execCommand(`cat ${remoteFile}`);
+        const result = await ssh.exec(`cat ${remoteFile}`);
         expect(result.stdout.trim()).toBe(testContent);
         await ssh.dispose();
       }

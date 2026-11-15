@@ -41,7 +41,6 @@ const PUBLIC_API = [
   'DockerFluentAPI',
   'DockerFluentBuildAPI',
   'DockerEphemeralFluentAPI',
-  'SSHKeyValidator',
   'SecurePasswordHandler',
   'RuntimeDetector',
 

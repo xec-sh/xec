@@ -6,4 +6,4 @@ export { MockAdapter, type MockResponse, type MockAdapterConfig } from './mock/i
 export { BaseAdapter, type BaseAdapterConfig, type SensitiveDataMaskingConfig } from './base-adapter.js';
 export { DockerAdapter, type DockerAdapterConfig, type DockerAutoCreateOptions, type DockerDefaultExecOptions } from './docker/index.js';
 
-export { SSHAdapter, type SSHSudoOptions, type SSHSFTPOptions, type SSHAdapterConfig, type SSHMultiplexingOptions, type SSHConnectionPoolOptions } from './ssh/index.js';
+export { SSHAdapter, type SSHSudoOptions, type SSHSFTPOptions, type SSHAdapterConfig, type SSHConnectionPoolOptions } from './ssh/index.js';

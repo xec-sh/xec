@@ -29,16 +29,7 @@ describe('SSHAdapter - Unit Tests', () => {
       expect(adapter).toBeInstanceOf(SSHAdapter);
     });
 
-    it('should create adapter with custom multiplexing config', () => {
-      adapter = new SSHAdapter({
-        multiplexing: {
-          enabled: true,
-          controlPath: '/tmp/ssh-%r@%h:%p',
-          controlPersist: 300
-        }
-      });
-      expect(adapter).toBeInstanceOf(SSHAdapter);
-    });
+
 
     it('should create adapter with custom sudo config', () => {
       adapter = new SSHAdapter({
@@ -66,8 +57,7 @@ describe('SSHAdapter - Unit Tests', () => {
       adapter = new SSHAdapter({
         connectionPool: { enabled: true, maxConnections: 3, idleTimeout: 30000, keepAlive: true },
         sudo: { enabled: true, method: 'askpass' },
-        sftp: { enabled: true, concurrency: 2 },
-        multiplexing: { enabled: false }
+        sftp: { enabled: true, concurrency: 2 }
       });
       expect(adapter).toBeInstanceOf(SSHAdapter);
     });
@@ -215,7 +205,7 @@ describe('SSHAdapter - Unit Tests', () => {
       const adapters = [
         new SSHAdapter({ connectionPool: { enabled: true, maxConnections: 1, idleTimeout: 1000, keepAlive: false } }),
         new SSHAdapter({ connectionPool: { enabled: false, maxConnections: 10, idleTimeout: 300000, keepAlive: true } }),
-        new SSHAdapter({ connectionPool: { enabled: true, maxConnections: 0, idleTimeout: 0, keepAlive: false } })
+        new SSHAdapter({ connectionPool: { enabled: true, maxConnections: 1, idleTimeout: 0, keepAlive: false } })
       ];
       
       adapters.forEach(adapter => {
@@ -262,10 +252,7 @@ describe('SSHAdapter - Unit Tests', () => {
       expect(adapter).toBeInstanceOf(SSHAdapter);
     });
 
-    it('should set correct default values for multiplexing configuration', () => {
-      adapter = new SSHAdapter();
-      expect(adapter).toBeInstanceOf(SSHAdapter);
-    });
+
   });
 
   describe('Configuration Inheritance', () => {

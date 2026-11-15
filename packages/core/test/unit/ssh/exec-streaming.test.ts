@@ -1,12 +1,12 @@
+import { SSHClient } from '@xec-sh/ssh';
 import { EventEmitter } from 'node:events';
 import { it, vi, expect, describe } from 'vitest';
 import { Duplex, Writable, PassThrough } from 'node:stream';
 
-import { NodeSSH } from '../../../src/adapters/ssh/ssh.js';
 import { SSHAdapter } from '../../../src/adapters/ssh/index.js';
 
 function transport(stdout: string, stderr = '') {
-  const ssh = new NodeSSH();
+  const ssh = new SSHClient();
   const channel = Object.assign(new Duplex({ read() {}, write(_chunk, _encoding, done) { done(); } }), {
     stderr: new PassThrough(), signal: vi.fn(), close: vi.fn(),
   });
@@ -24,10 +24,34 @@ describe('SSH exec stream ownership', () => {
   it('can stream without retaining a second copy of either output', async () => {
     const { ssh } = transport('x'.repeat(100_000), 'diagnostic');
     let bytes = 0, error = '';
-    const result = await ssh.execCommand('inspect', { collectStdout: false, collectStderr: false,
+    const result = await ssh.exec('inspect', { collectStdout: false, collectStderr: false,
       onStdout: chunk => { bytes += chunk.length; }, onStderr: chunk => { error += chunk.toString(); } });
     expect(bytes).toBe(100_000); expect(error).toBe('diagnostic');
     expect(result).toMatchObject({ code: 0, stdout: '', stderr: '' });
+  });
+  it('discards ignored output without retaining it or applying a capture limit', async () => {
+    const { ssh } = transport('ignored output', 'ignored diagnostic');
+    const adapter = new SSHAdapter();
+    try {
+      const result = await (adapter as any).executeSSHCommand(ssh, 'inspect', { stdout: 'ignore', stderr: 'ignore', maxBuffer: 0 });
+      expect(result).toMatchObject({ code: 0, stdout: '', stderr: '' });
+    } finally { await adapter.dispose(); }
+  });
+  it('inherits the terminal streams with backpressure without closing global stdout or stderr', async () => {
+    const { ssh } = transport('terminal output', 'terminal diagnostic');
+    const adapter = new SSHAdapter(); const output: string[] = [], errors: string[] = [];
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: any, encoding: any, done?: any) => {
+      output.push(String(chunk)); const callback = typeof encoding === 'function' ? encoding : done; callback?.(); return true;
+    });
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation((chunk: any, encoding: any, done?: any) => {
+      errors.push(String(chunk)); const callback = typeof encoding === 'function' ? encoding : done; callback?.(); return true;
+    });
+    try {
+      const result = await (adapter as any).executeSSHCommand(ssh, 'inspect', { stdout: 'inherit', stderr: 'inherit', maxBuffer: 0 });
+      expect(result).toMatchObject({ code: 0, stdout: '', stderr: '' });
+      expect(output.join('')).toContain('terminal output'); expect(errors.join('')).toContain('terminal diagnostic');
+      expect(process.stdout.writableEnded).toBe(false); expect(process.stderr.writableEnded).toBe(false);
+    } finally { stdout.mockRestore(); stderr.mockRestore(); await adapter.dispose(); }
   });
   it('waits for slow destinations and preserves successful stderr', async () => {
     const { ssh } = transport('x'.repeat(100_000), 'diagnostic');

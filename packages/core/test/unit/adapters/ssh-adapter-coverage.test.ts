@@ -152,7 +152,7 @@ describe('SSHAdapter - Coverage Enhancement Tests', () => {
         { enabled: true, maxConnections: 1, idleTimeout: 1000, keepAlive: true },
         { enabled: true, maxConnections: 5, idleTimeout: 30000, keepAlive: false },
         { enabled: true, maxConnections: 10, idleTimeout: 300000, keepAlive: true },
-        { enabled: false, maxConnections: 0, idleTimeout: 0, keepAlive: false },
+        { enabled: false, maxConnections: 1, idleTimeout: 0, keepAlive: false },
       ];
       
       poolConfigs.forEach(config => {

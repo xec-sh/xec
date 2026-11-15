@@ -175,13 +175,19 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
   protected mergeCommand(command: Command): ResolvedCommand {
     validateOperationIdentity(command);
     validateEnvironmentMode(command, this.adapterName);
-    const timeout = command.timeout ?? this.config.defaultTimeout;
+    const duration = command.timeout ?? this.config.defaultTimeout;
+    const timeout = duration === undefined ? undefined : parseDuration(duration);
+    // Native timers otherwise turn NaN/Infinity/overflow into an immediate
+    // timeout or silently disable the requested deadline.
+    if (timeout !== undefined && (!Number.isFinite(timeout) || timeout < 0 || timeout > 2_147_483_647)) {
+      throw new RangeError('Command timeout must be finite milliseconds between 0 and 2147483647 (0 disables the deadline)');
+    }
 
     return {
       ...command,
       cwd: command.cwd ?? this.config.defaultCwd,
       env: command.envMode === 'replace' ? { ...command.env } : { ...this.config.defaultEnv, ...command.env },
-      timeout: timeout === undefined ? undefined : parseDuration(timeout),
+      timeout,
       shell: command.shell ?? this.config.defaultShell,
       maxBuffer: command.maxBuffer ?? this.config.maxBuffer,
       encoding: command.encoding ?? this.config.encoding,

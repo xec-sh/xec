@@ -278,10 +278,6 @@ describe('SSHAdapter - Edge Cases and Advanced Scenarios', () => {
       });
       expect(adapter1).toBeInstanceOf(SSHAdapter);
       
-      const adapter2 = new SSHAdapter({
-        multiplexing: { enabled: false }
-      });
-      expect(adapter2).toBeInstanceOf(SSHAdapter);
       
       const adapter3 = new SSHAdapter({
         sudo: { enabled: false },
@@ -295,16 +291,7 @@ describe('SSHAdapter - Edge Cases and Advanced Scenarios', () => {
       expect(adapter).toBeInstanceOf(SSHAdapter);
     });
 
-    it('should handle multiplexing with custom control path', () => {
-      adapter = new SSHAdapter({
-        multiplexing: {
-          enabled: true,
-          controlPath: '/tmp/ssh-mux-%h-%p-%r',
-          controlPersist: '10m'
-        }
-      });
-      expect(adapter).toBeInstanceOf(SSHAdapter);
-    });
+
 
     it('should handle SFTP configuration variations', () => {
       adapter = new SSHAdapter({

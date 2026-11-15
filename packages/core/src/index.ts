@@ -29,7 +29,6 @@ export { DockerContainer } from './adapters/docker/docker-api.js';
 export { KubernetesAdapter } from './adapters/kubernetes/index.js';
 export { RuntimeDetector } from './adapters/local/runtime-detect.js';
 export type { SSHExecutionContext } from './adapters/ssh/ssh-api.js';
-export { SSHKeyValidator } from './adapters/ssh/ssh-key-validator.js';
 export { SecurePasswordHandler } from './adapters/ssh/secure-password.js';
 export { parseK8sTarget, parseSSHTarget } from './utils/target-shorthand.js';
 
@@ -467,7 +466,6 @@ export {
  * event handler — the observed result was `(event: any)` at every call site
  * in a project that is otherwise strictly typed.
  */
-export type * from './adapters/ssh/contracts.js';
 export type { SSHFileTransferOptions, SSHDirectoryTransferOptions } from './adapters/ssh/index.js';
 export type {
   UshEvent,

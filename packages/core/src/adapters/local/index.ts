@@ -356,10 +356,10 @@ export class LocalAdapter extends BaseAdapter {
           // output — so overflow always rejects, with the head preserved.
           const overflow = stdoutHandler.overflowError ?? stderrHandler.overflowError;
           if (overflow) {
-            overflow.partialStdout = stdoutHandler.getContent();
-            overflow.partialStderr = stderrHandler.getContent();
-            progressReporter?.error(overflow);
-            reject(overflow);
+            const confirmed = new MaxBufferExceededError(overflow.limit, overflow.stream,
+              stdoutHandler.getContent(), stderrHandler.getContent(), 'terminated');
+            progressReporter?.error(confirmed);
+            reject(confirmed);
             return;
           }
 

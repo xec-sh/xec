@@ -1,11 +1,9 @@
 import { EventEmitter } from 'node:events';
 import { it, vi, expect, describe } from 'vitest';
-
-import { NodeSSH } from '../../../src/adapters/ssh/ssh.js';
-import { SSHAdapter } from '../../../src/adapters/ssh/index.js';
+import { SSHClient, SSHConnectionIdentity } from '@xec-sh/ssh';
 
 function pendingShell() {
-  const ssh = new NodeSSH();
+  const ssh = new SSHClient();
   const connection = new EventEmitter() as any;
   connection.shell = vi.fn();
   connection.end = vi.fn(); connection.destroy = vi.fn();
@@ -13,7 +11,7 @@ function pendingShell() {
   return { ssh, connection };
 }
 
-describe('existing NodeSSH shell lifecycle', () => {
+describe('existing SSHClient shell lifecycle', () => {
   it('rejects on connection close and removes temporary listeners', async () => {
     const { ssh, connection } = pendingShell();
     const waiting = ssh.requestShell({ cols: 80, rows: 24 });
@@ -40,7 +38,7 @@ describe('existing NodeSSH shell lifecycle', () => {
     expect(connection.listenerCount('error')).toBe(0);
   });
   it('does not attempt a handshake with an already aborted signal or conflicting trust policies', async () => {
-    const ssh = new NodeSSH(); const controller = new AbortController(); controller.abort();
+    const ssh = new SSHClient(); const controller = new AbortController(); controller.abort();
     await expect(ssh.connect({ host: 'example.invalid', username: 'test', signal: controller.signal })).rejects.toMatchObject({ code: 'ABORT_ERR' });
     await expect(ssh.connect({ host: 'example.invalid', username: 'test', expectedHostFingerprint: `SHA256:${'a'.repeat(43)}`, hostVerifier: () => true })).rejects.toThrow(/cannot be combined/);
     expect(ssh.connection).toBeNull();
@@ -53,31 +51,20 @@ describe('existing NodeSSH shell lifecycle', () => {
 
 describe('SSH pool trust policy', () => {
   it('does not reuse an unchecked connection for strict verification or a different known-hosts file', async () => {
-    const adapter = new SSHAdapter() as any;
+    const identity = new SSHConnectionIdentity();
     const target = { type: 'ssh', host: 'test.invalid', username: 'deploy', password: 'secret' };
-    try {
-      const permissive = adapter.getConnectionKey({ ...target, hostKeyChecking: 'off' });
-      const strict = adapter.getConnectionKey({ ...target, hostKeyChecking: 'strict', knownHostsPath: '/trusted/one' });
-      const other = adapter.getConnectionKey({ ...target, hostKeyChecking: 'strict', knownHostsPath: '/trusted/two' });
+      const permissive = identity.key({ ...target, hostKeyChecking: 'off' });
+      const strict = identity.key({ ...target, hostKeyChecking: 'strict', knownHostsPath: '/trusted/one' });
+      const other = identity.key({ ...target, hostKeyChecking: 'strict', knownHostsPath: '/trusted/two' });
       expect(new Set([permissive, strict, other]).size).toBe(3);
       expect(strict).not.toContain('secret');
-    } finally { await adapter.dispose(); }
   });
   it('does not alias credential boundaries or ambiguous user/host spellings', async () => {
-    const adapter = new SSHAdapter() as any;
-    try {
+    const identity = new SSHConnectionIdentity();
       const config = { type: 'ssh', host: 'node.invalid', username: 'operator', privateKey: 'key' };
-      expect(adapter.getConnectionKey({ ...config, passphrase: 'a\0b', password: 'c' }))
-        .not.toBe(adapter.getConnectionKey({ ...config, passphrase: 'a', password: 'b\0c' }));
-      expect(adapter.getConnectionKey({ ...config, username: 'a@b', host: 'c' }))
-        .not.toBe(adapter.getConnectionKey({ ...config, username: 'a', host: 'b@c' }));
-    } finally { await adapter.dispose(); }
-  });
-  it('new connections retain strict verification, inventory and handshake budget', async () => {
-    const adapter = new SSHAdapter({ defaultConnectOptions: { readyTimeout: 4321 }, hostKeyChecking: 'strict', knownHostsPath: '/trusted/hosts' }) as any;
-    try {
-      expect(adapter.connectionOptions({ type: 'ssh', host: 'test.invalid', username: 'deploy', password: 'private' }))
-        .toMatchObject({ hostKeyChecking: 'strict', knownHostsPath: '/trusted/hosts', readyTimeout: 4321 });
-    } finally { await adapter.dispose(); }
+      expect(identity.key({ ...config, passphrase: 'a\0b', password: 'c' }))
+        .not.toBe(identity.key({ ...config, passphrase: 'a', password: 'b\0c' }));
+      expect(identity.key({ ...config, username: 'a@b', host: 'c' }))
+        .not.toBe(identity.key({ ...config, username: 'a', host: 'b@c' }));
   });
 });

@@ -1,16 +1,16 @@
-import { Client } from 'ssh2';
 import { it, vi, expect, describe, afterEach } from 'vitest';
+import { SSHError, SSHClient, SSHOutcomeUnknownError } from '@xec-sh/ssh';
 
-import { TimeoutError } from '../../../src/core/error.js';
-import { NodeSSH } from '../../../src/adapters/ssh/ssh.js';
+import Client from '../../../../ssh/src/transport/client.js';
 import { SSHAdapter } from '../../../src/adapters/ssh/index.js';
+import { ExecutionOutcomeUnknownError } from '../../../src/core/error.js';
 
 const adapters: SSHAdapter[] = [];
 afterEach(async () => { for (const adapter of adapters.splice(0)) await adapter.dispose(); vi.restoreAllMocks(); });
 const target = { type: 'ssh' as const, host: 'one.invalid', username: 'operator', password: 'fixture', hostKeyChecking: 'off' as const };
 const command = { command: 'fixture', adapterOptions: target };
 const result = { code: 0, signal: null, stdout: 'completed', stderr: '' };
-function fixture(limit = 2, enabled = true) {
+function fixture(limit = 2, enabled = true, autoReconnect = true) {
   const clients: Client[] = [];
   const wire: unknown[] = [];
   vi.spyOn(Client.prototype, 'connect').mockImplementation(function (this: Client, options) {
@@ -18,15 +18,16 @@ function fixture(limit = 2, enabled = true) {
   });
   const destroyed = new Set<Client>();
   vi.spyOn(Client.prototype, 'destroy').mockImplementation(function (this: Client) { destroyed.add(this); this.emit('close'); return this; });
-  vi.spyOn(NodeSSH.prototype, 'execCommand').mockResolvedValue(result);
+  vi.spyOn(SSHClient.prototype, 'exec').mockImplementation(async () => ({ ...result }));
+  vi.spyOn(SSHClient.prototype, 'revalidateTrust').mockResolvedValue();
   const adapter = new SSHAdapter({ hostKeyChecking: 'strict', knownHostsPath: '/trusted/hosts', defaultConnectOptions: { readyTimeout: 1234 },
-    connectionPool: { enabled, maxConnections: limit, idleTimeout: 60000, keepAlive: true, keepAliveInterval: 15000 } });
+    connectionPool: { enabled, autoReconnect, reconnectDelay: 0, maxConnections: limit, idleTimeout: 60000, keepAlive: true, keepAliveInterval: 15000 } });
   adapters.push(adapter);
   return { adapter, clients, destroyed, wire };
 }
 function pausedCommand() {
   let finish!: () => void;
-  vi.mocked(NodeSSH.prototype.execCommand).mockImplementationOnce(() => new Promise(resolve => { finish = () => resolve(result); }));
+  vi.mocked(SSHClient.prototype.exec).mockImplementationOnce(() => new Promise(resolve => { finish = () => resolve(result); }));
   return () => finish();
 }
 
@@ -36,7 +37,7 @@ describe('SSH connection ownership and admission', () => {
     const finish = pausedCommand();
     vi.spyOn(Client.prototype, 'forwardIn').mockImplementation(function (this: Client) { return this; });
     const running = adapter.execute(command);
-    await vi.waitFor(() => expect(NodeSSH.prototype.execCommand).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(SSHClient.prototype.exec).toHaveBeenCalledOnce());
     await expect(adapter.reverseTunnel({ remotePort: 0, localPort: 3000, timeoutMs: 10 }, target)).rejects.toMatchObject({ kind: 'outcome-unknown' });
     expect(clients).toHaveLength(2);
     expect(destroyed.has(clients[0]!)).toBe(false);
@@ -49,7 +50,7 @@ describe('SSH connection ownership and admission', () => {
     const { adapter, clients, destroyed } = fixture(1);
     const finish = pausedCommand();
     const running = adapter.execute(command);
-    await vi.waitFor(() => expect(NodeSSH.prototype.execCommand).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(SSHClient.prototype.exec).toHaveBeenCalledOnce());
     await expect(adapter.execute({ ...command, adapterOptions: { ...target, host: 'two.invalid' } })).rejects.toThrow('capacity is busy');
     expect(clients).toHaveLength(1); expect(destroyed.size).toBe(0);
     finish(); await running;
@@ -104,17 +105,17 @@ describe('SSH connection ownership and admission', () => {
     await expect(adapter.execute(command)).rejects.toThrow('disposed');
   });
   it('does not hand out a connection that closes immediately after authentication', async () => {
-    const { adapter } = fixture(1);
+    const { adapter } = fixture(1, true, false);
     vi.mocked(Client.prototype.connect).mockImplementationOnce(function (this: Client) { this.emit('ready'); this.emit('close'); return this; });
     await expect(adapter.execute(command)).rejects.toThrow('closed before acquisition');
-    expect(NodeSSH.prototype.execCommand).not.toHaveBeenCalled();
+    expect(SSHClient.prototype.exec).not.toHaveBeenCalled();
     expect(adapter.getConnectionPoolMetrics().totalConnections).toBe(0);
   });
   it('shares a pinned connection for concurrent commands to the same target', async () => {
     const { adapter, clients } = fixture(1);
     const finish = pausedCommand();
     const running = adapter.execute(command);
-    await vi.waitFor(() => expect(NodeSSH.prototype.execCommand).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(SSHClient.prototype.exec).toHaveBeenCalledOnce());
     await adapter.execute(command);
     expect(clients).toHaveLength(1);
     expect(adapter.getConnectionPoolMetrics().activeConnections).toBe(1);
@@ -142,17 +143,17 @@ describe('SSH connection ownership and admission', () => {
     const controller = new AbortController(); controller.abort();
     await expect(adapter.execute({ ...command, adapterOptions: { ...target, signal: controller.signal } })).rejects.toThrow('cancelled');
     expect(clients).toHaveLength(1);
-    expect(NodeSSH.prototype.execCommand).toHaveBeenCalledOnce();
+    expect(SSHClient.prototype.exec).toHaveBeenCalledOnce();
   });
 
   it('retires repeated timeouts without interrupting another active command', async () => {
     const { adapter, clients, destroyed } = fixture(1);
     const finish = pausedCommand();
     const running = adapter.execute(command);
-    await vi.waitFor(() => expect(NodeSSH.prototype.execCommand).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(SSHClient.prototype.exec).toHaveBeenCalledOnce());
     for (let i = 0; i < 4; i++) {
-      vi.mocked(NodeSSH.prototype.execCommand).mockRejectedValueOnce(new TimeoutError('fixture', 10));
-      await expect(adapter.execute(command)).rejects.toBeInstanceOf(TimeoutError);
+      vi.mocked(SSHClient.prototype.exec).mockRejectedValueOnce(new SSHOutcomeUnknownError({ cause: new SSHError('deadline', 'ABORT_ERR') }));
+      await expect(adapter.execute(command)).rejects.toBeInstanceOf(ExecutionOutcomeUnknownError);
       expect(destroyed.size).toBe(0);
     }
     await expect(adapter.execute(command)).rejects.toThrow('retiring');

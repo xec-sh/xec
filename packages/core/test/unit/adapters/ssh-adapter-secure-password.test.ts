@@ -317,16 +317,13 @@ describe('SSHAdapter - Secure Password Integration', () => {
           enabled: true,
           concurrency: 10
         },
-        multiplexing: {
-          enabled: false
-        }
+
       });
       
       const sshConfig = (adapter as any).sshConfig;
       expect(sshConfig.connectionPool.enabled).toBe(true);
       expect(sshConfig.sudo.enabled).toBe(true);
       expect(sshConfig.sftp.enabled).toBe(true);
-      expect(sshConfig.multiplexing.enabled).toBe(false);
     });
   });
 });

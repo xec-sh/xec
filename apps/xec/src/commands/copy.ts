@@ -719,12 +719,12 @@ export class CopyCommand extends ConfigAwareCommand {
   // Returned as an array: template interpolation escapes each element as its
   // own argument, while a joined string would be passed as a single argument.
   private buildSshArgs(config: any): string[] {
-    // Match the SSH adapter's host key policy, which verifies against
-    // known_hosts and defaults to accept-new. `accept-new` records a key the
-    // first time a host is seen and refuses a key that later changes — so a
-    // transfer cannot be silently redirected to a machine-in-the-middle, and
-    // `xec copy` still behaves the same as `xec on` against the same target.
-    const hostKeyChecking = config.hostKeyChecking ?? 'accept-new';
+    // Native SCP uses the same explicit trust policy as the owned SSH adapter.
+    // A new server requires verified known_hosts state unless accept-new was requested.
+    const hostKeyChecking = config.hostKeyChecking ?? 'strict';
+    if (!['strict', 'accept-new', 'off'].includes(hostKeyChecking)) {
+      throw new TypeError('SSH hostKeyChecking must be strict, accept-new or off');
+    }
     const args: string[] =
       hostKeyChecking === 'off'
         ? ['-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null']

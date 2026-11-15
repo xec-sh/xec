@@ -53,6 +53,6 @@ Cancellation of a remote request does not by itself prove that a remote effect w
 
 ## Requirements
 
-Node.js 20 or later; Core also has Bun and Deno runtime checks. Shell syntax depends on the target OS. Docker and Kubernetes use the installed `docker` and `kubectl` CLIs. SSH loads its bundled `ssh2` dependency when first needed.
+Node.js 20.19.0 or later; Core also has Bun and Deno runtime checks. Shell syntax depends on the target OS. Docker and Kubernetes use the installed `docker` and `kubectl` CLIs. The developing 0.13.0 Core uses `@xec-sh/ssh`; the private protocol loads only when an SSH connection is requested.
 
 [API reference](https://xec.sh/docs/api/execution-engine) · [Examples](examples) · [MIT license](../../LICENSE)

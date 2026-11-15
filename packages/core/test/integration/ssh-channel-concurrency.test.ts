@@ -1,6 +1,6 @@
 import { describeSSH, getSSHConfig } from '@xec-sh/testing';
 
-import { NodeSSH } from '../../src/adapters/ssh/ssh.js';
+import { SSHClient } from '@xec-sh/ssh';
 
 /**
  * sshd grants at most MaxSessions concurrent sessions per connection — 10
@@ -17,7 +17,7 @@ import { NodeSSH } from '../../src/adapters/ssh/ssh.js';
 describeSSH('SSH channel concurrency', () => {
   it('runs 20 concurrent commands over one connection without a refusal', async () => {
     const config = getSSHConfig('ubuntu-apt');
-    const ssh = new NodeSSH();
+    const ssh = new SSHClient();
     await ssh.connect({
       host: config.host,
       port: config.port,
@@ -30,7 +30,7 @@ describeSSH('SSH channel concurrency', () => {
     try {
       const results = await Promise.all(
         Array.from({ length: 20 }, (_, index) =>
-          ssh.execCommand(`echo channel-${index}`)
+          ssh.exec(`echo channel-${index}`)
         )
       );
 

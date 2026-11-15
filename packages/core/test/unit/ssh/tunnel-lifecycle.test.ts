@@ -1,16 +1,16 @@
+import { SSHClient } from '@xec-sh/ssh';
 import { PassThrough } from 'node:stream';
 import { once, EventEmitter } from 'node:events';
 import { type Socket, createConnection } from 'node:net';
 import { it, vi, expect, describe, afterEach } from 'vitest';
 
-import { NodeSSH } from '../../../src/adapters/ssh/ssh.js';
 import { SSHAdapter } from '../../../src/adapters/ssh/index.js';
 
 const cleanup: Array<() => Promise<unknown> | void> = [];
-afterEach(async () => { for (const close of cleanup.splice(0).reverse()) await close(); vi.useRealTimers(); });
+afterEach(async () => { for (const close of cleanup.splice(0).reverse()) await close(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
 function fakeTransport() {
-  const ssh = new NodeSSH();
+  const ssh = new SSHClient();
   const connection = new EventEmitter() as any;
   connection.forwardOut = vi.fn();
   connection.end = vi.fn(); connection.destroy = vi.fn();
@@ -66,20 +66,21 @@ describe('local forward ownership', () => {
     expect(connection.listenerCount('close')).toBe(0);
   }, 3000);
 
-  it('makes the compatibility portForward API bind a real, owned local listener', async () => {
-    const { ssh, connection } = fakeTransport();
+  it('makes the public tunnel API bind a real owned local listener', async () => {
+    const { connection } = fakeTransport();
     connection.forwardOut.mockImplementation((...args: any[]) => args.at(-1)(undefined, new PassThrough()));
-    const adapter = new SSHAdapter() as any;
-    cleanup.push(() => adapter.dispose());
-    const lease = { ssh, activeUseCount: 0, lastUsed: Date.now() };
-    vi.spyOn(adapter, 'getConnection').mockImplementation(async () => { lease.activeUseCount++; return lease; });
-    const handle = await adapter.portForward(0, 'service.internal', 1234, { type: 'ssh', host: 'host.invalid', username: 'operator' });
+    vi.spyOn(SSHClient.prototype, 'connect').mockImplementation(async function (this: SSHClient) {
+      (this as unknown as { transport: unknown }).transport = connection; return this;
+    });
+    const adapter = new SSHAdapter(); cleanup.push(() => adapter.dispose());
+    const handle = await adapter.tunnel({ localPort: 0, remoteHost: 'service.internal', remotePort: 1234 },
+      { type: 'ssh', host: 'host.invalid', username: 'operator', password: 'fixture' });
     const socket = await client(handle.localPort);
     const reply = once(socket, 'data'); socket.write('roundtrip');
     expect((await reply)[0].toString()).toBe('roundtrip');
-    expect(lease.activeUseCount).toBe(1);
+    expect(adapter.getConnectionPoolMetrics().activeConnections).toBe(1);
     await handle.close(); await handle.closed;
-    expect(lease.activeUseCount).toBe(0);
+    expect(adapter.getConnectionPoolMetrics().activeConnections).toBe(0);
     expect(connection.forwardOut.mock.calls[0].slice(2, 4)).toEqual(['service.internal', 1234]);
   }, 3000);
 
@@ -93,66 +94,63 @@ describe('local forward ownership', () => {
   });
 });
 
-function pooled(maxLifetime: number) {
+function pooled(maxLifetime: number, idleTimeout = 0) {
   vi.useFakeTimers();
-  const adapter = new SSHAdapter({ connectionPool: { enabled: true, maxConnections: 5, idleTimeout: Number.MAX_SAFE_INTEGER, keepAlive: false, maxLifetime } }) as any;
+  const adapter = new SSHAdapter({ connectionPool: { enabled: true, maxConnections: 5, idleTimeout, keepAlive: false, maxLifetime } });
+  const { connection } = fakeTransport();
+  vi.spyOn(SSHClient.prototype, 'connect').mockImplementation(async function (this: SSHClient) {
+    (this as unknown as { transport: unknown }).transport = connection; return this;
+  });
+  vi.spyOn(SSHClient.prototype, 'revalidateTrust').mockResolvedValue();
   let finish!: () => void;
   const closed = new Promise<void>(resolve => { finish = resolve; });
   const tunnel = { localPort: 12345, localHost: '127.0.0.1', remoteHost: '127.0.0.1', remotePort: 9700, closed, close: vi.fn(async () => { finish(); }) };
-  const connection = { key: 'target', reusable: true, config: { host: 'node.invalid' }, created: Date.now(), lastUsed: Date.now(), activeUseCount: 0, useCount: 1, errors: 0, ssh: { isConnected: () => true, dispose: vi.fn(async () => {}), createTunnel: vi.fn(async () => tunnel) } };
-  adapter.connectionPool.set('target', connection);
-  vi.spyOn(adapter, 'getConnection').mockImplementation(async () => { connection.activeUseCount++; return connection; });
+  vi.spyOn(SSHClient.prototype, 'createTunnel').mockResolvedValue(tunnel);
   cleanup.push(() => adapter.dispose());
   return { adapter, connection, tunnel, finish };
 }
-const target = { type: 'ssh' as const, host: 'node.invalid', username: 'operator' };
+const target = { type: 'ssh' as const, host: 'node.invalid', username: 'operator', password: 'fixture' };
 const forward = { remoteHost: '127.0.0.1', remotePort: 9700 };
 
 describe('pooled tunnel lifetime', () => {
   it('honors disabled maximum age across multiple hourly cleanup periods', async () => {
-    const { connection } = pooled(0);
+    const { adapter, connection } = pooled(0);
+    const handle = await adapter.tunnel(forward, target); await handle.close();
     await vi.advanceTimersByTimeAsync(3 * 3600000);
-    expect(connection.ssh.dispose).not.toHaveBeenCalled();
+    expect(connection.destroy).not.toHaveBeenCalled();
+    expect(adapter.getConnectionPoolMetrics().idleConnections).toBe(1);
   });
   it('pins an active tunnel through age and idle cleanup, then releases it exactly once', async () => {
-    const { adapter, connection, tunnel } = pooled(1000);
-    adapter.sshConfig.connectionPool.idleTimeout = 1000;
+    const { adapter, connection, tunnel } = pooled(1000, 1000);
     const handle = await adapter.tunnel(forward, target);
-    expect(adapter.getConnection).toHaveBeenCalledWith(target);
     await vi.advanceTimersByTimeAsync(2 * 3600000);
-    expect(connection.ssh.dispose).not.toHaveBeenCalled();
-    expect(await adapter.getExistingConnection('target')).toBe(connection);
-    adapter.releaseConnection(connection);
+    expect(connection.destroy).not.toHaveBeenCalled();
     await Promise.all([handle.close(), handle.close()]);
-    expect(connection.activeUseCount).toBe(0);
+    expect(adapter.getConnectionPoolMetrics().activeConnections).toBe(0);
     expect(tunnel.close).toHaveBeenCalledOnce();
     await vi.advanceTimersByTimeAsync(60000);
-    expect(connection.ssh.dispose).toHaveBeenCalledOnce();
+    expect(connection.destroy).toHaveBeenCalledOnce();
   });
   it('releases its lease if opening fails or the underlying tunnel closes', async () => {
-    const { adapter, connection, finish } = pooled(0);
-    connection.ssh.createTunnel.mockRejectedValueOnce(new Error('forward refused'));
+    const { adapter, finish } = pooled(0);
+    vi.mocked(SSHClient.prototype.createTunnel).mockRejectedValueOnce(new Error('forward refused'));
     await expect(adapter.tunnel(forward, target)).rejects.toThrow('forward refused');
-    expect(connection.activeUseCount).toBe(0);
+    expect(adapter.getConnectionPoolMetrics().activeConnections).toBe(0);
     const handle = await adapter.tunnel(forward, target);
-    expect(connection.activeUseCount).toBe(1);
+    expect(adapter.getConnectionPoolMetrics().activeConnections).toBe(1);
     finish(); await handle.closed;
     expect(handle.isOpen).toBe(false);
-    expect(connection.activeUseCount).toBe(0);
-    expect(adapter.activeTunnels.size).toBe(0);
+    expect(adapter.getConnectionPoolMetrics().activeConnections).toBe(0);
   });
   it('retains its lease when local closure fails and releases only after retry', async () => {
-    const { adapter, connection, tunnel } = pooled(0);
+    const { adapter, tunnel } = pooled(0);
     tunnel.close.mockRejectedValueOnce(new Error('listener still open'));
     const handle = await adapter.tunnel(forward, target);
     await expect(handle.close()).rejects.toThrow('listener still open');
     expect(handle.isOpen).toBe(true);
-    expect(connection.activeUseCount).toBe(1);
-    expect(adapter.activeTunnels.size).toBe(1);
+    expect(adapter.getConnectionPoolMetrics().activeConnections).toBe(1);
     await handle.close(); await handle.closed;
     expect(handle.isOpen).toBe(false);
-    expect(connection.activeUseCount).toBe(0);
-    expect(adapter.activeTunnels.size).toBe(0);
+    expect(adapter.getConnectionPoolMetrics().activeConnections).toBe(0);
   });
-
 });

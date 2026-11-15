@@ -206,7 +206,9 @@ describe('what an error carries', () => {
     it('records which stream and what the cap was', () => {
       const error = new MaxBufferExceededError(1024, 'stderr');
 
-      expect(error.details).toEqual({ limit: 1024, stream: 'stderr' });
+      expect(error.details).toEqual({ limit: 1024, stream: 'stderr', outcome: 'unknown' });
+      expect(error.kind).toBe('outcome-unknown');
+      expect(error.recoverable).toBe(false);
       expect(error.code).toBe('MAX_BUFFER_EXCEEDED');
       expect(error.name).toBe('MaxBufferExceededError');
     });
@@ -221,6 +223,24 @@ describe('what an error carries', () => {
 
       expect(error.partialStdout).toBe('head of it');
       expect(error.partialStderr).toBe('and stderr');
+    });
+
+    it('reports termination only after a native local producer has actually closed', async () => {
+      const { LocalAdapter } = await import('../../../src/adapters/local/index.js');
+      const adapter = new LocalAdapter();
+      try {
+        await expect(adapter.execute({ command: process.execPath, args: ['-e', 'process.stdout.write("data")'], shell: false, maxBuffer: 0 }))
+          .rejects.toMatchObject({ code: 'MAX_BUFFER_EXCEEDED', limit: 0, outcome: 'terminated', partialStdout: '' });
+      } finally { await adapter.dispose(); }
+    });
+
+    it('describes confirmed termination only when its owner supplies that evidence', () => {
+      const unconfirmed = new MaxBufferExceededError(4, 'stdout');
+      expect(unconfirmed.message).toContain('execution outcome unknown');
+      const confirmed = new MaxBufferExceededError(4, 'stdout', 'head', '', 'terminated');
+      expect(confirmed.outcome).toBe('terminated');
+      expect(confirmed.message).toContain('termination confirmed');
+      expect(confirmed.kind).not.toBe('outcome-unknown');
     });
 
     it('defaults the partial output to empty, not undefined', () => {

@@ -1,9 +1,9 @@
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { SSHClient } from '@xec-sh/ssh';
 import { it, vi, expect, describe, afterEach } from 'vitest';
 import { rm, mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 
-import { NodeSSH } from '../../../src/adapters/ssh/ssh.js';
 import { SSHAdapter } from '../../../src/adapters/ssh/index.js';
 
 const cleanups: Array<() => Promise<unknown>> = [];
@@ -12,21 +12,21 @@ async function directory() { const path = await mkdtemp(join(tmpdir(), 'xec-sftp
 
 describe('directory transfer ownership', () => {
   it('creates the remote root even if the source is empty, and includes hidden files by default', async () => {
-    const local = await directory(), ssh = new NodeSSH();
+    const local = await directory(), ssh = new SSHClient();
     const sftp = { end: vi.fn() } as any;
     vi.spyOn(ssh, 'requestSFTP').mockResolvedValue(sftp);
     const create = vi.spyOn(ssh, 'mkdir').mockResolvedValue();
     const put = vi.spyOn(ssh, 'putFile').mockResolvedValue();
     expect(await ssh.putDirectory(local, '/destination')).toBe(true);
-    expect(create).toHaveBeenCalledWith('/destination', 'sftp', sftp);
+    expect(create).toHaveBeenCalledWith('/destination', sftp);
     await writeFile(join(local, '.config'), 'content');
     await mkdir(join(local, 'empty'));
     expect(await ssh.putDirectory(local, '/destination')).toBe(true);
     expect(put).toHaveBeenCalledWith(join(local, '.config'), '/destination/.config', sftp, {});
-    expect(create).toHaveBeenCalledWith('/destination/empty', 'sftp', sftp);
+    expect(create).toHaveBeenCalledWith('/destination/empty', sftp);
   });
   it('drains already dispatched uploads before closing a failed batch', async () => {
-    const ssh = new NodeSSH(), sftp = { end: vi.fn() } as any;
+    const ssh = new SSHClient(), sftp = { end: vi.fn() } as any;
     vi.spyOn(ssh, 'requestSFTP').mockResolvedValue(sftp);
     let finish!: () => void;
     const active = new Promise<void>(resolve => { finish = resolve; });
@@ -40,7 +40,7 @@ describe('directory transfer ownership', () => {
     expect(sftp.end).toHaveBeenCalledOnce();
   });
   it('rejects nested traversal failures and releases the subsystem', async () => {
-    const ssh = new NodeSSH(), local = await directory();
+    const ssh = new SSHClient(), local = await directory();
     const sftp = { end: vi.fn(), readdir: vi.fn((path, done) => path === '/root'
       ? done(undefined, [{ filename: 'child', attrs: { isDirectory: () => true } }]) : done(new Error('permission denied'))) } as any;
     vi.spyOn(ssh, 'requestSFTP').mockResolvedValue(sftp);
@@ -48,7 +48,7 @@ describe('directory transfer ownership', () => {
     expect(sftp.end).toHaveBeenCalledOnce();
   });
   it('rejects path separators from a malicious server before creating local files', async () => {
-    const ssh = new NodeSSH(), local = await directory();
+    const ssh = new SSHClient(), local = await directory();
     const sftp = { end: vi.fn(), readdir: vi.fn((_path, done) => done(undefined, [{ filename: '../escape', attrs: {} }])) } as any;
     vi.spyOn(ssh, 'requestSFTP').mockResolvedValue(sftp);
     await expect(ssh.getDirectory(join(local, 'destination'), '/root')).rejects.toMatchObject({ code: 'EPROTO' });
@@ -65,7 +65,7 @@ describe('directory transfer ownership', () => {
         await active; options.tick('/local', '/remote', new Error('unconfirmed download')); return false;
       },
     } };
-    vi.spyOn(adapter, 'getConnection').mockImplementation(async () => { connection.activeUseCount++; return connection; });
+    vi.spyOn(adapter, 'getConnection').mockImplementation(async () => { connection.activeUseCount++; return { client: connection.ssh, markFailed: vi.fn(), release: () => { connection.activeUseCount--; connection.lastUsed = Date.now(); } }; });
     const outcome = expect(adapter.downloadDirectory('/remote', '/local', { type: 'ssh', host: 'fixture' })).rejects.toThrow('unconfirmed download');
     await vi.waitFor(() => expect(connection.activeUseCount).toBe(1));
     finish(); await outcome;

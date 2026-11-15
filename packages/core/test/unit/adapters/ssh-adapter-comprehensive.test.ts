@@ -32,16 +32,7 @@ describe('SSHAdapter - Comprehensive Unit Tests', () => {
       expect(customAdapter).toBeInstanceOf(SSHAdapter);
     });
 
-    it('should create adapter with custom multiplexing config', () => {
-      const customAdapter = new SSHAdapter({
-        multiplexing: {
-          enabled: true,
-          controlPath: '/tmp/ssh-%r@%h:%p',
-          controlPersist: 300
-        }
-      });
-      expect(customAdapter).toBeInstanceOf(SSHAdapter);
-    });
+
 
     it('should create adapter with custom sudo config', () => {
       const customAdapter = new SSHAdapter({

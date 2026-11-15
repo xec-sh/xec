@@ -1,0 +1,85 @@
+{
+  "upstream": "https://github.com/mscdex/ssh2",
+  "version": "1.17.0",
+  "npmIntegrity": "sha512-wPldCk3asibAjQ/kziWQQt1Wh3PgDFpC0XpwclzKcdT1vql6KeYxf5LIt4nlFkUeR8WuphYMKqUA56X4rjbfgQ==",
+  "license": "MIT",
+  "importedPatchedSources": {
+    "client.js": "eeb77fdf6b39ec3b3b2e254e1517dd2a7cca18c65996235e61781b23ebe5315f",
+    "agent.js": "cc6987488bf45f73e0ac5d8bbe59912b70a144cd73b53c83919f188f4cc3f2be",
+    "Channel.js": "5ecbb9cc651c227e6210e6103b6804acad2aba9e58abcad3dd4be955cb2c011a",
+    "utils.js": "90dfc286c11baf2cc9c0cdac1a6a86b0df78d5435fb74378d9de15d72209a409",
+    "protocol/Protocol.js": "c1104b49087de7a91cd3ffaac8807c05eebf49f61effd084d0b0caf29fde6af4",
+    "protocol/SFTP.js": "615871028340d9be98eb564ab6bdd021fe8ae44a4a25df928038e14e3bc5c201",
+    "protocol/constants.js": "a3894fdd8e294109b55f06fbda69e467741f15a250801b744b6b0487bbf32529",
+    "protocol/handlers.misc.js": "465ec663f7062e8b4ba2fbb0de7c77953545b4587654326d3c1df4852fe055e3",
+    "protocol/kex.js": "054ba4b81801596350f0e2e939746d2966297cffd4303b342c25b2fd5d295755",
+    "protocol/keyParser.js": "ba4f40a5a9edef15ff49a38226e2be2e66f75aa2673840dd18b807bb7943eca9",
+    "protocol/utils.js": "402b39e75ede9e3dc99af5e8af008602546f35aa1472bd4232c06f606987f053"
+  },
+  "patch": {
+    "sha256": "b093aff52296daf3419c28723468ce8f5488950e3053c6a644826e44dc789a94",
+    "references": [
+      "https://github.com/mscdex/ssh2/issues/1504",
+      "https://github.com/mscdex/ssh2/issues/1505",
+      "https://github.com/mscdex/ssh2/pull/1509",
+      "https://github.com/mscdex/ssh2/issues/1522",
+      "https://github.com/mscdex/ssh2/pull/1523"
+    ]
+  },
+  "exclusions": [
+    "server facade",
+    "HTTP agents",
+    "key generation",
+    "native binding",
+    "NAN",
+    "cpu-features",
+    "Poly1305 WASM",
+    "legacy Pageant/Cygwin helpers",
+    "compression"
+  ],
+  "adaptation": {
+    "scope": "Private ESM transport engine; no ssh2 public API compatibility or runtime dependency",
+    "sourceFixes": [
+      "receive-window and packet-size enforcement",
+      "outgoing WINDOW_ADJUST uint32 overflow rejection",
+      "zero-packet open rejection",
+      "pending channel write settlement",
+      "SFTP lifecycle cleanup and exactly one acknowledged CLOSE",
+      "automatic rekey by byte/packet/time budget and bounded queue/deadline",
+      "exact safe-number SFTP decoding with bounded fields and request settlement on malformed replies"
+    ],
+    "replacements": {
+      "crypto": "Runtime AES-GCM; optional OpenSSH ChaCha only with native raw ChaCha20 and Poly1305",
+      "keyParser": "Native KeyObject PEM/JWK and bounded OpenSSH container decoding",
+      "agent": "Bounded OpenSSH agent client framing with verified signature algorithm",
+      "packet": "Uncompressed SSH packets; no runtime-private zlib APIs"
+    },
+    "exclusions": [
+      "SHA-1/DSA/CBC transport algorithms",
+      "DH group exchange and obsolete vendor branches",
+      "PuTTY/PPK and RFC4716 key containers",
+      "certificate and security-key variants not explicitly negotiated"
+    ]
+  },
+  "cryptographyReferences": [
+    "https://datatracker.ietf.org/doc/html/rfc4253",
+    "https://datatracker.ietf.org/doc/html/rfc4254#section-5.2",
+    "https://datatracker.ietf.org/doc/html/rfc5647",
+    "https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.chacha20poly1305",
+    "https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.key",
+    "https://nodejs.org/api/crypto.html"
+  ],
+  "wrapperLineage": {
+    "upstream": "https://github.com/steelbrain/node-ssh",
+    "version": null,
+    "versionEvidence": "Exact originally incorporated upstream version is not recorded; no version is inferred.",
+    "sourceSnapshot": {
+      "repository": "https://github.com/xec-sh/xec",
+      "commit": "24556bf1a85889b8d52358f2a8f503f16a47bede",
+      "path": "packages/core/src/adapters/ssh/ssh.ts"
+    },
+    "license": "MIT",
+    "licenseFile": "NODE-SSH-LICENSE",
+    "adaptation": "The owned typed client preserves attributed lineage while replacing compatibility APIs, transport ownership, trust and operation lifecycle."
+  }
+}

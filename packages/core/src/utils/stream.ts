@@ -57,7 +57,7 @@ export class StreamHandler {
   constructor(options: StreamHandlerOptions = {}) {
     this.encoding = options.encoding || 'utf8';
     this.decoder = new StringDecoder(this.encoding);
-    this.maxBuffer = options.maxBuffer || 1024 * 1024 * 10; // 10MB default
+    this.maxBuffer = options.maxBuffer ?? 1024 * 1024 * 10; // 10MB default
     this.onData = options.onData;
     this.onError = options.onError;
     this.onEnd = options.onEnd;

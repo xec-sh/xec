@@ -222,12 +222,15 @@ export class MaxBufferExceededError extends ExecutionError {
     public readonly stream: 'stdout' | 'stderr',
     /** Output collected before the cap was hit, truncated at the limit. */
     public partialStdout: string = '',
-    public partialStderr: string = ''
+    public partialStderr: string = '',
+    /** A stream cap alone does not confirm that its producer has stopped. */
+    public readonly outcome: 'terminated' | 'unknown' = 'unknown',
   ) {
     super(
-      `${stream} exceeded maxBuffer of ${limit} bytes; output truncated and process terminated`,
+      `${stream} exceeded maxBuffer of ${limit} bytes; output truncated; ${outcome === 'terminated' ? 'process termination confirmed' : 'execution outcome unknown'}`,
       'MAX_BUFFER_EXCEEDED',
-      { limit, stream }
+      { limit, stream, outcome },
+      outcome === 'unknown' ? 'outcome-unknown' : undefined,
     );
     this.name = 'MaxBufferExceededError';
   }

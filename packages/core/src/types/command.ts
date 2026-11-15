@@ -1,7 +1,7 @@
 import type { Duration } from '../utils/helpers.js';
 import type { Readable, Writable } from 'node:stream';
 import type { RetryOptions } from '../utils/retry-adapter.js';
-import type { SSHConnectionConfig } from '../adapters/ssh/contracts.js';
+import type { SSHConnectionConfig } from '@xec-sh/ssh';
 import type { ProcessHandle, ExecutionResource } from './process-handle.js';
 
 /**

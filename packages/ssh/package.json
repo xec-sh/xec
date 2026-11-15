@@ -1,0 +1,53 @@
+{
+  "name": "@xec-sh/ssh",
+  "version": "0.12.0",
+  "description": "Typed SSH connections, channels, transfers and tunnels using native runtime cryptography",
+  "type": "module",
+  "license": "MIT",
+  "author": "LuxQuant",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "NODE-SSH-LICENSE",
+    "SSH-TYPES-LICENSE",
+    "PROVENANCE.json",
+    "!dist/**/*.map"
+  ],
+  "scripts": {
+    "build": "pnpm --dir ../.. exec xec package build packages/ssh",
+    "clean": "pnpm --dir ../.. exec xec package clean packages/ssh",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:transport": "node --test test/transport/*.test.js"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@typescript/native": "npm:typescript@^7.0.2",
+    "vitest": "^5.1.0",
+    "ssh2": "1.17.0",
+    "@types/ssh2": "^1.15.6",
+    "node-pty": "^1.1.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xec-sh/xec.git",
+    "directory": "packages/ssh"
+  },
+  "homepage": "https://xec.sh",
+  "dependencies": {
+    "asn1": "0.2.6",
+    "bcrypt-pbkdf": "1.0.2"
+  }
+}

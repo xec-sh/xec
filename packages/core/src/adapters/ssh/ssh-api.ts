@@ -1,3 +1,4 @@
+import type { SSHTunnel } from '@xec-sh/ssh';
 import type { Duration } from '../../utils/helpers.js';
 import type { Command, SSHAdapterOptions } from '../../types/command.js';
 import type { ProcessPromise, ExecutionEngine } from '../../core/execution-engine.js';
@@ -5,33 +6,7 @@ import type { SSHAdapter, SSHFileTransferOptions, SSHDirectoryTransferOptions } 
 
 import { withEngineSurface } from '../target-surface.js';
 
-// Type for SSH tunnel
-export interface SSHTunnel {
-  localPort: number;
-  localHost: string;
-  remoteHost: string;
-  remotePort: number;
-  isOpen: boolean;
-  /** Resolves after all tunnel resources close, including transport loss. */
-  closed: Promise<void>;
-  open(): Promise<void>;
-  close(): Promise<void>;
-}
-
-/**
- * A reverse tunnel: the remote host listens and forwards each connection to a
- * local address. The counterpart of {@link SSHTunnel}, which listens locally.
- */
-export interface ReverseSSHTunnel {
-  /** Port the remote host is listening on; resolved if 0 was requested. */
-  remotePort: number;
-  remoteHost: string;
-  localHost: string;
-  localPort: number;
-  isOpen: boolean;
-  closed: Promise<void>;
-  close(): Promise<void>;
-}
+export type { SSHTunnel } from '@xec-sh/ssh';
 
 /**
  * Interface for the SSH execution context
@@ -41,7 +16,7 @@ export interface SSHExecutionContext {
   (strings: TemplateStringsArray, ...values: any[]): ProcessPromise;
 
   // Methods
-  exec(strings: TemplateStringsArray, ...values: any[]): ProcessPromise;
+  exec(command: string, options?: Partial<Command>): ProcessPromise;
   raw(strings: TemplateStringsArray, ...values: any[]): ProcessPromise;
   tunnel(options: {
     localPort?: number;
@@ -60,7 +35,7 @@ export interface SSHExecutionContext {
     localPort: number;
     timeoutMs?: number;
     signal?: AbortSignal;
-  }): Promise<ReverseSSHTunnel>;
+  }): Promise<SSHTunnel>;
   uploadFile(localPath: string, remotePath: string, options?: SSHFileTransferOptions): Promise<void>;
   downloadFile(remotePath: string, localPath: string, options?: SSHFileTransferOptions): Promise<void>;
   uploadDirectory(localPath: string, remotePath: string, options?: SSHDirectoryTransferOptions): Promise<void>;
@@ -71,7 +46,7 @@ export interface SSHExecutionContext {
   cd(dir: string): SSHExecutionContext;
   timeout(duration: Duration): SSHExecutionContext;
   shell(shell: string | boolean): SSHExecutionContext;
-  retry(options: { maxRetries?: number; initialDelay?: number; maxDelay?: number; factor?: number }): SSHExecutionContext;
+  retry(options: Parameters<ExecutionEngine['retry']>[0]): SSHExecutionContext;
   with(config: Partial<Command> & { defaultEnv?: Record<string, string>; defaultCwd?: string }): SSHExecutionContext;
   defaults(config: Partial<Command> & { defaultEnv?: Record<string, string>; defaultCwd?: string }): SSHExecutionContext;
 }
@@ -82,14 +57,12 @@ export interface SSHExecutionContext {
 export function createSSHExecutionContext(
   engine: ExecutionEngine,
   sshOptions: Omit<SSHAdapterOptions, 'type'>,
-  commandConfig: Partial<Command> & {
-    retry?: { maxRetries?: number; initialDelay?: number; maxDelay?: number; factor?: number };
-  } = {}
+  commandConfig: Partial<Command> = {}
 ): SSHExecutionContext {
   /**
    * Execute a command via SSH
    */
-  const exec = (strings: TemplateStringsArray, ...values: any[]): ProcessPromise => {
+  const run = (strings: TemplateStringsArray, ...values: any[]): ProcessPromise => {
     // Create new engine with SSH adapter configured
     let sshEngine = engine.with({
       adapter: 'ssh',
@@ -154,7 +127,7 @@ export function createSSHExecutionContext(
     localPort: number;
     timeoutMs?: number;
     signal?: AbortSignal;
-  }): Promise<ReverseSSHTunnel> => {
+  }): Promise<SSHTunnel> => {
     const adapter = engine.getAdapter('ssh') as SSHAdapter;
 
     if (!adapter) {
@@ -236,7 +209,7 @@ export function createSSHExecutionContext(
     shell: shellValue
   });
 
-  const retry = (options: { maxRetries?: number; initialDelay?: number; maxDelay?: number; factor?: number }): SSHExecutionContext => createSSHExecutionContext(engine, sshOptions, {
+  const retry = (options: Parameters<ExecutionEngine['retry']>[0]): SSHExecutionContext => createSSHExecutionContext(engine, sshOptions, {
     ...commandConfig,
     retry: options
   });
@@ -262,8 +235,7 @@ export function createSSHExecutionContext(
   };
 
   // Create the callable object
-  const context = Object.assign(exec, {
-    exec,
+  const context = Object.assign(run, {
     raw,
     tunnel,
     reverseTunnel,
@@ -291,5 +263,5 @@ export function createSSHExecutionContext(
     });
 
     return commandConfig.retry ? targeted.retry(commandConfig.retry) : targeted;
-  });
+  }) as SSHExecutionContext;
 }

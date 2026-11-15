@@ -8,7 +8,6 @@ import type { PipeTarget, PipeOptions } from './pipe-implementation.js';
 import { Writable, PassThrough } from 'node:stream';
 
 import { globalCache } from '../utils/cache.js';
-import { ExecutionResultImpl } from './result.js';
 import { executePipe } from './pipe-implementation.js';
 import { captureCallSite } from '../utils/call-site.js';
 import { within, getLocalContext } from '../utils/within.js';
@@ -138,77 +137,36 @@ export class ProcessContext {
    * Execute with async flow and early returns
    */
   async execute(): Promise<ExecutionResult> {
+    const commandParts = await Promise.resolve(this.commandResolver());
+    const command = this.buildCommand(commandParts);
+    command.signal = this.executionSignal(command.signal);
+
+    // Presentation and adapters must use the same effective exit-code policy.
+    if (command.nothrow !== undefined) {
+      this.state.modifications.nothrow = command.nothrow;
+    }
+
+    // Only adapters can provide a completed result. Transport, cancellation,
+    // resolution and ownership errors remain rejections, including in nothrow.
+    if (!this.state.cacheOptions) return this.engine.execute(command);
+
+    const cacheKey = this.getCacheKey(command);
+    const existing = globalCache.get(cacheKey) || globalCache.getInflight(cacheKey);
+    if (existing) return existing;
+
+    const executePromise = this.engine.execute(command);
+    globalCache.setInflight(cacheKey, executePromise);
     try {
-      // Resolve command (supports both sync and async)
-      const commandParts = await Promise.resolve(this.commandResolver());
-      const command = this.buildCommand(commandParts);
-      command.signal = this.executionSignal(command.signal);
-
-      // Save the final nothrow value back to state for use in promise handling
-      if (command.nothrow !== undefined) {
-        this.state.modifications.nothrow = command.nothrow;
-      }
-
-      // Fast path for non-cached execution
-      if (!this.state.cacheOptions) {
-        try {
-          return await this.engine.execute(command);
-        } catch (error) {
-          if (command.nothrow) {
-            return new ExecutionResultImpl(
-              '',
-              error instanceof Error ? error.message : String(error),
-              1,
-              undefined,
-              command.command || '',
-              0,
-              new Date(),
-              new Date(),
-              command.adapter || 'local'
-            );
-          }
-          throw error;
+      const result = await executePromise;
+      if (result.exitCode === 0 || command.nothrow) {
+        globalCache.set(cacheKey, result, this.state.cacheOptions.ttl || 60000);
+        if (this.state.cacheOptions.invalidateOn) {
+          globalCache.invalidate(this.state.cacheOptions.invalidateOn);
         }
       }
-
-      // Cache path
-      const cacheKey = this.getCacheKey(command);
-
-      // Check cache and inflight
-      const existing = globalCache.get(cacheKey) || globalCache.getInflight(cacheKey);
-      if (existing) return existing;
-
-      // Execute with cache tracking
-      const executePromise = this.engine.execute(command);
-      globalCache.setInflight(cacheKey, executePromise);
-
-      try {
-        const result = await executePromise;
-        if (result.exitCode === 0 || command.nothrow) {
-          globalCache.set(cacheKey, result, this.state.cacheOptions.ttl || 60000);
-          if (this.state.cacheOptions.invalidateOn) {
-            globalCache.invalidate(this.state.cacheOptions.invalidateOn);
-          }
-        }
-        return result;
-      } finally {
-        globalCache.clearInflight(cacheKey);
-      }
-    } catch (error) {
-      if (this.state.modifications.nothrow) {
-        return new ExecutionResultImpl(
-          '',
-          error instanceof Error ? error.message : String(error),
-          1,
-          undefined,
-          this.state.modifications.command || '',
-          0,
-          new Date(),
-          new Date(),
-          'local'
-        );
-      }
-      throw error;
+      return result;
+    } finally {
+      globalCache.clearInflight(cacheKey);
     }
   }
 
@@ -371,6 +329,7 @@ export class ProcessContext {
       {
         nothrow: modifications.nothrow ??
           commandParts.nothrow ??
+          this.engine.currentConfig.nothrow ??
           (globalNothrow || undefined),
         // The adapter publishes the live process here; everything the caller
         // can reach while a command runs — `.child`, `.pid`, `.stdin`,
