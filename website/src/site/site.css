@@ -1027,18 +1027,6 @@ summary {
     flex-direction: column;
     gap: 10px;
   }
-  .search-overlay {
-    padding: 7vh 12px;
-  }
-  .lumen-search-dialog {
-    padding: 14px;
-  }
-  .lumen-search-input {
-    font-size: 16px;
-  }
-  .lumen-search-result-link {
-    padding: 10px;
-  }
 }
 @media (prefers-reduced-motion: reduce) {
   *,
