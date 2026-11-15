@@ -1,608 +1,434 @@
 ---
 title: Environment Variables
-description: Using environment variables in Xec configuration
+description: Configuration inputs, child-process environments and secrets without implicit authority
 ---
 
 # Environment Variables {#environment-variables}
 
-Environment variables provide a flexible way to configure Xec without modifying configuration files. They're ideal for secrets, deployment-specific settings, and CI/CD integration.
+Use environment variables for values supplied by a workstation, CI runner or
+service manager. Keep operation definitions, target selection and validation in
+reviewed project configuration. A value is not permission to execute a command.
+
+Three environments are distinct: the process running Xec, the configuration
+resolved by Xec, and the child process or remote target. Setting a configuration
+variable does not automatically export it to a child or to a remote host.
+
+:::note Development contract
+Literal treatment of runtime inputs, safe task interpolation, command-free
+previews and `envMode: 'replace'` describe the current development implementation.
+Do not assume these guarantees in published Xec 0.12.0. Keep untrusted values out
+of executable configuration on that release; upgrade before relying on these
+boundaries. The examples that only read ordinary environment values do not need
+replacement mode.
+:::
 
 ## Environment Variable Types {#environment-variable-types}
 
-### 1. Xec System Variables {#1-xec-system-variables}
+### Xec settings {#1-xec-system-variables}
 
-Variables that control Xec behavior:
+| Variable | Purpose |
+| --- | --- |
+| `XEC_CONFIG` | Additional configuration file, merged over project configuration |
+| `XEC_PROFILE` | Profile selected when the caller has not explicitly selected one |
+| `XEC_HOME_DIR` | Global configuration directory; defaults to `~/.xec` |
+| `XEC_COMMANDS_PATH` | Additional project-command directories |
+| `XEC_DEBUG` | Enables diagnostic output; unset it for normal operation |
+| `NO_COLOR` | Requests uncolored terminal output |
 
-```bash
-# Configuration
-XEC_CONFIG=/path/to/config.yaml     # Extra config file merged over the project config
-XEC_PROFILE=production              # Active profile
-XEC_HOME_DIR=~/.xec                 # Global config directory (default ~/.xec)
+Command paths use the platform path-list delimiter in development: `:` on POSIX,
+`;` on Windows. Xec 0.12.0 splits this setting on `:`, which is unsuitable for a
+Windows drive-letter path. Command directories contain executable code; only add
+trusted directories. `XEC_NO_INTERACTIVE` is consumed by scaffolding; it is **not**
+a universal guarantee that every command will avoid prompts. Use each command's
+explicit noninteractive options and documented CI behavior.
 
-# Behavior
-XEC_DEBUG=true                      # Enable debug output
-XEC_NO_INTERACTIVE=true             # Disable interactive prompts
-NO_COLOR=1                          # Disable colored output (standard variable)
+### Configuration variables {#2-configuration-variables}
 
-# Custom commands
-XEC_COMMANDS_PATH=./my-commands     # Extra dynamic-command directories
-```
-
-### 2. Configuration Variables {#2-configuration-variables}
-
-Override configuration values:
-
-Any `XEC_*` variable (except `XEC_PROFILE`) is converted to a configuration path: the prefix is stripped, the rest is lowercased, and **every underscore becomes a dot**:
+Use `XEC_VARS_` for configuration data. Each underscore becomes a path separator,
+and values remain strings:
 
 ```bash
-XEC_VARS_VERSION=2.0.0              # sets vars.version
-XEC_VARS_DATABASE_HOST=db.example.com  # sets vars.database.host (nested!)
-XEC_VARS_CACHE_PORT=6379            # sets vars.cache.port
+XEC_VARS_DATABASE_HOST=db.example.com pnpm exec xec config get vars.database.host
 ```
 
-Because underscores always create nesting, variables whose names themselves contain underscores (e.g. `app_name`) cannot be addressed this way — use dotted/nested names in `vars` instead.
+This overrides `vars.database.host`, not `vars.database_host`. For a key containing
+an underscore, declare the key in YAML and reference an ordinary environment
+variable with `${env.NAME}`. Do not use arbitrary `XEC_` names for application
+settings. The loader maps prefixed names to configuration paths; unsupported paths
+can fail validation. Development rejects attempts to define `tasks` or `profiles`
+through environment overrides.
 
-### 3. Secret Variables {#3-secret-variables}
+### Secrets {#3-secret-variables}
 
-With the `env` secrets provider (or as a fallback for `${secrets.*}` lookups), secrets are read from `SECRET_*` environment variables — the key is uppercased and `.`/`-` become `_`:
+The `env` secret provider reads `SECRET_` by default. For example,
+`${secrets.api-key}` reads `SECRET_API_KEY`: the key is uppercased and dots/hyphens
+become underscores. Supply the value through the environment of the Xec process,
+not a committed file or command-line argument. See [secret management](#secret-management).
 
-```bash
-SECRET_API_KEY=sk-1234567890          # ${secrets.api_key}
-SECRET_DATABASE_PASSWORD=secure-pass  # ${secrets.database_password}
-```
+### Application variables {#4-user-environment-variables}
 
-```yaml
-secrets:
-  provider: env
-  config:
-    prefix: SECRET_   # default
-```
-
-### 4. User Environment Variables {#4-user-environment-variables}
-
-Access system environment in configuration:
-
-```bash
-# System variables
-HOME=/home/user
-USER=developer
-PATH=/usr/local/bin:/usr/bin:/bin
-
-# Custom variables
-API_URL=https://api.example.com
-NODE_ENV=production
-DEBUG=app:*
-```
+Names such as `APP_API_URL`, `NODE_ENV` and `PATH` belong to the application or
+host. Xec reads them through `${env.NAME}` in configuration or `process.env.NAME`
+in a local script. Use an application prefix rather than the reserved `XEC_`
+prefix. Preserve host variables such as `HOME` and `PATH` unless the operation
+explicitly needs a different value.
 
 ## Using Environment Variables {#using-environment-variables}
 
-### In Configuration Files {#in-configuration-files}
+### Configuration values {#in-configuration-files}
 
 ```yaml
-# Access environment variables
+version: '1.0'
 vars:
-  # Direct access
-  home: ${env.HOME}
-  user: ${env.USER}
-  
-  # With defaults — everything after ':' is the default (bash-style ':-' is not supported)
-  apiUrl: ${env.API_URL:http://localhost:3000}
-  nodeEnv: ${env.NODE_ENV:development}
-  
-  # Complex usage
-  database:
-    host: ${env.DB_HOST:localhost}
-    port: ${env.DB_PORT:5432}
-    name: ${env.DB_NAME:myapp}
-    url: postgres://${env.DB_USER}:${env.DB_PASSWORD}@${database.host}:${database.port}/${database.name}
+  apiUrl: ${env.APP_API_URL:http://localhost:3000}
+  mode: ${env.NODE_ENV:development}
 ```
 
-### In Tasks {#in-tasks}
+An unset value without a default is an error. An empty string is a supplied value;
+it does not activate the default. The development interpolator accepts both
+`${env.NAME:default}` and `${env.NAME:-default}` with the same **unset-only**
+semantics; this is not the shell's empty-or-unset `:-` operator.
+
+Environment values, task parameters, secret results and command output stay
+literal in development, even when their text contains `${cmd:...}`. Reviewed
+configuration templates can reference other variables; runtime data cannot
+recursively become executable template text. This does not make a configuration
+file a sandbox: authored `${cmd:...}` expressions are executable code and require
+[configuration trust](../../commands/built-in/config.md).
+
+### Command tasks {#in-tasks}
 
 ```yaml
+version: '1.0'
 tasks:
-  environment-aware:
-    command: |
-      echo "User: ${env.USER}"
-      echo "Home: ${env.HOME}"
-      echo "Path: ${env.PATH}"
-      echo "Custom: ${env.CUSTOM_VAR}"
-    
-    # Pass environment to command
+  show-mode:
+    command: node -e 'console.log(process.env.NODE_ENV)'
     env:
-      NODE_ENV: ${env.NODE_ENV:development}
-      API_KEY: ${env.API_KEY}
-      WORKERS: ${env.WORKERS:4}
+      NODE_ENV: ${env.APP_MODE:development}
 ```
 
-### In Scripts {#in-scripts}
+Run `pnpm exec xec run show-mode`. The task's `env` supplies child-process values;
+it does not replace the local inherited environment. For a multi-step task,
+step values override task values, and explicit execution options override both.
+Target defaults are applied before task/execution values. A remote target receives
+its declared values; do not assume your entire local environment is forwarded.
 
-```yaml
-tasks:
-  script-env:
-    script: |
-      // Access environment variables
-      const homeDir = process.env.HOME;
-      const apiUrl = process.env.API_URL || 'http://localhost:3000';
-      
-      // Use in logic
-      if (process.env.NODE_ENV === 'production') {
-        await runProductionChecks();
-      }
-      
-      // Set new environment variables
-      process.env.CUSTOM_VAR = 'value';
+For interpolated command arguments, let Xec own escaping. In development,
+`${params.name}` is data, including inside ordinary POSIX/PowerShell quoted
+words. References after shell escapes, in comments or ambiguous nested shell
+programs are rejected; argument arrays cannot appear inside quotes. Prefer
+unquoted interpolation and explicit argv when possible. Do not construct shell
+command text from untrusted strings.
+
+### Scripts {#in-scripts}
+
+A task's `script` is a file path, not an inline JavaScript body. This script checks
+presence without printing credentials:
+
+```ts
+// verify-environment.ts
+const required = ['APP_API_URL', 'SECRET_API_KEY'];
+const missing = required.filter((name) => !process.env[name]);
+if (missing.length) {
+  throw new Error(`Missing environment variables: ${missing.join(', ')}`);
+}
+console.log('Required environment variables are present');
 ```
+
+Run `pnpm exec xec run ./verify-environment.ts`. Scripts execute locally in the Xec
+process. Task/target environment defaults apply to their `$target` command engine;
+they do not rewrite `process.env`, relocate the script to a remote machine or
+isolate its imports. Use a command task for a separately owned child process.
 
 ## Environment Variable Precedence {#environment-variable-precedence}
 
-Configuration sources are merged in this order (highest to lowest):
+Configuration sources merge from lowest to highest priority:
 
-1. **Active profile** (`XEC_PROFILE`)
-2. **`XEC_*` environment variables** (e.g. `XEC_VARS_PORT`)
-3. **`XEC_CONFIG` file**
-4. **Project configuration file**
-5. **Global configuration** (`~/.xec/config.yaml`)
-6. **Built-in defaults**
+1. Built-in defaults.
+2. Global configuration in `XEC_HOME_DIR` (normally `~/.xec`).
+3. Project configuration.
+4. The file selected by `XEC_CONFIG`.
+5. Prefixed environment overrides such as `XEC_VARS_PORT`.
+6. The active profile's variable and target overrides.
 
-Example:
-
-```yaml
-# Configuration file
-vars:
-  port: 8080
-
-# Profile
-profiles:
-  production:
-    vars:
-      port: 3000
-```
-
-```bash
-# Environment variable overrides the config file value
-export XEC_VARS_PORT=9000
-xec run server        # port = 9000
-
-# But the active profile wins over the environment variable
-XEC_PROFILE=production xec run server  # port = 3000
-```
+Profile values can therefore override `XEC_VARS_PORT`. This is configuration
+precedence, separate from child-process environment merging. For a nonsecret
+value, inspect the result with `pnpm exec xec config get vars.port`; do not dump
+resolved configuration containing credentials into CI logs.
 
 ## Setting Environment Variables {#setting-environment-variables}
 
-### Shell Export {#shell-export}
+### Current invocation or shell {#shell-export}
+
+On POSIX shells, prefix one invocation:
 
 ```bash
-# Bash/Zsh
-export XEC_PROFILE=production
-export API_KEY=secret-key
-
-# Fish
-set -x XEC_PROFILE production
-set -x API_KEY secret-key
-
-# Windows CMD
-set XEC_PROFILE=production
-set API_KEY=secret-key
-
-# Windows PowerShell
-$env:XEC_PROFILE = "production"
-$env:API_KEY = "secret-key"
+APP_MODE=development pnpm exec xec run show-mode
 ```
 
-### .env Files {#env-files}
+In PowerShell, set the process environment before invoking the same command:
 
-```bash
-# .env file
-XEC_PROFILE=development
-NODE_ENV=development
-API_URL=http://localhost:3000
-DATABASE_URL=postgres://localhost/dev
-
-# Load .env file
-source .env  # Bash
-export $(cat .env | xargs)  # Alternative
+```powershell
+$env:APP_MODE = 'development'
+pnpm exec xec run show-mode
 ```
 
-:::note
-There is no built-in dotenv support — load `.env` files in your shell (as above) before invoking `xec`. The `dotenv` secrets provider is declared in the type but not implemented.
-:::
+These examples assume the `show-mode` task above. They do not create a persistent
+host setting or deploy an application.
 
-### CI/CD Systems {#cicd-systems}
+### `.env` files {#env-files}
 
-#### GitHub Actions {#github-actions}
+Xec does not automatically load `.env` files, and `dotenv` is not an implemented
+secret provider. Use your CI/service manager's environment injection or an
+explicit, trusted environment-file loader before starting Xec. Shell `source`
+executes a file as code; it is not a safe dotenv parser. Avoid `export $(cat .env |
+xargs)`, which loses quoting and can expose values. Keep real `.env` files outside
+version control; an `.env.example` should contain names and harmless defaults.
 
-```yaml
-# .github/workflows/deploy.yml
-env:
-  XEC_PROFILE: production
-  API_KEY: ${{ secrets.API_KEY }}
+### CI jobs {#cicd-systems}
 
-jobs:
-  deploy:
-    steps:
-      - run: xec run deploy
-```
+Provide secrets using the CI system's protected environment, scoped to the step
+that needs them. Install pinned project dependencies before `pnpm exec xec run
+<task>`. Review which workflow revisions and untrusted contributions can access
+those values. Xec does not configure CI permissions, provision secrets or make a
+repeated deployment safe merely because it is a task.
 
-#### GitLab CI {#gitlab-ci}
+### GitHub Actions {#github-actions}
 
-```yaml
-# .gitlab-ci.yml
-variables:
-  XEC_PROFILE: production
-  API_KEY: ${CI_API_KEY}
+Set nonsecret inputs in the job/step `env` map and inject credentials from the
+repository or environment secret store. Restrict deployment environments and
+permissions independently of Xec. A checkout, dependency installation and an
+explicit `run` step are required; an `env` block alone is not a workflow.
 
-deploy:
-  script:
-    - xec run deploy
-```
+### GitLab CI {#gitlab-ci}
 
-#### Jenkins {#jenkins}
+Use protected CI variables scoped to the intended environment and job. Masking
+logs does not stop a job from reading its environment; review the job's code and
+runner trust before supplying credentials.
 
-```groovy
-// Jenkinsfile
-environment {
-  XEC_PROFILE = 'production'
-  API_KEY = credentials('api-key')
-}
+### Jenkins {#jenkins}
 
-stage('Deploy') {
-  sh 'xec run deploy'
-}
-```
+Bind credentials inside the relevant pipeline stage. Invoke the same pinned Xec
+project command there; do not put credential values into shell command strings or
+persist them in generated project configuration.
 
 ## Profile Selection via Environment {#profile-selection-via-environment}
 
-### Default Profile {#default-profile}
+### Session default {#default-profile}
+
+`XEC_PROFILE` selects a declared profile for commands that load project
+configuration. It does not affect an independent script merely by being set.
+Use an explicit environment or reviewed CI job rather than guessing a production
+profile from the username, branch name or the presence of `CI`.
+
+### One invocation {#override-profile}
 
 ```bash
-# Set default profile
-export XEC_PROFILE=staging
-
-# All commands use staging profile
-xec run deploy  # Uses staging
-xec run test    # Uses staging
+XEC_PROFILE=staging pnpm exec xec run show-mode
 ```
 
-### Override Profile {#override-profile}
+This assumes a `staging` profile exists. An explicit profile passed by an API
+caller takes precedence over `XEC_PROFILE`. See [profiles](../profiles/overview.md)
+for declarations and inheritance.
 
-```bash
-# Environment sets the session default
-export XEC_PROFILE=staging
+### Explicit selection in automation {#dynamic-profile-selection}
 
-# Override per invocation
-XEC_PROFILE=production xec run deploy  # Uses production
-```
-
-### Dynamic Profile Selection {#dynamic-profile-selection}
-
-Select the profile in the shell before invoking Xec:
-
-```bash
-if [ -n "$CI" ]; then
-  export XEC_PROFILE=ci
-elif [ "$USER" = "developer" ]; then
-  export XEC_PROFILE=development
-else
-  export XEC_PROFILE=production
-fi
-xec run deploy
-```
+A CI job can choose a reviewed profile from its declared environment input.
+Validate that choice before invoking Xec and reject unknown values; do not use
+production as a fallback for an unrecognized branch or user.
 
 ## Secret Management {#secret-management}
 
-### Environment-Based Secrets {#environment-based-secrets}
-
-With the `env` provider (prefix `SECRET_` by default):
-
-```bash
-# Provide secrets via environment
-export SECRET_API_KEY=sk-1234567890
-export SECRET_DB_PASSWORD=secure-password
-```
+### Environment provider {#environment-based-secrets}
 
 ```yaml
-# Use in configuration
+version: '1.0'
 secrets:
   provider: env
-
+  config:
+    prefix: SECRET_
 vars:
-  apiKey: ${secrets.api_key}
-  dbPassword: ${secrets.db_password}
+  apiKey: ${secrets.api-key}
 ```
 
-The supported providers are `local` (default), `env`, and `git` — cloud providers such as Vault or AWS Secrets Manager are not implemented.
+Supply `SECRET_API_KEY` before loading this configuration. An empty provider value
+is treated as missing; do not use an empty secret as a sentinel. The implemented
+providers are `local`, `env` and `git`; Vault, AWS Secrets Manager, 1Password and
+dotenv are not implemented. Secret lookup also has a `SECRET_` environment
+fallback; a custom provider prefix is not an isolation boundary.
+
+Provider writes to `env` change only the current process. They do not persist
+across invocations or update a CI secret store. Do not put secrets in `vars` unless
+a consumer needs that resolved value, and never print the entire result.
 
 ## Debugging Environment Variables {#debugging-environment-variables}
 
-### List All Variables {#list-all-variables}
+### Trace a nonsecret input {#trace-variable-resolution}
+
+Follow the named input through its host environment, configuration reference and
+child-process `env` assignment. Inspect presence at each boundary rather than
+printing all environment or configuration values. The [precedence list](#environment-variable-precedence)
+explains which authored profile can override it.
+
+### Test an override {#test-variable-override}
 
 ```bash
-# Show all Xec-related environment variables
-env | grep XEC_
-
-# Show the resolved configuration they produce
-XEC_DEBUG=true xec config view
+XEC_VARS_PORT=3000 pnpm exec xec config get vars.port
 ```
 
-### Trace Variable Resolution {#trace-variable-resolution}
-
-```yaml
-tasks:
-  debug-env:
-    script: |
-      console.log('XEC variables:');
-      Object.entries(process.env)
-        .filter(([key]) => key.startsWith('XEC_'))
-        .forEach(([key, value]) => {
-          console.log(`  ${key}=${value}`);
-        });
-```
-
-### Test Variable Override {#test-variable-override}
-
-```bash
-# Test different values
-XEC_VARS_PORT=3000 xec config get vars.port
-XEC_VARS_DEBUG=true xec run test
-```
+Use a harmless value and the project's intended profile. This verifies resolution,
+not whether the application accepts that port or whether a remote process received it.
 
 ## Common Patterns {#common-patterns}
 
-### Development Environment {#development-environment}
+### Development {#development-environment}
 
-```bash
-# .env.development
-XEC_PROFILE=development
-NODE_ENV=development
-DEBUG=*
-API_URL=http://localhost:3000
-DATABASE_URL=postgres://localhost/dev
-REDIS_URL=redis://localhost:6379
-```
+Keep local API addresses and modes in a development profile or nonsecret defaults.
+Require credentials explicitly. Avoid a blanket `DEBUG=*` in examples that may
+be copied into shared environments.
 
-### Production Environment {#production-environment}
+### Production {#production-environment}
 
-```bash
-# .env.production
-XEC_PROFILE=production
-NODE_ENV=production
-DEBUG=
-API_URL=https://api.example.com
-DATABASE_URL=${DATABASE_URL}  # From CI/CD
-REDIS_URL=${REDIS_URL}        # From CI/CD
-```
+Let the service manager or protected CI environment supply runtime secrets.
+Select the deployment target and profile explicitly. Do not save a resolved
+configuration containing credentials as a reusable release artifact.
 
-### Docker Environment {#docker-environment}
+### Docker {#docker-environment}
 
-```dockerfile
-# Dockerfile
-ENV XEC_PROFILE=production
-ENV NODE_ENV=production
-ENV API_URL=https://api.example.com
+Declare container environment through the Docker target or its owning deployment
+configuration. Do not bake secrets into Dockerfile `ENV` instructions or image
+layers. Local `process.env` is not the container's environment.
 
-# docker-compose.yml
-services:
-  app:
-    environment:
-      - XEC_PROFILE=production
-      - API_KEY=${API_KEY}
-      - DATABASE_URL=${DATABASE_URL}
-```
+### Kubernetes {#kubernetes-environment}
 
-### Kubernetes Environment {#kubernetes-environment}
-
-```yaml
-# deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-spec:
-  template:
-    spec:
-      containers:
-      - name: app
-        env:
-        - name: XEC_PROFILE
-          value: production
-        - name: API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: api-secrets
-              key: api-key
-```
+Use the workload's reviewed environment/Secret references and Kubernetes access
+controls. Passing values to a `kubectl exec` command does not update a Deployment
+or rotate its pods. Xec does not provide those lifecycle effects implicitly.
 
 ## Security Best Practices {#security-best-practices}
 
-### 1. Never Commit Secrets {#1-never-commit-secrets}
+### Keep credentials out of source {#1-never-commit-secrets}
 
-```bash
-# .gitignore
-.env
-.env.*
-!.env.example
-```
+Keep credentials, real environment files and resolved configuration out of Git.
+Ignoring a file after committing it does not remove its history; rotate exposed
+credentials through their owner. Use [secret providers](#secret-management) to
+supply data without embedding it in command text.
 
-### 2. Use Secret Management {#2-use-secret-management}
+### Choose the secret owner {#2-use-secret-management}
 
-```yaml
-# Good - use secret management
-vars:
-  apiKey: ${secrets.api_key}
+Use the provider that owns the credential, with access scoped to the operation.
+An environment variable is transport for a value, not encrypted storage or a
+persistent secret-management service.
 
-# Bad - hardcoded secret
-vars:
-  apiKey: "sk-1234567890"  # NEVER DO THIS
-```
+### Validate before effects {#3-validate-required-variables}
 
-### 3. Validate Required Variables {#3-validate-required-variables}
+Check required names, value formats and the selected target before starting a
+mutation. A task dependency or an explicit script check can own this validation;
+there is no `hooks.before` task contract. A dry-run is a preview, not permission
+to skip validation or proof that a deployment will succeed.
 
-```yaml
-tasks:
-  validate-env:
-    script: |
-      const required = [
-        'API_KEY',
-        'DATABASE_URL',
-        'REDIS_URL'
-      ];
-      
-      const missing = required.filter(
-        key => !process.env[key]
-      );
-      
-      if (missing.length > 0) {
-        throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
-      }
-```
+### Limit output {#4-sanitize-output}
 
-### 4. Sanitize Output {#4-sanitize-output}
+Report missing variable names, not their values. Diagnostic redaction is a
+backstop, not a guarantee that every application-specific secret is recognized.
+Raw API stdout/stderr are intentionally available to the caller; sanitize what
+you publish to logs or reports.
 
-```yaml
-tasks:
-  safe-echo:
-    command: |
-      # Don't echo secrets
-      echo "API URL: ${API_URL}"
-      echo "API Key: [REDACTED]"
-```
+### Limit child inputs {#5-use-minimal-exposure}
 
-### 5. Use Minimal Exposure {#5-use-minimal-exposure}
+An `env` map normally **merges** with inherited local variables. It is not an
+allowlist. Development Core supports explicit local `envMode: 'replace'`, also
+forwarded by Pipeline and release operations. That mode passes only the supplied
+map, including an explicit `PATH` when required; an omitted map means an empty
+environment. Remote adapters reject replacement mode before execution. See
+[Pipeline environments](../../ops/pipeline.md) and [release inputs](../../ops/release.md).
 
-```yaml
-# Only expose needed variables
-tasks:
-  limited:
-    env:
-      NODE_ENV: production
-      # Don't pass all environment
-```
+Replacement mode limits process inputs; it does not sandbox filesystem, network
+or kernel access. YAML task `env` does not enable it. Choose the appropriate
+execution API and least-privilege process/container identity for the operation.
 
 ## Troubleshooting {#troubleshooting}
 
-### Variable Not Found {#variable-not-found}
+### Missing values {#variable-not-found}
+
+Check presence without exposing a value:
 
 ```bash
-# Check if variable is set
-echo $MY_VAR
-
-# Check the value Xec resolves it to
-xec config get vars.myVar
-
-# Debug resolution
-XEC_DEBUG=true xec config list --path vars
+pnpm exec xec -e 'console.log("APP_API_URL present:", process.env.APP_API_URL !== undefined)'
 ```
 
-### Variable Not Overriding {#variable-not-overriding}
+If configuration loading fails, verify the variable is exported to the Xec
+process and the case matches. A value in a parent shell file or remote service is
+not automatically available locally. Inspect only known nonsecret configuration
+keys.
+
+### Unexpected precedence {#variable-not-overriding}
+
+Check the active profile and configuration source order above. `XEC_VARS_APP_NAME`
+means `vars.app.name`, not `vars.app_name`. Environment overrides are strings;
+validate/coerce numeric or boolean application inputs at their owning boundary.
+Unset `XEC_DEBUG` after diagnosis, and review any debug log before sharing it.
+
+### Special characters {#special-characters}
+
+Quote values according to the host shell before Xec starts. For example, POSIX
+single quotes preserve `$`, backticks and spaces literally:
 
 ```bash
-# See which files were loaded, in order
-XEC_DEBUG=true xec config view
-
-# Force override for one invocation
-XEC_VARS_MYVAR=value xec run task
+APP_LABEL='release $candidate with spaces' pnpm exec xec -e 'console.log(process.env.APP_LABEL)'
 ```
 
-### Special Characters {#special-characters}
-
-```bash
-# Escape special characters
-export MY_VAR='value with $pecial characters'
-export MY_VAR="value with \"quotes\""
-export MY_VAR=$'value with\nnewline'
-```
+Xec interpolation and shell parsing are different stages. Avoid a second shell
+parse of runtime data; use template arguments or explicit argv through Core.
 
 ## Platform-Specific Notes {#platform-specific-notes}
 
-### Linux/macOS {#linuxmacos}
+### Linux and macOS {#linuxmacos}
 
-```bash
-# Persistent environment
-echo 'export XEC_PROFILE=production' >> ~/.bashrc
-echo 'export XEC_PROFILE=production' >> ~/.zshrc
-```
+Exports affect the current shell and its descendants. A service manager may use
+a different environment from an interactive shell. Do not assume editing a shell
+startup file updates an already running service.
 
 ### Windows {#windows}
 
-```powershell
-# Persistent environment (PowerShell)
-[System.Environment]::SetEnvironmentVariable(
-  'XEC_PROFILE', 'production', 'User'
-)
-
-# Persistent environment (CMD)
-setx XEC_PROFILE production
-```
+PowerShell `$env:NAME` and CMD `set NAME=value` affect the current process tree.
+Persistent user/machine settings affect future processes, not a running Xec
+instance. Use `;` for command-directory lists with the development CLI.
 
 ### WSL {#wsl}
 
-```bash
-# Share with Windows
-export WSLENV=$WSLENV:XEC_PROFILE
-```
+Windows and WSL processes have distinct environment and path conventions. Forward
+only the named values you need; do not share an entire secret-bearing environment
+or mix Windows command paths with Linux ones.
 
-## Best Practices {#best-practices}
+## Maintainable Configuration {#best-practices}
 
-### 1. Document Required Variables {#1-document-required-variables}
+### Document required names {#1-document-required-variables}
 
-```yaml
-# .xec/README.md
-vars:
-  _required_env:
-    - API_KEY: API authentication key
-    - DATABASE_URL: PostgreSQL connection string
-    - REDIS_URL: Redis connection string
-```
+For each input, document its owner, expected format, whether it is required and
+whether it may appear in logs. A list in a README is documentation, not executable
+validation; the task or application must perform the check.
 
-### 2. Provide Example Configuration {#2-provide-example-configuration}
+### Provide harmless examples {#2-provide-example-configuration}
 
-```bash
-# .env.example
-XEC_PROFILE=development
-API_URL=http://localhost:3000
-DATABASE_URL=postgres://user:pass@localhost/db
-```
+An `.env.example` may list nonsecret local defaults and empty placeholders for
+required credentials. Explain how the chosen runtime loads it; Xec does not
+implicitly load files merely because they have that name.
 
-### 3. Validate Early {#3-validate-early}
+### Keep namespaces clear {#4-use-consistent-naming}
 
-```yaml
-tasks:
-  init:
-    hooks:
-      before:
-        - task: validate-environment
-```
+Reserve `XEC_` for Xec settings and overrides. Use a stable application prefix for
+ordinary values and the configured secret-provider prefix for credentials.
 
-### 4. Use Consistent Naming {#4-use-consistent-naming}
+### Group configuration deliberately {#5-group-related-variables}
 
-```bash
-# Good - consistent prefix
-XEC_API_KEY=value
-XEC_DATABASE_URL=value
-XEC_REDIS_URL=value
-
-# Bad - mixed naming
-apiKey=value
-DB_URL=value
-REDIS=value
-```
-
-### 5. Group Related Variables {#5-group-related-variables}
-
-```bash
-# Database configuration
-XEC_DB_HOST=localhost
-XEC_DB_PORT=5432
-XEC_DB_NAME=myapp
-XEC_DB_USER=user
-XEC_DB_PASSWORD=pass
-```
-
-## Next Steps {#next-steps}
-
-- [Best Practices](../advanced/best-practices.md) - Configuration patterns
+Use nested `vars` objects for related settings and validate them together. Remember
+that `XEC_VARS_DATABASE_HOST` addresses a nested path; underscores are separators,
+not literal characters in that override syntax.
 
 ## See Also {#see-also}
 
-- [Configuration Overview](../overview.md) - Configuration basics
-- [Variables Overview](./overview.md) - Variable system
-- [Profiles](../profiles/overview.md) - Profile configuration
+- [Variables](./overview.md): references and interpolation.
+- [Profiles](../profiles/overview.md): reviewed environment-specific configuration.
+- [Configuration commands](../../commands/built-in/config.md): inspection and trust.
+- [Tasks](../tasks/overview.md): executable operations and dependencies.

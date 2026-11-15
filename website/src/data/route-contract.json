@@ -1393,7 +1393,6 @@
       "secret-management",
       "environment-based-secrets",
       "debugging-environment-variables",
-      "list-all-variables",
       "trace-variable-resolution",
       "test-variable-override",
       "common-patterns",
@@ -1418,10 +1417,8 @@
       "best-practices",
       "1-document-required-variables",
       "2-provide-example-configuration",
-      "3-validate-early",
       "4-use-consistent-naming",
       "5-group-related-variables",
-      "next-steps",
       "see-also"
     ]
   },
