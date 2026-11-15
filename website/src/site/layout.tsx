@@ -2,12 +2,12 @@ import type { LumenSidebarItem, LumenPageLayoutProps } from '@omnitron-dev/lumen
 
 import React from 'react';
 import { Button } from '@omnitron-dev/prism/ui';
-import { PrismProvider } from '@omnitron-dev/prism/core';
+import { PrismProvider, PrismThemeScript } from '@omnitron-dev/prism/core';
 import { PortalIslandHost } from '@omnitron-dev/lumen-ui/runtime';
 import { DocLayout, LumenFooter, DocPagination, DocSectionNav } from '@omnitron-dev/lumen-ui';
 
 import { Home } from './home.tsx';
-import { xecTheme, themeBootstrap } from './theme.ts';
+import { xecTheme } from './theme.ts';
 import { SearchTrigger, ThemeSelector } from './controls.tsx';
 
 const navigation = [
@@ -79,9 +79,9 @@ export function SiteLayout({ children, document: doc, documents, config }: Lumen
   const home = doc.frontmatter?.layout === 'home';
   const page = doc.id.startsWith('page:');
   return (
-    <PrismProvider mode="dark" themeOverrides={xecTheme} disableCssBaseline>
+    <PrismProvider modeStorageKey="xec-theme" themeOverrides={xecTheme}>
       <link rel="icon" href="/img/favicon.svg" type="image/svg+xml" />
-      <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
+      <PrismThemeScript modeStorageKey="xec-theme" />
       <div className="xec-site">
         <a className="skip-link" href="#main-content">
           Skip to content

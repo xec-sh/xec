@@ -8,7 +8,7 @@ import { LumenSearchDialog } from '@omnitron-dev/lumen-ui/search';
 import { DocSectionNav, MermaidDiagram } from '@omnitron-dev/lumen-ui';
 import { PrismProvider, usePrismContext } from '@omnitron-dev/prism/core';
 
-import { xecTheme, readTheme } from './theme.ts';
+import { xecTheme } from './theme.ts';
 import { ExecutionExplorer } from './execution-explorer.tsx';
 import { OpenSearch, SearchPage, SearchTrigger, ThemeSelector } from './controls.tsx';
 
@@ -17,10 +17,6 @@ function Content() {
   const { theme } = usePrismContext();
   const searchRoute = location.pathname.replace(/\/$/, '') === '/search';
   const [searchOpen, setSearchOpen] = useState(searchRoute);
-  useEffect(() => {
-    document.documentElement.dataset.xecTheme = theme.palette.mode;
-    document.documentElement.style.colorScheme = theme.palette.mode;
-  }, [theme.palette.mode]);
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -59,21 +55,8 @@ function Content() {
   );
 }
 function Client() {
-  const [mode, setMode] = useState(readTheme);
-  useEffect(() => {
-    try {
-      localStorage.setItem('xec-theme', mode);
-    } catch {
-      /* The choice still applies to this page. */
-    }
-    const sync = (event: StorageEvent) => {
-      if (event.key === 'xec-theme' || event.key === null) setMode(readTheme());
-    };
-    addEventListener('storage', sync);
-    return () => removeEventListener('storage', sync);
-  }, [mode]);
   return (
-    <PrismProvider mode={mode} onModeChange={setMode} themeOverrides={xecTheme} disableCssBaseline>
+    <PrismProvider modeStorageKey="xec-theme" themeOverrides={xecTheme}>
       <Content />
     </PrismProvider>
   );

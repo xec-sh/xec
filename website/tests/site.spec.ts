@@ -37,17 +37,17 @@ test('homepage is a real, keyboard-operable execution reference', async ({ page,
 test('theme is persistent and system mode follows the OS', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' });
   await page.goto('/');
-  await expect(page.locator('html')).toHaveAttribute('data-xec-theme', 'light');
+  await expect(page.locator('html')).toHaveAttribute('data-prism-color-scheme', 'light');
   await page.getByRole('button', { name: 'Color theme: system' }).click();
   await page.getByRole('menuitem', { name: 'Dark', exact: true }).click();
-  await expect(page.locator('html')).toHaveAttribute('data-xec-theme', 'dark');
+  await expect(page.locator('html')).toHaveAttribute('data-prism-color-scheme', 'dark');
   await page.reload();
-  await expect(page.locator('html')).toHaveAttribute('data-xec-theme', 'dark');
+  await expect(page.locator('html')).toHaveAttribute('data-prism-color-scheme', 'dark');
   await page.getByRole('button', { name: 'Color theme: dark' }).click();
   await page.getByRole('menuitem', { name: 'System', exact: true }).click();
-  await expect(page.locator('html')).toHaveAttribute('data-xec-theme', 'light');
+  await expect(page.locator('html')).toHaveAttribute('data-prism-color-scheme', 'light');
   await page.emulateMedia({ colorScheme: 'dark' });
-  await expect(page.locator('html')).toHaveAttribute('data-xec-theme', 'dark');
+  await expect(page.locator('html')).toHaveAttribute('data-prism-color-scheme', 'dark');
 });
 
 test('search loads the generated local index and restores focus on Escape', async ({ page }) => {

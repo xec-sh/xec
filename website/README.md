@@ -1,6 +1,10 @@
 # Xec documentation
 
-The source for [xec.sh](https://xec.sh). Built with **Lumen 0.4.10** and **Prism 0.4.10**, using published npm packages.
+The source for [xec.sh](https://xec.sh), built with Lumen and Prism. The registry
+lock currently records 0.4.10. The new shared theme integration requires the
+forthcoming `PrismThemeScript` and `modeStorageKey` API and is qualified against
+the development SDK. Update the published dependencies and lockfile before
+distributing this revision; the existing lock does not contain that API.
 
 ## Develop
 
@@ -41,6 +45,11 @@ Xec runs the production build and its route checks. Lumen compiles Markdown, hig
 | `tests/` | Browser acceptance checks |
 
 The homepage switches between real source examples; it does not execute shell commands in the browser. Library APIs, CLI entry points and platform prerequisites stay explicit. The site uses static HTML and selective Lumen islands; it requires no application server.
+
+Prism owns the theme, its pre-rendered light/dark palettes and the saved
+`xec-theme` preference. The server and client use the same provider contract;
+there is no separate website storage or media-query implementation. Site CSS
+maps Xec's layout tokens to the provider's native variables.
 
 ## Deploy
 
