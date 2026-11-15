@@ -105,6 +105,8 @@ describe('the probe behaves identically on every installed runtime', () => {
 
   const deno = find('deno');
   it.runIf(deno !== null)('deno agrees with node', () => {
-    expect(runProbe([deno!, 'run', '-A'])).toBe(EXPECTED);
+    // The probe lives outside the workspace. Explicitly use pnpm's installed
+    // dependency graph; Deno cannot discover its node_modules from a temp file.
+    expect(runProbe([deno!, 'run', '--node-modules-dir=manual', '--no-lock', '-A'])).toBe(EXPECTED);
   }, 90_000);
 });
