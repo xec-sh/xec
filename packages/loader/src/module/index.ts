@@ -8,3 +8,4 @@ export * from './module-loader.js';
 export * from './module-fetcher.js';
 export * from './module-executor.js';
 export * from './module-resolver.js';
+export * from './local-module-graph.js';

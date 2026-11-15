@@ -1,6 +1,6 @@
 /**
  * Adapter layer for @xec-sh/loader
- * Provides CLI-specific functionality and maintains backward compatibility
+ * Provides CLI-specific functionality using the canonical loader APIs
  */
 
 /** CLI program interface (e.g., commander.Command). Library users pass their own. */
@@ -12,7 +12,6 @@ import { $ } from '@xec-sh/core';
 import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { log, prism } from '@xec-sh/kit';
-import { randomBytes } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import {
   REPLServer,
@@ -21,6 +20,7 @@ import {
   ScriptRuntime,
   ScriptExecutor,
   GlobalInjector,
+  LocalModuleGraph,
   TypeScriptTransformer,
 } from '@xec-sh/loader';
 
@@ -98,6 +98,7 @@ export class ScriptLoader {
   private moduleLoader: ModuleLoader;
   private options: LoaderOptions;
   private globalContextInitialized = false;
+  private readonly tsTransformer = new TypeScriptTransformer(undefined, { target: 'esnext', format: 'esm' });
 
   constructor(options: LoaderOptions = {}) {
     this.options = {
@@ -393,114 +394,40 @@ export class ScriptLoader {
     console.log(prism.gray(''));
   }
 
-  // TypeScript transformer instance for dynamic command loading
-  // Uses TypeScriptTransformer from @xec-sh/loader
-  private readonly tsTransformer = new TypeScriptTransformer(undefined, {
-    target: 'esnext',
-    format: 'esm',
-  });
+  private readonly commandGraphs = new Set<LocalModuleGraph>();
 
   /**
-   * Load a dynamic command module
-   * Uses TypeScriptTransformer from @xec-sh/loader for base transformation
+   * Load a local command graph and retain it through registered action callbacks.
+   * Call dispose() after the command and its cleanup have settled.
    */
   async loadDynamicCommand(
     filePath: string,
     program: CLIProgram,
     _commandName: string
   ): Promise<{ success: boolean; error?: string }> {
+    let graph: LocalModuleGraph | undefined;
     try {
-      // CRITICAL: Initialize global module context BEFORE importing
-      // This ensures kit, prism, log are available during module parsing
       await this.initializeGlobalModuleContext();
-
-      // Load the module - use TypeScriptTransformer for TS files, dynamic import for JS
-      let moduleExports;
-      if (this.tsTransformer.needsTransformation(filePath)) {
-        // TypeScript files: use TypeScriptTransformer from @xec-sh/loader
-        const fs = await import('node:fs');
-
-        const code = await fs.promises.readFile(filePath, 'utf-8');
-
-        // Use TypeScriptTransformer with Node.js platform options
-        const transformedCode = await this.tsTransformer.transformWithOptions(code, filePath, {
-          platform: 'node',
-        });
-
-        // Apply CLI-specific post-processing
-        const fullCode = this.applyCliTransformations(transformedCode);
-
-        const tmpDir = path.join(process.cwd(), '.xec', '.tmp');
-        await fs.promises.mkdir(tmpDir, { recursive: true });
-        // The name must be unique per load: ESM caches by URL, so a reused
-        // name would hand a second command the first one's exports — and a
-        // predictable name in a shared directory is writable by others.
-        const tmpFile = path.join(tmpDir, `xec-cmd-${randomBytes(8).toString('hex')}.js`);
-
-        await fs.promises.writeFile(tmpFile, fullCode);
-
-        try {
-          const fileUrl = commandFileUrl(tmpFile);
-
-          if (process.env['XEC_DEBUG']) {
-            console.log(`[loadDynamicCommand] Importing URL: ${fileUrl}`);
-          }
-
-          moduleExports = await import(fileUrl);
-        } finally {
-          // Clean up temp file (keep for debugging)
-          if (!process.env['XEC_DEBUG']) {
-            await fs.promises.unlink(tmpFile).catch(() => {});
-          }
-        }
-      } else {
-        // JavaScript files: use direct import
-        moduleExports = await import(commandFileUrl(filePath));
+      graph = new LocalModuleGraph(filePath);
+      const moduleExports = await graph.load();
+      const setup = moduleExports['default'] || moduleExports['setup'] || moduleExports['command'];
+      if (typeof setup !== 'function') {
+        throw new Error('Command file must export a default function, setup function, or command function');
       }
-
-      // Check if the module exports a default function, setup, or command function
-      const setupFn = moduleExports['default'] || moduleExports['setup'] || moduleExports['command'];
-      if (typeof setupFn === 'function') {
-        await setupFn(program);
-        return { success: true };
-      } else {
-        return {
-          success: false,
-          error: `Command file must export a default function, setup function, or command function`,
-        };
-      }
+      await setup(program);
+      this.commandGraphs.add(graph);
+      return { success: true };
     } catch (error) {
-      if (process.env['XEC_DEBUG']) {
-        console.error('[loadDynamicCommand] Error details:', error);
-        if (error instanceof Error && error.stack) {
-          console.error('[loadDynamicCommand] Stack trace:', error.stack);
-        }
-      }
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
+      graph?.dispose();
+      if (process.env['XEC_DEBUG']) console.error('[loadDynamicCommand]', error);
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   }
 
-  /**
-   * Apply CLI-specific transformations to transpiled code
-   * Fixes esbuild quirks and patterns specific to xec commands
-   */
-  private applyCliTransformations(code: string): string {
-    // Fix esbuild's incorrect .mjs extensions for node: imports
-    // esbuild sometimes generates: import process from "node:process.mjs"
-    // Node.js expects: import process from "node:process"
-    //
-    // This used to also rewrite user code that declared its own `prism`
-    // constant — a workaround for the global preamble this module no longer
-    // emits. The preamble aliased `$`, `kit`, `prism` and friends as module
-    // constants, so any command that imported the same names explicitly —
-    // the documented, typed style — died at parse with "Identifier '$' has
-    // already been declared", which the CLI then reported as "command not
-    // found". Globals are injected on `globalThis` before the module loads;
-    // aliases on top of them bought nothing and broke real commands.
-    return code.replace(/from\s+["']node:([^"']+)\.mjs["']/g, 'from "node:$1"');
+  /** Release dynamic-command hooks after all registered callbacks have settled. */
+  dispose(): void {
+    for (const graph of this.commandGraphs) graph.dispose();
+    this.commandGraphs.clear();
   }
 
   /**

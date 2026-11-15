@@ -121,6 +121,7 @@ export async function checkDocExamples(options: DocExamplesOptions): Promise<Doc
     }
     const dependencyTypes: [string, string, string?][] = [
       ['packages/testing', 'vitest'], ['packages/kit', 'zod'], ['website', '@types/react', 'react'],
+      ['apps/xec', 'commander'],
     ];
     for (const [owner, dependency, name] of dependencyTypes) {
       const folder = path.join(root, owner);

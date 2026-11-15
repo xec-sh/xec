@@ -5,9 +5,10 @@ description: Adding project-specific commands under .xec/commands
 
 # Creating Custom Commands {#creating-custom-commands}
 
-A file in `.xec/commands/` becomes a command of your CLI. `xec deploy` can be
-yours — with its own options, `--help`, and everything a script can reach:
-targets, prompts, the full execution engine.
+Use a project command when an operation needs its own arguments, validation and
+help. Put it in `.xec/commands/` and invoke it as `xec <name>`. Use a task for a
+configured sequence, or a TypeScript script for a reusable program; a custom
+command does not require a second CLI runner.
 
 ## Command Structure {#command-structure}
 
@@ -16,10 +17,14 @@ A command file exports a function that receives the CLI's
 
 ```typescript
 // .xec/commands/greet.ts
-export function command(program: any) {
+import type { Command } from 'commander';
+
+export function command(program: Command) {
   program
     .command('greet [name]')
-    .description('Greet someone properly')
+    .description('Print a greeting')
+    .allowUnknownOption(false)
+    .allowExcessArguments(false)
     .option('-u, --uppercase', 'Shout it')
     .action(async (name = 'World', options: { uppercase?: boolean }) => {
       const greeting = `Hello, ${name}!`;
@@ -34,8 +39,18 @@ xec greet Alice --uppercase
 ```
 
 The export may be named `command`, `setup`, or be the default export — the
-loader accepts all three. TypeScript needs no build step: the file is
-transformed on load.
+loader accepts all three. The registered name must match the discovered filename
+(or its nested name). TypeScript is transformed on demand; importing a command
+must only register its schema. Put effects inside its action, so help and
+discovery remain safe. Install `commander` as a development dependency for the
+`Command` type used in these examples.
+
+The current development loader preserves the original directory for nested
+TypeScript imports, including imports made later by an action. It requires
+Node's synchronous module hooks (Node 22.15 or later with that API; the CLI
+requires Node 22.18). npm 0.12.0 instead relocates a transformed entry to
+`.xec/.tmp/`, so relative imports and `import.meta.url` can refer to the wrong
+location. This correction belongs to the next release, not to npm 0.12.0.
 
 ## What a Command Can Use {#what-a-command-can-use}
 
@@ -47,22 +62,15 @@ and the rest. See [Execution Context](../../scripting/basics/execution-context.m
 for the full list.
 
 ```typescript
-export function command(program: any) {
-  program
-    .command('clean')
-    .description('Remove build artifacts')
+import type { Command } from 'commander';
+
+export function command(program: Command) {
+  program.command('source-count')
+    .description('Count project TypeScript source files')
+    .allowExcessArguments(false)
     .action(async () => {
-      const files = await glob(['dist/**', '**/*.tsbuildinfo']);
-      if (files.length === 0) {
-        log.info('Nothing to clean');
-        return;
-      }
-
-      const yes = await kit.confirm({ message: `Delete ${files.length} paths?` });
-      if (yes !== true) return; // Ctrl+C yields a cancel symbol, not false
-
-      await $`rm -rf ${files}`;
-      log.success(`Removed ${files.length} paths`);
+      const files = await glob(['src/**/*.ts']);
+      log.info(`${files.length} TypeScript files`);
     });
 }
 ```
@@ -70,16 +78,19 @@ export function command(program: any) {
 ### Typed imports — even in a bare project {#typed-imports--even-in-a-bare-project}
 
 For IntelliSense and explicit dependencies, import the packages statically.
-The CLI carries `@xec-sh/core`, `@xec-sh/ops`, `@xec-sh/kit` and
-`@xec-sh/loader` as its own dependencies and supplies them to your command
+On the supported Node CLI, `@xec-sh/core`, `@xec-sh/ops`, `@xec-sh/kit` and
+`@xec-sh/loader` are carried dependencies and are supplied to your command
 when the project has not installed them. A project that *has* installed one —
-to pin a version — keeps its own copy: ordinary resolution always wins.
+to pin a version — keeps its own copy: ordinary resolution always wins. Install the packages in
+the project when you need editor types or a pinned runtime version. Other
+third-party imports must be declared and installed by the project.
 
 ```typescript
+import type { Command } from 'commander';
 import { $ } from '@xec-sh/core';
 import type { ExecutionResult } from '@xec-sh/core';
 
-export function command(program: any) {
+export function command(program: Command) {
   program
     .command('status')
     .description('Show git status, typed')
@@ -92,50 +103,55 @@ export function command(program: any) {
 
 ### Targets {#targets}
 
-The engine reaches every environment from anywhere:
+The engine owns remote execution and its transport policy. Preview before
+creating the engine or running any command; a flag alone does not make an
+action safe to preview. This read-only example requires an independently
+verified host-key fingerprint and an SSH agent:
 
 ```typescript
-export function command(program: any) {
-  program
-    .command('deploy <host>')
-    .description('Deploy the current build to a host')
-    .option('--dry-run', 'Print what would happen')
-    .action(async (host: string, options: { dryRun?: boolean }) => {
-      await $`npm run build`;
+import type { Command } from 'commander';
+import { $ } from '@xec-sh/core';
 
+export function command(program: Command) {
+  program.command('check-host <host>')
+    .description('Read uptime from a verified SSH host')
+    .requiredOption('--host-key <fingerprint>', 'Verified SHA256 host fingerprint')
+    .option('--username <name>', 'Remote account', 'deploy')
+    .option('--dry-run', 'Print the target without connecting')
+    .allowExcessArguments(false)
+    .action(async (host: string, options: { hostKey: string; username: string; dryRun?: boolean }) => {
       if (options.dryRun) {
-        log.info(`Would sync dist/ to ${host} and restart`);
+        log.info(`Would read uptime from ${options.username}@${host}`);
         return;
       }
-
-      const remote = $.ssh(host);
-      const s = kit.spinner();
-      s.start(`Deploying to ${host}`);
-
-      // `upload` sends a local path to the engine's own target — no URL to
-      // restate the host in.
-      await remote.uploadDirectory('dist/', '/srv/app/', { recursive: true });
-      await remote`systemctl restart myapp`;
-
-      s.stop(`Deployed to ${host}`);
+      const remote = $.ssh({ host, username: options.username,
+        expectedHostFingerprint: options.hostKey, agent: process.env.SSH_AUTH_SOCK });
+      const result = await remote`uptime`.timeout(10_000);
+      log.info(result.stdout.trim());
     });
 }
 ```
+
+A deployment additionally needs the application's artifact, ownership and
+recovery contract. Uploading a directory and restarting a process is not a
+transactional deployment. Reuse the owning deployment API instead of embedding
+a separate release protocol in a CLI action.
 
 ### Project configuration {#project-configuration}
 
 The configuration the rest of the CLI uses is one import away:
 
 ```typescript
-import { config } from '@xec-sh/ops';
+import type { Command } from 'commander';
+import { ConfigurationManager } from '@xec-sh/ops';
 
-export function command(program: any) {
+export function command(program: Command) {
   program
     .command('hosts')
     .description('List configured SSH targets')
     .action(async () => {
-      await config.load();
-      const hosts = config.get('targets.hosts') ?? {};
+      const config = await new ConfigurationManager().load();
+      const hosts = config.targets?.hosts ?? {};
       for (const name of Object.keys(hosts)) {
         log.info(name);
       }
@@ -149,7 +165,8 @@ Xec looks for command files in:
 
 1. `.xec/commands/` and `.xec/cli/` in the current directory
 2. `.xec/commands/` in parent directories, up to three levels
-3. Any directories in `XEC_COMMANDS_PATH` (colon-separated)
+3. Directories in `XEC_COMMANDS_PATH`, separated by the platform path delimiter
+   (`:` on Unix, `;` on Windows in the current source; npm 0.12.0 splits on `:`)
 
 Files with `.js`, `.mjs`, `.ts`, `.tsx` extensions register; `.test.*`,
 `.spec.*` and dot-files are skipped. A dynamic command with the same name as
@@ -183,7 +200,9 @@ strings are honoured before the file ever loads, so `xec dep` finds your
 until the command is actually invoked — keep them literal.
 
 ```typescript
-export function command(program: any) {
+import type { Command } from 'commander';
+
+export function command(program: Command) {
   program
     .command('deploy')
     .alias('dep')                       // found without executing the file
@@ -198,21 +217,20 @@ and `--help` are real.
 ## Errors and Exit Codes {#errors-and-exit-codes}
 
 Throwing from an action is reported and exits non-zero — in CI that is the
-whole contract. Handle only what you can improve:
+observable result. A command that failed may already have applied changes;
+retain its cause and inspect the destination before retrying:
 
 ```typescript
-export function command(program: any) {
+import type { Command } from 'commander';
+
+export function command(program: Command) {
   program
     .command('migrate')
     .description('Run database migrations')
     .action(async () => {
-      const result = await $`./bin/migrate`.nothrow();
-
-      if (!result.ok) {
-        log.error(`Migration failed: ${result.stderr.trim()}`);
-        log.info('Inspect the migration result before retrying; a failed command may have partially applied changes.');
-        process.exitCode = 1;
-      }
+      // The normal execution error retains status, bounded output and cause.
+      // Do not retry a migration until its effects have been inspected.
+      await $`./bin/migrate`;
     });
 }
 ```
@@ -245,8 +263,18 @@ XEC_DEBUG=1 xec --help
 XEC_DEBUG=1 xec your-command
 ```
 
-Transformed TypeScript commands run from `.xec/.tmp/`; with `XEC_DEBUG` set
-the transformed files are kept there for inspection.
+In the current development loader, no relocated TypeScript source is written.
+`import.meta.url` keeps the authored file URL with a private graph query; use
+`fileURLToPath(import.meta.url)` for its path or `new URL('./asset', import.meta.url)`
+for relative data. Each load gets independent local ESM state; bare packages and
+CommonJS keep Node's normal cache. The CLI retains the graph through action and
+cleanup, then deregisters its hooks. This is trusted local code, not a sandbox.
+
+Library owners can use `LocalModuleGraph` from `@xec-sh/loader` in the next release.
+Keep it alive through deferred callbacks and dispose it after they settle.
+Disposal does not undo side effects or evict Node's ESM registry; use a fresh
+process for unbounded watch/reload cycles. npm 0.12.0 still writes the temporary
+entry and retains it when `XEC_DEBUG` is enabled.
 
 ## Sharing Commands {#sharing-commands}
 

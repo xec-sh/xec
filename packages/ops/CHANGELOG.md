@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Dynamic commands use the shared local module graph instead of relocated temporary source. `ScriptLoader.dispose()` releases their hooks after registered actions and cleanup have settled.
+
 - Archive validation returns its checked manifest for consumer reuse. Publication uses the same canonical validator; the redundant internal inspection wrapper is removed.
 
 - Pipeline command objects and `releaseCommand` carry Core environment replacement without reintroducing pipeline, step or ambient variables. The default remains inherited merge; streaming, redaction and cancellation retain their contracts.

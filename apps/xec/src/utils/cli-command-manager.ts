@@ -60,6 +60,12 @@ export class CliCommandManager {
     return this.scriptLoader;
   }
 
+  /** Release loaded command graphs after parsing, actions and cleanup finish. */
+  dispose(): void {
+    this.scriptLoader?.dispose();
+    this.scriptLoader = null;
+  }
+
   /**
    * Initialize command directories
    */
@@ -661,6 +667,11 @@ export function getCliCommandManager(): CliCommandManager {
     managerInstance = new CliCommandManager();
   }
   return managerInstance;
+}
+
+/** Dispose only an already-created manager; root help never loads command code. */
+export function disposeCliCommands(): void {
+  managerInstance?.dispose();
 }
 
 /**

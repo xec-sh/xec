@@ -17,8 +17,8 @@ const loadOps = () => import('@xec-sh/ops');
 import { parseTaskArgs } from './utils/task-params.js';
 import { customizeHelp } from './utils/help-customizer.js';
 import { registerSelfResolution } from './utils/self-resolution.js';
-import { loadDynamicCommands, registerCliCommands } from './utils/cli-command-manager.js';
 import { findCommand, COMMAND_MANIFEST, type CommandManifestEntry } from './utils/command-manifest.js';
+import { disposeCliCommands, loadDynamicCommands, registerCliCommands } from './utils/cli-command-manager.js';
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -498,6 +498,7 @@ export async function main(argv: string[] = process.argv): Promise<void> {
       process.stderr.write(`Xec resource cleanup failed: ${String(error)}\n`);
       process.exitCode ||= 1;
     } finally {
+      disposeCliCommands();
       clearInterval(cleanupProgress);
       process.removeListener('SIGINT', onInterrupt);
       process.removeListener('SIGTERM', onTerminate);

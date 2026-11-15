@@ -5,7 +5,7 @@
 
 import type { Cache } from '../types/index.js';
 
-import { type TransformOptions, transform as esbuildTransform } from 'esbuild';
+import { type TransformOptions, transform as esbuildTransform, transformSync as esbuildTransformSync } from 'esbuild';
 
 /**
  * Options for TypeScript transformation
@@ -82,7 +82,7 @@ export class TypeScriptTransformer {
    */
   private getLoader(filename: string): 'ts' | 'tsx' | 'js' | 'jsx' {
     if (filename.endsWith('.tsx')) return 'tsx';
-    if (filename.endsWith('.ts')) return 'ts';
+    if (/\.[cm]?ts$/.test(filename)) return 'ts';
     if (filename.endsWith('.jsx')) return 'jsx';
     return 'js';
   }
@@ -101,16 +101,7 @@ export class TypeScriptTransformer {
     }
 
     // Perform transformation
-    const result = await esbuildTransform(code, {
-      format: this.options.format,
-      target: this.options.target,
-      loader: this.getLoader(filename),
-      sourcemap: this.options.sourcemap,
-      supported: {
-        'top-level-await': true,
-      },
-      ...this.options.esbuild,
-    });
+    const result = await esbuildTransform(code, this.transformOptions(filename, {}));
 
     const transformedCode = result.code;
 
@@ -131,26 +122,32 @@ export class TypeScriptTransformer {
     filename: string,
     options: Partial<TransformOptions>
   ): Promise<string> {
-    const result = await esbuildTransform(code, {
+    return (await esbuildTransform(code, this.transformOptions(filename, options))).code;
+  }
+
+  /** Synchronous transformation for Node's synchronous module hooks. */
+  transformSync(code: string, filename: string, options: Partial<TransformOptions> = {}): string {
+    return esbuildTransformSync(code, this.transformOptions(filename, options)).code;
+  }
+
+  private transformOptions(filename: string, options: Partial<TransformOptions>): TransformOptions {
+    return {
       format: this.options.format,
       target: this.options.target,
       loader: this.getLoader(filename),
       sourcemap: this.options.sourcemap,
-      supported: {
-        'top-level-await': true,
-      },
+      sourcefile: filename,
+      supported: { 'top-level-await': true },
       ...this.options.esbuild,
       ...options,
-    });
-
-    return result.code;
+    };
   }
 
   /**
    * Check if file needs transformation
    */
   needsTransformation(filename: string): boolean {
-    return filename.endsWith('.ts') ||
+    return /\.[cm]?ts$/.test(filename) ||
       filename.endsWith('.tsx') ||
       filename.endsWith('.jsx');
   }

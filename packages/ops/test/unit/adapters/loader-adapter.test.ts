@@ -19,6 +19,13 @@ import {
  */
 
 let scratchDir: string;
+const commandLoaders = new Set<ScriptLoader>();
+function commandLoader(): ScriptLoader {
+  const loader = new ScriptLoader({ quiet: true });
+  commandLoaders.add(loader);
+  return loader;
+}
+
 
 function scratchPath(name: string): string {
   return path.join(scratchDir, name);
@@ -56,6 +63,8 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  for (const loader of commandLoaders) loader.dispose();
+  commandLoaders.clear();
   await fs.rm(scratchDir, { recursive: true, force: true });
 });
 
@@ -246,7 +255,7 @@ describe('ScriptLoader.loadDynamicCommand', () => {
       `export default function (program) { program.command('deploy-x'); }`
     );
 
-    const loader = new ScriptLoader({ quiet: true });
+    const loader = commandLoader();
     const program = fakeProgram();
     const result = await loader.loadDynamicCommand(file, program, 'deploy-x');
 
@@ -264,7 +273,7 @@ describe('ScriptLoader.loadDynamicCommand', () => {
       `export function command(program) { program.command('via-command'); }`
     );
 
-    const loader = new ScriptLoader({ quiet: true });
+    const loader = commandLoader();
 
     const p1 = fakeProgram();
     expect((await loader.loadDynamicCommand(setupFile, p1, 'a')).success).toBe(true);
@@ -286,7 +295,7 @@ describe('ScriptLoader.loadDynamicCommand', () => {
     const previousCwd = process.cwd();
     process.chdir(scratchDir);
     try {
-      const loader = new ScriptLoader({ quiet: true });
+      const loader = commandLoader();
       const program = fakeProgram();
       const result = await loader.loadDynamicCommand(
         path.relative(scratchDir, file),
@@ -301,7 +310,7 @@ describe('ScriptLoader.loadDynamicCommand', () => {
     }
   });
 
-  it('transpiles a TypeScript command and cleans up its temp file', async () => {
+  it('loads a TypeScript command without creating a relocated source file', async () => {
     const file = await writeScript(
       'cmd-typed.ts',
       `interface Registrar { command(name: string): unknown }
@@ -313,7 +322,7 @@ describe('ScriptLoader.loadDynamicCommand', () => {
     const previousCwd = process.cwd();
     process.chdir(scratchDir);
     try {
-      const loader = new ScriptLoader({ quiet: true });
+      const loader = commandLoader();
       const program = fakeProgram();
       const result = await loader.loadDynamicCommand(file, program, 'typed-cmd');
 
@@ -349,7 +358,7 @@ describe('ScriptLoader.loadDynamicCommand', () => {
     const previousCwd = process.cwd();
     process.chdir(scratchDir);
     try {
-      const loader = new ScriptLoader({ quiet: true });
+      const loader = commandLoader();
       const programA = fakeProgram();
       const programB = fakeProgram();
 
@@ -370,7 +379,7 @@ describe('ScriptLoader.loadDynamicCommand', () => {
   it('rejects a module that exports no function', async () => {
     const file = await writeScript('cmd-data.js', `export default { name: 'nope' };`);
 
-    const loader = new ScriptLoader({ quiet: true });
+    const loader = commandLoader();
     const result = await loader.loadDynamicCommand(file, fakeProgram(), 'nope');
 
     expect(result.success).toBe(false);
@@ -383,7 +392,7 @@ describe('ScriptLoader.loadDynamicCommand', () => {
     const previousCwd = process.cwd();
     process.chdir(scratchDir);
     try {
-      const loader = new ScriptLoader({ quiet: true });
+      const loader = commandLoader();
       const result = await loader.loadDynamicCommand(file, fakeProgram(), 'broken');
 
       expect(result.success).toBe(false);

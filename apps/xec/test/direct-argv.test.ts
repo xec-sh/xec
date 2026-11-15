@@ -20,6 +20,7 @@ beforeAll(async () => {
   await writeFile(config, JSON.stringify({ compilerOptions: { paths: {
     '@xec-sh/core': [join(root, 'packages/core/src/index.ts')],
     '@xec-sh/ops': [join(root, 'packages/ops/src/index.ts')],
+    '@xec-sh/loader': [join(root, 'packages/loader/src/index.ts')],
     '@xec-sh/ops/*': [join(root, 'packages/ops/src/*.ts')],
   } } }));
   await mkdir(join(fixture, '.xec/commands'), { recursive: true });
@@ -78,6 +79,25 @@ describe('native CLI local dispatch', () => {
 });
 
 describe('native dynamic command loading', () => {
+  it('keeps authored paths and nested TypeScript imports alive through the command action', async () => {
+    const directory = join(fixture, '.xec/lib');
+    await mkdir(directory, { recursive: true });
+    await writeFile(join(directory, 'initial.ts'), 'export enum Initial { Value = "initial" }');
+    await writeFile(join(directory, 'deferred.ts'), 'export enum Deferred { Value = "deferred" }');
+    const command = join(fixture, '.xec/commands/origin.ts');
+    await writeFile(command, `import { fileURLToPath } from 'node:url';
+      import { Initial } from '../lib/initial.ts';
+      export function command(program: { command(name: string): { action(fn: () => Promise<void>): void } }) {
+        program.command('origin').action(async () => {
+          const { Deferred } = await import('../lib/deferred.ts');
+          console.log(JSON.stringify({ file: fileURLToPath(import.meta.url), initial: Initial.Value, deferred: Deferred.Value }));
+        });
+      }`);
+    const result = await run(['origin']);
+    expect(result.code, result.stderr).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({ file: command, initial: 'initial', deferred: 'deferred' });
+  });
+
   it.each([['unrelated'], ['unrelated', '--help']])('fails the requested broken command %j', async (...args) => {
     const result = await run(args);
     expect(result.code).not.toBe(0);

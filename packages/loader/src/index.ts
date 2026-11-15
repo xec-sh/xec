@@ -80,6 +80,7 @@ export {
   ModuleFetcher,
   ModuleExecutor,
   FileSystemCache,
+  LocalModuleGraph,
   CDNModuleResolver,
   NodeModuleResolver,
   LocalModuleResolver,

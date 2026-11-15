@@ -5,6 +5,11 @@ All notable changes to `@xec-sh/loader` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+- Add `LocalModuleGraph` for local ESM/TypeScript command graphs using Node's synchronous module hooks. It preserves authored paths, relative and deferred imports, native package conditions and explicit graph lifetime, without temporary source files. The capability requires `module.registerHooks`; existing library engine and script-runtime contracts are unchanged.
+- Add synchronous transformation through the same TypeScript transformer, including `.mts` and `.cts`. Graph identity uses a private URL query; disposal deregisters hooks but does not unload Node's module cache.
+
 ## [0.1.0] - 2025-10-02
 
 ### Added

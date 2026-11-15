@@ -6,7 +6,7 @@ TypeScript and JavaScript execution for Xec, with module resolution, content-int
 npm install @xec-sh/loader
 ```
 
-Requires Node.js 20 or later. Uses `esbuild` for transformation and `@xec-sh/kit` for terminal interaction.
+The existing script APIs require Node.js 20 or later. Uses `esbuild` for transformation and `@xec-sh/kit` for terminal interaction.
 
 ## Run a script
 
@@ -43,11 +43,21 @@ Native notifications are the default. Explicit polling handles filesystems with 
 
 | API | Purpose |
 | --- | --- |
+| `LocalModuleGraph` | Native local JS/TS command graphs with explicit ownership (development API; Node synchronous hooks required) |
 | `ModuleLoader` | Local, npm, and CDN module resolution with caching |
 | `PluginManager` | Resolution, transformation, and execution hooks |
 | `GlobalInjector` | Scoped globals restored after the callback |
 | `REPLServer` | Interactive evaluation |
 | `ScriptRuntime` | Script helpers for environment, directory, retries, and scopes |
+
+The development `LocalModuleGraph` API requires `module.registerHooks` (Node
+22.15 or later with that capability). Its `sourceURL` is the entry's authored
+URL; `load()` imports a fresh local ESM graph using a private URL query, without
+moving source files or rewriting relative imports. Bare packages and CommonJS
+keep native caching. Keep the graph alive through deferred callbacks and call
+`dispose()` after they settle. Disposal removes hooks, not module effects or the
+native ESM cache; use a fresh process for unbounded reloads. This API is not
+available in npm 0.12.0 and does not change existing Node/Bun/Deno script paths.
 
 CDN loading supports `npm:`, `jsr:`, `esm:`, `unpkg:`, `skypack:`, `jsdelivr:`, and HTTPS URLs. The default integrity policy records content hashes; strict mode requires existing trusted entries. Configure allowed hosts and integrity policy for the intended environment.
 
