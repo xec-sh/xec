@@ -19,6 +19,15 @@ The core execution engine providing universal command execution across environme
 - [Process Promise API](./process-promise.md) - Command execution results
 - [Types Reference](./types.md) - TypeScript type definitions
 
+### @xec-sh/ssh {#xec-shssh}
+SSH protocol, host-key trust, connections, channels, SFTP and tunnels. Core uses
+this package for its SSH adapter; import it directly when you need a connection
+or channel rather than command orchestration.
+
+- [SSH overview](../ssh/overview.md) - connection ownership and examples
+- [Security](../ssh/security.md) - trust, cryptography and limits
+- [Compared with ssh2](../ssh/comparison.md) - scope and API differences
+
 ### @xec-sh/ops {#xec-shops}
 The operations library the CLI is a thin wrapper over — deploys, pipelines,
 workflows, health checks, target discovery and secrets.

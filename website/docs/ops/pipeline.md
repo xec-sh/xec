@@ -66,7 +66,7 @@ an SSH target. Local commands also inherit the local process environment.
 Conditions and function steps execute locally and can read host variables
 through `ctx.env`.
 
-The **development API (not published 0.12.0)** adds `envMode: 'replace'` to a
+The **0.13.0 API** adds `envMode: 'replace'` to a
 local `Command` object. Only that command's `env` is passed to the child; omitted
 `env` means an empty map. Pipeline/run/matrix/step variables, engine defaults,
 ambient variables and `preferLocal` PATH additions are excluded. Supply `PATH`

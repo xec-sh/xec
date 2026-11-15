@@ -10,7 +10,7 @@ description: Overview of the Xec ecosystem — packages, architecture, and integ
 Xec separates command execution, SSH connections, operations, script loading,
 terminal UI and test infrastructure into packages with explicit owners. The
 CLI composes those capabilities for project automation. The SSH package is
-introduced in the developing 0.13.0 release.
+introduced in the published 0.13.0 release.
 
 ## Architecture {#architecture}
 
@@ -72,7 +72,7 @@ The owned SSH client: host trust, cryptography, connection leases, channels,
 SFTP and forwarding. Core delegates these mechanics to it. Applications such
 as terminals and file managers can use it independently of command execution.
 See [the SSH library guide](../ssh/overview.md) and
-[comparison with ssh2](../ssh/comparison.md) for the developing 0.13.0 API.
+[comparison with ssh2](../ssh/comparison.md) for the published 0.13.0 API.
 
 ### @xec-sh/ops {#xec-shops}
 The DevOps operations library. Use it standalone in any project — no CLI required.

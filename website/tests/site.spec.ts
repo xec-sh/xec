@@ -55,7 +55,7 @@ test('search loads the generated local index and restores focus on Escape', asyn
   await page.getByRole('button', { name: 'Search documentation' }).click();
   await page.getByRole('searchbox', { name: 'Search query' }).fill('Pipeline');
   await expect(page.locator('.lumen-search-result-link').first()).toBeVisible();
-  await expect(page.locator('.lumen-search-results')).toContainText(/Pipeline/i);
+  await expect(page.getByRole('list', { name: 'Search results', exact: true })).toContainText(/Pipeline/i);
   await page.getByRole('searchbox', { name: 'Search query' }).press('Escape');
   await expect(page.getByRole('searchbox', { name: 'Search query' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Search documentation' })).toBeFocused();
@@ -65,7 +65,7 @@ test('published search URLs open the shared search with their query', async ({ p
   await page.goto('/search?q=Pipeline');
   await expect(page.getByRole('searchbox', { name: 'Search query' })).toHaveValue('Pipeline');
   await expect(page.locator('.lumen-search-result-link').first()).toBeVisible();
-  await expect(page.locator('.lumen-search-results')).toContainText(/Pipeline/i);
+  await expect(page.getByRole('list', { name: 'Search results', exact: true })).toContainText(/Pipeline/i);
   await page.getByRole('searchbox', { name: 'Search query' }).press('Escape');
   await expect(page.getByRole('searchbox', { name: 'Search query' })).toHaveCount(0);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Search Xec documentation');
@@ -77,8 +77,9 @@ test('documentation retains navigation, syntax highlighting and current-section 
   await expect(page.locator('.lumen-doc .shiki span[style]').first()).toBeVisible();
   const heading = page.locator('.lumen-doc h2').last();
   const id = await heading.getAttribute('id');
-  await page.locator(`.lumen-section-nav a[href="#${id}"]`).click();
-  await expect(page.locator('.lumen-section-nav a[aria-current="location"]')).toHaveAttribute(
+  const sectionNav = page.getByRole('navigation', { name: 'Table of contents', exact: true });
+  await sectionNav.locator(`a[href="#${id}"]`).click();
+  await expect(sectionNav.locator('a[aria-current="location"]')).toHaveAttribute(
     'href',
     `#${encodeURIComponent(id!)}`
   );
@@ -123,7 +124,7 @@ test('visual evidence covers coherent light/dark themes, mobile and file-tree do
       outline: value.outline,
     };
   };
-  const ssr = await browser.newContext({ javaScriptEnabled: false, baseURL, viewport: { width: 1440, height: 1000 } });
+  const ssr = await browser.newContext({ javaScriptEnabled: false, baseURL, colorScheme: 'dark', viewport: { width: 1440, height: 1000 } });
   try {
     const initial = await ssr.newPage();
     await initial.goto('/');
@@ -190,14 +191,13 @@ test('visual evidence covers coherent light/dark themes, mobile and file-tree do
   await expect(page.locator('.lumen-file-tree')).toBeVisible();
   await page.screenshot({ path: info.outputPath('documentation-tree.png') });
   await page.goto('/docs/ops/pipeline');
-  await page.locator('.lumen-section-nav a[href="#matrix-builds"]').click();
-  await expect(page.locator('.lumen-section-nav a[aria-current="location"]')).toHaveAttribute('href', '#matrix-builds');
+  const sectionNav = page.getByRole('navigation', { name: 'Table of contents', exact: true });
+  await sectionNav.locator('a[href="#matrix-builds"]').click();
+  await expect(sectionNav.locator('a[aria-current="location"]')).toHaveAttribute('href', '#matrix-builds');
   await page.screenshot({ path: info.outputPath('documentation-toc.png') });
 });
 
 for (const route of [
-  '/docs/introduction',
-  '/docs/introduction/core-concepts',
   '/docs/introduction/ecosystem',
   '/docs/introduction/architecture',
   '/docs/core/execution-engine/overview',

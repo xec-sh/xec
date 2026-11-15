@@ -9,7 +9,7 @@ A pipeline coordinates commands that belong to one operation. It can stop queued
 work after a failure and run explicit cleanup. It does not provide a durable
 transaction, automatic service rollback, or exactly-once delivery.
 
-The corrected execution contract below is in **unreleased `main`**. Published
+The corrected execution contract below is in **Xec 0.13.0**. Published
 0.12.0 loses some inherited defaults and can skip `alwaysRun` after fail-fast;
 see the [version boundary](./overview.md#version-boundary).
 

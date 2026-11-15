@@ -18,7 +18,7 @@ published release. A global installation is useful for ad hoc terminal work.
   workflow runs on Linux and Windows; that is not a claim that every native
   target is tested on every OS in each CI run.
 - Use npm or pnpm. A contributing checkout uses the version in `packageManager`.
-- SSH needs a reachable server, credentials and a host-key policy. The developing 0.13.0
+- SSH needs a reachable server, credentials and a host-key policy. The published 0.13.0
   packages use the owned `@xec-sh/ssh` client; an external OpenSSH executable
   is not required for command execution.
 - Docker operations need a reachable Docker daemon and Docker CLI. Kubernetes

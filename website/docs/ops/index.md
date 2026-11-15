@@ -32,38 +32,21 @@ pnpm add @xec-sh/ops
 ## Quick Example {#quick-example}
 
 ```typescript
-import { Deployer, HealthChecker, Pipeline } from '@xec-sh/ops';
+import { Pipeline } from '@xec-sh/ops';
 
-// Deploy with health verification
-const deployer = Deployer.create({
-  name: 'api-service',
-  targets: ['web-1', 'web-2', 'web-3'],
-  strategy: 'rolling',
-  maxConcurrent: 1,
-  hooks: {
-    deploy: async (ctx) => {
-      await ctx.exec`docker pull myapp:${ctx.version}`;
-      await ctx.exec`docker-compose up -d`;
-    },
-    verify: async (ctx) => ctx.healthCheck(),
-    rollback: async (ctx) => {
-      await ctx.exec`docker-compose down`;
-      await ctx.exec`docker pull myapp:${ctx.previousVersion}`;
-      await ctx.exec`docker-compose up -d`;
-    },
-  },
-  healthCheck: {
-    url: 'http://{{target}}:8080/health',
-    retries: 3,
-  },
-});
+// Read-only checks on the current machine; each step owns its executable.
+const result = await Pipeline.create('toolchain')
+  .step('node', { run: 'node --version' })
+  .step('git', { run: 'git --version' })
+  .run();
 
-const result = await deployer.deploy('v1.2.3');
-if (!result.success) {
-  console.error('Deploy failed, rolling back...');
-  await deployer.rollback();
-}
+if (!result.success) throw new Error('Toolchain check failed');
+console.log(result.summary);
 ```
+
+For remote operations, bind an SSH, Docker or Kubernetes executor explicitly.
+Deployment target names are labels; they do not turn a local executor into a
+remote connection. See [deployment target binding](./deploy.md).
 
 ## Design Principles {#design-principles}
 

@@ -6,7 +6,7 @@ sidebar_position: 8
 
 # SSH reliability and ownership {#ssh-reliability-and-ownership}
 
-Use `@xec-sh/core` for target-oriented operations and `@xec-sh/ssh` when an application needs interactive channels or the complete SFTP client. Public types, authentication adapters and operation lifecycles belong to Xec. Applications import the owned SSH package and its contracts; its private protocol derives from ssh2. No system SSH executable or separate transport types are required. This page describes the developing 0.13.0 API.
+Use `@xec-sh/core` for target-oriented operations and `@xec-sh/ssh` when an application needs interactive channels or the complete SFTP client. Public types, authentication adapters and operation lifecycles belong to Xec. Applications import the owned SSH package and its contracts; its private protocol derives from ssh2. No system SSH executable or separate transport types are required. This page describes the published 0.13.0 API.
 
 ## Commands and uncertain outcomes {#commands-and-uncertain-outcomes}
 

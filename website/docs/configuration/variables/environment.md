@@ -13,9 +13,9 @@ Three environments are distinct: the process running Xec, the configuration
 resolved by Xec, and the child process or remote target. Setting a configuration
 variable does not automatically export it to a child or to a remote host.
 
-:::note Development contract
+:::note Version scope
 Literal treatment of runtime inputs, safe task interpolation, command-free
-previews and `envMode: 'replace'` describe the current development implementation.
+previews and `envMode: 'replace'` describe the 0.13.0 implementation.
 Do not assume these guarantees in published Xec 0.12.0. Keep untrusted values out
 of executable configuration on that release; upgrade before relying on these
 boundaries. The examples that only read ordinary environment values do not need

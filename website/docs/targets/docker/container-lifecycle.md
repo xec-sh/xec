@@ -174,14 +174,9 @@ try {
 }
 ```
 
-In exec mode (no `autoCreate`), targeting a container that doesn't exist is checked before `docker exec` ever runs: xec raises its own `DockerError`, or — with `.nothrow()` — returns a result with `exitCode: 125` and no output.
-
-## Related Topics {#related-topics}
-
-- [Docker Overview](./overview.md) - Docker target basics
-- [Compose Integration](./compose-integration.md) - Docker Compose support
-- [Volume Management](./volume-management.md) - Managing volumes
-- [Networking](./networking.md) - Container networking
+In exec mode without `autoCreate`, an absent container rejects before command
+execution. `.nothrow()` only changes handling of a completed nonzero command; it
+does not convert target-resolution or transport failures into a synthetic result.
 
 ## Confirmed removal {#confirmed-removal}
 
@@ -199,3 +194,10 @@ Both steps target the same immutable ID. A failed stop prevents removal. The
 configured management-command timeout still applies; the grace period does not
 permit an unbounded command. The default remains direct removal, with forced
 removal only when the second argument is `true`.
+
+## Related Topics {#related-topics}
+
+- [Docker Overview](./overview.md) - Docker target basics
+- [Compose Integration](./compose-integration.md) - Docker Compose support
+- [Volume Management](./volume-management.md) - Managing volumes
+- [Networking](./networking.md) - Container networking

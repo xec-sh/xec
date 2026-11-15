@@ -34,22 +34,13 @@ function Content() {
   return (
     <OpenSearch.Provider value={() => setSearchOpen(true)}>
       <LumenShell theme={theme.palette.mode} currentPath={location.pathname} islands={islands} disablePrismProvider>
-        {searchOpen && (
-          <div
-            className="search-overlay"
-            onClick={(event) => {
-              if (event.target === event.currentTarget) setSearchOpen(false);
-            }}
-          >
-            <LumenSearchDialog
-              open
-              onClose={() => setSearchOpen(false)}
-              pagefindUrl="/pagefind/pagefind.js"
-              initialQuery={searchRoute ? (new URLSearchParams(location.search).get('q') ?? '').slice(0, 256) : ''}
-              maxResults={12}
-            />
-          </div>
-        )}
+        <LumenSearchDialog
+          open={searchOpen}
+          onClose={() => setSearchOpen(false)}
+          pagefindUrl="/pagefind/pagefind.js"
+          initialQuery={searchRoute ? (new URLSearchParams(location.search).get('q') ?? '').slice(0, 256) : ''}
+          maxResults={12}
+        />
       </LumenShell>
     </OpenSearch.Provider>
   );

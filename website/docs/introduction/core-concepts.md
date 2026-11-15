@@ -187,4 +187,4 @@ is also distinct from tagged-template argument escaping.
 - [Architecture](./architecture.md): implementation and package responsibilities.
 - [When to use Xec](./when-to-use.md): choosing an entry point.
 - [Portable scripts](./portable-scripts.md): runtime and shell boundaries.
-- [Tasks](../configuration/tasks/overview.md): supported behavior in 0.12.0.
+- [Tasks](../configuration/tasks/overview.md): supported behavior in 0.13.0.

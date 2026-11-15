@@ -213,7 +213,7 @@ type RetryFailure = Pick<RetryError, 'attempts' | 'lastResult' | 'results'>;
 type AdapterFailure = Pick<AdapterError, 'adapter' | 'operation' | 'originalError'>;
 type DockerFailure = Pick<DockerError, 'container' | 'operation' | 'originalError'>;
 type PodFailure = Pick<KubernetesError, 'pod' | 'namespace' | 'container'>;
-type UncertainExecution = Pick<ExecutionOutcomeUnknownError, 'kind' | 'originalError'>;
+type UncertainExecution = Pick<ExecutionOutcomeUnknownError, 'kind' | 'cause' | 'adapter' | 'operationId' | 'resource'>;
 ```
 
 `ExecutionError.kind` identifies the cause across adapters. The Node local

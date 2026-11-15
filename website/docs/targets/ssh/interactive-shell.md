@@ -12,7 +12,7 @@ Import the existing SSH implementation directly when building an interactive ter
 import { SSHClient, sshHostFingerprint } from '@xec-sh/ssh';
 ```
 
-This developing 0.13.0 package owns the same client and pool used by Core's SSH adapter. See [the library guide](../../ssh/overview.md) for its public boundary.
+This published 0.13.0 package owns the same client and pool used by Core's SSH adapter. See [the library guide](../../ssh/overview.md) for its public boundary.
 
 ## Pin the host before sending credentials {#pin-the-host-before-sending-credentials}
 

@@ -135,7 +135,7 @@ try {
 
 #### SSH Connection Pool {#ssh-connection-pool}
 
-In the developing 0.13.0 architecture, @xec-sh/ssh owns this pool. Core owns
+In the published 0.13.0 architecture, @xec-sh/ssh owns this pool. Core owns
 command policy and result mapping, with no second connection registry. See
 [connections and failures](../ssh/connections.md).
 

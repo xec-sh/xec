@@ -53,7 +53,7 @@ const manager = new ConfigurationManager({
 
   // Custom defaults
   defaults: {
-    version: '2.0',
+    version: '1.0',
     commands: { run: { defaultTimeout: '60s' } },
   },
 
@@ -62,19 +62,19 @@ const manager = new ConfigurationManager({
 
   // Secrets
   secretProvider: {
-    type: 'vault',
-    config: { addr: 'https://vault.example.com' },
+    type: 'env',
   },
 });
 ```
 
 ## Config Sources (Priority Order) {#config-sources-priority-order}
 
-1. **Environment variables** (`MYAPP_*` or `XEC_*`)
-2. **Active profile** (e.g., `.myapp/environments/staging.yaml`)
-3. **Project config** (e.g., `.myapp/config.yaml`)
-4. **Global config** (e.g., `/etc/myapp/config.yaml`)
-5. **Built-in defaults**
+1. **Active profile** (e.g., `.myapp/environments/staging.yaml`)
+2. **Environment overrides** (`MYAPP_*` or `XEC_*`)
+3. **File selected by the prefixed `CONFIG` environment variable**
+4. **Project config** (e.g., `.myapp/config.yaml`)
+5. **Global config** (e.g., `/etc/myapp/config.yaml`)
+6. **Built-in and caller-supplied defaults**
 
 Higher priority sources override lower ones. Nested objects are deep-merged. Project discovery loads the first matching config file, including the root file names when no earlier candidate exists.
 
@@ -90,11 +90,11 @@ targets:
   hosts:
     production:
       host: "${env.PROD_HOST}"
-      username: "${env.PROD_USER}"
+      user: "${env.PROD_USER}"
 
 tasks:
   deploy:
-    command: "docker pull ${app_name}:${version}"
+    command: "docker image inspect ${vars.app_name}:${vars.version}"
 ```
 
 ## Secret Resolution {#secret-resolution}
@@ -105,8 +105,17 @@ targets:
   hosts:
     production:
       host: prod.example.com
-      password: "${secret:ssh_password}"    # Resolved from secret manager
+      password: "${secrets.ssh_password}"   # Resolved from the configured provider
 ```
+
+Implemented secret providers are `local`, `env` and `git`. A provider name in a
+type union is not an implementation: Vault, AWS Secrets Manager and 1Password
+are not available through this manager. Do not substitute a missing secret with
+an empty value. See [secret storage](./secrets.md).
+
+Use `strict: true` with an explicit `configFilePath` for admission checks. The
+0.13.0 non-strict loader can skip malformed YAML and continue with defaults;
+see [validation](../configuration/advanced/validation.md).
 
 ## Saving Configuration {#saving-configuration}
 

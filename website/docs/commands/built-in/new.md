@@ -8,8 +8,8 @@ description: Create runnable project, script, command, task and profile starters
 `new` scaffolds a small starting point that you own and review. It does not deploy
 an application or register an extension runtime.
 
-:::note Upcoming scaffold corrections
-The behavior below describes current source. Published 0.12.0 has older project,
+:::note Xec 0.13.0 scaffolding
+The behavior below describes Xec 0.13.0. Published 0.12.0 has older project,
 task and profile templates, an ineffective extension generator and options that
 do not implement their advertised behavior. The current source fixes those
 starters, rejects unsupported previews and removes `--from` and the ineffective

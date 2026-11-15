@@ -107,7 +107,7 @@ Published **0.12.0** does not honor dry-run for script/eval execution and has un
 raw YAML command interpolation. Do not use that release's dry-run as a no-effect
 guarantee or pass untrusted input to its YAML commands.
 
-In **unreleased `main`**, `--dry-run` does not load scripts, evaluate inline code,
+In **Xec 0.13.0**, `--dry-run` does not load scripts, evaluate inline code,
 start REPL, resolve task targets, run conditions or initialize secret providers.
 If configuration needs `${cmd:...}` or a secret-provider value, preview fails with
 an explicit unknown-value reason, even when that configuration was trusted before.

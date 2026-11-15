@@ -8,6 +8,18 @@ export const xecTheme: PrismThemeOverrides = ({ mode }) => ({
     text: { primary: mode === 'dark' ? '#eeedf4' : '#20202b', secondary: mode === 'dark' ? '#a9abba' : '#626574' },
     divider: mode === 'dark' ? '#30323d' : '#dddde4',
   },
+  components: {
+    MuiCssBaseline: {
+      styleOverrides: {
+        mark: {
+          color: 'inherit',
+          backgroundColor: mode === 'dark' ? '#b8b0ff33' : '#5b3fd324',
+          borderRadius: 2,
+        },
+      },
+    },
+    MuiBackdrop: { styleOverrides: { root: { backdropFilter: 'blur(4px)' } } },
+  },
   shape: { borderRadius: 10 },
   typography: {
     fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',

@@ -5,7 +5,7 @@ description: The Xec SSH API, its ownership rules and links to complete usage gu
 
 # SSH Adapter {#ssh-adapter}
 
-Use an SSH target for commands, file transfer and tunnels. The adapter owns command composition, output delivery and execution results; @xec-sh/ssh owns host trust, pooled connections and channel lifetimes. The developing 0.13.0 boundary removes duplicate low-level mechanisms from Core.
+Use an SSH target for commands, file transfer and tunnels. The adapter owns command composition, output delivery and execution results; @xec-sh/ssh owns host trust, pooled connections and channel lifetimes. The published 0.13.0 boundary removes duplicate low-level mechanisms from Core.
 
 ```typescript
 import { $ } from '@xec-sh/core';

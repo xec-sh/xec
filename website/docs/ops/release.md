@@ -27,12 +27,12 @@ build also needs Bun. GitHub publication additionally needs an authenticated
 `gh` CLI. Run from a clean, committed checkout on the intended release branch.
 For an interactive public npm release, the publisher checks the current npm identity before pushing the release refs when archives still need uploading. If the session expired, run `npm login --auth-type=web --registry=https://registry.npmjs.org/` and `npm whoami --registry=https://registry.npmjs.org/`. An authenticated account still needs write access to each destination package or scope.
 
-Install the frozen dependencies in a separate checkout when the current installation serves applications. The root manifest pins published Xec CLI, Ops and Kit with explicit npm dependencies. Those installed packages run the project recipe; the candidate CLI is built only as a release artifact. No local CLI build is required to start. The examples use the planned `0.13.0`; choose your actual next version.
+Install the frozen dependencies in a separate checkout when the current installation serves applications. The root manifest pins published Xec CLI, Ops and Kit with explicit npm dependencies. Those installed packages run the project recipe; the candidate CLI is built only as a release artifact. No local CLI build is required to start. Xec 0.13.0 is published. The commands below use `0.13.1` as an illustrative next version; choose the actual unused version for your release.
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm release 0.13.0 --dry-run
-pnpm release 0.13.0 --prepare
+pnpm release 0.13.1 --dry-run
+pnpm release 0.13.1 --prepare
 ```
 
 The dry run reads local evidence only. It reports package inventory,
@@ -57,12 +57,11 @@ The version change refreshes pnpm's workspace metadata from the frozen lockfile 
 All archives must pass identity, dependency and exported-entry checks before the
 sealed record is written. Local artifacts live at:
 
-```text
-.release-artifacts/<version>/<source-commit>/
-  release.json           # accepted archive identities
-  %40scope%2Fpackage.tgz
-  publication.jsonl       # appears during publication
-```
+:::filetree{title=".release-artifacts/<version>/<source-commit>/"}
+- `release.json` — Accepted archive identities
+- `%40scope%2Fpackage.tgz` — Immutable package archive
+- `publication.jsonl` — Publication observations, created during publication
+:::
 
 Keep this directory backed up until publication and recovery are complete.
 Archives are read-only and checked by SHA-512 on every resume. A different
@@ -72,7 +71,7 @@ looks equivalent. Rebuilding a missing archive is not proof of equivalence.
 After reviewing the candidate and its required tests, the operator can publish:
 
 ```bash
-pnpm release 0.13.0 --resume
+pnpm release 0.13.1 --resume
 ```
 
 This pushes only the exact release commit and selected annotated tag, atomically,
@@ -86,50 +85,38 @@ checkout of its release commit; it completes GitHub without republishing npm.
 `--notes-from <full-commit>` selects the published ancestor used as the release
 notes baseline. Xec verifies that it is a full commit and an ancestor; the caller
 is responsible for choosing the published baseline. Without it, notes explicitly
-cover committed history, not a guessed release delta. The pinned 0.12.0 driver
-does not bound long GitHub notes: use an explicit verified baseline for this
-repository's next release. The development API limits generated notes to complete
-commit entries within GitHub's body limit, preserves source and package identity,
-and links to the full history. It also rejects oversized supplied notes before
-remote writes; those improvements become active when the published API pin is
-updated.
+cover committed history, not a guessed release delta. The pinned 0.13.0 driver
+bounds generated notes to complete commit entries within GitHub's body limit,
+preserves source and package identity, and links to the full history. Oversized
+supplied notes are rejected before remote writes.
 `--skip-npm` and `--skip-github` are explicit stage selections. `--offline` makes
 the isolated dependency installation use the existing pnpm store. `--yes` accepts
 the displayed execution plan in noninteractive use; it bypasses no checks.
 
-## Published driver and development capabilities {#published-driver}
+## Published driver and producer reuse {#published-driver}
 
-The project currently pins Xec **0.12.0**. Its `verifyArtifact` callback runs the
-mandatory installed Core/SSH pair check when both archives are available,
-before the accepted release record is written. The recipe does not pass
-new options to an older API or import the candidate Ops sources to obtain them.
-A rejected archive stops preparation; it cannot be published by this recipe.
+This repository pins published Xec **0.13.0**. Its recipe still uses
+`verifyArtifact` to run the installed Core/SSH pair check before sealing the
+accepted release. It does not yet opt into retained-producer reuse. Do not infer
+that updating the driver alone changes the repository's acceptance policy.
 
-The published API does not retain a complete producer after consumer rejection.
-It also writes its accepted archive record before deleting the temporary build
-workspace. Cleanup failure is reported as a failure: inspect and resolve it
-before resuming, even if `release.json` exists. The next API addresses both
-limitations; a source improvement is not a capability of an installed package.
+The 0.13.0 Ops API provides `RELEASE_PRODUCER_PROTOCOL === 1` and an optional
+`retainProducer` contract for recipes that explicitly adopt it. It saves
+validated, read-only archives and `producer.json` before consumer acceptance.
+The final `release.json` appears after acceptance and temporary workspace cleanup
+succeed. A producer receipt alone does not authorize publication.
 
-The development Ops API adds `RELEASE_PRODUCER_PROTOCOL === 1` and the optional
-`retainProducer` contract. It saves validated, read-only archives and a
-`producer.json` receipt before acceptance. The final `release.json` appears only
-after acceptance **and** temporary workspace cleanup succeed. A producer receipt
-alone cannot authorize publication.
+For a recipe using that contract, retry verifies the exact source, package
+inventory, runtime, build arguments, callback identity, declared policy/input
+digests and every archive's SHA-512. It reruns acceptance in a fresh source-only
+checkout and reuses the producer's archives instead of rebuilding. Changed inputs
+or bytes cause refusal, not an implicit rebuild or replacement. A successful
+consumer result is not reused merely because an older attempt passed.
 
-A retry checks the exact source, package inventory, runtime, build argv,
-callback identity, declared policy/input digests and every archive's SHA-512.
-It repeats acceptance in a fresh source-only checkout, skipping the isolated
-producer's dependency installation, build and packing. No successful consumer
-result is cached. A changed input or archive causes refusal; it never causes an
-implicit rebuild or replacement of an existing batch. An interrupted partial
-producer still needs inspection.
-
-This development API is qualified separately. The repository recipe will adopt
-it only after a published driver/API supports it and the pinned dependencies
-are updated. Until then, `--prepare` uses published 0.12.0 acceptance, and
-publication `--resume` requires its already accepted archives. Do not select a
-self-built CLI as a recovery shortcut.
+For this repository's `verifyArtifact` recipe, a rejected preparation may require
+producing its archives again. After an interrupted attempt, inspect the writer
+lock, temporary workspace and existing evidence before resuming. Keep accepted
+archives intact and use the pinned published CLI throughout recovery.
 
 ## Failure and recovery {#failure-and-recovery}
 
@@ -223,7 +210,7 @@ checkout holding the prepared archives.
   export GIT_CONFIG_COUNT=1
   export GIT_CONFIG_KEY_0='url.https://github.com/.insteadOf'
   export GIT_CONFIG_VALUE_0='git@github.com:'
-  pnpm release 0.13.0 --resume
+  pnpm release 0.13.1 --resume
 )
 ```
 
@@ -276,10 +263,10 @@ packaging belongs here; version, Git, registry and recovery logic remain shared.
 run acceptance against each packed archive before sealing; rejection or a change
 to those bytes prevents preparation from completing.
 
-The development `validatePackedPackage` API returns the checked package manifest,
+The 0.13.0 `validatePackedPackage` API returns the checked package manifest,
 so consumers can use the validated metadata without reading it again.
 
-The development API also exports `packReleaseArtifacts(workspace, temporary,
+The 0.13.0 API also exports `packReleaseArtifacts(workspace, temporary,
 packages, options)` for independent builders and archive-only CI checks. It
 uses the same per-package producer as `prepareReleaseArtifacts`; callers own the
 private temporary directory and await its cleanup. `prepareArchive` may normalize
@@ -287,7 +274,7 @@ an archive or add source provenance before identity/export validation and hashin
 Acceptance receives these final bytes. Do not repack them for a consumer or
 publication. Changes to the archive hook invalidate retained producer identity.
 
-For the development producer API described above, pass
+For the retained-producer API described above, pass
 `retainProducer: { policy, inputs, verify }` instead of `verifyArtifact`. `policy` is a SHA-256 digest of the owner's verification
 policy; each named `inputs` value is a SHA-256 digest of an actual external
 build, packaging or verifier input. Committed inputs are already bound by the
@@ -316,7 +303,7 @@ recovery. Inspect a forced-exit writer lock using the existing recovery procedur
 context. Its default implementation uses Xec; adapters must preserve exit codes,
 finite deadlines and credential redaction.
 
-In the **development API, not published 0.12.0**, pass
+In the **0.13.0 API**, pass
 `releaseCommand(cwd, executable, args, { envMode: 'replace', env })` when a build
 must receive only declared variables. Omitted `env` then means an empty map;
 process, engine and adapter defaults are excluded. Set `PATH` explicitly when

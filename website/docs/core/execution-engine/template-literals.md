@@ -47,11 +47,11 @@ strings, or the supported `cmd.exe` encoding. The shell is selected through the
 engine or target configuration, not inferred from the argument itself.
 
 **Release boundary:** surrounding-quote handling and the fail-closed rules below
-are fixes in **unreleased `main`**, not published 0.12.0. On 0.12.0, place scalar
+are fixes in **Xec 0.13.0**, not published 0.12.0. On 0.12.0, place scalar
 substitutions outside literal quotes; use explicit `shell: false` argument arrays
 when exact arbitrary data is required.
 
-In hardened `main`, normal POSIX and PowerShell quoted scalar values are also
+In Xec 0.13.0, normal POSIX and PowerShell quoted scalar values are also
 supported. Do not add quotes merely to escape an argument; Xec already does that.
 
 ```typescript

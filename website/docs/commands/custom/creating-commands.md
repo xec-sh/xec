@@ -45,12 +45,12 @@ must only register its schema. Put effects inside its action, so help and
 discovery remain safe. Install `commander` as a development dependency for the
 `Command` type used in these examples.
 
-The current development loader preserves the original directory for nested
+The 0.13.0 loader preserves the original directory for nested
 TypeScript imports, including imports made later by an action. It requires
 Node's synchronous module hooks (Node 22.15 or later with that API; the CLI
 requires Node 22.18). npm 0.12.0 instead relocates a transformed entry to
 `.xec/.tmp/`, so relative imports and `import.meta.url` can refer to the wrong
-location. This correction belongs to the next release, not to npm 0.12.0.
+location. This correction is available in 0.13.0.
 
 ## What a Command Can Use {#what-a-command-can-use}
 
@@ -263,14 +263,14 @@ XEC_DEBUG=1 xec --help
 XEC_DEBUG=1 xec your-command
 ```
 
-In the current development loader, no relocated TypeScript source is written.
+In the 0.13.0 loader, no relocated TypeScript source is written.
 `import.meta.url` keeps the authored file URL with a private graph query; use
 `fileURLToPath(import.meta.url)` for its path or `new URL('./asset', import.meta.url)`
 for relative data. Each load gets independent local ESM state; bare packages and
 CommonJS keep Node's normal cache. The CLI retains the graph through action and
 cleanup, then deregisters its hooks. This is trusted local code, not a sandbox.
 
-Library owners can use `ModuleGraph` from `@xec-sh/loader` in the next release.
+Library owners can use `ModuleGraph` from `@xec-sh/loader` in 0.13.0.
 Keep it alive through deferred callbacks and dispose it after they settle.
 Disposal does not undo side effects or evict Node's ESM registry; use a fresh
 process for unbounded watch/reload cycles. npm 0.12.0 still writes the temporary

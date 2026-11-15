@@ -690,31 +690,6 @@ summary {
   overflow: auto;
   padding: 30px 20px;
 }
-.lumen-section-nav ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.lumen-section-nav li {
-  border-inline-start: 1px solid var(--xec-border);
-  font-size: 11px;
-}
-.lumen-section-nav a {
-  display: block;
-  text-decoration: none;
-  color: var(--xec-muted);
-  padding: 5px 0 5px 12px;
-}
-.lumen-section-nav .lumen-toc-level-3 a {
-  padding-inline-start: 22px;
-  font-size: 10px;
-}
-.lumen-section-nav li.is-active {
-  border-inline-start-color: var(--xec-accent);
-}
-.lumen-section-nav a[aria-current='location'] {
-  color: var(--xec-accent);
-}
 .page-tools {
   border-top: 1px solid var(--xec-border);
   margin-top: 25px;
@@ -791,92 +766,6 @@ summary {
   font: 9px var(--xec-mono);
   color: var(--xec-muted);
   gap: 20px;
-}
-.search-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  background: #0009;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 10vh 20px;
-  backdrop-filter: blur(5px);
-}
-.lumen-search-dialog-backdrop {
-  width: min(720px, 100%);
-}
-.lumen-search-dialog {
-  background: var(--xec-surface);
-  color: var(--xec-text);
-  border: 1px solid var(--xec-border);
-  border-radius: 14px;
-  box-shadow: 0 25px 100px #0007;
-  padding: 20px;
-  width: min(720px, 100%);
-  max-height: 80vh;
-  overflow: auto;
-}
-.lumen-search-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.lumen-search-input-wrapper {
-  flex: 1;
-}
-.lumen-search-input {
-  width: 100%;
-  padding: 13px 15px;
-  background: var(--xec-bg);
-  color: var(--xec-text);
-  border: 1px solid var(--xec-border);
-  border-radius: 7px;
-  font-size: 16px;
-}
-.lumen-search-header button {
-  background: var(--xec-raised);
-  border: 1px solid var(--xec-border);
-  border-radius: 5px;
-  color: var(--xec-text);
-  padding: 7px 11px;
-  cursor: pointer;
-}
-.lumen-search-results-list {
-  list-style: none;
-  padding: 0;
-}
-.lumen-search-result-link {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  text-decoration: none;
-  padding: 13px;
-  border-radius: 6px;
-}
-.lumen-search-result-link:hover,
-.lumen-search-result-link:focus-visible {
-  background: var(--xec-raised);
-}
-.lumen-search-result-title {
-  font-size: 15px;
-  font-weight: 550;
-}
-.lumen-search-result-snippet {
-  font-size: 12px;
-  color: var(--xec-muted);
-}
-.lumen-search-result-snippet mark {
-  background: color-mix(in srgb, var(--xec-accent) 20%, transparent);
-  color: var(--xec-text);
-}
-.lumen-search-empty,
-.lumen-search-loading {
-  padding: 25px 10px;
-  color: var(--xec-muted);
-}
-.lumen-search-error {
-  color: #f89c9c;
 }
 .lumen-code-block,
 .example-code pre {

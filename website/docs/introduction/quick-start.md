@@ -87,9 +87,9 @@ npx xec run greet -p name=Ada
 
 `check-node`, `greet` and `check` belong to this project. `xec run` is the built-in
 that runs them. The greeting travels through an environment variable rather
-than becoming part of a shell command. YAML `${...}` interpolation in command
-strings is textual in published 0.12.0; it does not provide the escaping of Core's
-tagged-template API.
+than becoming part of a shell command. Xec 0.13.0 also passes supported YAML
+command substitutions through Core's argument escaping. Keep the authored
+configuration trusted: its literal commands and scripts are executable code.
 
 ## Select a target {#working-with-different-environments}
 
@@ -150,10 +150,10 @@ need structured options, contextual help or confirmation. Keep implementation
 in reusable functions, and use [Ops pipelines](../ops/pipeline.md) when steps
 need an explicit dependency graph. Neither requires an alternate shell runner.
 
-`--dry-run` is specific to the selected command. In 0.12.0 it is **not safe as a
-non-execution guarantee for scripts**, including `script:` entries in tasks.
-Use `xec inspect tasks NAME --explain` to inspect a task definition; even
-configuration inspection can evaluate an explicitly trusted `${cmd:...}` value.
+`--dry-run` is specific to the selected command. In 0.13.0, script and task
+previews do not execute the program. Configuration that requires executable
+values is refused during preview. A preview cannot prove connectivity, service
+health or the eventual outcome; see the [run contract](../commands/built-in/run.md).
 
 ## See also {#see-also}
 

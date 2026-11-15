@@ -870,13 +870,17 @@ const pipeline: BuildPipeline = {
 
 ### 3. Error Recovery {#3-error-recovery}
 
-```typescript
-// Graceful degradation
-const result = await $`webpack --mode production`.nothrow();
+Preserve the failed production outcome. A development build is a different
+artifact and must not be substituted as a successful production fallback.
 
+```typescript
+import { $ } from '@xec-sh/core';
+
+// A production build failure must stop delivery.
+const result = await $`webpack --mode production`.nothrow();
 if (!result.ok) {
-  console.warn('Production build failed, trying development mode');
-  await $`webpack --mode development`;
+  console.error(result.stderr);
+  result.throwIfFailed();
 }
 ```
 

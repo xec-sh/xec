@@ -9,7 +9,7 @@ sidebar_position: 2
 
 ## Overview {#overview}
 
-Xec's developing 0.13.0 API uses one `SSHConnectionConfig` from `@xec-sh/ssh`.
+Xec's published 0.13.0 API uses one `SSHConnectionConfig` from `@xec-sh/ssh`.
 Core accepts that connection policy in `$.ssh(...)`. Authentication can use
 private-key content or a path, a password, an agent, or a keyboard-interactive
 handler. Host authentication is a separate requirement and defaults to strict

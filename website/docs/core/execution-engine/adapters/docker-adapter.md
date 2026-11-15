@@ -125,8 +125,7 @@ the calls above only build up configuration.
 
 ## Cancellation and ownership {#cancellation-and-ownership}
 
-The following ownership and reconciliation contract is available on the development
-branch. It is not provided by the published 0.12.0 package.
+The following ownership and reconciliation contract is available in Xec 0.13.0. It is not provided by the older 0.12.0 package.
 
 Run mode creates the container first, obtains its full immutable ID, then
 starts it with stdout/stderr attached. The ordinary process handle exposes

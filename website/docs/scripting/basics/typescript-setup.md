@@ -170,7 +170,7 @@ compile-time declarations for an undeclared remote package. Install and pin the
 package when the script needs static type checking; avoid invented ambient
 interfaces that merely assume the remote API.
 
-In the developing 0.13.0 source, a missing bare import fails locally. The loader
+In the published 0.13.0 source, a missing bare import fails locally. The loader
 does not disclose an internal package name to a CDN or fetch a public package
 with that name. Remote resolution requires an explicit URL or a remote prefix
 such as `npm:`. Those modules are chosen by the application and are not Xec's
@@ -203,7 +203,7 @@ const loader = new ModuleLoader(options);
 ```
 
 Keep both `module-lock.json` and its sibling `module-lock.json.pins/` directory
-with the reviewed release inputs. In developing 0.13.0, the JSON file is a v2
+with the reviewed release inputs. In published 0.13.0, the JSON file is a v2
 store descriptor; each file in the directory pins one canonical URL to exact
 UTF-8 bytes, including an initial BOM. Concurrent writers may add different
 pins, but cannot replace an existing digest. URL identity includes the query;
@@ -223,7 +223,7 @@ Configure the loader's `graph` options to set different bounds.
 
 ### Native Module Graphs {#native-module-graphs}
 
-The developing 0.13.0 loader prepares every literal remote dependency before
+The published 0.13.0 loader prepares every literal remote dependency before
 evaluating the entry. Native ESM preserves cycles, live bindings, default exports
 and top-level await. A bad dependency fails before module side effects. Plain
 JavaScript is not bundled or rewritten; TypeScript/JSX uses the shared transformer.

@@ -42,7 +42,7 @@ if (result.ok) {
 
 Import `ExecutionResult` from `@xec-sh/core`. Its `ok`, `exitCode`, `signal` and `cause` describe completion. `stdout`, `stderr`, `stdall` and `buffer()` expose captured output. Metadata includes `command`, `duration`, `startedAt`, `finishedAt`, `adapter`, `host` and `container`. `throwIfFailed()` converts an unsuccessful completed result into a `CommandError`.
 
-In the developing 0.13.0 implementation, `.nothrow()` changes only handling of
+In Xec 0.13.0, `.nothrow()` changes only handling of
 a completed unsuccessful result. Input-resolution, authentication, spawn,
 cancellation and unknown-outcome errors remain rejections, including through `.text()` and
 `.cache()`. Rejected or uncertain attempts are not cached as completed results;

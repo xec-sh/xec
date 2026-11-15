@@ -23,9 +23,8 @@ version to accept untrusted task parameters or to preview an operation with side
 effects. A TypeScript program with explicit Core argument arrays is the appropriate
 boundary for untrusted input on that release.
 
-The hardened contract below is implemented in **unreleased `main`**. It is not a
-claim that installing `@xec-sh/cli@0.12.0` receives these fixes. Confirm the release
-containing them before relying on the changed behavior.
+The contract below is available in **Xec 0.13.0**. Upgrade older installations
+before relying on these parameter, preview and cleanup guarantees.
 
 ## Basic Task Structure {#basic-task-structure}
 
@@ -98,7 +97,7 @@ Environment overrides such as `XEC_VARS_NAME` remain literal data even through
 variable references and save/reload. They cannot introduce task, profile or
 extension definitions. A separate profile YAML file is subject to the same
 command-substitution trust gate as the main configuration. These protections are
-also part of the unreleased fixes.
+included in 0.13.0.
 
 Arrays expand to separate arguments and must appear outside literal quotes.
 Normal POSIX/PowerShell quoted scalar values are supported. Complex shell
@@ -153,20 +152,19 @@ pipeline does not supply durable transactions or automatic rollback.
 
 ## Preview {#preview}
 
-In hardened `main`, `xec run <task> --dry-run` validates the task shape and shows
+In Xec 0.13.0, `xec run <task> --dry-run` validates the task shape and shows
 authored operations without loading scripts, resolving targets, evaluating
 conditions, or running executable value providers. Values that require command or
 secret-provider evaluation during configuration load cause an explicit refusal.
 They are unknown, not replaced with invented values.
 
 Preview success means that a preview completed. It is not an execution receipt or
-proof that a target is reachable. The published 0.12.0 dry-run limitations above
-still apply until the corrected release is installed.
+proof that a target is reachable. Use 0.13.0 or later for this preview contract.
 
 ## Deliberate limits {#deliberate-limits}
 
 The task executor does not implement `hooks`, `emits`, event subscriptions through
-`on`, `cache`, `schedule`, `template`, or `dependsOn`. Hardened `main` rejects these
+`on`, `cache`, `schedule`, `template`, or `dependsOn`. Xec 0.13.0 rejects these
 keys instead of silently ignoring them, and the public `TaskDefinition` type does
 not advertise them (`@xec-sh/ops/config/types`). `TaskStep.parallel` is also rejected; concurrency belongs to
 the containing task. The implemented `register`, step `onSuccess` and task

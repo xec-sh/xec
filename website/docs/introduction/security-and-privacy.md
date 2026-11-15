@@ -21,7 +21,7 @@ does not excuse losing its result or misrepresenting its effects.
 | --- | --- |
 | Targets | Execute on the selected adapter and target; never substitute local execution after a remote failure. |
 | Host identity | Verify SSH hosts by default and surface changed or unknown identities. |
-| Module loading | Keep local resolution local. Developing 0.13.0 verifies remote dependency graphs before execution and preserves immutable trust pins under concurrent writers. |
+| Module loading | Keep local resolution local. Xec 0.13.0 verifies remote dependency graphs before execution and preserves immutable trust pins under concurrent writers. |
 | Network operations | Make remote targets, module sources, registries and release destinations explicit in the invoked operation. |
 | Credentials | Keep diagnostic redaction separate from application payloads; preserve the exact payload where the API promises it. |
 | Outcomes | Distinguish completed results from lost acknowledgements, failed cleanup and unknown remote effects. |
@@ -69,7 +69,7 @@ not grant extra authority. Constrain the target, arguments, artifacts and
 credentials before dispatch.
 
 A deadline or disconnected socket does not prove a remote write was undone.
-Xec must preserve that uncertainty. In developing 0.13.0, `.nothrow()` permits
+Xec must preserve that uncertainty. In published 0.13.0, `.nothrow()` permits
 inspection of a real completed command result; it does not fabricate an exit
 code for transport or ownership failures. Reconcile uncertain effects before
 deciding whether a retry is safe.

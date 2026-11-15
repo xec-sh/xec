@@ -1,706 +1,360 @@
 ---
 title: Configuration Validation
-description: Validating and testing Xec configurations
+description: Check configuration, understand the result, and add explicit preflight checks without executing a deployment.
 ---
 
 # Configuration Validation {#configuration-validation}
 
-Xec provides comprehensive validation capabilities to ensure your configurations are correct, secure, and optimized before deployment. This guide covers validation strategies, tools, and best practices.
+Check configuration before running an operation. Separate three questions:
+is the document loadable, is its configuration supported, and can the intended
+target perform the operation? A successful configuration check answers only the
+checks it actually ran; it is not a deployment receipt.
 
-## Validation Levels {#validation-levels}
+:::warning Xec 0.13.0 limitation
+The CLI can report a valid default configuration after a malformed YAML file was
+skipped by the non-strict loader. Do not use `xec config validate` alone as a
+fail-closed admission check for an untrusted or newly edited file. The explicit
+strict library check below rejects load failures. This limitation remains in
+0.13.0; it is not fixed by updating the documentation.
+:::
 
-### 1. Schema Validation {#1-schema-validation}
+## What is checked {#validation-levels}
 
-Validates configuration structure and types:
+| Layer | Checks | Does not establish |
+| --- | --- | --- |
+| Loading | YAML parsing, source selection, profile resolution and value interpolation | That every expected file was loaded by a non-strict caller |
+| Configuration | Version syntax, target fields, task definitions, profile inheritance, supported secret providers and CLI command defaults | Remote connectivity or application readiness |
+| Operation preflight | Checks explicitly implemented by your task or application | Automatic rollback, exactly-once execution or authorization to mutate a target |
+
+Validation may load configuration. An authored `${cmd:...}` is executable code,
+and secret providers may read external state. Use `evaluateCommands: false` for
+a library check that must refuse those evaluations. A refusal means that the
+value could not be established under that policy.
+
+### Schema validation {#1-schema-validation}
+The validator checks supported configuration fields. It does not promise a
+complete JSON Schema check of every arbitrary value under `vars`.
+
+### Semantic validation {#2-semantic-validation}
+Task parsing, profile inheritance and command-default schemas provide different
+checks. Missing runtime values or target resolution may fail later at execution.
+
+### Runtime validation {#3-runtime-validation}
+Run explicit, bounded probes against the intended target. Configuration
+validation itself does not execute a remote readiness test.
+
+## Configuration shape {#configuration-schema}
+
+### Structure {#schema-structure}
+A configuration has a `version` and optional `vars`, `targets`, `tasks`,
+`profiles`, `scripts`, `commands` and `secrets`. See the
+[configuration reference](../config-file.md) for each supported contract.
+
+### Types {#type-validation}
+Keep numbers and booleans typed in YAML. Environment overrides are strings;
+validate application-specific conversions rather than assuming coercion.
+
+## Inspect a configuration {#validation-commands}
+
+### Basic validation {#basic-validation}
+
+Run these commands in a project with a reviewed configuration:
 
 ```bash
-# Validate against schema
-xec config validate
-
-# Output
-✓ Schema validation passed
-✓ Version: 1.0 (supported)
-✓ Structure: Valid YAML
-✓ Required fields present
+pnpm exec xec config validate
+pnpm exec xec config --output json validate
+pnpm exec xec config --config .xec/config.yaml --profile staging validate
+pnpm exec xec config tasks validate
 ```
 
-### 2. Semantic Validation {#2-semantic-validation}
+`--config` selects the file and `--profile` selects the environment. `tasks
+validate` checks task definitions; it does not run them. `config validate` has no
+`--runtime`, `--strict`, `--targets`, `--errors-only` or `--report` option. Use
+`xec config --help` and subcommand help for the installed command schema.
 
-Checks logical consistency:
+### Detailed validation {#detailed-validation}
+The JSON result separates errors and warnings. It is the same validation path
+as human-readable output, with the same limits.
+
+Inspect the resolved values separately:
 
 ```bash
-# Detailed validation
-xec config validate --verbose
-
-# Checks:
-# - Target references exist
-# - Task dependencies are valid
-# - Variables are defined
-# - Profiles inheritance is correct
+pnpm exec xec config list --path targets
+pnpm exec xec config get vars.region
+pnpm exec xec config --profile staging view
+pnpm exec xec inspect tasks check --explain
 ```
 
-### 3. Runtime Validation {#3-runtime-validation}
+Resolved configuration can contain sensitive values. Avoid collecting a whole
+configuration in a shared CI log; select only the fields needed for diagnosis.
 
-Validates execution environment:
+### Selective validation {#selective-validation}
+`config tasks validate` checks task definitions. For another section, select it
+with `config list --path` and add the owning application's typed check; there is
+no generic `--targets` or `--variables` validation switch.
 
-```bash
-# Test runtime compatibility
-xec config validate --runtime
+## Reject load failures explicitly {#custom-validation}
 
-# Checks:
-# - Target connectivity
-# - Command availability
-# - Resource access
-# - Secret availability
+### Validation scripts {#validation-scripts}
+
+Install `@xec-sh/ops` as a pinned project dependency. Save this as
+`.xec/check-config.ts` and run `pnpm exec xec run .xec/check-config.ts`:
+
+```typescript
+import { ConfigurationManager } from '@xec-sh/ops';
+
+const manager = new ConfigurationManager({
+  projectRoot: process.cwd(),
+  configFilePath: '.xec/config.yaml',
+  strict: true,
+  evaluateCommands: false,
+});
+
+await manager.load();
+const diagnostics = await manager.validate();
+if (diagnostics.length > 0) {
+  throw new Error(diagnostics.map(item => `${item.path}: ${item.message}`).join('\n'));
+}
+console.log('Configuration loaded and validated');
 ```
 
-## Configuration Schema {#configuration-schema}
+A missing or malformed selected file rejects. Strict loading rejects validation
+warnings as well as errors. This Ops check does not replace the CLI's validation
+of built-in command options; use both when the configuration declares `commands`.
+If validation needs a secret or executable provider, decide its allowed scope
+explicitly instead of substituting an empty value.
 
-### Schema Structure {#schema-structure}
+### Pre-execution validation {#pre-execution-validation}
+
+A YAML script task references that file; it does not contain inline JavaScript:
 
 ```yaml
-# Xec follows this schema
-$schema: https://xec.sh/schema/v1.0/config.json
-
-version: "1.0"  # Required, must match schema version
-name: string    # Optional, project name
-description: string  # Optional, project description
-
-vars:           # Optional, variable definitions
-  type: object
-  additionalProperties: true
-
-targets:        # Optional, target definitions
-  type: object
-  properties:
-    defaults: object
-    hosts: object
-    containers: object
-    pods: object
-
-tasks:          # Optional, task definitions
-  type: object
-  additionalProperties:
-    oneOf:
-      - type: string
-      - type: object
-
-profiles:       # Optional, profile definitions
-  type: object
-  additionalProperties: object
-```
-
-### Type Validation {#type-validation}
-
-```yaml
-# Types are enforced
-vars:
-  port: 8080        # Must be number
-  enabled: true     # Must be boolean
-  name: "myapp"     # Must be string
-  servers:          # Must be array
-    - server1
-    - server2
-  config:           # Must be object
-    key: value
-```
-
-## Validation Commands {#validation-commands}
-
-### Basic Validation {#basic-validation}
-
-```bash
-# Validate current configuration
-xec config validate
-
-# Validate specific file
-xec config validate --file custom-config.yaml
-
-# Validate with profile
-xec config validate --profile production
-```
-
-### Detailed Validation {#detailed-validation}
-
-```bash
-# Show all validation details
-xec config validate --verbose
-
-# Show validation errors only
-xec config validate --errors-only
-
-# Output as JSON
-xec config validate --json
-```
-
-### Selective Validation {#selective-validation}
-
-```bash
-# Validate specific sections
-xec config validate --targets
-xec config validate --tasks
-xec config validate --variables
-
-# Validate specific target
-xec config validate
-```
-
-## Common Validation Errors {#common-validation-errors}
-
-### Missing Required Fields {#missing-required-fields}
-
-```yaml
-# Error: version is required
-name: myapp
-tasks:
-  deploy: echo "deploy"
-
-# Fix: Add version
 version: "1.0"
-name: myapp
 tasks:
-  deploy: echo "deploy"
-```
-
-### Invalid References {#invalid-references}
-
-```yaml
-# Error: Target 'hosts.nonexistent' not found
-tasks:
-  deploy:
-    command: deploy
-    target: hosts.nonexistent
-
-# Fix: Use existing target
-tasks:
-  deploy:
-    command: deploy
-    target: hosts.production
-```
-
-### Circular Dependencies {#circular-dependencies}
-
-```yaml
-# Error: Circular dependency detected
-profiles:
-  a:
-    extends: b
-  b:
-    extends: a
-
-# Fix: Remove circular reference
-profiles:
-  base:
-    vars: {...}
-  a:
-    extends: base
-  b:
-    extends: base
-```
-
-### Type Mismatches {#type-mismatches}
-
-```yaml
-# Error: Expected number, got string
-vars:
-  port: "8080"  # String
-
-tasks:
-  connect:
-    command: connect --port ${port + 100}  # Math operation
-
-# Fix: Use correct type
-vars:
-  port: 8080  # Number
-```
-
-## Variable Validation {#variable-validation}
-
-### Undefined Variables {#undefined-variables}
-
-```yaml
-# Detect undefined variables
-vars:
-  defined: value
-
-tasks:
-  test:
-    command: echo ${undefined}  # Error: undefined variable
-
-# Fix: Define or provide default
-tasks:
-  test:
-    command: echo ${undefined:default}
-```
-
-### Variable Resolution {#variable-resolution}
-
-```bash
-# Test variable resolution
-xec config show --vars
-
-# Test specific variable
-xec config get vars.database.host
-
-# Test with profile
-xec config get vars.database.host --profile production
-```
-
-### Circular References {#circular-references}
-
-```yaml
-# Detect circular variable references
-vars:
-  a: ${b}
-  b: ${c}
-  c: ${a}  # Error: circular reference
-
-# Fix: Remove circular dependency
-vars:
-  a: value1
-  b: ${a}
-  c: ${b}
-```
-
-## Target Validation {#target-validation}
-
-### Connectivity Testing {#connectivity-testing}
-
-```bash
-# Test target connectivity
-xec test hosts.production
-
-# Test all targets
-xec test --all-targets
-
-# Verbose testing
-xec test hosts.production --verbose
-```
-
-### SSH Target Validation {#ssh-target-validation}
-
-```yaml
-# Validate SSH configuration
-targets:
-  hosts:
-    server:
-      host: example.com
-      username: deploy
-      privateKey: ~/.ssh/id_rsa
-
-# Validation checks:
-# - Host resolves
-# - Port is open
-# - Key file exists
-# - Key has correct permissions
-```
-
-### Docker Target Validation {#docker-target-validation}
-
-```yaml
-# Validate Docker configuration
-targets:
-  containers:
-    app:
-      image: node:18
-
-# Validation checks:
-# - Docker daemon accessible
-# - Image exists or can be pulled
-# - Port bindings available
-# - Volume paths exist
-```
-
-### Kubernetes Target Validation {#kubernetes-target-validation}
-
-```yaml
-# Validate Kubernetes configuration
-targets:
-  pods:
-    web:
-      namespace: production
-      selector: app=web
-
-# Validation checks:
-# - Cluster accessible
-# - Namespace exists
-# - Pods match selector
-# - RBAC permissions
-```
-
-## Task Validation {#task-validation}
-
-### Task Structure {#task-structure}
-
-```yaml
-# Validate task definition
-tasks:
-  valid-task:
-    description: "Valid task"
-    command: echo "test"
-    target: hosts.production
-    timeout: 30000
-
-# Validation checks:
-# - Command or script defined
-# - Target exists if specified
-# - Timeout is valid number
-# - Parameters have valid types
-```
-
-### Step Dependencies {#step-dependencies}
-
-```yaml
-tasks:
-  with-deps:
+  check-config:
+    script: .xec/check-config.ts
+  check:
     steps:
-      - name: step1
-        command: echo "1"
-        id: first
-      
-      - name: step2
-        command: echo "2"
-        dependsOn: [first]  # Validates dependency exists
+      - task: check-config
+      - command: pnpm typecheck
 ```
 
-### Parameter Validation {#parameter-validation}
+### Application rules {#validation-rules}
 
-```yaml
-tasks:
-  parameterized:
-    params:
-      - name: count
-        type: number
-        required: true
-        min: 1
-        max: 100
-      
-      - name: environment
-        type: enum
-        values: [dev, staging, prod]
-        required: true
+Use an explicit first step for preflight. Task `hooks`, `dependsOn`, `schedule`
+and arbitrary `validation` rules are not implemented. For dependency graphs,
+use the [Pipeline API](../../ops/pipeline.md); for application-specific rules,
+write a typed function called by the task.
 
-# Validation enforces:
-# - Required parameters provided
-# - Type constraints met
-# - Value ranges respected
-```
+## Diagnose a rejected configuration {#common-validation-errors}
 
-## Profile Validation {#profile-validation}
+| Diagnostic | Check |
+| --- | --- |
+| YAML load failure | Syntax and the exact file selected by `--config` or `configFilePath` |
+| Missing or invalid version | A configuration `version` such as `"1.0"`; this is separate from the Xec package version |
+| Invalid SSH port | A number between 1 and 65535 |
+| Missing container or pod reference | The `container`/`image` or `pod`/`selector` target fields |
+| Invalid task | Exactly one of `command`, `script` or `steps`, plus supported task fields |
+| Profile inheritance error | The named base profile exists and inheritance is acyclic |
+| Unsupported secret provider | An implemented provider: `local`, `env` or `git` |
+| Invalid command default | The option's name and type in that command's actual CLI schema |
 
-### Inheritance Chain {#inheritance-chain}
+### Missing required fields {#missing-required-fields}
+Validate the effective configuration and confirm the intended source was loaded.
+Defaults can supply values; their presence does not prove the file declared them.
 
-```yaml
-profiles:
-  base:
-    vars:
-      region: us-east-1
-  
-  staging:
-    extends: base  # Validates base exists
-    vars:
-      environment: staging
-  
-  production:
-    extends: staging  # Validates chain
-    vars:
-      environment: production
-```
+### Invalid references {#invalid-references}
+Check the target or nested task identifier against the intended configuration.
+A valid shape alone does not prove that a remote resource exists.
 
-### Profile Merging {#profile-merging}
+### Circular dependencies {#circular-dependencies}
+Remove cycles in profile inheritance and nested task calls. For a dependency
+DAG, use the Pipeline API rather than unsupported task-step `dependsOn` fields.
 
-```bash
-# Test profile merging
-xec config show --profile production
+### Type mismatches {#type-mismatches}
+Use the declared task parameter type and convert external input explicitly.
+A string such as `"8080"` is not automatically an application-level port value.
 
-# Validate merged configuration
-xec config validate --profile production
-```
+Variables are data, not a schema declaration: defining `vars.port` does not
+establish a minimum, maximum or business rule. Declare task parameter types
+where applicable and validate domain constraints in code. For undefined values,
+use a deliberate default only when it has a valid operational meaning.
 
-## Custom Validation {#custom-validation}
+## Variables {#variable-validation}
 
-### Validation Scripts {#validation-scripts}
+### Undefined variables {#undefined-variables}
+Supply required values explicitly. A default should represent a valid choice,
+not hide a missing credential, target or release identity.
 
-```yaml
-tasks:
-  validate-custom:
-    script: |
-      // Custom validation logic
-      const errors = [];
-      
-      // Check custom requirements
-      if (!vars.apiKey || vars.apiKey.length < 32) {
-        errors.push('API key must be at least 32 characters');
-      }
-      
-      if (vars.replicas < 2 && profile === 'production') {
-        errors.push('Production must have at least 2 replicas');
-      }
-      
-      if (errors.length > 0) {
-        throw new Error(errors.join('\n'));
-      }
-```
+### Resolution {#variable-resolution}
+Use `config get vars.NAME` for a selected value. Task parameters resolve in the
+invocation context; inspecting a definition does not supply its runtime inputs.
 
-### Pre-execution Validation {#pre-execution-validation}
+### Circular references {#circular-references}
+Keep authored variable references acyclic. The validator's direct self-reference
+check is not a proof that every possible interpolation graph will resolve.
 
-```yaml
-tasks:
-  deploy:
-    hooks:
-      before:
-        - task: validate-environment
-        - task: validate-permissions
-        - task: validate-resources
-    command: deploy-application
-```
+## Targets {#target-validation}
 
-### Validation Rules {#validation-rules}
+### Connectivity {#connectivity-testing}
+Choose a read-only probe and a deadline explicitly. A successful probe proves
+only the capability and target observed at that time.
 
-```yaml
-# Define validation rules
-vars:
-  validation:
-    rules:
-      - field: database.host
-        required: true
-        pattern: "^[a-z0-9.-]+$"
-      
-      - field: database.port
-        type: number
-        min: 1024
-        max: 65535
-      
-      - field: apiKey
-        required: true
-        minLength: 32
-        maxLength: 64
-```
+### SSH {#ssh-target-validation}
+The schema checks the host and port. Authentication, host-key trust and command
+permissions are established by the SSH operation, not by YAML validation.
 
-## Environment Validation {#environment-validation}
+### Docker {#docker-target-validation}
+Declare a container or image and correctly typed volume/port lists. The Docker
+adapter owns inventory, daemon errors and readiness; validation does not pull images.
 
-### Environment Checks {#environment-checks}
+### Kubernetes {#kubernetes-target-validation}
+Declare a pod or selector and the intended namespace/context. The Kubernetes
+operation establishes cluster access, resource selection and permissions.
 
-```yaml
-tasks:
-  validate-environment:
-    script: |
-      // Check environment
-      const checks = {
-        'Node.js': () => process.version,
-        'Docker': () => $`docker --version`,
-        'kubectl': () => $`kubectl version --client`,
-        'SSH': () => $`ssh -V`
-      };
-      
-      for (const [name, check] of Object.entries(checks)) {
-        try {
-          const version = await check();
-          console.log(`✓ ${name}: ${version}`);
-        } catch {
-          console.error(`✗ ${name}: Not found`);
-        }
-      }
-```
+## Tasks {#task-validation}
 
-### Resource Validation {#resource-validation}
+### Execution form {#task-structure}
+Each task selects one form: a command, a script path or a list of steps.
+Unsupported executable fields are rejected instead of treated as capabilities.
 
-```yaml
-tasks:
-  validate-resources:
-    script: |
-      // Check resources
-      const required = {
-        diskSpace: 10 * 1024 * 1024 * 1024,  // 10GB
-        memory: 4 * 1024 * 1024 * 1024,       // 4GB
-        cpus: 2
-      };
-      
-      const available = await getSystemResources();
-      
-      for (const [resource, required] of Object.entries(required)) {
-        if (available[resource] < required) {
-          throw new Error(`Insufficient ${resource}`);
-        }
-      }
-```
+### Step dependencies {#step-dependencies}
+Use ordered steps or the task's bounded parallel mode. A YAML step has no
+`dependsOn` DAG contract; the separate Pipeline API does.
 
-## Continuous Validation {#continuous-validation}
+### Parameters {#parameter-validation}
+Declare `required`, `type` and applicable constraints such as enum `values` or
+numeric `min`/`max`. Check cross-field business rules in the owning function.
 
-### Pre-commit Hooks {#pre-commit-hooks}
+## Profiles {#profile-validation}
 
-```bash
-#!/bin/bash
-# .git/hooks/pre-commit
+### Inheritance {#inheritance-chain}
+Keep the base profile defined and the `extends` chain acyclic. Validate the
+profile actually selected by the operator, including separate profile files.
 
-# Validate configuration before commit
-xec config validate || {
-  echo "Configuration validation failed"
-  exit 1
+### Merging {#profile-merging}
+Use `config --profile staging view` to inspect the selected effective view.
+Profiles override project and environment-derived configuration in this loader;
+see [source precedence](../../ops/config.md#config-sources-priority-order).
+
+## Check the intended environment {#environment-validation}
+
+### Environment checks {#environment-checks}
+
+Configuration validation does not connect to SSH servers, pull Docker images,
+query Kubernetes, or inspect application health. Add read-only checks using the
+same explicit target that will perform the operation. For example, after
+reviewing and recording the SSH host key:
+
+```typescript
+import { $, dispose } from '@xec-sh/core';
+
+try {
+  const server = $.ssh({ host: 'build.example.com', username: 'deploy' });
+  const result = await server`node --version`.timeout('10s');
+  console.log(result.stdout.trim());
+} finally {
+  await dispose();
 }
 ```
 
-### CI/CD Integration {#cicd-integration}
+This standalone script releases its default engine in `finally`. In a shared
+application, the owner of that engine controls its disposal. Probe only the
+capabilities the operation needs. A reachable server does not imply available
+disk space, sufficient permissions or a healthy service; establish those through
+the owning application API. A failed probe must not fall back to local execution.
 
-```yaml
-# .github/workflows/validate.yml
-name: Validate Configuration
-on: [push, pull_request]
+### Resource checks {#resource-validation}
+Measure required disk, memory or service capacity through the target's ordinary
+API. Do not use the local machine's capacity as evidence for a remote target.
 
-jobs:
-  validate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Install Xec
-        run: npm install -g @xec-sh/cli
-      - name: Validate configuration
-        run: xec config validate --strict
-```
+## Automation and reports {#continuous-validation}
 
-### Automated Testing {#automated-testing}
+### Pre-commit feedback {#pre-commit-hooks}
+A pre-commit check can shorten feedback after an edit. Keep it scoped to changed
+inputs; its success does not authorize a later deployment.
 
-```yaml
-tasks:
-  test-configuration:
-    steps:
-      - name: Schema validation
-        command: xec config validate
-      
-      - name: Target connectivity
-        command: xec test --all-targets
-      
-      - name: Task dry-run
-        command: xec run deploy --dry-run
-      
-      - name: Security scan
-        command: xec security scan
-```
+### CI integration {#cicd-integration}
 
-## Validation Reports {#validation-reports}
+Run the explicit strict check and affected project checks before a mutation.
+Pin the CLI and libraries in the lockfile, install frozen dependencies, and reuse
+successful results only for the exact inputs they checked. A pre-commit check
+is useful feedback; the deployment path still owns its admission decision.
 
-### Generate Reports {#generate-reports}
+### Operation acceptance {#automated-testing}
+Check failure paths as well as success: missing files, malformed YAML, unsupported
+task fields, refused trust and unavailable targets. Use disposable fixtures;
+configuration tests must not deploy to production as a side effect.
+
+### Structured CLI result {#validation-reports}
+
+#### Save a report {#generate-reports}
 
 ```bash
-# Generate validation report
-xec config validate --report validation-report.json
-
-# Generate HTML report
-xec config validate --report validation-report.html
+pnpm exec xec config --output json validate > validation.json
 ```
 
-### Report Format {#report-format}
+#### Result fields {#report-format}
+
+The result has this shape:
 
 ```json
 {
-  "timestamp": "2024-01-15T10:00:00Z",
-  "version": "1.0",
-  "status": "passed",
-  "checks": {
-    "schema": { "status": "passed" },
-    "variables": { "status": "passed" },
-    "targets": { 
-      "status": "warning",
-      "warnings": ["hosts.backup: Connection timeout"]
-    },
-    "tasks": { "status": "passed" }
-  }
+  "valid": true,
+  "errors": [],
+  "warnings": []
 }
 ```
 
-## Best Practices {#best-practices}
+The CLI sets a nonzero exit code for reported errors. Warnings are separate from
+errors. Preserve the exit status and diagnostics; never infer success from the
+existence of the output file. The 0.13.0 loader limitation above also applies to
+this JSON result. There is no built-in HTML report or implicit connectivity test.
 
-### 1. Validate Early and Often {#1-validate-early-and-often}
+## Validation policy {#best-practices}
 
-```bash
-# Add to development workflow
-alias xec-save='xec config validate && git add .xec/'
-```
+### Validate at the input boundary {#1-validate-early-and-often}
+Reject invalid inputs before starting an effect, then carry the validated values
+to the operation instead of reparsing different data later.
 
-### 2. Use Strict Mode {#2-use-strict-mode}
+### Use an explicit strict loader {#2-use-strict-mode}
+For 0.13.0, use the library check above when a skipped file must be a hard failure.
+There is no CLI `config validate --strict` equivalent.
 
-```bash
-# Fail on warnings in production
-xec config validate --strict --profile production
-```
+### Keep checks reproducible {#3-automate-validation}
+Pin the toolchain and dependencies. Bind reusable acceptance results to the
+actual configuration and artifact identities, not just a timestamp.
 
-### 3. Automate Validation {#3-automate-validation}
+### Explain each rule {#4-document-validation-rules}
+Describe the failure and corrective action beside the owning task or API.
+Do not declare arbitrary `vars.validation` data as an executable policy.
 
-```yaml
-# Add validation task
-tasks:
-  ci:
-    steps:
-      - command: xec config validate --strict
-      - command: xec test --all-targets
-      - command: xec run test-suite
-```
-
-### 4. Document Validation Rules {#4-document-validation-rules}
-
-```yaml
-# Document requirements
-vars:
-  _validation:
-    description: |
-      Required environment variables:
-      - API_KEY: API authentication key
-      - DB_PASSWORD: Database password
-      
-      Required commands:
-      - docker: Container management
-      - kubectl: Kubernetes management
-```
-
-### 5. Progressive Validation {#5-progressive-validation}
-
-```yaml
-# Start lenient, increase strictness
-profiles:
-  development:
-    validation:
-      strict: false
-      warnOnly: true
-  
-  production:
-    validation:
-      strict: true
-      failOnWarning: true
-```
+### Separate static and live checks {#5-progressive-validation}
+Run static checks during preparation. Check changing target state close to the
+operation that depends on it, without repeating unchanged builds or tests.
 
 ## Troubleshooting {#troubleshooting}
 
-### Validation Failures {#validation-failures}
+### Locate the failure {#validation-failures}
 
-```bash
-# Debug validation issues
-xec config validate --debug
+First confirm the installed version, selected file and active profile. Reduce a
+failure to the owning layer: YAML loading, configuration validation, target
+resolution, then operation execution. A preview does not run the operation and
+cannot prove its runtime outcome. Keep secrets out of diagnostic attachments.
 
-# Show configuration after resolution
-xec config show --resolved
+### Correct the owning input {#common-solutions}
+Fix the selected document, target or parameter. Do not retry a mutation to test
+whether a configuration error disappeared, and do not silence load warnings.
 
-# Test specific component
-xec config validate --tasks --verbose
-```
-
-### Common Solutions {#common-solutions}
-
-| Error | Solution |
-|-------|----------|
-| Schema version mismatch | Update `version` field to "1.0" |
-| Undefined variable | Add variable definition or use default |
-| Target not found | Check target name and definition |
-| Invalid YAML | Validate YAML syntax with linter |
-| Circular dependency | Break circular reference chain |
-| Type mismatch | Ensure correct type in definition |
-
-## Next Steps {#next-steps}
-
-- [Troubleshooting](./troubleshooting.md) - Fixing common issues
-- [Best Practices](./best-practices.md) - Configuration patterns
+## Apply the result {#next-steps}
+Proceed only when the required inputs and target observations are established.
+Keep an explicit recovery decision for unknown operation outcomes; successful
+validation cannot turn an unconfirmed deployment into a known failure.
 
 ## See Also {#see-also}
 
-- [Configuration Overview](../overview.md) - Configuration basics
-- [Best Practices](./best-practices.md) - Configuration patterns
-- [CLI Reference](../../commands/built-in/config.md) - Config commands
+- [Configuration sources and fields](../config-file.md)
+- [CLI configuration commands](../../commands/built-in/config.md)
+- [Tasks and their execution limits](../tasks/overview.md)
+- [Environment values](../variables/environment.md)
+- [Configuration troubleshooting](./troubleshooting.md)

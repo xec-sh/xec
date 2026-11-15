@@ -126,12 +126,11 @@ successful schema check is preparation evidence, not a deployment receipt.
 in the exact reviewed file. Prefer literal configuration plus an explicit task
 when an observation may be slow, fail or have an effect.
 
-:::note Published version and upcoming corrections
-The examples above use the published 0.12.0 CLI. Current source also fixes native
-command-default precedence and validates `doctor` changes before writing them.
-It rejects the old, nonfunctional `extensions` contract and generates runnable
-project/task/profile starters. Those corrections are not in npm 0.12.0; see the
-[config command](../commands/built-in/config.md) and [new command](../commands/built-in/new.md).
+:::note Version scope
+These guides describe Xec 0.13.0. Command defaults use the registered CLI schema,
+`doctor` validates proposed changes, and scaffolding generates supported tasks
+and profiles. See [configuration validation](./advanced/validation.md) for the
+remaining loader limitation and the explicit strict check.
 :::
 
 ## See Also {#see-also}

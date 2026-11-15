@@ -9,7 +9,7 @@ SSH encryption authenticates a server only when its key is checked against a
 trusted source. The client defaults to strict host verification; connecting to
 an unknown server is an error.
 
-This page describes the developing 0.13.0 implementation. It is a technical
+This page describes the published 0.13.0 implementation. It is a technical
 contract and review guide, not a claim of independent security certification.
 
 ## Host trust {#host-trust}

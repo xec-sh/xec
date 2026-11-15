@@ -47,7 +47,7 @@ export function Home() {
       <header className="hero">
         <div className="hero-eyebrow">
           <span className="status-dot" /> TYPESCRIPT AUTOMATION, WITHOUT THE SEAMS{' '}
-          <span className="hero-version">v0.12</span>
+          <span className="hero-version">v0.13</span>
         </div>
         <div className="hero-grid">
           <div className="hero-copy">

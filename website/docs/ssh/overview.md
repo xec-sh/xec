@@ -11,9 +11,8 @@ needs to own SSH channels directly. Use [SSH targets](../targets/ssh/overview.md
 for command automation: Core adds argument escaping, working directories,
 environment variables, sudo policy and common execution results.
 
-**Availability:** this guide describes the development implementation for Xec
-0.13.0. The published 0.12.0 packages do not contain `@xec-sh/ssh`. Qualification
-and publication are separate steps.
+**Availability:** `@xec-sh/ssh` is published from Xec 0.13.0. Pin that version or
+later when using this guide. Xec 0.12.0 does not contain the SSH package.
 
 ## Start with one connection {#start-with-one-connection}
 

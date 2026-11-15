@@ -10,7 +10,7 @@ A simple task names one shell command or one script file. Start with a command
 when the tool already has the behavior you need; use a script when the operation
 needs typed data, branching, or explicit recovery.
 
-The safety and inheritance fixes described here are in **unreleased `main`**.
+The safety and inheritance fixes described here are in **Xec 0.13.0**.
 Read the [published 0.12.0 boundary](./overview.md#version-boundary) before using
 parameters or dry-run on an installed release.
 

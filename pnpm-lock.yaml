@@ -549,17 +549,17 @@ importers:
   website:
     dependencies:
       '@omnitron-dev/lumen':
-        specifier: 0.4.10
-        version: 0.4.10(@floating-ui/dom@1.8.0)(@surrealdb/node-native@4.0.1)(@tiptap/extension-code-block@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extension-list@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extensions@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@types/node@26.6.6)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(esbuild@0.28.2)(highlight.js@11.11.2)(jiti@1.21.7)(joi@17.13.9)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@8.1.1)(surrealdb@2.2.2(@typescript/typescript6@6.0.2)(tslib@2.9.1))(terser@5.51.2)(tsx@4.23.15)(use-sync-external-store@1.7.0(react@19.3.1))(yaml@2.9.1)
+        specifier: 0.4.11
+        version: 0.4.11(@floating-ui/dom@1.8.0)(@surrealdb/node-native@4.0.1)(@tiptap/extension-code-block@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extension-list@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extensions@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@types/node@26.6.6)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(esbuild@0.28.2)(highlight.js@11.11.2)(jiti@1.21.7)(joi@17.13.9)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@8.1.1)(surrealdb@2.2.2(@typescript/typescript6@6.0.2)(tslib@2.9.1))(terser@5.51.2)(tsx@4.23.15)(use-sync-external-store@1.7.0(react@19.3.1))(yaml@2.9.1)
       '@omnitron-dev/lumen-ast':
-        specifier: 0.4.10
-        version: 0.4.10(supports-color@8.1.1)
+        specifier: 0.4.11
+        version: 0.4.11(supports-color@8.1.1)
       '@omnitron-dev/lumen-ui':
-        specifier: 0.4.10
-        version: 0.4.10(@floating-ui/dom@1.8.0)(@surrealdb/node-native@4.0.1)(@tiptap/extension-code-block@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extension-list@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extensions@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(highlight.js@11.11.2)(joi@17.13.9)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@8.1.1)(surrealdb@2.2.2(@typescript/typescript6@6.0.2)(tslib@2.9.1))(use-sync-external-store@1.7.0(react@19.3.1))
+        specifier: 0.4.11
+        version: 0.4.11(@floating-ui/dom@1.8.0)(@surrealdb/node-native@4.0.1)(@tiptap/extension-code-block@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extension-list@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extensions@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(highlight.js@11.11.2)(joi@17.13.9)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@8.1.1)(surrealdb@2.2.2(@typescript/typescript6@6.0.2)(tslib@2.9.1))(use-sync-external-store@1.7.0(react@19.3.1))
       '@omnitron-dev/prism':
-        specifier: 0.4.10
-        version: 0.4.10(@floating-ui/dom@1.8.0)(@tiptap/extension-code-block@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extension-list@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extensions@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(highlight.js@11.11.2)(joi@17.13.9)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@8.1.1)(use-sync-external-store@1.7.0(react@19.3.1))
+        specifier: 0.4.11
+        version: 0.4.11(@floating-ui/dom@1.8.0)(@tiptap/extension-code-block@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extension-list@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extensions@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(highlight.js@11.11.2)(joi@17.13.9)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@8.1.1)(use-sync-external-store@1.7.0(react@19.3.1))
       react:
         specifier: 19.3.1
         version: 19.3.1
@@ -580,11 +580,11 @@ importers:
         specifier: 19.3.0
         version: 19.3.0(@types/react@19.3.0)
       '@xec-sh/cli':
-        specifier: 0.12.0
-        version: 0.12.0
+        specifier: 0.13.0
+        version: 0.13.0
       '@xec-sh/core':
-        specifier: 0.12.0
-        version: 0.12.0
+        specifier: 0.13.0
+        version: 0.13.0
       typescript:
         specifier: npm:@typescript/typescript6@6.0.2
         version: '@typescript/typescript6@6.0.2'
@@ -1768,25 +1768,25 @@ packages:
     resolution: {integrity: sha512-X5XaVWZIBCT7HHZGm5I7ZQXDwLG+bGXuSrMQAW+7Zvl87h1kmc1ZB1VSRJcpUfoUrGQp4Fkoxm5kZ+Ms+aW+eA==}
     engines: {node: '>= 20.19.0'}
 
-  '@omnitron-dev/access@0.4.10':
-    resolution: {integrity: sha512-Jz/OEMwRChzzD0su6oEvuVftqfepOospa5XFEJaoVpC/iN+nXJ7TK14yTVLDtdNBEmVvY1zUpfoQQHys8OVCHA==}
+  '@omnitron-dev/access@0.4.11':
+    resolution: {integrity: sha512-pxTR0u8385fsw/SjP+7snQfc86KTntm1oH4lPAA1f0wmqaXa7H1Pi1OmxBZ7snjz+02kV6mZZxuvFe4Fm8j1fA==}
     engines: {node: '>=18'}
 
-  '@omnitron-dev/common@0.4.10':
-    resolution: {integrity: sha512-bIn/xjbw/g/2090q9RJKkr/gZNGrW8WgrEeZoADsdMc5kjwkmVUi4YZC5Zt/TNyYqcUaPLKyI4xzHT+f4bhMhg==}
+  '@omnitron-dev/common@0.4.11':
+    resolution: {integrity: sha512-NIdnplLC0dGAbigjV5CYEL9ZPoyAejpm51I+Whn7BYLqEQr4/ZfEZJfxjYmy4DH3oX3Zp+6EWLL8UgpqxcpRmw==}
 
-  '@omnitron-dev/cuid@0.4.10':
-    resolution: {integrity: sha512-10lntyJsSx9OBpw46YSJ2v7+wbOV0xu3/VBvtcmca/csCUUM3j9VvQnnOEl9fbIO5qQDPdLx48VRZcqwV5cUaQ==}
+  '@omnitron-dev/cuid@0.4.11':
+    resolution: {integrity: sha512-7uwonI2sYOJQKXTH+QAZgMhjRopgQG2g1qc00vNmK1SkOsYy1o+6xvt/HNJ+Ziwhd4tL/4AlmqT3u3Uq7foCYA==}
 
-  '@omnitron-dev/eventemitter@0.4.10':
-    resolution: {integrity: sha512-zH7hnp/vBLXBwbqkxz5hvzWAWRE5po+os2UghDGTHnRWfDJb7n8pt/k0vgmVIg71MwStnC+cDmgYKwZlsXJqYQ==}
+  '@omnitron-dev/eventemitter@0.4.11':
+    resolution: {integrity: sha512-dOmuykmNXXZHuoGyohIlIINYKFtFiUzZpNsKj8g+ikio+tQ7fBk6F19eHmwNEIL6zxsgvwNfLpJ5lGXjLscwRA==}
 
-  '@omnitron-dev/kb@0.4.10':
-    resolution: {integrity: sha512-jslLYrEWBJqxZk8mACBwquM668N+gYIFQEBymDEgsaJLjwMlkyxyijL8nWqKjAgQvEyaT7W+QLi15kJZgHc1iw==}
+  '@omnitron-dev/kb@0.4.11':
+    resolution: {integrity: sha512-SjdcwSuZckHdL99cnR53U3gQaWPN3DIbAbeVCcYlO9vu/ae7xxNIoIOFbdXBNI2c578RZ9EhvFx8ygBzozgGSw==}
     engines: {bun: '>=1.2.0', node: '>=22.0.0'}
     hasBin: true
     peerDependencies:
-      '@omnitron-dev/titan': 0.4.10
+      '@omnitron-dev/titan': 0.4.11
       surrealdb: ^2.0.0
     peerDependenciesMeta:
       '@omnitron-dev/titan':
@@ -1796,49 +1796,49 @@ packages:
     bundledDependencies:
       - ts-morph
 
-  '@omnitron-dev/lumen-ast@0.4.10':
-    resolution: {integrity: sha512-+OiZz3xRkCUCse8IYcthaJwlGoOEYnIxQmIJj3V0HwPg+0lWMHMN76yV/7aEiT7TGmk1zp2rv0jOPwRhNfPB/g==}
+  '@omnitron-dev/lumen-ast@0.4.11':
+    resolution: {integrity: sha512-DkybWbx1VI6SVye5jmfxRr0Vv6WfKlbyLRSRhm3dUf3qoy+eOiJXK/og+3xfmcLPVEro696JSsyiiBHnKv9RxQ==}
     engines: {node: '>=22.12.0'}
 
-  '@omnitron-dev/lumen-ui@0.4.10':
-    resolution: {integrity: sha512-fP9uJsxVsxX0i41ILQ9IHWJPF1iD5Ej9DltEB8EMfXlo92Q/Y5ZDngAxALLH+VCNpsCoOd7d0GQPMTHWF7uQRQ==}
+  '@omnitron-dev/lumen-ui@0.4.11':
+    resolution: {integrity: sha512-mQYqbfOT46XEl0qbSPljEc7JY+Dw5RHGVd/6/a2mzAzbkoB4ZSxYIOO6+0zeATgwAu4+Q5UUqDzsFO2RV07/mg==}
     engines: {node: '>=22.12.0'}
     peerDependencies:
       react: ^19.0.0
       react-dom: ^19.0.0
 
-  '@omnitron-dev/lumen@0.4.10':
-    resolution: {integrity: sha512-iioWtl18EWUGY9SAJmtokF9ojUNgam7K1MqxWwSJ/K/2fRZ4+reTuCjYiHntEfaBI6PeXDBa7FwR4hW7/vHqIQ==}
+  '@omnitron-dev/lumen@0.4.11':
+    resolution: {integrity: sha512-UeuoBDf7A3xYc2OxQwgtBElAmicDxAdFw3KZM8/moKDjnF5+GRQ1IFId6qZlziqaqP+eWwhbl0ammhg1GfeKCg==}
     engines: {node: '>=22.12.0'}
     hasBin: true
     peerDependencies:
       react: ^19.0.0
       react-dom: ^19.0.0
 
-  '@omnitron-dev/msgpack@0.4.10':
-    resolution: {integrity: sha512-uBRTCGRJ/Iwx+cKOg7KovDEN6tSBa/toihfdtFy4S2rStSluMbvPvXPAt85OT/h79+5A0esxrHOHgLROS5DZHQ==}
+  '@omnitron-dev/msgpack@0.4.11':
+    resolution: {integrity: sha512-lfVb/3MsoMPE0jtYdHVP144M1SvtIlzLtd9gGp74KJtWULComBtWkZ5jU6hikviTNwbxa5lxQHhg7ImNkv0j/A==}
 
-  '@omnitron-dev/netron-browser@0.4.10':
-    resolution: {integrity: sha512-gQS71AoSuNC5/ApNunZTeaTZ4K+OgbnAYBKq57TH3q/DngyG8NwVmg8hd//CDr6GI2uI3EAt2F1PplsppcVRVQ==}
+  '@omnitron-dev/netron-browser@0.4.11':
+    resolution: {integrity: sha512-n4mx3VWZpETbe60pDj40uyXvOIwl1JkYTEXAYzUWdgtDAYxDl9hInsfnbA5iMWHHdxLlgwVL8pxWd2uiLBKl5A==}
     engines: {node: '>=22.0.0'}
 
-  '@omnitron-dev/netron-http-core@0.4.10':
-    resolution: {integrity: sha512-YWBR0J6SVe/t03nNdjXlCptMVH34T1E0RB4OWC7aMXH8oIyWJyqp0EZBVHtF1dh6/Ti2DbpIPRYuz+bWumfq/A==}
+  '@omnitron-dev/netron-http-core@0.4.11':
+    resolution: {integrity: sha512-RBOKfJ9CIuirvTHPlC0Ewvfh6eZ1FcjOPXIfgMhIz2WJmTnXMLqhwTgE0I5wKNvNmSOGZFBNX8ysQSjKsW9GSQ==}
     engines: {node: '>=22.0.0'}
 
-  '@omnitron-dev/netron-protocol@0.4.10':
-    resolution: {integrity: sha512-v7MGFd1qJfGwSoOHr/zajj3NC8A0E3yRP7FStinoV9X1Hqp7fgby3ZX5/39/Wpi4SDGEZVeYXXXxmV/hSOagSQ==}
+  '@omnitron-dev/netron-protocol@0.4.11':
+    resolution: {integrity: sha512-KA1CUirHCwknOrDN2vEIVM0chND6vafEoHHctLNKZde1TEmCSGcA5/S1vyyB7WElPzAjcnjSTQKrT07mGHk6DA==}
     engines: {node: '>=22.0.0'}
 
-  '@omnitron-dev/netron-react@0.4.10':
-    resolution: {integrity: sha512-AP27EolKOy5pIJFx//UJ09GLeTovzzT+v930ps7IqE7ul2N1YybubguCSWgMSvNX58xigkZlrI4jpvccbab47g==}
+  '@omnitron-dev/netron-react@0.4.11':
+    resolution: {integrity: sha512-CZtD7iJw4I+vaA7TzAOj2VT+/bUbzIAkgeir3qLiOLCT136KglrVp6mRh5C6N088dOcVuVsUtWhAXIfvDm7zow==}
     engines: {node: '>=22.12.0'}
     peerDependencies:
       react: '>=18.0.0 || >=19.0.0'
       react-dom: '>=18.0.0 || >=19.0.0'
 
-  '@omnitron-dev/prism@0.4.10':
-    resolution: {integrity: sha512-tG46erKTLOA3Qxh8G1TNllJH4pDLURDOF3adAEoD1X5W3MCO5zzQqehCBjTztszRA9uGijJnoIaMqdCdXdrBtQ==}
+  '@omnitron-dev/prism@0.4.11':
+    resolution: {integrity: sha512-bj1CdP5vbOFdWYvmFeqiftaL+xTE98L3G75bYkulypGr+EZ7BGDjlKSQsDloV/vk5AHEB3bKYwLv4Aoocl02Vw==}
     hasBin: true
     peerDependencies:
       apexcharts: '>=5.0.0'
@@ -3059,44 +3059,21 @@ packages:
   '@vitest/spy@5.1.0':
     resolution: {integrity: sha512-2DPO5OMHWKrBngC+fCmTQqemNF0gidRhp3lxbBmRhW+M1XJrfgPpqNqWVevXtn2f2ufD5ZaR1B6B641aAlcX5A==}
 
-  '@xec-sh/cli@0.12.0':
-    resolution: {integrity: sha512-QPrF7tK6LKBzgSVgK64Of1u4bXK3Tv2LGsYNlF+3u0HSfW2Hufq+HiB2LEX38x777zxyszNrG+Wy+7Vu/nrh7Q==}
-    engines: {node: '>=22.18.0'}
-    hasBin: true
-
   '@xec-sh/cli@0.13.0':
     resolution: {integrity: sha512-tyqbwSRZ1S0x1uVBsefW9gmwlQb+0UDJK7EAspg8w5ex7YtOxwGdU+huKEbbuJAGBlx/KERbC66cHnzq+LwGfg==}
     engines: {node: '>=22.18.0'}
     hasBin: true
 
-  '@xec-sh/core@0.12.0':
-    resolution: {integrity: sha512-FSs2loyMmjML2ZMRhAmttPGNHl7IWLiWkpGJSVR1ZSFfBxAP9ucOVewrEL8cVzJPE3UpsiN1U30wu5tMN4griQ==}
-    engines: {node: '>=20.0.0'}
-    bundledDependencies:
-      - ssh2
-
   '@xec-sh/core@0.13.0':
     resolution: {integrity: sha512-54c9ixd6a7boFAKigH2AkNtJDBaLjdxODjAJgREKy0I9W4LnB0C2pa0/q8u6iXrk2AVuf27aygcTBcOKbNYwhg==}
     engines: {node: '>=20.19.0'}
-
-  '@xec-sh/kit@0.12.0':
-    resolution: {integrity: sha512-wywnfibdxKcNsCjm6EkIulMW0xSkRyVc/i/nnhFBbjzykVm6FYUhruW+7M1Om31kE0DdyZFl3jWz6jeTnKcrQw==}
-    engines: {bun: '>=1.2.0', node: '>=20.0.0'}
 
   '@xec-sh/kit@0.13.0':
     resolution: {integrity: sha512-4hCygQJTsiiRP8XCNrjG6at//QIVvd44ENXQaaAdUdqjih/fELryaoW0hEedyomnhGXLtZBgO3SjW0ViRLom8A==}
     engines: {bun: '>=1.2.0', node: '>=20.0.0'}
 
-  '@xec-sh/loader@0.12.0':
-    resolution: {integrity: sha512-+vkTCYMshEAJNCDaZIq0w5PrAEYStjvGL5mY/fhR1zqYFMAgLXROIsWwFK9Y/dMqg4YlNYd6OGbJDtdHnXenHQ==}
-    engines: {node: '>=20.0.0'}
-
   '@xec-sh/loader@0.13.0':
     resolution: {integrity: sha512-NIPCvWro8K+1RG8xLMbShKKQsHajmS7XQHMzZvNVvnz62FQ7//PbqYtJqeb7wFN69sSxBFKSKrcysuaDcRX0bg==}
-    engines: {node: '>=20.0.0'}
-
-  '@xec-sh/ops@0.12.0':
-    resolution: {integrity: sha512-B3nT/cH3YsfE0WFaaNJLRSmFAgpWuOLIqdNxzEr3AcrBtVr1EsFILwJAspCsoVbQm460mFy/vJ76jWayjgrHUQ==}
     engines: {node: '>=20.0.0'}
 
   '@xec-sh/ops@0.13.0':
@@ -4016,6 +3993,9 @@ packages:
   hast-util-to-jsx-runtime@2.3.6:
     resolution: {integrity: sha512-zl6s8LwNyo1P9uw+XJGvZtdFF1GdAkOg8ujOw+4Pyb76874fLps4ueHXDhXWdk6YHQ6OgUtinliG7RsYvCbbBg==}
 
+  hast-util-to-jsx-runtime@2.3.7:
+    resolution: {integrity: sha512-F7DNV2NMcTxA4GqPVHnXzX+mpoPHAIY9rJAVH3CZ1FdBZOcBUEjUuvMkMpHVs/sicEtznh9tMGj5WUR9S4E2rg==}
+
   hast-util-to-parse5@8.0.1:
     resolution: {integrity: sha512-MlWT6Pjt4CG9lFCjiz4BH7l9wmrMkfkJYCxFwKQic8+RTZgWPuWxwAfjJElsXkex7DJjfSJsQIt931ilUgmwdA==}
 
@@ -4097,6 +4077,9 @@ packages:
 
   inline-style-parser@0.2.7:
     resolution: {integrity: sha512-Nb2ctOyNR8DqQoR0OwRG95uNWIC0C1lCgf5Naz5H6Ji72KZ8OcFZLz2P5sNgwlyoJ8Yif11oMuYs5pBQa86csA==}
+
+  inline-style-parser@0.2.9:
+    resolution: {integrity: sha512-IttN8BqKLxzUrnTqHI+/hwAJQItBAUjdoHERCDv+oOuX48VP6bzW8+QjOXSfoevzq3YrYAwX1uLHp8TqO9yIeg==}
 
   internmap@1.0.1:
     resolution: {integrity: sha512-lDB5YccMydFBtasVtxnZ3MRBHuaoE8GKsppq+EchKL2U4nK/DmEpPHNH8MZe5HkMtpSiTSOZwfN0tzYjO/lJEw==}
@@ -5067,10 +5050,6 @@ packages:
     resolution: {integrity: sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw==}
     engines: {node: '>=14'}
 
-  sisteransi@2.0.0:
-    resolution: {integrity: sha512-2WCqLdt12eN6ehLI50S2/ZxoowXU3DD1KVPRyVP0WEsFahrGZZmCdq1K59qjJljMRIDTwx1D9YaRK+hDneBUMg==}
-    engines: {node: '>=20'}
-
   sort-asc@0.2.0:
     resolution: {integrity: sha512-umMGhjPeHAI6YjABoSTrFp2zaBtXBej1a0yKkuMUyjjqu6FJsTF+JYwCswWDg+zJfk/5npWUUbd33HH/WLzpaA==}
     engines: {node: '>=0.10.0'}
@@ -5163,6 +5142,9 @@ packages:
 
   style-to-object@1.0.14:
     resolution: {integrity: sha512-LIN7rULI0jBscWQYaSswptyderlarFkjQ+t79nzty8tcIAceVomEVlLzH5VP4Cmsv6MtKhs7qaAiwlcp+Mgaxw==}
+
+  style-to-object@2.0.2:
+    resolution: {integrity: sha512-QmbXPUylqU80HAgTOJeEOdbA40W9KtxmjMhQy+tq+b8F2aoh3aQLuy82hh2jm2qsC9hR9eI0+eQidTMydKcqRA==}
 
   stylis-plugin-rtl@2.1.1:
     resolution: {integrity: sha512-q6xIkri6fBufIO/sV55md2CbgS5c6gg9EhSVATtHHCdOnbN/jcI0u3lYhNVeuI65c4lQPo67g8xmq5jrREvzlg==}
@@ -6753,19 +6735,19 @@ snapshots:
 
   '@noble/hashes@2.4.0': {}
 
-  '@omnitron-dev/access@0.4.10': {}
+  '@omnitron-dev/access@0.4.11': {}
 
-  '@omnitron-dev/common@0.4.10': {}
+  '@omnitron-dev/common@0.4.11': {}
 
-  '@omnitron-dev/cuid@0.4.10':
+  '@omnitron-dev/cuid@0.4.11':
     dependencies:
       '@noble/hashes': 2.4.0
 
-  '@omnitron-dev/eventemitter@0.4.10':
+  '@omnitron-dev/eventemitter@0.4.11':
     dependencies:
-      '@omnitron-dev/common': 0.4.10
+      '@omnitron-dev/common': 0.4.11
 
-  '@omnitron-dev/kb@0.4.10(@surrealdb/node-native@4.0.1)(surrealdb@2.2.2(@typescript/typescript6@6.0.2)(tslib@2.9.1))':
+  '@omnitron-dev/kb@0.4.11(@surrealdb/node-native@4.0.1)(surrealdb@2.2.2(@typescript/typescript6@6.0.2)(tslib@2.9.1))':
     dependencies:
       '@surrealdb/node': 3.2.0(@surrealdb/node-native@4.0.1)(surrealdb@2.2.2(@typescript/typescript6@6.0.2)(tslib@2.9.1))
       gray-matter: 4.0.3
@@ -6774,13 +6756,13 @@ snapshots:
     transitivePeerDependencies:
       - '@surrealdb/node-native'
 
-  '@omnitron-dev/lumen-ast@0.4.10(supports-color@8.1.1)':
+  '@omnitron-dev/lumen-ast@0.4.11(supports-color@8.1.1)':
     dependencies:
       '@jitl/quickjs-singlefile-browser-release-sync': 0.32.0
       '@modelcontextprotocol/server': 2.4.0
       '@myriaddreamin/typst-ts-web-compiler': 0.7.0
-      '@omnitron-dev/access': 0.4.10
-      '@omnitron-dev/common': 0.4.10
+      '@omnitron-dev/access': 0.4.11
+      '@omnitron-dev/common': 0.4.11
       '@types/hast': 3.0.5
       fontkit: 3.0.0
       hast-util-raw: 9.2.0
@@ -6805,15 +6787,15 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@omnitron-dev/lumen-ui@0.4.10(@floating-ui/dom@1.8.0)(@surrealdb/node-native@4.0.1)(@tiptap/extension-code-block@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extension-list@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extensions@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(highlight.js@11.11.2)(joi@17.13.9)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@8.1.1)(surrealdb@2.2.2(@typescript/typescript6@6.0.2)(tslib@2.9.1))(use-sync-external-store@1.7.0(react@19.3.1))':
+  '@omnitron-dev/lumen-ui@0.4.11(@floating-ui/dom@1.8.0)(@surrealdb/node-native@4.0.1)(@tiptap/extension-code-block@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extension-list@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extensions@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(highlight.js@11.11.2)(joi@17.13.9)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@8.1.1)(surrealdb@2.2.2(@typescript/typescript6@6.0.2)(tslib@2.9.1))(use-sync-external-store@1.7.0(react@19.3.1))':
     dependencies:
       '@emotion/cache': 11.14.0
       '@emotion/react': 11.14.0(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1)
       '@emotion/styled': 11.14.1(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1)
       '@mui/material': 9.5.0(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-      '@omnitron-dev/kb': 0.4.10(@surrealdb/node-native@4.0.1)(surrealdb@2.2.2(@typescript/typescript6@6.0.2)(tslib@2.9.1))
-      '@omnitron-dev/lumen-ast': 0.4.10(supports-color@8.1.1)
-      '@omnitron-dev/prism': 0.4.10(@floating-ui/dom@1.8.0)(@tiptap/extension-code-block@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extension-list@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extensions@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(highlight.js@11.11.2)(joi@17.13.9)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@8.1.1)(use-sync-external-store@1.7.0(react@19.3.1))
+      '@omnitron-dev/kb': 0.4.11(@surrealdb/node-native@4.0.1)(surrealdb@2.2.2(@typescript/typescript6@6.0.2)(tslib@2.9.1))
+      '@omnitron-dev/lumen-ast': 0.4.11(supports-color@8.1.1)
+      '@omnitron-dev/prism': 0.4.11(@floating-ui/dom@1.8.0)(@tiptap/extension-code-block@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extension-list@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extensions@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(highlight.js@11.11.2)(joi@17.13.9)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@8.1.1)(use-sync-external-store@1.7.0(react@19.3.1))
       clsx: 2.1.1
       katex: 0.19.1
       react: 19.3.1
@@ -6869,21 +6851,23 @@ snapshots:
       - vest
       - yup
 
-  '@omnitron-dev/lumen@0.4.10(@floating-ui/dom@1.8.0)(@surrealdb/node-native@4.0.1)(@tiptap/extension-code-block@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extension-list@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extensions@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@types/node@26.6.6)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(esbuild@0.28.2)(highlight.js@11.11.2)(jiti@1.21.7)(joi@17.13.9)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@8.1.1)(surrealdb@2.2.2(@typescript/typescript6@6.0.2)(tslib@2.9.1))(terser@5.51.2)(tsx@4.23.15)(use-sync-external-store@1.7.0(react@19.3.1))(yaml@2.9.1)':
+  '@omnitron-dev/lumen@0.4.11(@floating-ui/dom@1.8.0)(@surrealdb/node-native@4.0.1)(@tiptap/extension-code-block@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extension-list@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extensions@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@types/node@26.6.6)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(esbuild@0.28.2)(highlight.js@11.11.2)(jiti@1.21.7)(joi@17.13.9)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@8.1.1)(surrealdb@2.2.2(@typescript/typescript6@6.0.2)(tslib@2.9.1))(terser@5.51.2)(tsx@4.23.15)(use-sync-external-store@1.7.0(react@19.3.1))(yaml@2.9.1)':
     dependencies:
       '@emotion/cache': 11.14.0
       '@emotion/react': 11.14.0(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1)
       '@emotion/server': 11.11.0
       '@modelcontextprotocol/server': 2.4.0
-      '@omnitron-dev/common': 0.4.10
-      '@omnitron-dev/lumen-ast': 0.4.10(supports-color@8.1.1)
-      '@omnitron-dev/lumen-ui': 0.4.10(@floating-ui/dom@1.8.0)(@surrealdb/node-native@4.0.1)(@tiptap/extension-code-block@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extension-list@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extensions@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(highlight.js@11.11.2)(joi@17.13.9)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@8.1.1)(surrealdb@2.2.2(@typescript/typescript6@6.0.2)(tslib@2.9.1))(use-sync-external-store@1.7.0(react@19.3.1))
-      '@omnitron-dev/prism': 0.4.10(@floating-ui/dom@1.8.0)(@tiptap/extension-code-block@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extension-list@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extensions@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(highlight.js@11.11.2)(joi@17.13.9)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@8.1.1)(use-sync-external-store@1.7.0(react@19.3.1))
+      '@omnitron-dev/common': 0.4.11
+      '@omnitron-dev/lumen-ast': 0.4.11(supports-color@8.1.1)
+      '@omnitron-dev/lumen-ui': 0.4.11(@floating-ui/dom@1.8.0)(@surrealdb/node-native@4.0.1)(@tiptap/extension-code-block@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extension-list@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extensions@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(highlight.js@11.11.2)(joi@17.13.9)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@8.1.1)(surrealdb@2.2.2(@typescript/typescript6@6.0.2)(tslib@2.9.1))(use-sync-external-store@1.7.0(react@19.3.1))
+      '@omnitron-dev/prism': 0.4.11(@floating-ui/dom@1.8.0)(@tiptap/extension-code-block@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extension-list@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extensions@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(highlight.js@11.11.2)(joi@17.13.9)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@8.1.1)(use-sync-external-store@1.7.0(react@19.3.1))
       commander: 15.1.0
+      hast-util-to-jsx-runtime: 2.3.7(supports-color@8.1.1)
       import-meta-resolve: 4.2.0
       pagefind: 1.6.0
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
+      react-is: 19.3.1
       typescript: '@typescript/typescript6@6.0.2'
       vite: 8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@1.21.7)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1)
       zod: 4.6.7
@@ -6950,36 +6934,36 @@ snapshots:
       - yaml
       - yup
 
-  '@omnitron-dev/msgpack@0.4.10':
+  '@omnitron-dev/msgpack@0.4.11':
     dependencies:
-      '@omnitron-dev/common': 0.4.10
+      '@omnitron-dev/common': 0.4.11
       buffer: 6.0.3
       long: 5.3.2
 
-  '@omnitron-dev/netron-browser@0.4.10':
+  '@omnitron-dev/netron-browser@0.4.11':
     dependencies:
-      '@omnitron-dev/cuid': 0.4.10
-      '@omnitron-dev/eventemitter': 0.4.10
-      '@omnitron-dev/msgpack': 0.4.10
-      '@omnitron-dev/netron-http-core': 0.4.10
-      '@omnitron-dev/netron-protocol': 0.4.10
+      '@omnitron-dev/cuid': 0.4.11
+      '@omnitron-dev/eventemitter': 0.4.11
+      '@omnitron-dev/msgpack': 0.4.11
+      '@omnitron-dev/netron-http-core': 0.4.11
+      '@omnitron-dev/netron-protocol': 0.4.11
       buffer: 6.0.3
 
-  '@omnitron-dev/netron-http-core@0.4.10':
+  '@omnitron-dev/netron-http-core@0.4.11':
     dependencies:
-      '@omnitron-dev/eventemitter': 0.4.10
-      '@omnitron-dev/netron-protocol': 0.4.10
+      '@omnitron-dev/eventemitter': 0.4.11
+      '@omnitron-dev/netron-protocol': 0.4.11
 
-  '@omnitron-dev/netron-protocol@0.4.10': {}
+  '@omnitron-dev/netron-protocol@0.4.11': {}
 
-  '@omnitron-dev/netron-react@0.4.10(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
+  '@omnitron-dev/netron-react@0.4.11(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:
-      '@omnitron-dev/netron-browser': 0.4.10
-      '@omnitron-dev/netron-protocol': 0.4.10
+      '@omnitron-dev/netron-browser': 0.4.11
+      '@omnitron-dev/netron-protocol': 0.4.11
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
 
-  '@omnitron-dev/prism@0.4.10(@floating-ui/dom@1.8.0)(@tiptap/extension-code-block@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extension-list@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extensions@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(highlight.js@11.11.2)(joi@17.13.9)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@8.1.1)(use-sync-external-store@1.7.0(react@19.3.1))':
+  '@omnitron-dev/prism@0.4.11(@floating-ui/dom@1.8.0)(@tiptap/extension-code-block@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extension-list@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/extensions@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(ajv-formats@3.0.1(ajv@8.20.0))(ajv@8.20.0)(highlight.js@11.11.2)(joi@17.13.9)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@8.1.1)(use-sync-external-store@1.7.0(react@19.3.1))':
     dependencies:
       '@emotion/cache': 11.14.0
       '@emotion/react': 11.14.0(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1)
@@ -6988,11 +6972,12 @@ snapshots:
       '@mui/icons-material': 9.5.0(@mui/material@9.5.0(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/react@19.3.0)(react@19.3.1)
       '@mui/material': 9.5.0(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@mui/system': 9.5.0(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.1)
+      '@mui/utils': 9.5.0(@types/react@19.3.0)(react@19.3.1)
       '@mui/x-data-grid': 9.18.0(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@mui/material@9.5.0(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@mui/system@9.5.0(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.1))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@mui/x-date-pickers': 9.18.0(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@mui/material@9.5.0(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@mui/system@9.5.0(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.1)(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.1))(@types/react@19.3.0)(dayjs@1.11.23)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-      '@omnitron-dev/common': 0.4.10
-      '@omnitron-dev/netron-browser': 0.4.10
-      '@omnitron-dev/netron-react': 0.4.10(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      '@omnitron-dev/common': 0.4.11
+      '@omnitron-dev/netron-browser': 0.4.11
+      '@omnitron-dev/netron-react': 0.4.11(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@tanstack/react-virtual': 3.14.26(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@tiptap/core': 3.33.1(@tiptap/pm@3.33.1)
       '@tiptap/extension-code-block-lowlight': 3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/extension-code-block@3.33.1(@tiptap/core@3.33.1(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1))(@tiptap/pm@3.33.1)(highlight.js@11.11.2)(lowlight@3.3.0)
@@ -8150,19 +8135,6 @@ snapshots:
 
   '@vitest/spy@5.1.0': {}
 
-  '@xec-sh/cli@0.12.0':
-    dependencies:
-      '@xec-sh/core': 0.12.0
-      '@xec-sh/kit': 0.12.0
-      '@xec-sh/loader': 0.12.0
-      '@xec-sh/ops': 0.12.0
-      commander: 15.1.0
-      fs-extra: 11.4.1
-      glob: 14.0.6
-      js-yaml: 5.5.0
-      yaml: 2.9.1
-      zod: 4.6.7
-
   '@xec-sh/cli@0.13.0':
     dependencies:
       '@xec-sh/core': 0.13.0
@@ -8176,39 +8148,16 @@ snapshots:
       yaml: 2.9.1
       zod: 4.6.7
 
-  '@xec-sh/core@0.12.0': {}
-
   '@xec-sh/core@0.13.0':
     dependencies:
       '@xec-sh/ssh': 0.13.0
 
-  '@xec-sh/kit@0.12.0':
-    dependencies:
-      sisteransi: 2.0.0
-
   '@xec-sh/kit@0.13.0': {}
-
-  '@xec-sh/loader@0.12.0':
-    dependencies:
-      '@xec-sh/kit': 0.12.0
-      esbuild: 0.28.2
 
   '@xec-sh/loader@0.13.0':
     dependencies:
       '@xec-sh/kit': 0.13.0
       esbuild: 0.28.2
-
-  '@xec-sh/ops@0.12.0':
-    dependencies:
-      '@xec-sh/core': 0.12.0
-      '@xec-sh/kit': 0.12.0
-      '@xec-sh/loader': 0.12.0
-      dotenv: 18.0.10
-      fs-extra: 11.4.1
-      glob: 14.0.6
-      js-yaml: 5.5.0
-      semver: 7.8.6
-      zod: 4.6.7
 
   '@xec-sh/ops@0.13.0':
     dependencies:
@@ -9244,6 +9193,26 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  hast-util-to-jsx-runtime@2.3.7(supports-color@8.1.1):
+    dependencies:
+      '@types/estree': 1.0.10
+      '@types/hast': 3.0.5
+      '@types/unist': 3.0.3
+      comma-separated-tokens: 2.0.3
+      devlop: 1.1.0
+      estree-util-is-identifier-name: 3.0.0
+      hast-util-whitespace: 3.0.0
+      mdast-util-mdx-expression: 2.0.1(supports-color@8.1.1)
+      mdast-util-mdx-jsx: 3.2.0(supports-color@8.1.1)
+      mdast-util-mdxjs-esm: 2.0.1(supports-color@8.1.1)
+      property-information: 7.2.0
+      space-separated-tokens: 2.0.2
+      style-to-object: 2.0.2
+      unist-util-position: 5.0.0
+      vfile-message: 4.0.3
+    transitivePeerDependencies:
+      - supports-color
+
   hast-util-to-parse5@8.0.1:
     dependencies:
       '@types/hast': 3.0.5
@@ -9324,6 +9293,8 @@ snapshots:
   inherits@2.0.4: {}
 
   inline-style-parser@0.2.7: {}
+
+  inline-style-parser@0.2.9: {}
 
   internmap@1.0.1: {}
 
@@ -10620,8 +10591,6 @@ snapshots:
 
   signal-exit@4.1.0: {}
 
-  sisteransi@2.0.0: {}
-
   sort-asc@0.2.0: {}
 
   sort-desc@0.2.0: {}
@@ -10710,6 +10679,10 @@ snapshots:
   style-to-object@1.0.14:
     dependencies:
       inline-style-parser: 0.2.7
+
+  style-to-object@2.0.2:
+    dependencies:
+      inline-style-parser: 0.2.9
 
   stylis-plugin-rtl@2.1.1(stylis@4.4.0):
     dependencies:
