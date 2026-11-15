@@ -273,6 +273,14 @@ packaging belongs here; version, Git, registry and recovery logic remain shared.
 run acceptance against each packed archive before sealing; rejection or a change
 to those bytes prevents preparation from completing.
 
+The development API also exports `packReleaseArtifacts(workspace, temporary,
+packages, options)` for independent builders and archive-only CI checks. It
+uses the same per-package producer as `prepareReleaseArtifacts`; callers own the
+private temporary directory and await its cleanup. `prepareArchive` may normalize
+an archive or add source provenance before identity/export validation and hashing.
+Acceptance receives these final bytes. Do not repack them for a consumer or
+publication. Changes to the archive hook invalidate retained producer identity.
+
 For the development producer API described above, pass
 `retainProducer: { policy, inputs, verify }` instead of `verifyArtifact`. `policy` is a SHA-256 digest of the owner's verification
 policy; each named `inputs` value is a SHA-256 digest of an actual external

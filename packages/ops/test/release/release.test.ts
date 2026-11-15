@@ -4,14 +4,14 @@ import { tmpdir } from 'node:os';
 import { once } from 'node:events';
 import { createServer } from 'node:http';
 import { join, dirname } from 'node:path';
-import { it, vi, expect, describe, afterEach } from 'vitest';
+import { it, expect, describe, afterEach } from 'vitest';
 import { rm, mkdir, chmod, mkdtemp, readdir, readFile, copyFile, writeFile } from 'node:fs/promises';
 
 import { windowsPackageManager } from '../../src/release/package-manager.js';
 import {
   planRelease, releaseNotes, releaseCommand, distributionTag, pushReleaseRefs, registryAddress, ensureReleaseTag, assertReleaseHead, artifactIntegrity, acquireReleaseLock, loadPreparedRelease,
-  createGithubRelease, ReleaseCommandError, commitReleaseVersion, validatePackedPackage, verifyReleaseArtifact,
-  verifyRemoteReleaseTag, publishPreparedRelease, discoverReleasePackages, prepareReleaseArtifacts, registryArtifactMatches, preflightPreparedRelease,
+  createGithubRelease, ReleaseCommandError, commitReleaseVersion, packReleaseArtifacts, validatePackedPackage,
+  verifyReleaseArtifact, verifyRemoteReleaseTag, publishPreparedRelease, discoverReleasePackages, prepareReleaseArtifacts, registryArtifactMatches, preflightPreparedRelease,
 } from '../../src/release/index.js';
 
 const directories: string[] = [];
@@ -198,7 +198,7 @@ describe('release preparation execution context', () => {
     await expect(readdir(join(root, '.release-artifacts'))).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
-  it.each(['preparePackage', 'verifyArtifact'] as const)('does not seal archives when %s cancels preparation', async callback => {
+  it.each(['preparePackage', 'prepareArchive', 'verifyArtifact'] as const)('does not seal archives when %s cancels preparation', async callback => {
     const root = await repository(), runner = fixtureRunner();
     const controller = new AbortController();
     let calls = 0;
@@ -258,6 +258,61 @@ describe('release preparation execution context', () => {
     await expect(prepareReleaseArtifacts(root, '1.0.0-rc.1', options)).rejects.toThrow(/timeout|limit/i);
     expect(calls).toBe(0);
     await expect(readdir(join(root, '.release-artifacts'))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+});
+
+describe('shared archive producer', () => {
+  it('packs once and binds only the transformed, validated bytes to acceptance', async () => {
+    const root = await repository(), temporaryRoot = await temporary();
+    await releaseCommand(root, process.execPath, ['build.mjs']);
+    const packages = await discoverReleasePackages(root);
+    let packs = 0;
+    const run: ReleaseCommand = (cwd, executable, args, options) => {
+      if (args.includes('pack')) packs++;
+      return releaseCommand(cwd, executable, args, options);
+    };
+    const artifacts = await packReleaseArtifacts(root, temporaryRoot, packages, {
+      run,
+      prepareArchive: async ({ file, pkg, temporary: scratch, run: execute }) => {
+        const unpacked = await mkdtemp(join(scratch, 'normalize-'));
+        await execute(unpacked, 'tar', ['-xzf', file]);
+        const metadataFile = join(unpacked, 'package/package.json');
+        const metadata = JSON.parse(await readFile(metadataFile, 'utf8'));
+        await writeFile(metadataFile, JSON.stringify({ ...metadata, gitHead: 'a'.repeat(40) }));
+        await execute(unpacked, 'tar', ['-czf', file, 'package']);
+        expect(metadata.name).toBe(pkg.name);
+      },
+      verifyArtifact: async ({ artifact, run: execute }) => {
+        const metadata = JSON.parse(await execute(root, 'tar', ['-xOf', artifact.file, 'package/package.json']));
+        expect(metadata.gitHead).toBe('a'.repeat(40));
+        expect(artifact.integrity).toBe(artifactIntegrity(await readFile(artifact.file)));
+      },
+    });
+    expect(packs).toBe(packages.length);
+    expect(artifacts.map(item => item.name)).toEqual(packages.map(item => item.name));
+    for (const artifact of artifacts) await verifyReleaseArtifact(artifact);
+  });
+
+  it('validates the final hook output and never accepts a corrupt archive', async () => {
+    const root = await repository(), scratch = await temporary();
+    await releaseCommand(root, process.execPath, ['build.mjs']);
+    const packages = await discoverReleasePackages(root);
+    let accepted = 0;
+    await expect(packReleaseArtifacts(root, scratch, packages, {
+      prepareArchive: async ({ file }) => { await writeFile(file, 'not a tar archive'); },
+      verifyArtifact: async () => { accepted++; },
+    })).rejects.toThrow();
+    expect(accepted).toBe(0);
+  });
+
+  it('rejects duplicate package identities before packing', async () => {
+    const root = await repository(), scratch = await temporary();
+    const packages = await discoverReleasePackages(root);
+    let commands = 0;
+    await expect(packReleaseArtifacts(root, scratch, [packages[0]!, packages[0]!], {
+      run: async () => { commands++; return ''; },
+    })).rejects.toThrow('Duplicate package');
+    expect(commands).toBe(0);
   });
 });
 
@@ -350,6 +405,7 @@ describe('retained release producer acceptance', () => {
       { ...options, retainProducer: { ...retention, verify: async () => {} } },
       { ...options, build: { ...build, args: [...build.args, '--changed'] } },
       { ...options, preparePackage: async () => undefined },
+      { ...options, prepareArchive: async () => {} },
     ]) await expect(prepareReleaseArtifacts(root, '1.0.0-rc.1', changed)).rejects.toThrow('identity differs');
     await writeFile(join(root, 'build.mjs'), 'changed fixture');
     await expect(prepareReleaseArtifacts(root, '1.0.0-rc.1', options)).rejects.toThrow('clean working tree');

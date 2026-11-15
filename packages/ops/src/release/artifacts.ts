@@ -50,8 +50,57 @@ export interface PrepareReleaseOptions {
   };
   /** Verify the actual archive (for example in a clean consumer) before sealing. */
   verifyArtifact?: (context: { workspace: string; artifact: ReleaseArtifact; run: ReleaseCommand; signal?: AbortSignal }) => Promise<void>;
+  /** Normalize or annotate the packed archive before validation and its immutable digest. */
+  prepareArchive?: (context: { workspace: string; temporary: string; pkg: ReleasePackage; file: string; run: ReleaseCommand; signal?: AbortSignal }) => Promise<void>;
   /** An owner-specific packaging recipe, executed only in the isolated snapshot. */
   preparePackage?: (context: { workspace: string; temporary: string; pkg: ReleasePackage; run: ReleaseCommand; signal?: AbortSignal }) => Promise<{ directory: string; manager: 'npm' | 'pnpm' } | undefined>;
+}
+
+/** The same packaging contract serves initial and independently reproduced builds. */
+export type PackReleaseOptions = Pick<PrepareReleaseOptions,
+  'run' | 'signal' | 'onEvent' | 'outputLimit' | 'progress' | 'preparePackage' | 'prepareArchive' | 'verifyArtifact'>;
+
+/** Pack each workspace once. The caller owns the private temporary directory and cleanup. */
+export async function packReleaseArtifacts(workspace: string, temporary: string,
+  packages: readonly ReleasePackage[], options: PackReleaseOptions = {}): Promise<ReleaseArtifact[]> {
+  const signal = getExecutionSignal(options.signal);
+  const execute = options.run ?? releaseCommand;
+  const run: ReleaseCommand = async (cwd, executable, args, commandOptions = {}) => {
+    const combined = signal && commandOptions.signal
+      ? AbortSignal.any([signal, commandOptions.signal]) : commandOptions.signal ?? signal;
+    combined?.throwIfAborted();
+    const result = await execute(cwd, executable, args, { ...commandOptions, signal: combined });
+    combined?.throwIfAborted();
+    return result;
+  };
+  const observedRun: ReleaseCommand = (cwd, executable, args, commandOptions) => run(cwd, executable, args, {
+    onEvent: options.onEvent, outputLimit: options.outputLimit, ...commandOptions,
+  });
+  if (new Set(packages.map(pkg => pkg.name)).size !== packages.length) throw new Error('Duplicate package in release inventory');
+  const artifacts: ReleaseArtifact[] = [];
+  for (const pkg of packages) {
+    signal?.throwIfAborted();
+    options.progress?.(`Packing ${pkg.name}`);
+    const output = await mkdtemp(join(temporary, 'pack-'));
+    const recipe = await options.preparePackage?.({ workspace, temporary, pkg, run: observedRun, signal });
+    signal?.throwIfAborted();
+    const location = recipe?.directory ?? join(workspace, pkg.path), manager = recipe?.manager ?? 'pnpm';
+    await observedRun(location, manager, manager === 'npm'
+      ? ['pack', '--ignore-scripts', '--json', '--pack-destination', output]
+      : ['--config.ignore-scripts=true', 'pack', '--pack-destination', output]);
+    const archives = (await readdir(output)).filter(name => name.endsWith('.tgz'));
+    if (archives.length !== 1) throw new Error(`Expected one archive for ${pkg.name}`);
+    const file = join(output, archives[0]!);
+    await options.prepareArchive?.({ workspace, temporary, pkg, file, run: observedRun, signal });
+    signal?.throwIfAborted();
+    await validatePackedPackage(workspace, file, pkg, run);
+    const artifact = { name: pkg.name, version: pkg.version, file, integrity: artifactIntegrity(await readFile(file)) };
+    await options.verifyArtifact?.({ workspace, artifact, run: observedRun, signal });
+    signal?.throwIfAborted();
+    await verifyReleaseArtifact(artifact);
+    artifacts.push(artifact);
+  }
+  return artifacts;
 }
 
 export const artifactIntegrity = (bytes: Uint8Array): string => `sha512-${createHash('sha512').update(bytes).digest('base64')}`;
@@ -121,6 +170,7 @@ function producerIdentity(options: PrepareReleaseOptions) {
     build: { executable: options.build.executable, args: [...options.build.args] },
     transport: sha256(Function.prototype.toString.call(options.run ?? releaseCommand)),
     packaging: sha256(options.preparePackage ? Function.prototype.toString.call(options.preparePackage) : ''),
+    archive: sha256(options.prepareArchive ? Function.prototype.toString.call(options.prepareArchive) : ''),
     acceptance: sha256(Function.prototype.toString.call(retention.verify)),
   };
 }
@@ -282,26 +332,7 @@ export async function prepareReleaseArtifacts(root: string, version: string, opt
       await observedRun(workspace, 'pnpm', ['install', '--frozen-lockfile', '--ignore-scripts', '--prod=false', ...(options.offline ? ['--offline'] : [])], { timeoutMs: 600000 });
       options.progress?.('Building isolated packages');
       await observedRun(workspace, options.build.executable, options.build.args, { timeoutMs: options.build.timeoutMs ?? 600000 });
-      const artifacts: ReleaseArtifact[] = [];
-      for (const pkg of packages) {
-        options.progress?.(`Packing ${pkg.name}`);
-        const output = await mkdtemp(join(temporary, 'pack-'));
-        const recipe = await options.preparePackage?.({ workspace, temporary, pkg, run: observedRun, signal: options.signal });
-        options.signal?.throwIfAborted();
-        const location = recipe?.directory ?? join(workspace, pkg.path), manager = recipe?.manager ?? 'pnpm';
-        await observedRun(location, manager, manager === 'npm'
-          ? ['pack', '--ignore-scripts', '--json', '--pack-destination', output]
-          : ['--config.ignore-scripts=true', 'pack', '--pack-destination', output]);
-        const archives = (await readdir(output)).filter(name => name.endsWith('.tgz'));
-        if (archives.length !== 1) throw new Error(`Expected one archive for ${pkg.name}`);
-        const file = join(output, archives[0]!);
-        await validatePackedPackage(root, file, pkg, run);
-        const artifact = { name: pkg.name, version, file, integrity: artifactIntegrity(await readFile(file)) };
-        await options.verifyArtifact?.({ workspace, artifact, run: observedRun, signal: options.signal });
-        options.signal?.throwIfAborted();
-        await verifyReleaseArtifact(artifact);
-        artifacts.push(artifact);
-      }
+      const artifacts = await packReleaseArtifacts(workspace, temporary, packages, { ...options, run });
       if (await run(root, 'git', ['rev-parse', 'HEAD']) !== commit) throw new Error('Source HEAD changed during preparation');
       await assertCleanReleaseTree(root, run);
       options.signal?.throwIfAborted();
