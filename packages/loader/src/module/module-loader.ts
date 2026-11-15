@@ -5,14 +5,15 @@
 
 import type { Cache, ModuleExports, ModuleSpecifier, ModuleLoaderOptions } from '../types/index.js';
 
-import { isAbsolute } from 'node:path';
+import { homedir } from 'node:os';
 import { pathToFileURL } from 'node:url';
+import { join, isAbsolute } from 'node:path';
 
 import { ModuleFetcher } from './module-fetcher.js';
 import { ModuleExecutor } from './module-executor.js';
 import { isNodeBuiltinModule } from '../constants.js';
 import { MemoryCache, HybridCache } from './module-cache.js';
-import { ModuleIntegrityVerifier } from './module-integrity.js';
+import { diagnosticURL, ModuleIntegrityVerifier } from './module-integrity.js';
 import { CDNModuleResolver, NodeModuleResolver, LocalModuleResolver, CompositeModuleResolver } from './module-resolver.js';
 
 /**
@@ -25,11 +26,12 @@ export class ModuleLoader {
   private cache: Cache<string>;
   private integrity: ModuleIntegrityVerifier;
   private options: Required<ModuleLoaderOptions>;
-  private pendingLoads = new Map<string, Promise<any>>();
+  private pendingLoads = new Map<string, Promise<ModuleExports>>();
+  private clearing = false;
 
   constructor(options: ModuleLoaderOptions = {}) {
     this.options = {
-      cacheDir: options.cacheDir || '/tmp/xec-loader-cache',
+      cacheDir: options.cacheDir ?? join(process.env['XDG_CACHE_HOME'] || join(homedir(), '.cache'), 'xec', 'modules'),
       preferredCDN: options.preferredCDN || 'esm.sh',
       verbose: options.verbose || false,
       cache: options.cache !== false,
@@ -71,6 +73,7 @@ export class ModuleLoader {
    * Import a module by specifier
    */
   async import(specifier: ModuleSpecifier): Promise<ModuleExports> {
+    if (this.clearing) throw new Error('Module cache cleanup is active');
     // Check for pending loads (prevent duplicate fetches)
     if (this.pendingLoads.has(specifier)) {
       return this.pendingLoads.get(specifier)!;
@@ -88,14 +91,14 @@ export class ModuleLoader {
 
   private async loadModule(specifier: ModuleSpecifier): Promise<ModuleExports> {
     if (this.options.verbose) {
-      console.log(`[ModuleLoader] Loading: ${specifier}`);
+      console.log(`[ModuleLoader] Loading: ${/^https?:/iu.test(specifier) ? diagnosticURL(specifier) : specifier}`);
     }
 
     // Resolve module
     const resolution = await this.resolver.resolve(specifier);
 
     if (this.options.verbose) {
-      console.log(`[ModuleLoader] Resolved to: ${resolution.resolved}`);
+      console.log(`[ModuleLoader] Resolved to: ${/^https?:/iu.test(resolution.resolved) ? diagnosticURL(resolution.resolved) : resolution.resolved}`);
     }
 
     // Check if it's a local file or built-in Node module (but not HTTP URLs)
@@ -122,7 +125,6 @@ export class ModuleLoader {
       specifier: resolution.resolved,
       content: fetched.content,
       type: resolution.type !== 'unknown' ? resolution.type : undefined,
-      headers: fetched.headers,
     });
 
     return module;
@@ -132,8 +134,12 @@ export class ModuleLoader {
    * Clear all caches
    */
   async clearCache(): Promise<void> {
-    await this.cache.clear();
-    await this.executor.cleanup();
+    if (this.clearing || this.pendingLoads.size) throw new Error('Cannot clear the module cache while an operation is active');
+    this.clearing = true;
+    try {
+      await this.executor.cleanup();
+      await this.cache.clear();
+    } finally { this.clearing = false; }
   }
 
   /**

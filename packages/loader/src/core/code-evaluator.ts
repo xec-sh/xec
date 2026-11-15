@@ -4,55 +4,25 @@
  */
 
 import type {
+  ModuleExports,
   ScriptContext,
   ExecutionResult,
   EvaluationOptions,
 } from '../types/index.js';
 
-import * as path from 'node:path';
-import { pathToFileURL } from 'node:url';
-import { promises as fs } from 'node:fs';
-import { randomBytes } from 'node:crypto';
-
 import { ExecutionContext } from './execution-context.js';
+import { ModuleExecutor } from '../module/module-executor.js';
 
 /**
  * CodeEvaluator evaluates inline code strings
  */
 export class CodeEvaluator {
-  /**
-   * Import a code string as an ES module and hand it to `use`.
-   *
-   * The code becomes a transient dot-file in the working directory, not a
-   * `data:` URL. A `data:` URL has no place in the filesystem, so Node
-   * refuses to resolve bare specifiers from it — `xec -e "await
-   * import('lodash')"` failed in a project that had lodash installed, with
-   * an error about URL schemes that pointed nowhere near the cause. From a
-   * real file, resolution walks up from the working directory exactly as it
-   * would for a script.
-   *
-   * The file is named from `randomBytes`, written 0600, and removed in
-   * `finally`. When the directory is not writable the old `data:` URL is
-   * used instead: code without imports still runs there, and code with
-   * imports fails the way it always did rather than not at all.
-   */
-  private async importTransient<T>(code: string, use: (module: any) => Promise<T> | T): Promise<T> {
-    const file = path.join(process.cwd(), `.xec-eval-${randomBytes(8).toString('hex')}.mjs`);
-
-    try {
-      await fs.writeFile(file, code, { mode: 0o600, flag: 'wx' });
-    } catch {
-      const dataUrl = `data:text/javascript;base64,${Buffer.from(code).toString('base64')}`;
-      return use(await import(dataUrl));
-    }
-
-    // Reaching here means the write succeeded, so the finally always has a
-    // file to remove.
-    try {
-      return await use(await import(pathToFileURL(file).href));
-    } finally {
-      await fs.unlink(file).catch(() => {});
-    }
+  /** Native execution and file ownership are shared with other in-memory modules. */
+  private importTransient<T>(code: string, use: (module: ModuleExports) => Promise<T> | T): Promise<T> {
+    return new ModuleExecutor(process.cwd()).withModule(
+      { content: code, specifier: '<eval>', type: 'esm' },
+      use,
+    );
   }
 
   /**
@@ -102,7 +72,7 @@ export class CodeEvaluator {
   /**
    * Evaluate code and return result value
    */
-  async eval<T = any>(
+  async eval<T = unknown>(
     code: string,
     options: EvaluationOptions = {}
   ): Promise<T> {
@@ -121,7 +91,10 @@ export class CodeEvaluator {
     });
 
     return execContext.execute(async () =>
-      this.importTransient(wrappedCode, async module => (await module.default()) as T)
+      this.importTransient(wrappedCode, async module => {
+        if (typeof module.default !== 'function') throw new TypeError('Inline module has no callable default export');
+        return (await module.default()) as T;
+      })
     );
   }
 }

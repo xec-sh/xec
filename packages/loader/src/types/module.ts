@@ -81,14 +81,20 @@ export interface ModuleResolver {
  * Module fetcher options
  */
 export interface ModuleFetchOptions {
-  /** Request timeout in milliseconds */
+  /** Whole-operation deadline in milliseconds, including bodies and redirects. Default 30_000. */
   timeout?: number;
 
-  /** Retry attempts */
+  /** Retry attempts for transient failures, an integer from 0 to 5. */
   retries?: number;
 
-  /** Headers to include in request */
+  /** Headers for the original origin only; never forwarded across origins. */
   headers?: Record<string, string>;
+
+  /** Cancel fetching and owned response streams. */
+  signal?: AbortSignal;
+
+  /** Bound fetched source bytes; defaults to 8 MiB, at most 64 MiB. */
+  maxBytes?: number;
 }
 
 /**
@@ -101,11 +107,8 @@ export interface ModuleExecutionOptions {
   /** Module content */
   content: string;
 
-  /** Detected module type */
+  /** Explicit native format. Omitted or unknown means ESM; UMD uses CommonJS. */
   type?: ModuleType;
-
-  /** Response headers (for type detection) */
-  headers?: Record<string, string>;
 }
 
 /**

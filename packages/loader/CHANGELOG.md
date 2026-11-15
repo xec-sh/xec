@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- Enforce remote host/protocol policy even when digest verification is disabled. Bound full fetches, response bodies and cancellation, prevent cross-origin header forwarding and authenticated-cache reuse, and remove credentials from URL diagnostics/cache identities.
+- Pin raw UTF-8 source in lock format v2 before transformation. Reject legacy or malformed locks instead of silently replacing trust; remove source rewriting and recursive re-export following from HTTP retrieval.
+- Isolate cache entries from trust records and temporary executable source. Cache clearing preserves caller files, refuses active module operations and reports incomplete cleanup; default storage is private to the user.
+
+- Unify inline evaluation and fetched-source execution through the native module loader. Select CommonJS/UMD explicitly; failed code is never replayed in another format. Keep private source files through the callback, verify ownership on cleanup, and require a writable working directory for inline evaluation instead of changing resolution through a data-URL fallback.
+
 - Remove implicit CDN fallback for missing local packages. Bare imports fail locally without disclosing package names or fetching a public namesake; remote loading requires an explicit remote specifier.
 
 - Add `LocalModuleGraph` for local ESM/TypeScript command graphs using Node's synchronous module hooks. It preserves authored paths, relative and deferred imports, native package conditions and explicit graph lifetime, without temporary source files. The capability requires `module.registerHooks`; existing library engine and script-runtime contracts are unchanged.

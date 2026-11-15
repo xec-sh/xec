@@ -18,7 +18,7 @@ import { CodeEvaluator } from '../../../src/core/code-evaluator.js';
  */
 describe('CodeEvaluator', () => {
   const evaluator = new CodeEvaluator();
-  const NAME_MASK = /^\.xec-eval-[0-9a-f]{16}\.mjs$/;
+  const NAME_MASK = /^\.xec-module-[0-9a-f]{32}\.mjs$/;
 
   let originalCwd: string;
 
@@ -49,7 +49,7 @@ describe('CodeEvaluator', () => {
       expect(result.success).toBe(true);
       expect(probe.ran).toBe(true);
 
-      // Created in the working directory, under the documented name mask.
+      // Created in the working directory, as a private module owned by the shared executor.
       const file = probe.file as string;
       expect(path.dirname(file)).toBe(process.cwd());
       expect(NAME_MASK.test(path.basename(file))).toBe(true);
@@ -145,17 +145,17 @@ describe('CodeEvaluator', () => {
     });
   });
 
-  describe('evaluateCode: fallback when the working directory is not writable', () => {
+  describe('evaluateCode: unwritable working directory', () => {
     const isRoot = typeof process.getuid === 'function' && process.getuid() === 0;
 
-    it.skipIf(isRoot)('still runs import-free code via the data: URL path', async (ctx) => {
+    it.skipIf(isRoot)('fails before evaluating code when its source cannot be created', async (ctx) => {
       const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'xec-eval-ro-'));
 
       try {
         await fs.chmod(dir, 0o500); // r-x: enterable, not writable
 
         // Some filesystems (and any superuser) ignore the mode; without real
-        // enforcement the fallback cannot be exercised, so skip rather than
+        // enforcement the permission boundary cannot be exercised, so skip rather than
         // assert something that never had to hold.
         try {
           const sentinel = path.join(dir, '.writable-probe');
@@ -175,10 +175,11 @@ describe('CodeEvaluator', () => {
           { customGlobals: { __xecEvalProbe: probe } }
         );
 
-        expect(result.success).toBe(true);
-        expect(probe.ran).toBe(true);
+        expect(result.success).toBe(false);
+        expect(['EACCES', 'EPERM']).toContain((result.error as NodeJS.ErrnoException)?.code);
+        expect(probe.ran).toBeUndefined();
 
-        // The failed write must not leave a partial transient file behind.
+        // There is no fallback that can run code after the failed source write.
         const leftovers = (await fs.readdir(dir)).filter(name => NAME_MASK.test(name));
         expect(leftovers).toEqual([]);
       } finally {

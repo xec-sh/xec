@@ -1,6 +1,10 @@
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { transform } from 'esbuild';
+import { promisify } from 'node:util';
 import * as fs from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { it, expect, describe, afterEach, beforeEach } from 'vitest';
 
 import { ModuleExecutor } from '../../../src/module/module-executor.js';
@@ -79,31 +83,21 @@ describe('ModuleExecutor', () => {
       expect(module.default.num).toBe(123);
     });
 
-    it('should throw helpful error when CJS module uses require()', async () => {
-      // require() is not supported in CDN module execution
-      // Test that we get a clear error message when a module tries to use require()
-      const content = 'const path = require("path"); module.exports = { dirname: path.dirname("/foo/bar") };';
-
-      await expect(
-        executor.execute({
-          specifier: 'test-module',
-          content,
-          type: 'cjs',
-        })
-      ).rejects.toThrow("require('path') not supported in CDN modules");
+    it('uses the native CommonJS loader for builtin imports', async () => {
+      const module = await executor.execute({
+        specifier: 'native-cjs',
+        content: 'module.exports = { value: require("node:path").basename("/a/file") };',
+        type: 'cjs',
+      });
+      expect(module.default).toEqual({ value: 'file' });
     });
 
-    it('should throw with module name in require error', async () => {
-      // Verify the error includes the specific module name that was required
-      const content = 'const lodash = require("lodash"); module.exports = lodash;';
-
-      await expect(
-        executor.execute({
-          specifier: 'test-module',
-          content,
-          type: 'cjs',
-        })
-      ).rejects.toThrow("require('lodash') not supported in CDN modules");
+    it('preserves the native missing-dependency failure without repeating execution', async () => {
+      await expect(executor.execute({
+        specifier: 'missing-cjs-dependency',
+        content: 'require("missing-xec-fixture-package");',
+        type: 'cjs',
+      })).rejects.toMatchObject({ code: 'MODULE_NOT_FOUND' });
     });
   });
 
@@ -132,57 +126,60 @@ describe('ModuleExecutor', () => {
     });
   });
 
-  describe('Module type detection', () => {
-    it('should detect ESM from content', async () => {
-      const content = 'export const foo = "bar";';
+  describe('Explicit formats', () => {
+    it('defaults to ESM without guessing format from comments or strings', async () => {
       const module = await executor.execute({
-        specifier: 'test-module',
-        content,
+        specifier: 'native-esm',
+        content: '/* module.exports = 1 */ export const value = "require(opaque)";',
       });
-
-      expect(module.foo).toBe('bar');
+      expect(module.value).toBe('require(opaque)');
     });
 
-    it('should detect CJS from content', async () => {
-      const content = 'module.exports = { foo: "bar" };';
-      const module = await executor.execute({
-        specifier: 'test-module',
-        content,
-      });
-
-      expect(module.default).toEqual({ foo: 'bar' });
-    });
-
-    it('should detect UMD from content', async () => {
-      const content = `
-        (function (root, factory) {
-          if (typeof define === 'function' && define.amd) {
-            define([], factory);
-          } else if (typeof module === 'object' && module.exports) {
-            module.exports = factory();
-          }
-        }(this, function () {
-          return { value: 42 };
-        }));
+    it('preserves native format errors without the test runner translating modules', async () => {
+      // Vitest can translate CommonJS-looking .mjs into valid code. Exercise the
+      // compiled production executor in a plain Node process to observe the real contract.
+      const source = await fs.readFile(new URL('../../../src/module/module-executor.ts', import.meta.url), 'utf8');
+      const compiled = await transform(source, { loader: 'ts', format: 'esm', target: 'es2022' });
+      const file = path.join(tempDir, 'executor.mjs');
+      await fs.writeFile(file, compiled.code);
+      const native = `
+        import assert from 'node:assert/strict';
+        import { ModuleExecutor } from ${JSON.stringify(pathToFileURL(file).href)};
+        const executor = new ModuleExecutor(${JSON.stringify(tempDir)});
+        await assert.rejects(executor.execute({
+          specifier: 'requires-explicit-cjs',
+          content: 'module.exports = { value: 1 };',
+        }), /module is not defined/);
+        for (const type of ['unknown', 'esm', 'cjs']) {
+          globalThis.effects = 0;
+          await assert.rejects(executor.execute({
+            specifier: 'effect-before-failure', type,
+            content: 'globalThis.effects += 1; throw new Error("after-effect");',
+          }), /after-effect/);
+          assert.equal(globalThis.effects, 1);
+        }
+        assert.equal((await executor.execute({
+          specifier: 'explicit-cjs', type: 'cjs', content: 'module.exports = { value: 42 };',
+        })).default.value, 42);
+        await executor.cleanup();
       `;
-      const module = await executor.execute({
-        specifier: 'test-module',
-        content,
-      });
-
-      expect(module.default).toEqual({ value: 42 });
+      const scenario = path.join(tempDir, 'scenario.mjs');
+      await fs.writeFile(scenario, native);
+      await promisify(execFile)(process.execPath, [scenario], { timeout: 5000 });
     });
 
-    it('should use content-type header for detection', async () => {
-      const content = '({ value: 42 })';
-      const module = await executor.execute({
-        specifier: 'test-module',
-        content,
-        headers: { 'content-type': 'application/javascript' },
-      });
-
-      // Should default to ESM and fail gracefully or succeed based on content
-      expect(module).toBeDefined();
+    it.each(['unknown', 'cjs'] as const)('never replays a failed %s module', async type => {
+      const key = '__xec_module_effect_count';
+      const shared = globalThis as unknown as Record<string, unknown>;
+      shared[key] = 0;
+      try {
+        await expect(executor.execute({
+          specifier: 'one-effect',
+          type,
+          content: 'globalThis.__xec_module_effect_count += 1; throw new Error("after-effect");',
+        })).rejects.toThrow('after-effect');
+        expect(shared[key]).toBe(1);
+      } finally { delete shared[key]; }
     });
   });
 
@@ -224,6 +221,63 @@ describe('ModuleExecutor', () => {
       // After cleanup, temp dir should be recreated and empty
       const filesAfter = await fs.readdir(tempDir);
       expect(filesAfter.length).toBe(0);
+    });
+  });
+
+  describe('Owned temporary modules', () => {
+    it('preserves unrelated files in the caller directory', async () => {
+      const sentinel = path.join(tempDir, 'caller-data');
+      await fs.writeFile(sentinel, 'retain');
+      await executor.execute({ specifier: 'owned', content: 'export const value = 1;' });
+      await executor.cleanup();
+      expect(await fs.readFile(sentinel, 'utf8')).toBe('retain');
+    });
+
+    it('keeps a private source alive for its callback and refuses cleanup while active', async () => {
+      let file = '';
+      await executor.withModule({ specifier: 'lifetime', content: 'export const file = import.meta.url;' }, async module => {
+        file = fileURLToPath(module.file);
+        expect(await fs.readFile(file, 'utf8')).toContain('import.meta.url');
+        if (process.platform !== 'win32') expect((await fs.stat(file)).mode & 0o777).toBe(0o600);
+        await expect(executor.cleanup()).rejects.toThrow('still active');
+      });
+      await expect(fs.stat(file)).rejects.toMatchObject({ code: 'ENOENT' });
+    });
+
+    it('preserves a replacement file rather than deleting a foreign identity', async () => {
+      let file = '';
+      await expect(executor.withModule({
+        specifier: 'replacement',
+        content: 'export const file = import.meta.url;',
+      }, async module => {
+        file = fileURLToPath(module.file);
+        await fs.rename(file, file + '.owned');
+        await fs.writeFile(file, 'foreign replacement');
+      })).rejects.toThrow('identity changed');
+      try {
+        expect(await fs.readFile(file, 'utf8')).toBe('foreign replacement');
+        await expect(executor.cleanup()).rejects.toThrow('cleanup is incomplete');
+      } finally {
+        await fs.unlink(file);
+        await fs.rename(file + '.owned', file);
+        await executor.cleanup();
+      }
+    });
+
+    it('does not collapse throw undefined into a successful execution', async () => {
+      const result = await Promise.allSettled([executor.execute({
+        specifier: 'undefined-failure',
+        content: 'throw undefined;',
+      })]);
+      expect(result[0]).toEqual({ status: 'rejected', reason: undefined });
+    });
+
+    it('does not reuse source paths for simultaneous executions', async () => {
+      const values = await Promise.all(Array.from({ length: 8 }, (_, value) => executor.execute({
+        specifier: 'same-specifier',
+        content: 'export const value = ' + value,
+      })));
+      expect(values.map(module => module.value)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
     });
   });
 

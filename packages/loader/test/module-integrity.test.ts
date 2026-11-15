@@ -10,6 +10,7 @@ import { ModuleFetcher } from '../src/module/module-fetcher.js';
 import {
   IntegrityError,
   computeIntegrity,
+  computeModuleIdentity,
   ModuleIntegrityVerifier,
 } from '../src/module/module-integrity.js';
 
@@ -133,7 +134,8 @@ describe('ModuleIntegrityVerifier', () => {
     expect(stat.mode & 0o777).toBe(0o600);
 
     const parsed = JSON.parse(await fs.readFile(lockPath, 'utf8'));
-    expect(Object.keys(parsed.modules)).toEqual(['https://esm.sh/a', 'https://esm.sh/z']);
+    expect(Object.keys(parsed.modules)).toEqual([computeModuleIdentity('https://esm.sh/a'), computeModuleIdentity('https://esm.sh/z')].sort());
+    expect(Object.values(parsed.modules).map(entry => (entry as { url: string }).url).sort()).toEqual(['https://esm.sh/a', 'https://esm.sh/z']);
   });
 
   it('computes a Subresource-Integrity-style digest', () => {

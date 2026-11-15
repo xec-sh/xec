@@ -92,7 +92,7 @@ export class FileSystemCache implements Cache<string> {
   private ttl: number;
 
   constructor(options: FileSystemCacheOptions) {
-    this.cacheDir = options.cacheDir;
+    this.cacheDir = path.join(options.cacheDir, 'entries-v2');
     this.ttl = (options.ttl || 3600) * 1000; // Convert to ms
   }
 
@@ -132,7 +132,7 @@ export class FileSystemCache implements Cache<string> {
       timestamp: Date.now(),
     };
 
-    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.mkdir(path.dirname(filePath), { recursive: true, mode: 0o700 });
 
     // Write to a unique temp file, then rename onto the final path. Rename is
     // atomic within a filesystem, so a concurrent reader sees either the old
@@ -140,12 +140,21 @@ export class FileSystemCache implements Cache<string> {
     // processes racing the same key end with one intact entry rather than an
     // interleaved, unparseable one. 0600 because an entry may hold source from
     // a private registry.
-    const tempPath = `${filePath}.${crypto.randomBytes(6).toString('hex')}.tmp`;
+    const tempPath = `${filePath}.${crypto.randomBytes(16).toString('hex')}.tmp`;
+    const handle = await fs.open(tempPath, 'wx', 0o600);
+    let closed = false;
     try {
-      await fs.writeFile(tempPath, JSON.stringify(entry), { mode: 0o600 });
+      await handle.writeFile(JSON.stringify(entry));
+      await handle.close();
+      closed = true;
       await fs.rename(tempPath, filePath);
     } catch (error) {
-      await fs.unlink(tempPath).catch(() => {});
+      const failures: unknown[] = [error];
+      if (!closed) {
+        try { await handle.close(); } catch (cleanup) { failures.push(cleanup); }
+      }
+      try { await fs.unlink(tempPath); } catch (cleanup) { failures.push(cleanup); }
+      if (failures.length > 1) throw new AggregateError(failures, 'Module cache write and cleanup failed', { cause: error });
       throw error;
     }
   }
@@ -157,45 +166,47 @@ export class FileSystemCache implements Cache<string> {
 
   async delete(key: string): Promise<void> {
     const filePath = this.getCachePath(key);
-    await fs.unlink(filePath).catch(() => {});
+    try { await fs.unlink(filePath); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
   }
 
+  /** Remove cache entries only; the caller's directory and trust records are not owned by this cache. */
   async clear(): Promise<void> {
-    try {
-      await fs.rm(this.cacheDir, { recursive: true, force: true });
-      await fs.mkdir(this.cacheDir, { recursive: true });
-    } catch {
-      // Ignore errors
+    for await (const file of this.entryFiles()) {
+      try { await fs.unlink(file); }
+      catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+    }
+  }
+
+  private async *entryFiles(): AsyncGenerator<string> {
+    let shards;
+    try { shards = await fs.readdir(this.cacheDir, { withFileTypes: true }); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return;
+      throw error;
+    }
+    for (const shard of shards) {
+      if (!shard.isDirectory() || !/^[a-f0-9]{2}$/u.test(shard.name)) continue;
+      const directory = path.join(this.cacheDir, shard.name);
+      const files = await fs.readdir(directory, { withFileTypes: true });
+      for (const file of files) {
+        if (file.isFile() && /^[a-f0-9]{64}\.json$/u.test(file.name) && file.name.startsWith(shard.name)) {
+          yield path.join(directory, file.name);
+        }
+      }
     }
   }
 
   async stats(): Promise<CacheStats> {
     let fileCount = 0;
     let totalSize = 0;
-
-    try {
-      const files = await fs.readdir(this.cacheDir, { recursive: true });
-      for (const file of files) {
-        const filePath = path.join(this.cacheDir, String(file));
-        try {
-          const stats = await fs.stat(filePath);
-          if (stats.isFile()) {
-            fileCount++;
-            totalSize += stats.size;
-          }
-        } catch {
-          // Skip inaccessible files
-        }
-      }
-    } catch {
-      // Directory doesn't exist or not accessible
+    for await (const file of this.entryFiles()) {
+      try {
+        const entry = await fs.lstat(file);
+        if (entry.isFile()) { fileCount++; totalSize += entry.size; }
+      } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
     }
-
-    return {
-      memoryEntries: 0,
-      fileEntries: fileCount,
-      totalSize,
-    };
+    return { memoryEntries: 0, fileEntries: fileCount, totalSize };
   }
 
   private getCachePath(key: string): string {

@@ -58,12 +58,7 @@ describe('ModuleLoader', () => {
 
   describe('CDN module loading', () => {
     it('should load module from CDN with npm: prefix', async () => {
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        text: async () => 'export const test = "value";',
-        headers: new Map([['content-type', 'application/javascript']]),
-      };
+      const mockResponse = new Response('export const test = "value";', { headers: [['content-type', 'application/javascript']] });
       (global.fetch as any).mockResolvedValue(mockResponse);
 
       const module = await loader.import('npm:test-package');
@@ -71,12 +66,7 @@ describe('ModuleLoader', () => {
     });
 
     it('should load module from CDN with esm: prefix', async () => {
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        text: async () => 'export const foo = "bar";',
-        headers: new Map([['content-type', 'application/javascript']]),
-      };
+      const mockResponse = new Response('export const foo = "bar";', { headers: [['content-type', 'application/javascript']] });
       (global.fetch as any).mockResolvedValue(mockResponse);
 
       const module = await loader.import('esm:another-package');
@@ -86,12 +76,7 @@ describe('ModuleLoader', () => {
     it('should refuse a host outside the integrity allowlist', async () => {
       // Remote code runs with full process privileges, so an unlisted host is
       // rejected before any request is made rather than fetched and executed.
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        text: async () => 'export const direct = true;',
-        headers: new Map([['content-type', 'application/javascript']]),
-      };
+      const mockResponse = new Response('export const direct = true;', { headers: [['content-type', 'application/javascript']] });
       (global.fetch as any).mockResolvedValue(mockResponse);
 
       await expect(loader.import('https://example.com/module.js')).rejects.toThrow(
@@ -100,15 +85,11 @@ describe('ModuleLoader', () => {
     });
 
     it('should load module from a direct HTTPS URL on an allowed host', async () => {
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        text: async () => 'export const direct = true;',
-        headers: new Map([['content-type', 'application/javascript']]),
-      };
+      const mockResponse = new Response('export const direct = true;', { headers: [['content-type', 'application/javascript']] });
       (global.fetch as any).mockResolvedValue(mockResponse);
 
       const permissive = new ModuleLoader({
+        cacheDir: path.join(tempDir, 'permissive'),
         cache: false,
         integrity: { allowedHosts: ['example.com'] },
       });
@@ -147,12 +128,7 @@ describe('ModuleLoader', () => {
 
   describe('Caching', () => {
     it('should cache CDN modules', async () => {
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        text: async () => 'export const cached = true;',
-        headers: new Map([['content-type', 'application/javascript']]),
-      };
+      const mockResponse = new Response('export const cached = true;', { headers: [['content-type', 'application/javascript']] });
       (global.fetch as any).mockResolvedValue(mockResponse);
 
       // First load
@@ -166,12 +142,7 @@ describe('ModuleLoader', () => {
     });
 
     it('should provide cache statistics', async () => {
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        text: async () => 'export const test = true;',
-        headers: new Map([['content-type', 'application/javascript']]),
-      };
+      const mockResponse = new Response('export const test = true;', { headers: [['content-type', 'application/javascript']] });
       (global.fetch as any).mockResolvedValue(mockResponse);
 
       await loader.import('npm:test-stats');
@@ -181,12 +152,7 @@ describe('ModuleLoader', () => {
     });
 
     it('should clear all caches', async () => {
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        text: async () => 'export const test = true;',
-        headers: new Map([['content-type', 'application/javascript']]),
-      };
+      const mockResponse = new Response('export const test = true;', { headers: [['content-type', 'application/javascript']] });
       (global.fetch as any).mockResolvedValue(mockResponse);
 
       await loader.import('npm:test-clear');
@@ -204,12 +170,7 @@ describe('ModuleLoader', () => {
         cdnOnly: true,
       });
 
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        text: async () => 'export const cdnOnly = true;',
-        headers: new Map([['content-type', 'application/javascript']]),
-      };
+      const mockResponse = new Response('export const cdnOnly = true;', { headers: [['content-type', 'application/javascript']] });
       (global.fetch as any).mockResolvedValue(mockResponse);
 
       const module = await cdnLoader.import('npm:some-package');
@@ -224,12 +185,7 @@ describe('ModuleLoader', () => {
         preferredCDN: 'unpkg',
       });
 
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        text: async () => 'export const test = true;',
-        headers: new Map([['content-type', 'application/javascript']]),
-      };
+      const mockResponse = new Response('export const test = true;', { headers: [['content-type', 'application/javascript']] });
       (global.fetch as any).mockResolvedValue(mockResponse);
 
       await loaderWithCDN.import('npm:test-package');
@@ -244,17 +200,11 @@ describe('ModuleLoader', () => {
 
   describe('Concurrent loading', () => {
     it('should prevent duplicate fetches for same module', async () => {
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        text: async () => {
-          // Simulate slow network
-          await new Promise(resolve => setTimeout(resolve, 100));
-          return 'export const concurrent = true;';
-        },
-        headers: new Map([['content-type', 'application/javascript']]),
-      };
-      (global.fetch as any).mockResolvedValue(mockResponse);
+      (global.fetch as any).mockImplementation(async () => {
+        // Keep the request pending while all three imports share its ownership.
+        await new Promise(resolve => setTimeout(resolve, 100));
+        return new Response('export const concurrent = true;', { headers: { 'content-type': 'application/javascript' } });
+      });
 
       // Start multiple imports of the same module concurrently
       const results = await Promise.all([
@@ -281,12 +231,7 @@ describe('ModuleLoader', () => {
     });
 
     it('should throw error for failed CDN fetch', async () => {
-      const mockResponse = {
-        ok: false,
-        status: 404,
-        statusText: 'Not Found',
-        headers: new Map(),
-      };
+      const mockResponse = new Response(null, { status: 404, statusText: 'Not Found' });
       (global.fetch as any).mockResolvedValue(mockResponse);
 
       await expect(

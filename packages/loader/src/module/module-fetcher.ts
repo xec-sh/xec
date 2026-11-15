@@ -1,320 +1,178 @@
-/**
- * Module fetching with retry logic
- * @module @xec-sh/loader/module/module-fetcher
- */
+/** Bounded HTTP module retrieval. Execution and module-graph semantics belong to the executor. */
+import type { Cache, ModuleFetchOptions } from '../types/index.js';
 
-import type { Cache } from '../types/index.js';
-import type { ModuleIntegrityVerifier } from './module-integrity.js';
+import { setTimeout as delay } from 'node:timers/promises';
 
-import { IntegrityError } from './module-integrity.js';
+import { computeModuleIdentity, ModuleIntegrityVerifier } from './module-integrity.js';
 
-/** Redirect hops to follow before treating the chain as a loop. */
 const MAX_REDIRECTS = 5;
-
-export interface FetchOptions {
-  timeout?: number;
-  retries?: number;
-  headers?: Record<string, string>;
-}
+/** Reserve for confirming owned response cancellation after the fetch deadline. */
+const CLEANUP_TIMEOUT_MS = 1000;
+const RAW_CACHE_PREFIX = 'xec-module-raw:v2:';
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+const TRANSPORT_HEADERS = new Set(['host', 'connection', 'proxy-connection', 'proxy-authorization', 'content-length', 'transfer-encoding', 'upgrade']);
 
 export interface FetchedModule {
+  /** Exact verified UTF-8 source, including an initial BOM; never flattened or rewritten. */
   content: string;
   headers: Record<string, string>;
+  /** Final HTTP URL; the source itself cannot trigger additional fetches here. */
   url: string;
 }
 
-/**
- * ModuleFetcher handles HTTP fetching of modules
- */
+class ModuleFetchError extends Error {
+  constructor(message: string, public readonly code: string, options?: ErrorOptions) { super(message, options); this.name = 'ModuleFetchError'; }
+}
+
+/** A rejected observer never leaves an unhandled operation, even when its deadline wins. */
+function observe<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const aborted = () => { signal.removeEventListener('abort', aborted); reject(signal.reason); };
+    signal.addEventListener('abort', aborted, { once: true });
+    operation.then(value => { signal.removeEventListener('abort', aborted); resolve(value); },
+      error => { signal.removeEventListener('abort', aborted); reject(error); });
+    if (signal.aborted) aborted();
+  });
+}
+
+/** Cancellation still needs a bounded observation after the request's own signal has fired. */
+async function cancelResponse(operation: Promise<void>): Promise<void> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new ModuleFetchError('Module response cancellation is unconfirmed', 'MODULE_CLEANUP_UNCONFIRMED')), CLEANUP_TIMEOUT_MS);
+  try { await observe(operation, controller.signal); }
+  finally { clearTimeout(timer); }
+}
+
 export class ModuleFetcher {
-  /**
-   * @param cache - Cache for fetched module text.
-   * @param integrity - Verifier applied to every remote fetch. When omitted,
-   *   content is executed unverified — only acceptable for local file loading.
-   */
-  constructor(
-    private cache: Cache<string>,
-    private integrity?: ModuleIntegrityVerifier
-  ) {}
-
-  /**
-   * Fetch module from URL with caching and retry logic
-   */
-  async fetch(url: string, options: FetchOptions = {}): Promise<FetchedModule> {
-    const {
-      timeout = 30000,
-      retries = 3,
-      headers = {},
-    } = options;
-
-    // Reject a disallowed host before contacting it at all.
-    this.integrity?.assertHostAllowed(url);
-
-    // Check cache first
-    const cached = await this.cache.get(url);
-    if (cached) {
-      // The cache lives on disk and is writable by anything running as this
-      // user, so cached content is verified exactly like a fresh fetch.
-      await this.integrity?.verify(url, cached);
-
-      return {
-        content: cached,
-        headers: {},
-        url,
-      };
-    }
-
-    // Fetch with retry
-    let lastError: Error | null = null;
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      try {
-        const response = await this.fetchWithTimeout(url, timeout, headers);
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const content = await response.text();
-        const responseHeaders = this.extractHeaders(response);
-
-        // Check if this is a redirect module (common with esm.sh)
-        // Transform content first to handle polyfills like /node/process.mjs
-        const transformedContent = this.transformContent(content, url);
-
-        // Check for redirect after transformation
-        const redirectInfo = this.detectRedirectWithImports(transformedContent, url);
-
-        if (redirectInfo && redirectInfo.target) {
-          // Recursively fetch the actual module
-          const targetModule = await this.fetch(redirectInfo.target, options);
-
-          // If there were polyfill imports, prepend them to the target module content
-          if (redirectInfo.imports.length > 0) {
-            targetModule.content = redirectInfo.imports.join('\n') + '\n' + targetModule.content;
-          }
-
-          return targetModule;
-        }
-
-        // Verify before caching, so content that fails the check never
-        // reaches disk and cannot be served to a later run.
-        await this.integrity?.verify(url, transformedContent);
-        await this.integrity?.save();
-
-        // Cache the transformed result
-        await this.cache.set(url, transformedContent);
-
-        return {
-          content: transformedContent,
-          headers: responseHeaders,
-          url,
-        };
-      } catch (error) {
-        // An integrity failure is a verdict, not a transient fault. Retrying
-        // would re-fetch the same rejected bytes and could mask the mismatch.
-        if (error instanceof IntegrityError) {
-          throw error;
-        }
-
-        lastError = error instanceof Error ? error : new Error(String(error));
-
-        // Don't retry on 404 or other client errors
-        if (error instanceof Error && error.message.includes('HTTP 4')) {
-          break;
-        }
-
-        // Wait before retry with exponential backoff
-        if (attempt < retries) {
-          await this.delay(Math.pow(2, attempt) * 1000);
-        }
-      }
-    }
-
-    throw new Error(`Failed to fetch module after ${retries + 1} attempts: ${lastError?.message}`);
+  constructor(private readonly cache: Cache<string>, private readonly integrity: ModuleIntegrityVerifier) {
+    if (!(integrity instanceof ModuleIntegrityVerifier)) throw new TypeError('ModuleFetcher requires an explicit ModuleIntegrityVerifier');
   }
 
-  private async fetchWithTimeout(
-    url: string,
-    timeout: number,
-    headers: Record<string, string>
-  ): Promise<Response> {
+  async fetch(input: string, options: ModuleFetchOptions = {}): Promise<FetchedModule> {
+    const timeout = options.timeout ?? 30000, retries = options.retries ?? 3, maxBytes = options.maxBytes ?? 8 * 1024 * 1024;
+    for (const [name, value, minimum, maximum] of [
+      ['timeout', timeout, 1, 2_147_483_647], ['retries', retries, 0, 5], ['maxBytes', maxBytes, 0, 64 * 1024 * 1024],
+    ] as const) {
+      if (!Number.isInteger(value) || value < minimum || value > maximum) throw new RangeError(`Module fetch ${name} must be an integer from ${minimum} to ${maximum}`);
+    }
+    if (options.headers !== undefined && (!options.headers || typeof options.headers !== 'object' || Array.isArray(options.headers))) {
+      throw new TypeError('Module request headers must be a string record');
+    }
+    // Caller headers may select a private representation. It must never enter the shared URL cache.
+    const cacheable = Object.keys(options.headers ?? {}).length === 0;
+    let headers = new Headers({ 'User-Agent': 'xec-loader' });
+    for (const [name, value] of Object.entries(options.headers ?? {})) {
+      if (!/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/u.test(name) || typeof value !== 'string' || /[^\t\u0020-\u007E\u0080-\u00FF]/u.test(value)) throw new TypeError('Module request headers contain an invalid name or value');
+      if (TRANSPORT_HEADERS.has(name.toLowerCase())) throw new TypeError('Module request headers cannot override transport authority or framing');
+      headers.set(name, value);
+    }
+    let current = this.integrity.assertHostAllowed(input);
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-
+    const cancelled = () => controller.abort(options.signal?.reason ?? new DOMException('Module fetch cancelled', 'AbortError'));
+    options.signal?.addEventListener('abort', cancelled, { once: true });
+    if (options.signal?.aborted) cancelled();
+    const timer = setTimeout(() => controller.abort(new DOMException('Module fetch timed out', 'TimeoutError')), timeout);
+    const { signal } = controller;
+    const visited = new Set<string>(), aliases: string[] = [];
     try {
-      // Follow redirects by hand so every hop is checked against the host
-      // allowlist. With the default `redirect: 'follow'` only the first URL
-      // was checked, so an allowlisted CDN redirecting elsewhere — an open
-      // redirect, or a compromised one — delivered code from a host the
-      // policy forbids, and the lockfile pinned it under the allowed URL.
-      let current = url;
-
-      for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-        this.integrity?.assertHostAllowed(current);
-
-        const response = await fetch(current, {
-          headers: {
-            'User-Agent': 'xec-loader/0.1.0',
-            ...headers,
-          },
-          redirect: 'manual',
-          signal: controller.signal,
-        });
-
-        if (response.status < 300 || response.status >= 400) {
-          return response;
+      for (let hop = 0; ; hop++) {
+        signal.throwIfAborted();
+        current = this.integrity.assertHostAllowed(current);
+        if (hop > MAX_REDIRECTS || visited.has(current)) throw new ModuleFetchError('Module HTTP redirect cycle or redirect limit exceeded', 'MODULE_REDIRECT_LIMIT');
+        visited.add(current);
+        await observe(this.integrity.assertFetchAllowed(current), signal);
+        const cacheKey = RAW_CACHE_PREFIX + computeModuleIdentity(current);
+        const cached = cacheable ? await observe(this.cache.get(cacheKey), signal) : null;
+        if (cached !== null && cached !== undefined) {
+          if (typeof cached !== 'string' || Buffer.byteLength(cached, 'utf8') > maxBytes) throw new ModuleFetchError('Cached module exceeds the source byte limit', 'MODULE_SOURCE_LIMIT');
+          const bytes = Buffer.from(cached, 'utf8');
+          if (this.decode(bytes) !== cached) throw new ModuleFetchError('Cached module is not exact UTF-8 source', 'MODULE_SOURCE_ENCODING');
+          await this.verify(current, aliases, cached, signal);
+          return { content: cached, headers: {}, url: current };
         }
-
-        const location = response.headers.get('location');
-
-        if (!location) {
-          return response;
+        const response = await this.request(current, headers, retries, signal);
+        if (REDIRECT_STATUSES.has(response.status) && response.headers.has('location')) {
+          await this.discard(response, signal);
+          let location: URL | undefined;
+          try { location = new URL(response.headers.get('location')!, current); } catch { /* Do not echo credentials from an invalid peer-controlled Location. */ }
+          if (!location) throw new ModuleFetchError('Module redirect URL is invalid', 'MODULE_REDIRECT_INVALID');
+          const next = this.integrity.assertHostAllowed(location.href);
+          if (new URL(next).origin !== new URL(current).origin) headers = new Headers({ 'User-Agent': 'xec-loader' });
+          aliases.push(current); current = next;
+          continue;
         }
-
-        current = new URL(location, current).toString();
+        if (!response.ok) {
+          await this.discard(response, signal);
+          throw new ModuleFetchError(`Module request failed with HTTP ${response.status}`, 'MODULE_HTTP_ERROR');
+        }
+        const content = await this.readSource(response, maxBytes, signal);
+        await this.verify(current, aliases, content, signal);
+        if (cacheable) await observe(this.cache.set(cacheKey, content), signal);
+        signal.throwIfAborted();
+        return { content, headers: Object.fromEntries(response.headers), url: current };
       }
-
-      throw new Error(`Too many redirects (>${MAX_REDIRECTS}) fetching ${url}`);
     } finally {
-      clearTimeout(timeoutId);
+      clearTimeout(timer);
+      options.signal?.removeEventListener('abort', cancelled);
     }
   }
 
-  private extractHeaders(response: Response): Record<string, string> {
-    const headers: Record<string, string> = {};
-    response.headers.forEach((value, key) => {
-      headers[key.toLowerCase()] = value;
-    });
-    return headers;
+  private async verify(url: string, aliases: string[], content: string, signal: AbortSignal): Promise<void> {
+    signal.throwIfAborted(); await observe(this.integrity.verifyAll([...aliases, url], content), signal);
+    signal.throwIfAborted(); await observe(this.integrity.save(), signal); signal.throwIfAborted();
   }
 
-  /**
-   * Detect if content is just a redirect module (re-export)
-   * Common patterns with esm.sh:
-   * - export * from "/path/to/actual/module.mjs";
-   * - export * from "/path"; export { default } from "/path";
-   * - import "/node/process.mjs"; export * from "/path"; (with polyfills)
-   * - export * from "https://..."; export { default } from "https://..."; (after transformation)
-   */
-  private detectRedirect(content: string, baseURL: string): string | null {
-    // Remove comments (but not // in URLs)
-    // First remove block comments
-    let cleaned = content.replace(/\/\*[\s\S]*?\*\//g, '');
-    // Then remove line comments (but not // in URLs)
-    // Match // only if it's not preceded by : (as in https://)
-    cleaned = cleaned.replace(/(?<!:)\/\/.*/g, '').trim();
-
-    // Remove import statements (esm.sh polyfills like /node/process.mjs or node:process)
-    const withoutImports = cleaned.replace(/import\s+["'][^"']+["'];?\s*/g, '');
-
-    // Pattern 1: export * from "path"; export { default } from "path"; (same path)
-    const pattern1 = /export\s+\*\s+from\s+["']([^"']+)["'];?\s*export\s+{\s*default\s*}\s+from\s+["']\1["']/;
-    let match = withoutImports.match(pattern1);
-
-    // Pattern 2: Just export * from "path";
-    if (!match) {
-      const pattern2 = /^export\s+\*\s+from\s+["']([^"']+)["'];?\s*$/;
-      match = withoutImports.match(pattern2);
-    }
-
-    // Pattern 3: export * from "path1"; export { default } from "path2"; (different but related paths)
-    if (!match) {
-      const pattern3 = /export\s+\*\s+from\s+["']([^"']+)["'];?\s*export\s+{\s*default\s*}\s+from\s+["']([^"']+)["']/;
-      const match3 = withoutImports.match(pattern3);
-      if (match3 && match3[1] && match3[1] === match3[2]) {
-        match = [match3[0], match3[1]];
+  private async request(url: string, headers: Headers, retries: number, signal: AbortSignal): Promise<Response> {
+    for (let attempt = 0; ; attempt++) {
+      signal.throwIfAborted();
+      let response: Response;
+      try { response = await fetch(url, { headers, redirect: 'manual', signal }); }
+      catch (cause) {
+        signal.throwIfAborted();
+        if (attempt >= retries) throw new ModuleFetchError('Module request failed before receiving a response', 'MODULE_FETCH_FAILED', { cause });
+        await delay(2 ** attempt * 1000, undefined, { signal }); continue;
       }
+      if (response.status < 500 || response.status > 599 || attempt >= retries) return response;
+      await this.discard(response, signal);
+      await delay(2 ** attempt * 1000, undefined, { signal });
     }
-
-    if (match && match[1]) {
-      const targetPath = match[1];
-      // If it's already a full URL (after transformation), return as-is
-      if (targetPath.startsWith('http://') || targetPath.startsWith('https://')) {
-        return targetPath;
-      }
-      // If it's a relative path, resolve it against the base URL
-      if (targetPath.startsWith('/')) {
-        const base = new URL(baseURL);
-        return `${base.protocol}//${base.host}${targetPath}`;
-      }
-      // Otherwise return as-is
-      return targetPath;
-    }
-
-    return null;
   }
 
-  /**
-   * Detect redirect and preserve polyfill imports
-   */
-  private detectRedirectWithImports(content: string, baseURL: string): { target: string | null; imports: string[] } {
-    // Remove comments
-    const cleaned = content.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*/g, '').trim();
-
-    // Extract import statements
-    const importRegex = /import\s+["'][^"']+["'];?/g;
-    const imports = cleaned.match(importRegex) || [];
-
-    // Detect redirect target
-    const target = this.detectRedirect(content, baseURL);
-
-    return { target, imports };
+  private async discard(response: Response, signal: AbortSignal): Promise<void> {
+    if (response.body) await cancelResponse(response.body.cancel());
+    signal.throwIfAborted();
   }
 
-  /**
-   * Transform ESM content to rewrite import paths
-   */
-  private transformContent(content: string, baseURL: string): string {
-    // Transform /node/module@version paths to node:module (from statements)
-    content = content.replace(
-      /from\s+["']\/node\/([^@"']+?)(?:\.mjs)?(?:@[^"']+)?["']/g,
-      (match, moduleName) => {
-        const quote = match.includes('"') ? '"' : "'";
-        // Remove .mjs extension if present in module name
-        const cleanModuleName = moduleName.replace(/\.mjs$/, '');
-        return `from ${quote}node:${cleanModuleName}${quote}`;
-      }
-    );
+  private decode(bytes: Uint8Array): string {
+    try { return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes); }
+    catch (cause) { throw new ModuleFetchError('Module source is not valid UTF-8', 'MODULE_SOURCE_ENCODING', { cause }); }
+  }
 
-    // Transform /node/module@version paths to node:module (import statements without from)
-    content = content.replace(
-      /import\s+["']\/node\/([^@"']+?)(?:\.mjs)?(?:@[^"']+)?["']/g,
-      (match, moduleName) => {
-        const quote = match.includes('"') ? '"' : "'";
-        // Remove .mjs extension if present in module name
-        const cleanModuleName = moduleName.replace(/\.mjs$/, '');
-        return `import ${quote}node:${cleanModuleName}${quote}`;
-      }
-    );
-
-    // Transform relative esm.sh paths
-    if (baseURL.includes('esm.sh')) {
-      content = content
-        .replace(/from\s+["'](\/.+?)["']/g, (match, importPath) => {
-          if (!importPath.startsWith('/node/')) {
-            return `from "https://esm.sh${importPath}"`;
-          }
-          return match;
-        })
-        .replace(/import\s+["'](\/.+?)["']/g, (match, importPath) => {
-          // Skip /node/ imports as they're already transformed above
-          if (importPath.startsWith('/node/')) {
-            return match;
-          }
-          return `import "https://esm.sh${importPath}"`;
-        })
-        .replace(/import\s*\(\s*["'](\/.+?)["']\s*\)/g, (match, importPath) => {
-          if (!importPath.startsWith('/node/')) {
-            return `import("https://esm.sh${importPath}")`;
-          }
-          return match;
-        });
+  private async readSource(response: Response, maxBytes: number, signal: AbortSignal): Promise<string> {
+    const advertised = response.headers.get('content-length');
+    if (advertised && /^\d+$/u.test(advertised) && Number(advertised) > maxBytes) {
+      await this.discard(response, signal);
+      throw new ModuleFetchError('Module exceeds the source byte limit', 'MODULE_SOURCE_LIMIT');
     }
-
-    return content;
-  }
-
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    if (!response.body) return '';
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let count = 0;
+    try {
+      for (;;) {
+        signal.throwIfAborted();
+        const item = await observe(reader.read(), signal);
+        if (item.done) break;
+        count += item.value.byteLength;
+        if (count > maxBytes) throw new ModuleFetchError('Module exceeds the measured source byte limit', 'MODULE_SOURCE_LIMIT');
+        chunks.push(item.value);
+      }
+      return this.decode(Buffer.concat(chunks, count));
+    } catch (error) {
+      const failures: unknown[] = [error];
+      try { await cancelResponse(reader.cancel(error)); } catch (cleanup) { if (cleanup !== error) failures.push(cleanup); }
+      if (failures.length > 1) throw new AggregateError(failures, 'Module response failed and cancellation was unconfirmed', { cause: error });
+      throw error;
+    } finally { reader.releaseLock(); }
   }
 }

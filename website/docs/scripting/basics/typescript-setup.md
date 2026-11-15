@@ -186,7 +186,7 @@ integrity check does not sandbox module behavior.
 | --- | --- |
 | `lockfile` | Record a digest on first fetch and require later bytes to match. |
 | `strict` | Require a previously recorded URL/digest. |
-| `off` | Disable verification; unsuitable for trusted build or deployment inputs. |
+| `off` | Disable digest checks only; protocol and host policy still apply. Unsuitable for trusted build or deployment inputs. |
 
 ```typescript
 import { ModuleLoader } from '@xec-sh/loader';
@@ -205,6 +205,24 @@ const loader = new ModuleLoader(options);
 After a mismatch, verify the intended upstream source and new bytes before
 reviewing a lockfile change. Do not remove the integrity record merely to silence
 the failure. Keep the reviewed lockfile with the release inputs.
+
+In developing 0.13.0, format v2 records hashes of exact UTF-8 response bytes,
+including any initial BOM, before code transformation. Earlier locks covered
+transformed source and are rejected without modification; review the raw source
+before creating a new v2 lock. URL identity includes the query, but the lock
+stores its hash and a diagnostic URL without credentials or query values.
+
+HTTP retrieval has one deadline across retries, redirects and response bodies.
+Every hop must satisfy the host policy; custom headers stay on their original
+origin. Requests carrying caller headers bypass the shared response cache.
+Source size defaults to 8 MiB and is bounded while streaming, including responses
+without a content length. Cancellation failure is reported explicitly.
+
+Clearing the module cache preserves its trust records and the caller's other
+files. Cleanup is refused while a module operation is active. Execution errors
+are never retried in another module format: ESM is the default, while CommonJS
+and UMD require an explicit format. Inline evaluation requires a writable
+working directory so that imports keep their project-relative meaning.
 
 ### NPM Package Types {#npm-package-types}
 

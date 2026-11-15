@@ -21,6 +21,19 @@ await executor.executeScript('./check.ts', {
 
 `CodeEvaluator` evaluates inline code with top-level await. `streamExecute` supplies output callbacks; `streamLines` exposes an async iterator of stdout/stderr events. Script execution runs with the process's permissions; it is not a sandbox.
 
+In developing 0.13.0, inline evaluation and in-memory modules share one native
+executor. Inline code needs a writable working directory so relative and bare
+imports resolve from the caller's project. Source files are private (0600) and
+remain alive until the evaluation callback settles; cleanup removes only the
+file owned by that invocation. An unwritable directory fails before execution.
+
+`ModuleExecutor` uses ESM by default; select `cjs` or `umd` explicitly for
+CommonJS. A parse or execution error is returned directly, never retried in a
+different format. Use `withModule(options, callback)` when exported callbacks
+need the source file during execution. Neither cleanup nor disposal unloads the
+runtime's module cache or reverses effects; use a fresh process for unbounded
+module reloads.
+
 ## Watch files
 
 ```typescript
@@ -60,6 +73,18 @@ native ESM cache; use a fresh process for unbounded reloads. This API is not
 available in npm 0.12.0 and does not change existing Node/Bun/Deno script paths.
 
 In the developing 0.13.0 source, a missing bare package fails locally: its name is never sent to a CDN as a fallback. Remote loading requires an explicit remote specifier.
+
+Remote fetches keep one deadline across redirects, retries and response bodies,
+limit source bytes, enforce the host policy on every hop, and strip caller
+headers on cross-origin redirects. Requests with caller headers do not reuse
+the shared response cache. Lock v2 pins exact UTF-8 source before transformation;
+URL identities are hashed and diagnostic URLs omit credentials and queries.
+Old transformed-source locks require explicit review, not automatic repinning.
+
+`clearCache()` removes only cached entries. It preserves trust records and
+caller files, and rejects while a module operation is active. The default cache
+is under `$XDG_CACHE_HOME/xec/modules` or `~/.cache/xec/modules`; configure
+`cacheDir` for project-scoped storage.
 
 CDN loading supports `npm:`, `jsr:`, `esm:`, `unpkg:`, `skypack:`, `jsdelivr:`, and HTTPS URLs. The default integrity policy records content hashes; strict mode requires existing trusted entries. Configure allowed hosts and integrity policy for the intended environment.
 

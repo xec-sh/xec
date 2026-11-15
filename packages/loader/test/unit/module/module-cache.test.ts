@@ -149,6 +149,48 @@ describe('FileSystemCache', () => {
   });
 });
 
+describe('FileSystemCache: ownership', () => {
+  let directory: string;
+  beforeEach(async () => { directory = await fs.mkdtemp(path.join(os.tmpdir(), 'xec-cache-owner-')); });
+  afterEach(async () => { await fs.rm(directory, { recursive: true, force: true }); });
+
+  it('clears entries while retaining trust records, active sources and caller files', async () => {
+    const cache = new FileSystemCache({ cacheDir: directory });
+    await cache.set('entry', 'source');
+    const preserved = ['module-lock.json', 'caller.txt', 'temp/active.mjs'];
+    for (const file of preserved) {
+      await fs.mkdir(path.dirname(path.join(directory, file)), { recursive: true });
+      await fs.writeFile(path.join(directory, file), file);
+    }
+    await cache.clear();
+    expect(await cache.get('entry')).toBeNull();
+    for (const file of preserved) expect(await fs.readFile(path.join(directory, file), 'utf8')).toBe(file);
+  });
+
+  it('does not traverse symlinks or remove unrelated files inside the entry namespace', async () => {
+    const cache = new FileSystemCache({ cacheDir: directory });
+    await cache.set('entry', 'source');
+    const entries = path.join(directory, 'entries-v2');
+    const sentinel = path.join(entries, 'caller.txt');
+    await fs.writeFile(sentinel, 'retain');
+    const other = path.join(directory, 'other');
+    await fs.mkdir(other);
+    const target = path.join(other, 'af' + '0'.repeat(62) + '.json');
+    await fs.writeFile(target, 'external');
+    await fs.symlink(other, path.join(entries, 'af'), process.platform === 'win32' ? 'junction' : 'dir');
+    await cache.clear();
+    expect(await fs.readFile(sentinel, 'utf8')).toBe('retain');
+    expect(await fs.readFile(target, 'utf8')).toBe('external');
+    expect((await fs.lstat(path.join(entries, 'af'))).isSymbolicLink()).toBe(true);
+  });
+
+  it('reports an unusable cache directory instead of acknowledging cleanup', async () => {
+    const cache = new FileSystemCache({ cacheDir: directory });
+    await fs.writeFile(path.join(directory, 'entries-v2'), 'not a directory');
+    await expect(cache.clear()).rejects.toMatchObject({ code: 'ENOTDIR' });
+  });
+});
+
 describe('FileSystemCache: durability', () => {
   let cache: FileSystemCache;
   let tempDir: string;

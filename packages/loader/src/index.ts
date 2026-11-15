@@ -78,12 +78,18 @@ export {
   HybridCache,
   ModuleLoader,
   ModuleFetcher,
+  IntegrityError,
   ModuleExecutor,
   FileSystemCache,
+  computeIntegrity,
   LocalModuleGraph,
   CDNModuleResolver,
+  type IntegrityMode,
+  type FetchedModule,
   NodeModuleResolver,
   LocalModuleResolver,
+  type IntegrityPolicy,
+  ModuleIntegrityVerifier,
   CompositeModuleResolver,
 } from './module/index.js';
 
