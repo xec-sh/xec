@@ -31,7 +31,7 @@ describe('bounded SSH regular-file input', () => {
   });
 
   it('rejects directories and leaves missing-file policy to its caller', async () => {
-    await expect(readRegularFile(directory, 1024)).rejects.toMatchObject({ code: process.platform === 'win32' ? 'EISDIR' : 'EINVAL' });
+    await expect(readRegularFile(directory, 1024)).rejects.toMatchObject({ code: 'EISDIR' });
     await expect(readRegularFile(file, 1024)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 

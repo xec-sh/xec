@@ -52,7 +52,7 @@ Xec can orchestrate a workspace runner such as Turborepo. Keep the package graph
 | Package | Responsibility |
 | --- | --- |
 | [@xec-sh/core](packages/core) | Command execution, target adapters, results and process lifetimes |
-| [@xec-sh/ssh](packages/ssh) | SSH connections, channels, SFTP and forwarding (developing 0.13.0) |
+| [@xec-sh/ssh](packages/ssh) | SSH connections, channels, SFTP and forwarding |
 | [@xec-sh/cli](apps/xec) | The `xec` command and project integration |
 | [@xec-sh/ops](packages/ops) | Pipelines, deployment strategies, configuration, and release tooling |
 | [@xec-sh/kit](packages/kit) | Terminal UI components and formatting |
@@ -72,9 +72,12 @@ pnpm exec xec inspect tasks
 pnpm build
 pnpm --filter @xec-sh/core test:unit
 pnpm --filter @xec-sh/kit test
+pnpm exec xec run check:ssh
 pnpm typecheck
 pnpm lint
 pnpm docs:check
 ```
+
+`check:ssh` runs the SSH contracts, native transport checks and packed security checks through one Xec task. A failed step stops the task on every platform.
 
 Integration suites have explicit infrastructure requirements. See [contributor instructions](AGENTS.md), [testing helpers](packages/testing), and the [release workflow](https://xec.sh/docs/ops/release).

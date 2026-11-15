@@ -1,3 +1,5 @@
+import { tmpdir } from 'node:os';
+import { realpath } from 'node:fs/promises';
 
 import { globalCache } from '../../../src/utils/cache.js';
 import { MockAdapter } from '../../../src/adapters/mock/index.js';
@@ -325,24 +327,23 @@ describe('ProcessPromise Cache', () => {
     });
     
     it('should work with env and cwd chaining', async () => {
+      const directory = await realpath(tmpdir());
       const result = await engine
-        .run`sh -c "echo TEST=$TEST && pwd"`
-        .env({ TEST: 'value' })
-        .cwd('/tmp')
+        .exec(process.execPath, { args: ['-e', 'process.stdout.write(JSON.stringify({ value: process.env.XEC_CACHE_TEST, cwd: process.cwd() }))'], shell: false })
+        .env({ XEC_CACHE_TEST: 'value' })
+        .cwd(directory)
         .cache({ key: 'chained' });
-        
-      expect(result.stdout).toContain('TEST=value');
-      expect(result.stdout).toContain('/tmp');
-      
-      // Cached version
+
+      expect(JSON.parse(result.stdout)).toEqual({ value: 'value', cwd: directory });
+
       const cached = await engine
-        .run`echo "wrong"`
-        .env({ TEST: 'different' })
-        .cwd('/usr')
+        .exec(process.execPath, { args: ['-e', 'process.exit(1)'], shell: false })
+        .env({ XEC_CACHE_TEST: 'different' })
+        .cwd(process.cwd())
         .cache({ key: 'chained' });
-        
-      expect(cached.stdout).toContain('TEST=value');
-      expect(cached.stdout).toContain('/tmp');
+
+      expect(cached.stdout).toBe(result.stdout);
+      expect(cached.exitCode).toBe(0);
     });
   });
   

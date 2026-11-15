@@ -18,7 +18,7 @@ export async function readRegularFile(
     file = await open(path, constants.O_RDONLY | constants.O_NONBLOCK);
     options.signal?.throwIfAborted();
     const metadata = await file.stat();
-    if (!metadata.isFile()) throw new SSHError('Expected a regular SSH file', 'EINVAL');
+    if (!metadata.isFile()) throw new SSHError('Expected a regular SSH file', metadata.isDirectory() ? 'EISDIR' : 'EINVAL');
     if (metadata.size > maxBytes) throw new SSHError(`SSH file exceeds the ${maxBytes} byte size limit`, 'EFBIG');
     const chunks: Buffer[] = [];
     let size = 0;

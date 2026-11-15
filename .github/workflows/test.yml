@@ -78,11 +78,7 @@ jobs:
       # Collect independent failures in one run; any failed check still fails CI.
       - name: Packaged SSH security and artifact integrity
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: |
-          pnpm --filter @xec-sh/ssh test
-          pnpm --filter @xec-sh/ssh test:transport
-          node --test .xec/tests/ssh-security.test.js
-          pnpm check:ssh-security
+        run: pnpm exec xec run check:ssh
 
       - name: core unit
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
@@ -211,11 +207,7 @@ jobs:
 
       - name: Packaged SSH security and artifact integrity
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: |
-          pnpm --filter @xec-sh/ssh test
-          pnpm --filter @xec-sh/ssh test:transport
-          node --test .xec/tests/ssh-security.test.js
-          pnpm check:ssh-security
+        run: pnpm exec xec run check:ssh
 
       - name: Release failure and recovery contracts
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
