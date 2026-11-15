@@ -55,7 +55,7 @@ describe('CodeEvaluator', () => {
       expect(NAME_MASK.test(path.basename(file))).toBe(true);
 
       // Written owner-only, and gone once evaluation returned.
-      expect(probe.mode).toBe(0o600);
+      if (process.platform !== 'win32') expect(probe.mode).toBe(0o600);
       expect(existsSync(file)).toBe(false);
     });
 

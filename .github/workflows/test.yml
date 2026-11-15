@@ -216,6 +216,10 @@ jobs:
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pnpm --filter @xec-sh/core test:property
 
+      - name: Loader module security and source ownership
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: pnpm --filter @xec-sh/loader test test/unit/module test/unit/core/code-evaluator.test.ts
+
       - name: cli unit
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: >

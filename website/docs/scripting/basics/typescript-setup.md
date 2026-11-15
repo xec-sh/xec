@@ -202,27 +202,65 @@ const options: ConstructorParameters<typeof ModuleLoader>[0] = {
 const loader = new ModuleLoader(options);
 ```
 
-After a mismatch, verify the intended upstream source and new bytes before
-reviewing a lockfile change. Do not remove the integrity record merely to silence
-the failure. Keep the reviewed lockfile with the release inputs.
+Keep both `module-lock.json` and its sibling `module-lock.json.pins/` directory
+with the reviewed release inputs. In developing 0.13.0, the JSON file is a v2
+store descriptor; each file in the directory pins one canonical URL to exact
+UTF-8 bytes, including an initial BOM. Concurrent writers may add different
+pins, but cannot replace an existing digest. URL identity includes the query;
+stored diagnostic URLs omit credentials and query values.
 
-In developing 0.13.0, format v2 records hashes of exact UTF-8 response bytes,
-including any initial BOM, before code transformation. Earlier locks covered
-transformed source and are rejected without modification; review the raw source
-before creating a new v2 lock. URL identity includes the query, but the lock
-stores its hash and a diagnostic URL without credentials or query values.
+After a mismatch, review the intended upstream source before changing the trust
+inputs. Removing a pin to silence the error would accept new code on next use.
+Older transformed-source locks and mutable v2 snapshots are rejected unchanged;
+review their sources before explicitly creating an immutable store.
 
 HTTP retrieval has one deadline across retries, redirects and response bodies.
 Every hop must satisfy the host policy; custom headers stay on their original
-origin. Requests carrying caller headers bypass the shared response cache.
-Source size defaults to 8 MiB and is bounded while streaming, including responses
-without a content length. Cancellation failure is reported explicitly.
+origin and bypass the shared response cache. Each source is bounded to 8 MiB,
+including responses without a content length. Native graph preparation defaults
+to 30 seconds, 128 URLs, 32 MiB total source and four concurrent fetches.
+Configure the loader's `graph` options to set different bounds.
 
-Clearing the module cache preserves its trust records and the caller's other
-files. Cleanup is refused while a module operation is active. Execution errors
-are never retried in another module format: ESM is the default, while CommonJS
-and UMD require an explicit format. Inline evaluation requires a writable
-working directory so that imports keep their project-relative meaning.
+### Native Module Graphs {#native-module-graphs}
+
+The developing 0.13.0 loader prepares every literal remote dependency before
+evaluating the entry. Native ESM preserves cycles, live bindings, default exports
+and top-level await. A bad dependency fails before module side effects. Plain
+JavaScript is not bundled or rewritten; TypeScript/JSX uses the shared transformer.
+
+Remote graphs require HTTP(S) ESM dependencies or explicit `node:` builtins.
+Bare packages, CommonJS, import attributes and assets are rejected. Provider
+prefixes choose URLs; they do not convert arbitrary packages to supported ESM.
+Use a reviewed ESM endpoint. JSR package metadata/export-map resolution is not
+implemented.
+
+Use `ModuleLoader.prepare(specifier, { signal })` to verify a remote target
+without evaluating it. For a computed dynamic import, prepare the possible
+targets before invoking the exported function. An unprepared target fails with
+`MODULE_NOT_PREPARED` without a network request. Runtime error wrapping may
+retain the message without the custom code.
+
+`ModuleGraph` also owns local command graphs. It requires native synchronous
+`module.registerHooks` (Node 22.15 or later with that capability). Native tests
+cover Node 22/24 and Deno 2.9.8. Node 20 and Bun reject graph creation before
+fetching; existing script APIs keep their declared runtime support.
+
+Keep the loader or graph alive until its exported callbacks settle, then call
+`dispose()`. Disposal refuses active preparation/evaluation. An AbortSignal
+cancels preparation and drains requests; it cannot interrupt JavaScript or
+top-level await already executing. Use process isolation when execution itself
+needs a hard deadline.
+
+Repeated imports on one owner share the same namespace and side effects.
+`clearCache()` clears HTTP responses while preserving pins, caller files and
+live module identities; it refuses active module operations. `cache: false`
+disables response retention but preserves that native identity. Disposal does
+not unload the runtime's ESM registry; use a fresh process for unbounded reloads.
+
+The separate `ModuleExecutor` defaults to ESM and requires explicit CommonJS/UMD
+selection. Execution errors are never retried in another format. Inline
+evaluation needs a writable working directory so imports retain their
+project-relative meaning.
 
 ### NPM Package Types {#npm-package-types}
 

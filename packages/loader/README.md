@@ -6,7 +6,7 @@ TypeScript and JavaScript execution for Xec, with module resolution, content-int
 npm install @xec-sh/loader
 ```
 
-The existing script APIs require Node.js 20 or later. Uses `esbuild` for transformation and `@xec-sh/kit` for terminal interaction.
+The existing script APIs require Node.js 20 or later; native module graphs require the capability described below. Uses `esbuild` for transformation and `@xec-sh/kit` for terminal interaction.
 
 ## Run a script
 
@@ -56,36 +56,60 @@ Native notifications are the default. Explicit polling handles filesystems with 
 
 | API | Purpose |
 | --- | --- |
-| `LocalModuleGraph` | Native local JS/TS command graphs with explicit ownership (development API; Node synchronous hooks required) |
-| `ModuleLoader` | Local, npm, and CDN module resolution with caching |
+| `ModuleGraph` | Own native local JS/TS and verified remote ESM graphs |
+| `ModuleLoader` | Resolve installed packages and explicit remote modules; prepare or import a verified graph |
 | `PluginManager` | Resolution, transformation, and execution hooks |
 | `GlobalInjector` | Scoped globals restored after the callback |
 | `REPLServer` | Interactive evaluation |
-| `ScriptRuntime` | Script helpers for environment, directory, retries, and scopes |
+| `ScriptRuntime` | Environment, directory, retry and scope helpers |
 
-The development `LocalModuleGraph` API requires `module.registerHooks` (Node
-22.15 or later with that capability). Its `sourceURL` is the entry's authored
-URL; `load()` imports a fresh local ESM graph using a private URL query, without
-moving source files or rewriting relative imports. Bare packages and CommonJS
-keep native caching. Keep the graph alive through deferred callbacks and call
-`dispose()` after they settle. Disposal removes hooks, not module effects or the
-native ESM cache; use a fresh process for unbounded reloads. This API is not
-available in npm 0.12.0 and does not change existing Node/Bun/Deno script paths.
+The developing 0.13.0 graph API requires native `module.registerHooks`: Node
+22.15 or later with that capability, or a compatible runtime. Native graph tests
+also cover Deno 2.9.8. Node 20 and Bun reject this path before a network request;
+other script APIs keep their declared runtime support.
 
-In the developing 0.13.0 source, a missing bare package fails locally: its name is never sent to a CDN as a fallback. Remote loading requires an explicit remote specifier.
+A local graph preserves authored file paths and native package resolution.
+A remote graph fetches and verifies every literal dependency before evaluation,
+then uses native ESM cycles, live bindings and top-level await. JavaScript is
+not bundled or rewritten. TypeScript/JSX uses the shared transformer.
+Remote dependencies must be HTTP(S) ESM or explicit `node:` builtins;
+CommonJS, import attributes, assets and bare package imports are rejected.
 
-Remote fetches keep one deadline across redirects, retries and response bodies,
-limit source bytes, enforce the host policy on every hop, and strip caller
-headers on cross-origin redirects. Requests with caller headers do not reuse
-the shared response cache. Lock v2 pins exact UTF-8 source before transformation;
-URL identities are hashed and diagnostic URLs omit credentials and queries.
-Old transformed-source locks require explicit review, not automatic repinning.
+`ModuleLoader.prepare(url, { signal })` verifies a remote closure without
+executing it. Prepare computed import targets before calling code that imports
+them. An unprepared target fails without fetching. Repeated imports on one
+loader share the native namespace. Keep the owner alive through deferred
+callbacks, then call `dispose()`; it refuses active operations. Signals cancel
+preparation, not JavaScript or top-level await already executing.
 
-`clearCache()` removes only cached entries. It preserves trust records and
-caller files, and rejects while a module operation is active. The default cache
-is under `$XDG_CACHE_HOME/xec/modules` or `~/.cache/xec/modules`; configure
-`cacheDir` for project-scoped storage.
+A missing installed package fails locally without sending its name to a CDN.
+Remote loading requires an explicit URL or provider prefix such as `npm:`.
+A prefix selects a URL; it does not guarantee that a provider returns supported
+ESM. Use a reviewed ESM endpoint. JSR package metadata and export-map resolution
+are not implemented.
 
-CDN loading supports `npm:`, `jsr:`, `esm:`, `unpkg:`, `skypack:`, `jsdelivr:`, and HTTPS URLs. The default integrity policy records content hashes; strict mode requires existing trusted entries. Configure allowed hosts and integrity policy for the intended environment.
+## Remote trust and resource limits
 
-[Script guide](https://xec.sh/docs/scripting/basics/typescript-setup) · [Watch reference](https://xec.sh/docs/commands/built-in/watch) · [MIT license](../../LICENSE)
+Remote fetches enforce an exact host allowlist on every redirect, bound response
+bytes and strip caller headers on cross-origin redirects. Requests with caller
+headers bypass the shared response cache. The default integrity mode records
+first-use raw UTF-8 digests; use `strict` with reviewed pins for trusted inputs.
+
+The v2 `module-lock.json` descriptor and its `module-lock.json.pins/` directory
+form one trust store. Keep both with release inputs. Each URL has one immutable
+pin: concurrent writers can add independent pins but cannot overwrite a
+different digest. URL identities include queries; stored diagnostic URLs omit
+credentials and queries. Older formats require explicit review.
+
+Graph preparation defaults to 30 seconds, 128 URLs, 32 MiB total source and
+four concurrent fetches. Configure `graph` limits explicitly when needed.
+Each HTTP source also has an 8 MiB limit.
+
+`clearCache()` clears HTTP entries while preserving pins, caller files and live
+module identities; it refuses active module operations. `cache: false` disables
+response retention, not native module identity. Cache storage defaults to
+`$XDG_CACHE_HOME/xec/modules` or `~/.cache/xec/modules`; use `cacheDir` for a
+project-specific location. Disposal does not reverse effects or unload the
+native ESM cache; use a fresh process for unbounded reloads.
+
+[Script and integrity guide](https://xec.sh/docs/scripting/basics/typescript-setup) · [Watch reference](https://xec.sh/docs/commands/built-in/watch) · [MIT license](../../LICENSE)

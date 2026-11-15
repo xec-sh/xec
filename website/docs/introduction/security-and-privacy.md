@@ -21,7 +21,7 @@ does not excuse losing its result or misrepresenting its effects.
 | --- | --- |
 | Targets | Execute on the selected adapter and target; never substitute local execution after a remote failure. |
 | Host identity | Verify SSH hosts by default and surface changed or unknown identities. |
-| Module loading | Keep local resolution local. Developing 0.13.0 rejects missing bare packages without a CDN fallback. |
+| Module loading | Keep local resolution local. Developing 0.13.0 verifies remote dependency graphs before execution and preserves immutable trust pins under concurrent writers. |
 | Network operations | Make remote targets, module sources, registries and release destinations explicit in the invoked operation. |
 | Credentials | Keep diagnostic redaction separate from application payloads; preserve the exact payload where the API promises it. |
 | Outcomes | Distinguish completed results from lost acknowledgements, failed cleanup and unknown remote effects. |

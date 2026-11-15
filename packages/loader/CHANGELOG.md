@@ -7,16 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-- Enforce remote host/protocol policy even when digest verification is disabled. Bound full fetches, response bodies and cancellation, prevent cross-origin header forwarding and authenticated-cache reuse, and remove credentials from URL diagnostics/cache identities.
-- Pin raw UTF-8 source in lock format v2 before transformation. Reject legacy or malformed locks instead of silently replacing trust; remove source rewriting and recursive re-export following from HTTP retrieval.
-- Isolate cache entries from trust records and temporary executable source. Cache clearing preserves caller files, refuses active module operations and reports incomplete cleanup; default storage is private to the user.
-
-- Unify inline evaluation and fetched-source execution through the native module loader. Select CommonJS/UMD explicitly; failed code is never replayed in another format. Keep private source files through the callback, verify ownership on cleanup, and require a writable working directory for inline evaluation instead of changing resolution through a data-URL fallback.
-
-- Remove implicit CDN fallback for missing local packages. Bare imports fail locally without disclosing package names or fetching a public namesake; remote loading requires an explicit remote specifier.
-
-- Add `LocalModuleGraph` for local ESM/TypeScript command graphs using Node's synchronous module hooks. It preserves authored paths, relative and deferred imports, native package conditions and explicit graph lifetime, without temporary source files. The capability requires `module.registerHooks`; existing library engine and script-runtime contracts are unchanged.
-- Add synchronous transformation through the same TypeScript transformer, including `.mts` and `.cts`. Graph identity uses a private URL query; disposal deregisters hooks but does not unload Node's module cache.
+- Use one owned `ModuleGraph` for local JS/TS and remote ESM. Verify the complete literal dependency graph before native evaluation; preserve cycles, live bindings, top-level await, deferred imports and module identity. Remove regex import rewriting.
+- Add `ModuleLoader.prepare()` for computed remote targets without evaluation. Bound preparation by time, nodes, source bytes and concurrency; cancellation drains preparation but does not claim to stop executing JavaScript.
+- Require native synchronous module hooks for graph execution and reject unsupported runtimes before fetching. Keep graph ownership through callbacks; disposing a cached Ops script loader removes only that instance.
+- Store raw UTF-8 integrity pins as immutable per-URL records beside a v2 descriptor. Concurrent writers cannot lose or replace trusted digests. Reject older formats, malformed records, symlinks and unsafe ownership without repinning.
+- Enforce host/protocol policy even with digest verification disabled. Bound HTTP bodies, redirects, retries and cancellation; prevent cross-origin header forwarding and authenticated-cache reuse.
+- Keep missing package resolution local. Explicit remote specifiers are required; internal package names never trigger a CDN fallback.
+- Share one native executor for inline and fetched-source execution. Select CommonJS/UMD explicitly; failed code is never replayed. Keep private source files through callbacks, verify cleanup ownership and require a writable project directory for inline evaluation.
+- Separate HTTP cache cleanup from trust and live graph lifetime. Cache clearing preserves pins and caller files, refuses active operations and reports incomplete cleanup.
 
 ## [0.1.0] - 2025-10-02
 

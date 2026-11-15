@@ -270,7 +270,7 @@ for relative data. Each load gets independent local ESM state; bare packages and
 CommonJS keep Node's normal cache. The CLI retains the graph through action and
 cleanup, then deregisters its hooks. This is trusted local code, not a sandbox.
 
-Library owners can use `LocalModuleGraph` from `@xec-sh/loader` in the next release.
+Library owners can use `ModuleGraph` from `@xec-sh/loader` in the next release.
 Keep it alive through deferred callbacks and dispose it after they settle.
 Disposal does not undo side effects or evict Node's ESM registry; use a fresh
 process for unbounded watch/reload cycles. npm 0.12.0 still writes the temporary
