@@ -2,8 +2,9 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { verify, createPublicKey, generateKeyPairSync } from 'node:crypto';
+import { verify, createECDH, createPublicKey, generateKeyPairSync } from 'node:crypto';
 
+import { connection } from './peer.js';
 import { parseKey, KEY_LIMITS } from '../../src/transport/protocol/keyParser.js';
 
 const require = createRequire(import.meta.url);
@@ -46,7 +47,12 @@ for (const type of ['ed25519', 'ec', 'rsa']) {
     assert.equal(publicKey.verify(message, signature), true);
     assert.equal(ssh.verify(Buffer.from('changed'), signature), false);
     assert.equal(
-      verify(type === 'ed25519' ? null : type === 'rsa' ? 'sha512' : 'sha256', message, pair.publicKey, signature),
+      verify(
+        type === 'ed25519' ? null : type === 'rsa' ? 'sha512' : 'sha256',
+        message,
+        type === 'ec' ? { key: pair.publicKey, dsaEncoding: 'ieee-p1363' } : pair.publicKey,
+        signature
+      ),
       true
     );
     assert(privateKey.sign(message, 'sha1') instanceof Error);
@@ -122,3 +128,63 @@ test('truncated keys and obsolete DSA do not pass a header-only validation', () 
   assert(parseKey('-----BEGIN OPENSSH PRIVATE KEY-----\nAAAA\n-----END OPENSSH PRIVATE KEY-----') instanceof Error);
   assert(parseKey(fixture('openssh_old_dsa')) instanceof Error);
 });
+
+for (const curve of ['prime256v1', 'secp384r1', 'secp521r1']) {
+  test(`real SSH ${curve} user signatures agree with the independent released peer`, { timeout: 6000 }, async (t) => {
+    const pair = generateKeyPairSync('ec', { namedCurve: curve });
+    const privateKey = pair.privateKey.export({ format: 'pem', type: 'sec1' });
+    const hash = curve === 'prime256v1' ? 'sha256' : curve === 'secp384r1' ? 'sha384' : 'sha512';
+    // The released peer's legacy SEC1 decoder requires ECDH even for signing.
+    // Verify user signatures with native crypto; use this host curve only if
+    // the peer runtime supports its ECDH prerequisite (no runtime-name heuristic).
+    let hostKey;
+    try {
+      createECDH(curve);
+      hostKey = privateKey;
+    } catch {
+      /* The independent peer uses its P256 host. */
+    }
+    let proofs = 0;
+    await connection(t, () => {}, {
+      hostKey,
+      privateKey,
+      authenticate(context) {
+        if (context.method !== 'publickey') return context.reject();
+        if (context.signature) {
+          if (!verify(hash, context.blob, pair.publicKey, context.signature)) return context.reject();
+          proofs++;
+        }
+        return context.accept();
+      },
+    });
+    assert.equal(proofs, 1);
+  });
+}
+test(
+  'a corrupted native signature cannot authenticate through the ordinary wire path',
+  { timeout: 6000 },
+  async (t) => {
+    const pair = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+    const privateKey = pair.privateKey.export({ format: 'pem', type: 'sec1' });
+    const key = valid(parseKey(privateKey)),
+      oracle = require('ssh2').utils.parseKey(privateKey);
+    key.sign = () => Buffer.alloc(64, 1);
+    let rejected = 0;
+    await assert.rejects(
+      connection(t, () => {}, {
+        expectedFailure: true,
+        authHandler: [{ type: 'publickey', username: 'isolated-fixture', key }],
+        authenticate(context) {
+          if (context.method !== 'publickey') return context.reject();
+          if (context.signature && oracle.verify(context.blob, context.signature) !== true) {
+            rejected++;
+            return context.reject();
+          }
+          return context.accept();
+        },
+      }),
+      /All configured authentication methods failed/
+    );
+    assert.equal(rejected, 1);
+  }
+);

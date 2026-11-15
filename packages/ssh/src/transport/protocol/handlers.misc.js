@@ -2,7 +2,7 @@
 
 import { parseKey } from './keyParser.js';
 import { MESSAGE, TERMINAL_MODE, CHANNEL_OPEN_FAILURE } from './constants.js';
-import { bufferSlice, bufferParser, doFatalError, sigSSHToASN1, writeUInt32BE } from './utils.js';
+import { bufferSlice, bufferParser, doFatalError, writeUInt32BE, signatureToNative } from './utils.js';
 
 const TERMINAL_MODE_BY_VALUE = Array.from(Object.entries(TERMINAL_MODE)).reduce(
   (obj, [key, value]) => ({ ...obj, [key]: value }),
@@ -265,7 +265,7 @@ export default {
                 signature = bufferSlice(signature, 4 + keyAlgo.length + 4);
               }
 
-              signature = sigSSHToASN1(signature, realKeyAlgo);
+              signature = signatureToNative(signature, realKeyAlgo);
               if (signature) {
                 const sessionID = self._kex.sessionID;
                 const blob = Buffer.allocUnsafe(4 + sessionID.length + blobEnd);
@@ -326,7 +326,7 @@ export default {
             signature = bufferSlice(signature, 4 + keyAlgo.length + 4);
           }
 
-          signature = sigSSHToASN1(signature, realKeyAlgo);
+          signature = signatureToNative(signature, realKeyAlgo);
           if (signature !== undefined) {
             const sessionID = self._kex.sessionID;
             const blob = Buffer.allocUnsafe(4 + sessionID.length + blobEnd);

@@ -19,9 +19,9 @@ import {
   FastBuffer,
   bufferParser,
   doFatalError,
-  sigSSHToASN1,
   writeUInt32BE,
-  convertSignature,
+  signatureToSSH,
+  signatureToNative,
 } from './utils.js';
 import {
   MESSAGE,
@@ -629,7 +629,7 @@ const createKeyExchange = (() => {
           );
         }
 
-        if (!(sigValue = sigSSHToASN1(sigValue, sigType))) {
+        if (!(sigValue = signatureToNative(sigValue, sigType))) {
           return doFatalError(
             this._protocol,
             'Malformed signature',
@@ -722,7 +722,7 @@ const createKeyExchange = (() => {
           );
         }
 
-        signature = convertSignature(signature, this._hostKey.type);
+        signature = signatureToSSH(signature, this._hostKey.type);
         if (signature === false) {
           return doFatalError(
             this._protocol,

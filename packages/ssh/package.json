@@ -17,6 +17,7 @@
   "files": [
     "dist",
     "LICENSE",
+    "BCRYPT-LICENSE",
     "NODE-SSH-LICENSE",
     "SSH-TYPES-LICENSE",
     "PROVENANCE.json",
@@ -45,9 +46,5 @@
     "url": "git+https://github.com/xec-sh/xec.git",
     "directory": "packages/ssh"
   },
-  "homepage": "https://xec.sh",
-  "dependencies": {
-    "asn1": "0.2.6",
-    "bcrypt-pbkdf": "1.0.2"
-  }
+  "homepage": "https://xec.sh"
 }

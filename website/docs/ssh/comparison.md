@@ -26,7 +26,7 @@ records the source and reviewed patch lineage; upstream notices remain in the pa
 | Host trust | Caller supplies verification policy | Strict `known_hosts` by default; explicit pin or custom verifier |
 | Connections | Caller manages reuse and retirement | Leases, capacity reservations, current trust and key identity |
 | Remote effects | Application interprets transport events | Explicit unknown outcomes; no automatic command replay |
-| Crypto distribution | Optional native bindings and JavaScript paths | Runtime cryptography; no compiled addon or install build |
+| Crypto distribution | Optional native bindings and JavaScript paths | Runtime cryptography; owned OpenSSH key derivation; no addon or install build |
 | Algorithms | Includes compatibility algorithms and compression | Narrow capability-checked policy; see [negotiation](./security.md#negotiation) |
 | Integration | Consumers construct their own ownership layer | Core delegates SSH mechanics to the same standalone package |
 
@@ -69,8 +69,10 @@ the wire engine.
 
 Some upstream private protocol files remain JavaScript; public API declarations
 are maintained in TypeScript. The package is not described as a complete
-TypeScript rewrite. Its dependency closure still includes ASN.1 signature
-encoding and OpenSSH bcrypt key derivation.
+TypeScript rewrite. It has no external npm runtime dependencies. Native
+IEEE-P1363 signatures remove the ASN.1 dependency; the narrow, attributed OpenSSH
+bcrypt implementation uses native SHA512 instead of TweetNaCl. Inherited source
+remains documented in the license and provenance files.
 
 A server that requires a removed algorithm fails negotiation. Fix that server's
 policy or select another explicitly approved client; there is no silent

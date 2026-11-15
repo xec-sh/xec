@@ -36,9 +36,9 @@ import {
   bufferCopy,
   doFatalError,
   readUInt32BE,
-  sigSSHToASN1,
   writeUInt32BE,
   makeBufferParser,
+  signatureToNative,
 } from './protocol/utils.js';
 
 const bufferParser = makeBufferParser();
@@ -1898,7 +1898,7 @@ function hostKeysProve(client, keys_, cb) {
         writeUInt32BE(verifyData, keyPublic.length, (p += sessionID.length));
         bufferCopy(keyPublic, verifyData, 0, keyPublic.length, p + 4);
 
-        if (!(value = sigSSHToASN1(value, type))) continue;
+        if (!(value = signatureToNative(value, type))) continue;
         if (key.verify(verifyData, value, algo) === true) ret.push(key);
       }
       sigParser.clear();

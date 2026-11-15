@@ -5,8 +5,8 @@ import { join, basename } from 'node:path';
 import { releaseCommand } from '@xec-sh/ops/release';
 import { rm, mkdir, access, mkdtemp, readdir, readFile, copyFile, writeFile } from 'node:fs/promises';
 
-import { checkSSHSourceOwnership } from '../lib/ssh-boundary.js';
 import { checkSSHSecurity, checkBuiltSSHSecurity } from '../lib/ssh-security.js';
+import { checkSSHRuntimePackage, checkSSHSourceOwnership } from '../lib/ssh-boundary.js';
 
 async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), 'xec-ssh-gate-'));
@@ -162,4 +162,49 @@ test('pnpm acceptance pins the exact SSH archive in its owning workspace setting
     /Synthetic consumer failure/
   );
   await assert.rejects(access(consumer), { code: 'ENOENT' });
+});
+
+test('shipped SSH closure rejects runtime dependencies and every external import form', async (t) => {
+  const root = await fixture(t),
+    directory = join(root, 'packages/ssh');
+  const manifestPath = join(directory, 'package.json');
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+  for (const section of ['dependencies', 'optionalDependencies', 'peerDependencies']) {
+    await writeFile(manifestPath, JSON.stringify({ ...manifest, [section]: { 'bcrypt-pbkdf': '1.0.2' } }));
+    await assert.rejects(checkSSHRuntimePackage(directory, manifest.version), /must not declare/);
+  }
+  await writeFile(manifestPath, JSON.stringify(manifest));
+  for (const source of [
+    "import 'asn1';",
+    "export { value } from 'asn1';",
+    "void import('asn1');",
+    "require('asn1');",
+    "import { createRequire as factory } from 'node:module'; const load = factory(import.meta.url); load('asn1');",
+    "import('../../outside.js');",
+    "const name = 'asn1'; import(name);",
+  ]) {
+    await writeFile(join(directory, 'dist/index.js'), source);
+    await assert.rejects(
+      checkSSHRuntimePackage(directory, manifest.version),
+      /External SSH runtime import|Computed SSH runtime import/
+    );
+  }
+  await writeFile(
+    join(directory, 'dist/index.js'),
+    "import { randomBytes } from 'node:crypto'; export { value } from './owned.js';"
+  );
+  await writeFile(join(directory, 'dist/owned.js'), 'export const value = 1;');
+  await checkSSHRuntimePackage(directory, manifest.version);
+  const core = join(root, 'packages/core'),
+    corePath = join(core, 'package.json');
+  const coreManifest = JSON.parse(await readFile(corePath, 'utf8'));
+  await checkSSHRuntimePackage(core, manifest.version);
+  for (const dependencies of [
+    {},
+    { '@xec-sh/ssh': '^' + manifest.version },
+    { '@xec-sh/ssh': manifest.version, asn1: '0.2.6' },
+  ]) {
+    await writeFile(corePath, JSON.stringify({ ...coreManifest, dependencies }));
+    await assert.rejects(checkSSHRuntimePackage(core, manifest.version), /exactly the verified SSH version/);
+  }
 });

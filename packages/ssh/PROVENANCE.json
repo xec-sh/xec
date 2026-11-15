@@ -81,5 +81,21 @@
     "license": "MIT",
     "licenseFile": "NODE-SSH-LICENSE",
     "adaptation": "The owned typed client preserves attributed lineage while replacing compatibility APIs, transport ownership, trust and operation lifecycle."
+  },
+  "bcryptPbkdf": {
+    "upstream": "https://github.com/TritonDataCenter/node-bcrypt-pbkdf",
+    "version": "1.0.2",
+    "npmIntegrity": "sha512-qeFIXtP4MSoi6NLqO12WfqARWWuCKi2Rn/9hJLEmtB5yTNr9DqFWkJRCf2qShWzPeAMRnOgCrq0sg/KLv5ES9w==",
+    "sourceSha256": "e1589c001f45f4cd8bf569b92a585b48f73e8b85b97302a6e56dfcddb38ce17d",
+    "licenseFile": "BCRYPT-LICENSE",
+    "license": "BSD-3-Clause AND ISC",
+    "lineage": [
+      "OpenBSD blowfish.c, Niels Provos (1997)",
+      "OpenBSD bcrypt_pbkdf.c v1.9, Ted Unangst (2013)",
+      "JavaScript port by Devi Mandiri",
+      "JavaScript optimizations by Joyent / Alex Wilson (2016)"
+    ],
+    "adaptation": "Native runtime SHA-512 replaces TweetNaCl. Only OpenSSH bcrypt-PBKDF is retained, with bounded inputs, per-call state, endian-independent Blowfish words and best-effort temporary-state wiping. No bcrypt password-hash or decryption API is exported.",
+    "vectors": "https://github.com/openbsd/src/blob/master/regress/lib/libutil/bcrypt_pbkdf/bcrypt_pbkdf_test.c"
   }
 }

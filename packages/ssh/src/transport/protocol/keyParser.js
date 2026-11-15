@@ -1,4 +1,3 @@
-import bcrypt from 'bcrypt-pbkdf';
 // OpenSSH container decoding is adapted from ssh2 (MIT, Brian White).
 // All asymmetric cryptography and PEM/DER handling use the runtime KeyObject API.
 import {
@@ -12,12 +11,13 @@ import {
 } from 'node:crypto';
 
 import { KEY_CIPHER_INFO } from './crypto.js';
+import { bcryptPbkdf, BCRYPT_LIMITS } from './bcrypt-pbkdf.js';
 
 export const KEY_LIMITS = Object.freeze({
   bytes: 1024 * 1024,
-  passphraseBytes: 1024,
-  bcryptRounds: 64,
-  saltBytes: 64,
+  passphraseBytes: BCRYPT_LIMITS.passwordBytes,
+  bcryptRounds: BCRYPT_LIMITS.rounds,
+  saltBytes: BCRYPT_LIMITS.saltBytes,
   rsaBits: 8192,
 });
 const curves = Object.freeze({
@@ -142,9 +142,12 @@ class ParsedKey {
     this.#public = publicKey;
     this.#blob = blob;
     this.#hash = hash;
-    if (privateKey && !verify(hash, proof, publicKey, sign(hash, proof, privateKey)))
+    if (privateKey && !verify(hash, proof, this.#nativeKey(publicKey), sign(hash, proof, this.#nativeKey(privateKey))))
       fail('SSH private and public key do not match');
     parsed.add(this);
+  }
+  #nativeKey(key) {
+    return this.type.startsWith('ecdsa-sha2-') ? { key, dsaEncoding: 'ieee-p1363' } : key;
   }
   hash(algorithm) {
     if (algorithm === undefined || algorithm === null) return this.#hash;
@@ -157,14 +160,14 @@ class ParsedKey {
   sign(data, algorithm) {
     try {
       if (!this.#private) fail('No private key available');
-      return sign(this.hash(algorithm), data, this.#private);
+      return sign(this.hash(algorithm), data, this.#nativeKey(this.#private));
     } catch (error) {
       return error;
     }
   }
   verify(data, signature, algorithm) {
     try {
-      return verify(this.hash(algorithm), data, this.#public, signature);
+      return verify(this.hash(algorithm), data, this.#nativeKey(this.#public), signature);
     } catch (error) {
       return error;
     }
@@ -333,9 +336,7 @@ function parseOpenSSH(text, passphrase) {
       if (!passphrase?.length) fail('Encrypted OpenSSH private key requires a passphrase');
       blockLength = info.blockLen;
       if (!encrypted.length || encrypted.length % blockLength) fail('Invalid encrypted OpenSSH key length');
-      material = Buffer.alloc(info.keyLen + info.ivLen);
-      if (bcrypt.pbkdf(passphrase, passphrase.length, salt, salt.length, material, material.length, rounds) !== 0)
-        fail('OpenSSH key derivation failed');
+      material = bcryptPbkdf(passphrase, salt, rounds, info.keyLen + info.ivLen);
       const decipher = createDecipheriv(
         info.sslName,
         material.subarray(0, info.keyLen),

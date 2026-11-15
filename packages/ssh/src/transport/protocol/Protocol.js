@@ -10,7 +10,7 @@ import { KexInit, kexinit, onKEXPayload, DEFAULT_KEXINIT_CLIENT, DEFAULT_KEXINIT
 
 const MESSAGE_HANDLERS = getMessageHandlers();
 import { PacketReader, PacketWriter } from './packet.js';
-import { bufferCopy, bufferFill, sendPacket, bufferSlice, writeUInt32BE, convertSignature } from './utils.js';
+import { bufferCopy, bufferFill, sendPacket, bufferSlice, writeUInt32BE, signatureToSSH } from './utils.js';
 
 const IDENTIFIER = 'SSH-2.0-Xec';
 
@@ -696,8 +696,8 @@ class Protocol {
     }
 
     cbSign(packet, (signature) => {
-      signature = convertSignature(signature, keyType);
-      if (signature === false) throw new Error('Error while converting handshake signature');
+      signature = signatureToSSH(signature, keyType);
+      if (!signature) throw new Error('Error while converting handshake signature');
 
       const sigLen = signature.length;
       p = this._packetRW.write.allocStart;
@@ -799,7 +799,7 @@ class Protocol {
     data.utf8Write(userlocal, (p += 4), userlocalLen);
 
     cbSign(data, (signature) => {
-      signature = convertSignature(signature, keyType);
+      signature = signatureToSSH(signature, keyType);
       if (!signature) throw new Error('Error while converting handshake signature');
 
       const sigLen = signature.length;

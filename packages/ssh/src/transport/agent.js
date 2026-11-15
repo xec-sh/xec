@@ -1,6 +1,7 @@
 // OpenSSH agent framing adapted from ssh2 (MIT, Brian White); see LICENSE.
 import { Socket } from 'node:net';
 
+import { signatureToNative } from './protocol/utils.js';
 import { parseKey, isSupportedKeyType } from './protocol/keyParser.js';
 
 const MAX_AGENT_MESSAGE = 1024 * 1024;
@@ -310,8 +311,19 @@ export class AgentContext {
     this[SYM_AGENT_KEYS_IDX] = -1;
   }
 
-  sign(...args) {
-    this[SYM_AGENT].sign(...args);
+  sign(key, data, options, callback) {
+    this[SYM_AGENT].sign(
+      key,
+      data,
+      options,
+      once((error, signature) => {
+        if (error) return callback(error);
+        const native = signatureToNative(signature, key.type);
+        if (!native) return callback(new Error('SSH agent returned a malformed signature'));
+        callback(null, native);
+        return undefined;
+      })
+    );
   }
 }
 

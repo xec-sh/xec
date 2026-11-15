@@ -4,10 +4,11 @@ import { join } from 'node:path';
 import { once } from 'node:events';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:net';
-import { randomUUID, generateKeyPairSync } from 'node:crypto';
+import { createRequire } from 'node:module';
+import { sign, randomUUID, generateKeyPairSync } from 'node:crypto';
 
-import { createAgent } from '../../src/transport/agent.js';
 import { parseKey } from '../../src/transport/protocol/keyParser.js';
+import { createAgent, AgentContext } from '../../src/transport/agent.js';
 
 function uint32(number) {
   const data = Buffer.alloc(4);
@@ -121,3 +122,25 @@ test('peer closure before a response rejects once and releases the owned connect
   const agent = await agentFixture(t, (socket) => socket.end());
   await assert.rejects(identities(agent), /closed/);
 });
+
+for (const curve of ['prime256v1', 'secp384r1', 'secp521r1']) {
+  test(`OpenSSH agent ${curve} signatures have an explicit wire-to-native boundary`, { timeout: 3000 }, async (t) => {
+    const require = createRequire(import.meta.url);
+    const { convertSignature } = require('ssh2/lib/protocol/utils.js');
+    const pair = generateKeyPairSync('ec', { namedCurve: curve });
+    const pem = pair.privateKey.export({ type: 'sec1', format: 'pem' });
+    const key = parseKey(pem),
+      message = Buffer.from('agent signature proof');
+    const hash = curve === 'prime256v1' ? 'sha256' : curve === 'secp384r1' ? 'sha384' : 'sha512';
+    const wire = convertSignature(sign(hash, message, pair.privateKey), key.type);
+    for (const malformed of [false, true]) {
+      const payload = malformed ? Buffer.concat([wire, Buffer.from([0])]) : wire;
+      const agent = await agentFixture(t, (socket) =>
+        socket.write(field(Buffer.concat([Buffer.from([14]), field(Buffer.concat([field(key.type), field(payload)]))])))
+      );
+      const operation = signed(new AgentContext(agent), key, message);
+      if (malformed) await assert.rejects(operation, /malformed signature/);
+      else assert.equal(key.verify(message, await operation), true);
+    }
+  });
+}

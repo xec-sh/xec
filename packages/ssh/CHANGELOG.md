@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Remove external runtime dependencies: native IEEE-P1363 signatures replace ASN.1 conversion, and bounded owned OpenSSH bcrypt key derivation uses native SHA512 with preserved attribution.
+
 - Introduce the standalone SSH owner for Xec 0.13.0: connections, trust, leases,
   channels, SFTP and forwarding.
 - Replace optional compiled transport cryptography with capability-checked native

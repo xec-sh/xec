@@ -1,6 +1,6 @@
-import { createRequire } from 'node:module';
-import { join, dirname, resolve } from 'node:path';
 import { releaseCommand } from '@xec-sh/ops/release';
+import { isBuiltin, createRequire } from 'node:module';
+import { sep, join, dirname, resolve, relative, isAbsolute } from 'node:path';
 import { cp, rm, mkdir, mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises';
 
 import { resolveTypeScriptCompiler } from './typescript-compiler.js';
@@ -46,6 +46,87 @@ export async function checkSSHSourceOwnership(root) {
       await inspectSource(join(directory, 'src'));
     }
   }
+}
+
+/** Check the shipped dependency and import closure, including lazy modules. */
+export async function checkSSHRuntimePackage(directory, sshVersion) {
+  const manifest = JSON.parse(await readFile(join(directory, 'package.json'), 'utf8'));
+  const core = manifest.name === '@xec-sh/core';
+  if (!core && manifest.name !== '@xec-sh/ssh') throw new Error('Unexpected SSH runtime package');
+  for (const section of ['dependencies', 'optionalDependencies', 'peerDependencies']) {
+    const entries = Object.entries(manifest[section] ?? {});
+    if (core && section === 'dependencies') {
+      if (entries.length !== 1 || entries[0][0] !== '@xec-sh/ssh' || entries[0][1] !== sshVersion)
+        throw new Error('Core runtime dependencies must be exactly the verified SSH version');
+    } else if (entries.length) {
+      throw new Error(`${manifest.name} must not declare ${section}`);
+    }
+  }
+  const { default: ts } = await import('typescript');
+  async function inspect(folder) {
+    for (const entry of await readdir(folder, { withFileTypes: true })) {
+      const file = join(folder, entry.name);
+      if (entry.isSymbolicLink()) throw new Error(`SSH runtime contains a symlink: ${file}`);
+      if (entry.isDirectory()) {
+        await inspect(file);
+        continue;
+      }
+      if (!/\.[cm]?js$/.test(entry.name)) continue;
+      const source = ts.createSourceFile(
+        file,
+        await readFile(file, 'utf8'),
+        ts.ScriptTarget.Latest,
+        true,
+        ts.ScriptKind.JS
+      );
+      if (source.parseDiagnostics.length) throw new Error(`Invalid SSH runtime JavaScript: ${file}`);
+      const factories = new Set(['createRequire']),
+        requires = new Set(['require', 'requireModule']);
+      function visit(node, callback) {
+        callback(node);
+        ts.forEachChild(node, (child) => visit(child, callback));
+      }
+      visit(source, (node) => {
+        if (ts.isImportSpecifier(node) && (node.propertyName ?? node.name).text === 'createRequire')
+          factories.add(node.name.text);
+        if (
+          ts.isVariableDeclaration(node) &&
+          ts.isIdentifier(node.name) &&
+          node.initializer &&
+          ts.isCallExpression(node.initializer) &&
+          ts.isIdentifier(node.initializer.expression) &&
+          factories.has(node.initializer.expression.text)
+        )
+          requires.add(node.name.text);
+      });
+      function specifier(node) {
+        if (!node || !ts.isStringLiteralLike(node))
+          throw new Error(`Computed SSH runtime import is not verifiable: ${file}`);
+        const value = node.text;
+        if (isBuiltin(value) || (core && value === '@xec-sh/ssh')) return;
+        if (value.startsWith('./') || value.startsWith('../')) {
+          const target = relative(directory, resolve(dirname(file), value));
+          if (target !== '..' && !target.startsWith('..' + sep) && !isAbsolute(target)) return;
+        }
+        throw new Error(`External SSH runtime import ${JSON.stringify(value)} in ${file}`);
+      }
+      visit(source, (node) => {
+        if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier)
+          specifier(node.moduleSpecifier);
+        else if (
+          ts.isCallExpression(node) &&
+          (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+            (ts.isIdentifier(node.expression) && requires.has(node.expression.text)) ||
+            (ts.isPropertyAccessExpression(node.expression) &&
+              ts.isIdentifier(node.expression.expression) &&
+              requires.has(node.expression.expression.text) &&
+              node.expression.name.text === 'resolve'))
+        )
+          specifier(node.arguments[0]);
+      });
+    }
+  }
+  await inspect(join(directory, 'dist'));
 }
 
 /**
@@ -109,8 +190,8 @@ export async function checkSSHBoundary(root, { consumer, run = releaseCommand })
   }
   const core = manifests.get('@xec-sh/core');
   const ssh = manifests.get('@xec-sh/ssh');
-  if (core.manifest.dependencies?.['@xec-sh/ssh'] !== ssh.manifest.version)
-    throw new Error('Core must depend on the exact verified SSH package version');
+  await checkSSHRuntimePackage(core.directory, ssh.manifest.version);
+  await checkSSHRuntimePackage(ssh.directory, ssh.manifest.version);
   const directory = await mkdtemp(join(consumer, '.xec-ssh-types-'));
   let failure;
   try {

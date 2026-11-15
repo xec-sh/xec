@@ -10,19 +10,21 @@ const require = createRequire(import.meta.url);
 const { Server, utils } = require('ssh2');
 
 const key = readFileSync(require.resolve('ssh2/test/fixtures/ssh_host_ecdsa_key'));
-const pinned = utils.parseKey(key).getPublicSSH();
 
 export async function connection(t, session, options = {}) {
   const cipher = options.cipher ?? 'aes256-gcm@openssh.com';
+  const hostKey = options.hostKey ?? key;
+  const pinned = utils.parseKey(hostKey).getPublicSSH();
   const peers = new Set();
-  const server = new Server({ hostKeys: [key], algorithms: { cipher: [cipher] } }, (peer) => {
+  const server = new Server({ hostKeys: [hostKey], algorithms: { cipher: [cipher] } }, (peer) => {
     peers.add(peer);
     peer.on('close', () => peers.delete(peer));
     peer.on('error', () => {});
     options.configurePeer?.(peer);
     peer.on('authentication', (context) => {
       options.onAuthentication?.();
-      context.accept();
+      if (options.authenticate) options.authenticate(context);
+      else context.accept();
     });
     peer.on('ready', () => peer.on('session', (accept) => session(accept(), peer)));
   });
@@ -43,6 +45,8 @@ export async function connection(t, session, options = {}) {
     host: '127.0.0.1',
     port: server.address().port,
     username: 'isolated-fixture',
+    privateKey: options.privateKey,
+    authHandler: options.authHandler,
     readyTimeout: 2500,
     hostVerifier: (blob) => blob.equals(pinned),
     algorithms: { cipher: [cipher] },

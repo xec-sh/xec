@@ -39,8 +39,9 @@ const ec = ecCurves.filter(
       const publicKey = exchange.generateKeys();
       exchange.computeSecret(publicKey);
       const pair = crypto.generateKeyPairSync('ec', { namedCurve });
-      if (!crypto.verify(hash, empty, pair.publicKey, crypto.sign(hash, empty, pair.privateKey)))
-        throw new Error('ECDSA unavailable');
+      const signature = crypto.sign(hash, empty, { key: pair.privateKey, dsaEncoding: 'ieee-p1363' });
+      if (!crypto.verify(hash, empty, { key: pair.publicKey, dsaEncoding: 'ieee-p1363' }, signature))
+        throw new Error('Native IEEE-P1363 ECDSA unavailable');
     })
 );
 // A public-only, synthetic ssh2 test fixture checks RSA verification without

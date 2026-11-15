@@ -66,9 +66,16 @@ their public and private parts must agree.
 Supported keys are Ed25519, RSA with 2048–8192 bits, and ECDSA P-256/P-384/P-521.
 Key input is limited to 1 MiB. Encrypted OpenSSH containers additionally bound
 passphrases, salt and bcrypt work: 1024 bytes, 16–64 bytes and at most 64 rounds,
-respectively. Keys outside these limits fail explicitly. The bcrypt key derivation
-dependency remains because native runtime crypto does not provide that OpenSSH
-container primitive.
+respectively. Keys outside these limits fail explicitly. OpenSSH bcrypt key
+derivation uses an owned, attributed implementation with native SHA512 and
+published test vectors: native runtime crypto does not expose that container
+primitive. No external crypto package or JavaScript SHA implementation is loaded.
+
+ECDSA signing and verification use native IEEE-P1363 signatures. A parsed key's
+`sign`/`verify` methods use fixed-width `r || s`: 64, 96 or 132 bytes for
+P-256, P-384 or P-521. The protocol converts this once to/from canonical SSH
+integers. Agent responses use the declared SSH wire format; the client does not
+guess the format from the signature's first byte.
 
 Agent sockets and the typed `SSHAgent` contract support external signing. The
 built-in socket client limits frames to 1 MiB, identities to 256 and each socket

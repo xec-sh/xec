@@ -1,7 +1,5 @@
 // Adapted from ssh2 1.17.0. Copyright Brian White. MIT; see package LICENSE and PROVENANCE.json.
 
-import { Ber } from 'asn1';
-
 import { DISCONNECT_REASON } from './constants.js';
 
 const FastBuffer = Buffer[Symbol.species];
@@ -132,8 +130,6 @@ function writeUInt32BE(buf, value, offset) {
   return offset;
 }
 
-const utilBufferParser = makeBufferParser();
-
 export { bufferCopy };
 export { bufferSlice };
 export { FastBuffer };
@@ -191,111 +187,73 @@ export const readString = (buffer, start, dest, maxLen) => {
   }
   return bufferSlice(buffer, start, end);
 };
-export const sigSSHToASN1 = (sig, type) => {
-  switch (type) {
-    case 'ssh-dss': {
-      if (sig.length > 40) return sig;
-      // Change bare signature r and s values to ASN.1 BER values for OpenSSL
-      const asnWriter = new Ber.Writer();
-      asnWriter.startSequence();
-      let r = sig.slice(0, 20);
-      let s = sig.slice(20);
-      if (r[0] & 0x80) {
-        const rNew = Buffer.allocUnsafe(21);
-        rNew[0] = 0x00;
-        r.copy(rNew, 1);
-        r = rNew;
-      } else if (r[0] === 0x00 && !(r[1] & 0x80)) {
-        r = r.slice(1);
-      }
-      if (s[0] & 0x80) {
-        const sNew = Buffer.allocUnsafe(21);
-        sNew[0] = 0x00;
-        s.copy(sNew, 1);
-        s = sNew;
-      } else if (s[0] === 0x00 && !(s[1] & 0x80)) {
-        s = s.slice(1);
-      }
-      asnWriter.writeBuffer(r, Ber.Integer);
-      asnWriter.writeBuffer(s, Ber.Integer);
-      asnWriter.endSequence();
-      return asnWriter.buffer;
+const EC_SIGNATURE_BYTES = Object.freeze({
+  'ecdsa-sha2-nistp256': 32,
+  'ecdsa-sha2-nistp384': 48,
+  'ecdsa-sha2-nistp521': 66,
+});
+function rawSignature(signature, type) {
+  if (!Buffer.isBuffer(signature)) return undefined;
+  if (type === 'ssh-ed25519') return signature.length === 64 ? signature : undefined;
+  if (type === 'ssh-rsa' || type === 'rsa-sha2-256' || type === 'rsa-sha2-512')
+    return signature.length > 0 && signature.length <= 1024 ? signature : undefined;
+  return undefined;
+}
+/**
+ * Convert the exact SSH signature payload to native fixed-width r||s.
+ * @param {Buffer} signature
+ * @param {string} type
+ * @returns {Buffer | undefined}
+ */
+export const signatureToNative = (signature, type) => {
+  const width = EC_SIGNATURE_BYTES[type];
+  if (typeof width !== 'number') return rawSignature(signature, type);
+  if (!Buffer.isBuffer(signature) || signature.length > 8 + 2 * (width + 1)) return undefined;
+  const native = Buffer.alloc(2 * width);
+  let offset = 0;
+  for (let part = 0; part < 2; part++) {
+    if (offset + 4 > signature.length) return undefined;
+    const length = signature.readUInt32BE(offset);
+    offset += 4;
+    if (!length || length > width + 1 || length > signature.length - offset) return undefined;
+    let value = signature.subarray(offset, offset + length);
+    offset += length;
+    // RFC 4251 positive mpints: no negative values or redundant sign bytes.
+    if (value[0] & 0x80) return undefined;
+    if (value[0] === 0) {
+      if (value.length === 1 || !(value[1] & 0x80)) return undefined;
+      value = value.subarray(1);
     }
-    case 'ecdsa-sha2-nistp256':
-    case 'ecdsa-sha2-nistp384':
-    case 'ecdsa-sha2-nistp521': {
-      utilBufferParser.init(sig, 0);
-      const r = utilBufferParser.readString();
-      const s = utilBufferParser.readString();
-      utilBufferParser.clear();
-      if (r === undefined || s === undefined) return undefined;
-
-      const asnWriter = new Ber.Writer();
-      asnWriter.startSequence();
-      asnWriter.writeBuffer(r, Ber.Integer);
-      asnWriter.writeBuffer(s, Ber.Integer);
-      asnWriter.endSequence();
-      return asnWriter.buffer;
-    }
-    default:
-      return sig;
+    if (value.length > width || (width === 66 && value.length === width && value[0] > 1)) return undefined;
+    value.copy(native, part * width + width - value.length);
   }
+  return offset === signature.length ? native : undefined;
 };
-export const convertSignature = (signature, keyType) => {
-  switch (keyType) {
-    case 'ssh-dss': {
-      if (signature.length <= 40) return signature;
-      // This is a quick and dirty way to get from BER encoded r and s that
-      // OpenSSL gives us, to just the bare values back to back (40 bytes
-      // total) like OpenSSH (and possibly others) are expecting
-      const asnReader = new Ber.Reader(signature);
-      asnReader.readSequence();
-      let r = asnReader.readString(Ber.Integer, true);
-      let s = asnReader.readString(Ber.Integer, true);
-      let rOffset = 0;
-      let sOffset = 0;
-      if (r.length < 20) {
-        const rNew = Buffer.allocUnsafe(20);
-        rNew.set(r, 1);
-        r = rNew;
-        r[0] = 0;
-      }
-      if (s.length < 20) {
-        const sNew = Buffer.allocUnsafe(20);
-        sNew.set(s, 1);
-        s = sNew;
-        s[0] = 0;
-      }
-      if (r.length > 20 && r[0] === 0) rOffset = 1;
-      if (s.length > 20 && s[0] === 0) sOffset = 1;
-      const newSig = Buffer.allocUnsafe(r.length - rOffset + (s.length - sOffset));
-      bufferCopy(r, newSig, rOffset, r.length, 0);
-      bufferCopy(s, newSig, sOffset, s.length, r.length - rOffset);
-      return newSig;
-    }
-    case 'ecdsa-sha2-nistp256':
-    case 'ecdsa-sha2-nistp384':
-    case 'ecdsa-sha2-nistp521': {
-      if (signature[0] === 0) return signature;
-      // Convert SSH signature parameters to ASN.1 BER values for OpenSSL
-      const asnReader = new Ber.Reader(signature);
-      asnReader.readSequence();
-      const r = asnReader.readString(Ber.Integer, true);
-      const s = asnReader.readString(Ber.Integer, true);
-      if (r === null || s === null) return undefined;
-      const newSig = Buffer.allocUnsafe(4 + r.length + 4 + s.length);
-      writeUInt32BE(newSig, r.length, 0);
-      newSig.set(r, 4);
-      writeUInt32BE(newSig, s.length, 4 + r.length);
-      newSig.set(s, 4 + 4 + r.length);
-      return newSig;
-    }
-
-    default:
-      break;
+/**
+ * Convert an explicitly native signature to SSH wire format.
+ * @param {Buffer} signature
+ * @param {string} type
+ * @returns {Buffer | undefined}
+ */
+export const signatureToSSH = (signature, type) => {
+  const width = EC_SIGNATURE_BYTES[type];
+  if (typeof width !== 'number') return rawSignature(signature, type);
+  if (!Buffer.isBuffer(signature) || signature.length !== 2 * width) return undefined;
+  const parts = [];
+  for (let part = 0; part < 2; part++) {
+    let value = signature.subarray(part * width, (part + 1) * width);
+    if (width === 66 && value[0] > 1) return undefined;
+    let start = 0;
+    while (start < value.length && value[start] === 0) start++;
+    if (start === value.length) return undefined;
+    value = value.subarray(start);
+    const signByte = value[0] & 0x80 ? 1 : 0;
+    const field = Buffer.alloc(4 + signByte + value.length);
+    field.writeUInt32BE(signByte + value.length);
+    value.copy(field, 4 + signByte);
+    parts.push(field);
   }
-
-  return signature;
+  return Buffer.concat(parts);
 };
 export const sendPacket = (proto, packet, bypass) => {
   if (!bypass && proto._kexinit !== undefined) {
