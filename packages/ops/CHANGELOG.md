@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Pipeline command objects and `releaseCommand` carry Core environment replacement without reintroducing pipeline, step or ambient variables. The default remains inherited merge; streaming, redaction and cancellation retain their contracts.
+
 - Release preparation and independent builders share `packReleaseArtifacts`. The `prepareArchive` recipe runs before identity/export validation and hashing; acceptance and retained producers refer to those final bytes, without repacking. Its identity is included in producer reuse checks.
 
 - Public task types no longer advertise rejected hooks, event subscriptions, cache, schedule, templates, dependencies or per-step parallelism. Condition types match the accepted boolean/number/expression contract; implemented output registration and completion handlers remain supported.

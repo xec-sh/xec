@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Local commands support explicit `envMode: 'replace'`: only the selected environment reaches spawn, without process, engine, adapter, scope defaults or preferLocal PATH additions. Merge remains the default; remote adapters reject replacement before execution. Lazy execution uses the same provenance resolver and cache keys distinguish environment policies.
+
+- `within` adopts returned lazy commands inside its async scope, preserving environment and cancellation without requiring callers to add an extra `await`.
+
 - Tagged-template interpolation now follows surrounding POSIX/PowerShell quote context and preserves argument data inside normal quotes. NUL bytes, escaped/comment positions, complex shell expansions/here-documents and quoted arrays fail closed. Use explicit `shell: false` argument arrays for arbitrary data or complex programs.
 - `cmd.exe` interpolation refuses percent/delayed expansion and line breaks, which caret quoting cannot safely neutralize across invocation modes. Raw execution remains an explicit trusted-source API.
 

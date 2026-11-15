@@ -1,6 +1,6 @@
 import { Writable } from 'node:stream';
 import { finished } from 'node:stream/promises';
-import { ExecutionEngine, getExecutionSignal } from '@xec-sh/core';
+import { type Command, ExecutionEngine, getExecutionSignal } from '@xec-sh/core';
 
 import { ReleaseOutput } from './output.js';
 import { windowsPackageManager } from './package-manager.js';
@@ -14,6 +14,8 @@ export type ReleaseCommandEvent =
 export interface ReleaseCommandOptions {
   timeoutMs?: number;
   env?: Record<string, string>;
+  /** Use only env for the local child; no process/engine environment is inherited. */
+  envMode?: Command['envMode'];
   redact?: readonly string[];
   signal?: AbortSignal;
   /** Opt into streaming with backpressure. Arguments and environment are never included. */
@@ -81,7 +83,7 @@ export const releaseCommand: ReleaseCommand = async (cwd, executable, args, opti
     signal.throwIfAborted();
     await emit({ type: 'command-start', executable, at: started });
     const manager = process.platform === 'win32' && (executable === 'npm' || executable === 'pnpm')
-      ? windowsPackageManager(executable, { ...process.env, ...options.env })
+      ? windowsPackageManager(executable, options.envMode === 'replace' ? { ...options.env } : { ...process.env, ...options.env })
       : undefined;
     let result;
     try {
@@ -89,7 +91,7 @@ export const releaseCommand: ReleaseCommand = async (cwd, executable, args, opti
         args: manager?.script ? [manager.script, ...args] : [...args], cwd, shell: false, adapter: 'local', signal,
         ...(options.interactive ? { stdin: process.stdin, stdout: 'inherit' as const, stderr: 'inherit' as const, detached: false }
           : streaming ? { stdout: streams[0]!, stderr: streams[1]! } : {}),
-        timeout: options.timeoutMs ?? 120000, maxBuffer: 8 * 1024 * 1024, env: options.env, nothrow: true });
+        timeout: options.timeoutMs ?? 120000, maxBuffer: 8 * 1024 * 1024, env: options.env, envMode: options.envMode, nothrow: true });
     } finally {
       for (const stream of streams) if (!stream.writableEnded && !stream.destroyed) stream.end();
       await drained;

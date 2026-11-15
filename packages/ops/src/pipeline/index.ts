@@ -260,7 +260,7 @@ export class Pipeline {
           const drained = Promise.all(streams.map(s => finished(s, { cleanup: true })));
           void drained.catch(() => undefined);
           try {
-            answer = await execute({ ...command, shell: command.shell ?? false, env: { ...commandEnv, ...command.env },
+            answer = await execute({ ...command, shell: command.shell ?? false, env: command.envMode === 'replace' ? { ...command.env } : { ...commandEnv, ...command.env },
               cwd: command.cwd ?? config.workingDirectory, timeout: command.timeout ?? config.timeout ?? 600_000,
               signal: commandSignal, stdout: streams[0]!, stderr: streams[1]!, throwOnNonZeroExit: false, nothrow: true });
           } finally {

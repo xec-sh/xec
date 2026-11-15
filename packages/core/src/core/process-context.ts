@@ -7,12 +7,13 @@ import type { PipeTarget, PipeOptions } from './pipe-implementation.js';
 
 import { Writable, PassThrough } from 'node:stream';
 
-import { within } from '../utils/within.js';
 import { globalCache } from '../utils/cache.js';
 import { ExecutionResultImpl } from './result.js';
 import { executePipe } from './pipe-implementation.js';
 import { captureCallSite } from '../utils/call-site.js';
+import { within, getLocalContext } from '../utils/within.js';
 import { parseDuration, type Duration } from '../utils/helpers.js';
+import { resolveEnvironmentPolicy } from '../utils/command-environment.js';
 import { DockerError, AdapterError, CommandError, ExecutionError } from './error.js';
 
 /** Branded symbol for xec promise identification — shared across modules */
@@ -385,6 +386,9 @@ export class ProcessContext {
         ...(this.state.stdinBridge && !modifications.stdin && !commandParts.stdin
           ? { stdin: this.state.stdinBridge }
           : {}),
+        // Resolve replacement with the same provenance as direct execution,
+        // before currentConfig becomes indistinguishable from command input.
+        ...resolveEnvironmentPolicy([modifications, commandParts, getLocalContext(), this.engine.currentConfig]),
         // Mark this command as coming from ProcessPromise
         __fromProcessPromise: true
       }
@@ -398,7 +402,8 @@ export class ProcessContext {
         command.command || '',
         command.cwd,
         command.env,
-        describeCacheTarget(command)
+        describeCacheTarget(command),
+        command.envMode
       );
   }
 }

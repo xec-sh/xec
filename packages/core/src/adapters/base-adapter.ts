@@ -64,6 +64,16 @@ export function validateOperationIdentity(command: Command): void {
   }
 }
 
+/** Replacement is an explicit local capability; unsupported modes never degrade to merge. */
+export function validateEnvironmentMode(command: Command, adapter?: string): void {
+  if (command.envMode !== undefined && command.envMode !== 'merge' && command.envMode !== 'replace') {
+    throw new TypeError('envMode must be merge or replace');
+  }
+  if (command.envMode === 'replace' && adapter !== undefined && adapter !== 'local') {
+    throw new TypeError('envMode replace is supported only by the local adapter');
+  }
+}
+
 export abstract class BaseAdapter extends EnhancedEventEmitter implements Disposable {
   protected config: ResolvedBaseAdapterConfig;
   protected abstract readonly adapterName: string;
@@ -164,12 +174,13 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
    */
   protected mergeCommand(command: Command): ResolvedCommand {
     validateOperationIdentity(command);
+    validateEnvironmentMode(command, this.adapterName);
     const timeout = command.timeout ?? this.config.defaultTimeout;
 
     return {
       ...command,
       cwd: command.cwd ?? this.config.defaultCwd,
-      env: { ...this.config.defaultEnv, ...command.env },
+      env: command.envMode === 'replace' ? { ...command.env } : { ...this.config.defaultEnv, ...command.env },
       timeout: timeout === undefined ? undefined : parseDuration(timeout),
       shell: command.shell ?? this.config.defaultShell,
       maxBuffer: command.maxBuffer ?? this.config.maxBuffer,
@@ -555,7 +566,8 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
     this.setupAbortSignal(signal, cleanup);
   }
 
-  protected createCombinedEnv(baseEnv: Record<string, string>, commandEnv?: Record<string, string>): Record<string, string> {
+  protected createCombinedEnv(baseEnv: Record<string, string>, commandEnv?: Record<string, string>, mode: Command['envMode'] = 'merge'): Record<string, string> {
+    if (mode === 'replace') return { ...commandEnv };
     const combined: Record<string, string> = {};
 
     // Copy process.env, filtering out undefined values

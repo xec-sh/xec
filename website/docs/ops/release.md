@@ -310,6 +310,16 @@ recovery. Inspect a forced-exit writer lock using the existing recovery procedur
 context. Its default implementation uses Xec; adapters must preserve exit codes,
 finite deadlines and credential redaction.
 
+In the **development API, not published 0.12.0**, pass
+`releaseCommand(cwd, executable, args, { envMode: 'replace', env })` when a build
+must receive only declared variables. Omitted `env` then means an empty map;
+process, engine and adapter defaults are excluded. Set `PATH` explicitly when
+resolving tools by name, or pass an absolute executable path. Default `merge`
+behavior remains unchanged. This local process-input contract preserves output,
+redaction and cancellation; it is not a sandbox or a way to clear a remote
+session's environment. Bind the chosen environment and toolchain to the
+producer's declared inputs before reusing it.
+
 Build verification does not replace the owning project's lint, security,
 interoperability and application acceptance tests. Xec's CI runs the release
 failure suite and its packaged SSH security gate. A source change is not a

@@ -60,7 +60,21 @@ const result = await Pipeline.create('example')
 
 ### Command environment {#command-environment}
 
-Each command receives variables declared on the pipeline, run, matrix variant, step and command, in that order. Use a step's `env` to pass a value to an SSH target. Local commands inherit the local process environment through the local adapter. Conditions and function steps execute locally and can read host variables through `ctx.env`.
+By default, commands receive variables declared on the pipeline, run, matrix
+variant, step and command, in that order. Use a step's `env` to pass a value to
+an SSH target. Local commands also inherit the local process environment.
+Conditions and function steps execute locally and can read host variables
+through `ctx.env`.
+
+The **development API (not published 0.12.0)** adds `envMode: 'replace'` to a
+local `Command` object. Only that command's `env` is passed to the child; omitted
+`env` means an empty map. Pipeline/run/matrix/step variables, engine defaults,
+ambient variables and `preferLocal` PATH additions are excluded. Supply `PATH`
+explicitly when resolving executables by name. A shell or launched tool may
+create its own variables; this controls process input, not an OS sandbox.
+Remote adapters reject replacement rather than claim to clear an SSH session,
+container or pod's environment. This is a library command option, not a YAML
+task field. Default merge behavior is unchanged.
 
 ### Conditional Execution {#conditional-execution}
 Skip steps based on runtime conditions:
@@ -77,7 +91,7 @@ const result = await Pipeline.create('example')
 ```
 
 ### Retry {#retry}
-Retry flaky steps:
+Retry only steps whose effects are safe to repeat. This policy repeats a failed step; it does not reconcile an uncertain earlier remote effect:
 
 ```typescript
 import { Pipeline } from '@xec-sh/ops';
@@ -108,6 +122,7 @@ const result = await Pipeline.create('example')
 Use TypeScript functions instead of shell commands:
 
 ```typescript
+import * as fs from 'node:fs/promises';
 import { Pipeline } from '@xec-sh/ops';
 
 const result = await Pipeline.create('example')

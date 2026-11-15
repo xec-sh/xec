@@ -544,7 +544,7 @@ export class LocalAdapter extends BaseAdapter {
   private buildNodeSpawnOptions(command: Command): any {
     const options: any = {
       cwd: command.cwd,
-      env: this.createCombinedEnv(this.config.defaultEnv, command.env),
+      env: this.createCombinedEnv(this.config.defaultEnv, command.env, command.envMode),
       // A detached child leads its own process group, which is what makes
       // kill/abort/timeout able to take down the *whole* command —
       // `sh -c 'node server.js'` is a tree, and signalling only the shell

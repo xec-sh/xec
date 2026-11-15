@@ -33,7 +33,8 @@ export async function within<T>(
   maybeFn?: () => T | Promise<T>
 ): Promise<T> {
   const [config, fn] = normalizeWithinArgs(configOrFn, maybeFn);
-  return asyncLocalStorage.run(config, fn);
+  // Adopt lazy thenables while the scope is still active.
+  return asyncLocalStorage.run(config, async () => await fn());
 }
 
 export function withinSync<T>(fn: () => T): T;

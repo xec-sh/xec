@@ -22,10 +22,10 @@ import { KubernetesAdapter } from '../adapters/kubernetes/index.js';
 import { createOptimizedMasker } from '../utils/optimized-masker.js';
 import { CommandTemplate, TemplateOptions } from '../utils/templates.js';
 import { DockerFluentAPI } from '../adapters/docker/docker-fluent-api.js';
+import { resolveEnvironmentPolicy } from '../utils/command-environment.js';
 import { ProcessContext, ProcessPromiseBuilder } from './process-context.js';
 import { parseK8sTarget, parseSSHTarget } from '../utils/target-shorthand.js';
 import { AdapterError, CommandError, sanitizeForDiagnostics } from './error.js';
-import { BaseAdapter, validateOperationIdentity } from '../adapters/base-adapter.js';
 import { ParallelEngine, ParallelResult, ParallelOptions } from '../utils/parallel.js';
 import { select, confirm, Spinner, question, password } from '../utils/interactive.js';
 import { RetryError, RetryOptions, withExecutionRetry } from '../utils/retry-adapter.js';
@@ -33,6 +33,7 @@ import { DEFAULT_REDACTION, defaultSensitiveRules } from '../utils/sensitive-pat
 import { SSHExecutionContext, createSSHExecutionContext } from '../adapters/ssh/ssh-api.js';
 import { within, withinSync, asyncLocalStorage, getExecutionSignal } from '../utils/within.js';
 import { K8sExecutionContext, createK8sExecutionContext } from '../adapters/kubernetes/kubernetes-api.js';
+import { BaseAdapter, validateEnvironmentMode, validateOperationIdentity } from '../adapters/base-adapter.js';
 import { Command, SSHAdapterOptions, DockerAdapterOptions, KubernetesAdapterOptions } from '../types/command.js';
 import {
   dialectFor,
@@ -310,6 +311,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     // Check for local context from within()
     const localContext = asyncLocalStorage.getStore();
     let contextCommand = command;
+    const environment = resolveEnvironmentPolicy([command, localContext, this.currentConfig]);
 
     if (localContext) {
       // Handle defaultEnv from within() context
@@ -355,7 +357,8 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
       maxBuffer: contextCommand.maxBuffer ?? this.currentConfig.maxBuffer ?? defaults.maxBuffer,
       throwOnNonZeroExit: contextCommand.throwOnNonZeroExit ?? this.currentConfig.throwOnNonZeroExit ?? defaults.throwOnNonZeroExit,
       timeout: requestedTimeout === undefined ? undefined : parseDuration(requestedTimeout),
-      env: {
+      envMode: environment.envMode,
+      env: environment.env ?? {
         ...defaults.env,
         ...this.currentConfig.env,
         ...contextCommand.env
@@ -369,7 +372,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     }
 
     // Resolve preferLocal: prepend node_modules/.bin to PATH
-    if (this._config.preferLocal && finalCommand.env) {
+    if (this._config.preferLocal && finalCommand.envMode !== 'replace' && finalCommand.env) {
       const localBin = typeof this._config.preferLocal === 'string'
         ? this._config.preferLocal
         : path.join(finalCommand.cwd || process.cwd(), 'node_modules', '.bin');
@@ -378,12 +381,15 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
 
     const mergedCommand = finalCommand;
     validateOperationIdentity(mergedCommand);
+    validateEnvironmentMode(mergedCommand);
     mergedCommand.signal?.throwIfAborted();
     const adapter = await this.selectAdapter(mergedCommand);
 
     if (!adapter) {
       throw new AdapterError('unknown', 'execute', new Error('No suitable adapter found'));
     }
+
+    validateEnvironmentMode(mergedCommand, adapter.name);
 
     // The zx-style debugging aid: echo each command before it runs. This
     // config flag existed and was consumed nowhere — a declared option that

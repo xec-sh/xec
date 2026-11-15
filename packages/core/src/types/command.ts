@@ -131,6 +131,14 @@ export interface Command {
   cwd?: string;                         // Working directory
   env?: Record<string, string>;         // Environment variables
   /**
+   * Local environment policy. `merge` (default) overlays inherited variables.
+   * `replace` passes only this command's env, excluding process, scope, engine
+   * and adapter defaults and preferLocal PATH additions. Omitted env means {}.
+   * A derived engine/scope may declare its own replacement map. Remote adapters
+   * reject replacement because they cannot guarantee the remote process env.
+   */
+  envMode?: 'merge' | 'replace';
+  /**
    * Execution timeout: milliseconds, or a duration string such as `'30s'`.
    *
    * Strings used to be accepted only by `.timeout()`; passed as an option they

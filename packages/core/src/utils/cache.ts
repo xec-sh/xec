@@ -1,3 +1,4 @@
+import type { Command } from '../types/command.js';
 import type { EnhancedEventEmitter } from './event-emitter.js';
 
 import crypto from 'node:crypto';
@@ -70,19 +71,22 @@ export class ResultCache {
    * @param cwd - Working directory, when set.
    * @param env - Environment overrides, when set.
    * @param target - Which machine, container or pod the command ran on.
+   * @param envMode - Whether local ambient variables may be inherited.
    * @returns A hash covering all of the above.
    */
   generateKey(
     command: string,
     cwd?: string,
     env?: Record<string, string>,
-    target?: CacheTarget
+    target?: CacheTarget,
+    envMode: Command['envMode'] = 'merge'
   ): string {
     const data = {
       command,
       cwd: cwd || process.cwd(),
       env: env || {},
-      target: target ?? null
+      target: target ?? null,
+      envMode
     };
 
     return crypto
