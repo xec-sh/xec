@@ -15,12 +15,12 @@ import { log, prism } from '@xec-sh/kit';
 import { spawn } from 'node:child_process';
 import {
   REPLServer,
+  ModuleGraph,
   ModuleLoader,
   CodeEvaluator,
   ScriptRuntime,
   ScriptExecutor,
   GlobalInjector,
-  LocalModuleGraph,
   TypeScriptTransformer,
 } from '@xec-sh/loader';
 
@@ -394,7 +394,7 @@ export class ScriptLoader {
     console.log(prism.gray(''));
   }
 
-  private readonly commandGraphs = new Set<LocalModuleGraph>();
+  private readonly commandGraphs = new Set<ModuleGraph>();
 
   /**
    * Load a local command graph and retain it through registered action callbacks.
@@ -405,10 +405,10 @@ export class ScriptLoader {
     program: CLIProgram,
     _commandName: string
   ): Promise<{ success: boolean; error?: string }> {
-    let graph: LocalModuleGraph | undefined;
+    let graph: ModuleGraph | undefined;
     try {
       await this.initializeGlobalModuleContext();
-      graph = new LocalModuleGraph(filePath);
+      graph = new ModuleGraph(filePath);
       const moduleExports = await graph.load();
       const setup = moduleExports['default'] || moduleExports['setup'] || moduleExports['command'];
       if (typeof setup !== 'function') {
@@ -426,8 +426,10 @@ export class ScriptLoader {
 
   /** Release dynamic-command hooks after all registered callbacks have settled. */
   dispose(): void {
+    this.moduleLoader.dispose();
     for (const graph of this.commandGraphs) graph.dispose();
     this.commandGraphs.clear();
+    for (const [key, loader] of cachedLoaders) if (loader === this) cachedLoaders.delete(key);
   }
 
   /**

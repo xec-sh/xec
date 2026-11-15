@@ -56,11 +56,8 @@ export {
 
 // Export transformation utilities
 export {
-  transformImports,
   createTransformer,
-  ImportTransformer,
   TypeScriptTransformer,
-  createImportTransformer,
 } from './transform/index.js';
 
 // Export streaming execution
@@ -76,19 +73,21 @@ export {
 export {
   MemoryCache,
   HybridCache,
+  ModuleGraph,
   ModuleLoader,
   ModuleFetcher,
   IntegrityError,
   ModuleExecutor,
   FileSystemCache,
   computeIntegrity,
-  LocalModuleGraph,
+  ModuleGraphError,
   CDNModuleResolver,
   type IntegrityMode,
   type FetchedModule,
   NodeModuleResolver,
   LocalModuleResolver,
   type IntegrityPolicy,
+  type ModuleGraphOptions,
   ModuleIntegrityVerifier,
   CompositeModuleResolver,
 } from './module/index.js';
@@ -102,7 +101,10 @@ export type {
   ExecutionResult,
   ExecutionEngine,
   ExecutionOptions,
+  ModuleGraphLimits,
   EvaluationOptions,
+  ModuleImportOptions,
+  ModuleLoaderOptions,
   ScriptLoaderOptions,
   ExecutionEngineResult,
 } from './types/index.js';

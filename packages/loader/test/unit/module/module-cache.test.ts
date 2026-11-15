@@ -16,6 +16,17 @@ describe('MemoryCache', () => {
     cache = new MemoryCache({ maxSize: 3, ttl: 1 }); // 1 second TTL
   });
 
+  it('supports explicit no-retention without changing normal LRU semantics', async () => {
+    const disabled = new MemoryCache({ maxSize: 0 });
+    await disabled.set('source', 'private');
+    expect(await disabled.get('source')).toBeNull();
+    expect(await disabled.has('source')).toBe(false);
+    expect(await disabled.stats()).toEqual({ memoryEntries: 0, fileEntries: 0, totalSize: 0 });
+    for (const maxSize of [-1, 0.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
+      expect(() => new MemoryCache({ maxSize })).toThrow('nonnegative safe integer');
+    }
+  });
+
   it('should store and retrieve values', async () => {
     await cache.set('key1', 'value1');
     const value = await cache.get('key1');

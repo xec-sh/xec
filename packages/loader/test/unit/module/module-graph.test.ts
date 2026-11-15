@@ -17,7 +17,7 @@ beforeAll(async () => {
   temporary = await mkdtemp(join(tmpdir(), 'xec-native-module-'));
   // Compile this API privately so these tests exercise Node's real hooks,
   // without a test-runner/tsx loader translating the fixture modules for us.
-  await build({ entryPoints: [join(root, 'src/module/local-module-graph.ts')],
+  await build({ entryPoints: [join(root, 'src/module/module-graph.ts')],
     outfile: join(temporary, 'graph.mjs'), bundle: true, packages: 'external',
     platform: 'node', format: 'esm', target: 'es2022' });
   await symlink(join(root, 'node_modules'), join(temporary, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir');
@@ -34,12 +34,12 @@ async function native(body: string, flags: string[] = []): Promise<void> {
     import { createRequire, syncBuiltinESMExports } from 'node:module';
     import { mkdir, writeFile, readFile } from 'node:fs/promises';
     import { pathToFileURL, fileURLToPath } from 'node:url';
-    import { LocalModuleGraph } from ${JSON.stringify(moduleURL)};
+    import { ModuleGraph } from ${JSON.stringify(moduleURL)};
     const directory = ${JSON.stringify(directory)};
     async function write(name, source) { const file=join(directory,name); await mkdir(dirname(file),{recursive:true}); await writeFile(file,source); return file; }
     await write('package.json', JSON.stringify({ type:'module' }));
     const graphs=[];
-    function graph(name) { const g=new LocalModuleGraph(join(directory,name));graphs.push(g);return g; }
+    function graph(name) { const g=new ModuleGraph(join(directory,name));graphs.push(g);return g; }
     try { ${body} } finally { for(const g of graphs) g.dispose(); }
   `;
   await execute(process.execPath, [...flags, '--input-type=module', '-e', source], {
@@ -135,9 +135,9 @@ it('preserves native JSON attributes and rejects unsupported TS attributes and b
 
 it('fails explicitly without native hooks and never treats non-file URLs as local paths', async () => {
   await native(`
-    assert.throws(()=>new LocalModuleGraph(new URL('https://example.invalid/main.ts')),/file URL/);
+    assert.throws(()=>new ModuleGraph(new URL('data:text/javascript,export default 1')),/file or HTTP/);
     const reserved=pathToFileURL(join(directory,'main.ts')); reserved.searchParams.set('__xec_module_graph','untrusted');
-    assert.throws(()=>new LocalModuleGraph(reserved),/reserved/);
+    assert.throws(()=>new ModuleGraph(reserved),/reserved/);
     const mod=createRequire(import.meta.url)('node:module');
     const original=mod.registerHooks;
     try { mod.registerHooks=undefined; syncBuiltinESMExports(); assert.throws(()=>graph('unread.ts'),/Node.js >=22.15/); }

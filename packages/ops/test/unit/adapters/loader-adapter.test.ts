@@ -429,6 +429,24 @@ describe('commandFileUrl', () => {
 });
 
 describe('getScriptLoader', () => {
+  it('releases only its cached instance and can run scripts with a fresh module owner', async () => {
+    const options = { quiet: true, verbose: false, cache: false };
+    const first = getScriptLoader(options);
+    const marker = scratchPath('fresh-owner.txt');
+    const source = await writeScript('cached-owner.mjs', `
+      const { writeFile } = await use('node:fs/promises');
+      await writeFile(${JSON.stringify(marker)}, 'fresh');
+    `);
+    expect((await first.executeScript(source)).success).toBe(true);
+    first.dispose();
+    await fs.unlink(marker);
+    const second = getScriptLoader(options);
+    commandLoaders.add(second);
+    expect(second).not.toBe(first);
+    expect((await second.executeScript(source)).success).toBe(true);
+    expect(await readMarker('fresh-owner.txt')).toBe('fresh');
+  });
+
   it('shares one instance per option set', () => {
     const a = getScriptLoader({ quiet: true, verbose: false });
     const b = getScriptLoader({ quiet: true, verbose: false });

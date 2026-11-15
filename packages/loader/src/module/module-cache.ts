@@ -19,7 +19,8 @@ export class MemoryCache<T = unknown> implements Cache<T> {
   private ttl: number;
 
   constructor(options: MemoryCacheOptions = {}) {
-    this.maxSize = options.maxSize || 500;
+    this.maxSize = options.maxSize ?? 500;
+    if (!Number.isSafeInteger(this.maxSize) || this.maxSize < 0) throw new RangeError('Memory cache maxSize must be a nonnegative safe integer');
     this.ttl = (options.ttl || 3600) * 1000; // Convert to ms
   }
 
@@ -41,6 +42,7 @@ export class MemoryCache<T = unknown> implements Cache<T> {
   }
 
   async set(key: string, value: T, _ttl?: number): Promise<void> {
+    if (this.maxSize === 0) return;
     // If key already exists, delete first to ensure it moves to end
     if (this.cache.has(key)) {
       this.cache.delete(key);

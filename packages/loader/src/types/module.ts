@@ -36,6 +36,9 @@ export interface ModuleLoaderOptions {
   /** Enable caching */
   cache?: boolean;
 
+  /** Limits for one owned remote graph; source/node limits include prepared entries. */
+  graph?: ModuleGraphLimits;
+
   /** Force CDN-only loading (no node_modules) */
   cdnOnly?: boolean;
 
@@ -123,4 +126,21 @@ export interface TransformedModule {
 
   /** Warnings from transformation */
   warnings?: string[];
+}
+
+/** Bounded preparation; HTTP bodies are also subject to ModuleFetcher limits. */
+export interface ModuleGraphLimits {
+  /** Whole preparation deadline, including queue time; default 30 seconds. */
+  timeoutMs?: number;
+  /** Maximum distinct requested/final URLs retained by one owner; default 128. */
+  maxNodes?: number;
+  /** Maximum total raw UTF-8 source bytes retained by one owner; default 32 MiB. */
+  maxBytes?: number;
+  /** Parallel fetch/parse operations, from 1 to 8; default 4. */
+  concurrency?: number;
+}
+
+export interface ModuleImportOptions {
+  /** Cancel preparation and drain its requests. Native JS/TLA evaluation is not cancellable. */
+  signal?: AbortSignal;
 }
