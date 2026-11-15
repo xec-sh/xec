@@ -40,10 +40,10 @@ await ephemeral`npm --version`;
 
 `$.docker(container)`/`$.docker(options)` both return a plain `ExecutionEngine`
 targeting that container, with the same chaining API as any other target. A
-one-off container created this way is always removed after the command exits
-— there is no option to keep it. For anything with more shape — a name you
-choose, ports, volumes, health checks, resource limits — use the fluent
-builder below.
+one-off container is removed after the command exits by default;
+`autoRemove: false` retains its stopped state for inspection. The options
+object also accepts names, ports, volumes, networks, labels and entrypoints.
+Use the fluent builder below for long-lived services and resource limits.
 
 ## Container Configuration {#container-configuration}
 
@@ -81,11 +81,11 @@ different things depending on a mode nobody chose explicitly.
 
 ### Creating New Containers {#creating-new-containers}
 
-The plain `$.docker({ image, ... })` form only forwards `image`, `volumes`,
-`workdir`, `user` and `env` — it always runs detached and removes the
-container afterward, and other fields (name, ports, network, ...) are
-silently dropped. For a named container, port mappings, or anything else,
-use the fluent builder returned by `$.docker()` with no arguments:
+The plain `$.docker({ image, ... })` form runs one attached command. It
+forwards `image`, `container` (name), `volumes`, `workdir`, `user`, `env`,
+`ports`, `network`, `platform`, `pull`, `labels`, `entrypoint` and
+`privileged`. For an independently managed service, use the fluent builder
+returned by `$.docker()` with no arguments:
 
 ```typescript
 // Create a named container from an image
@@ -122,6 +122,46 @@ await webApp.start();
 same builder can `.exec()` commands into the running container, `.stop()`,
 `.restart()` or `.remove()` it. Nothing runs until you call one of those —
 the calls above only build up configuration.
+
+## Cancellation and ownership {#cancellation-and-ownership}
+
+Run mode creates the container first, obtains its full immutable ID, then
+starts it with stdout/stderr attached. The ordinary process handle exposes
+that identity as `handle.resource` (`type: 'docker-container'`, `id`).
+`handle.pid` still identifies the local Docker CLI, not a container process.
+
+Timeout, `AbortSignal`, `handle.kill()` and adapter disposal wait for both
+the local transport and the owned container to finish. Xec checks Docker's
+state, requests a bounded stop for a still-running container, and confirms
+its exit before returning. Stop uses the requested signal (SIGTERM by
+default), with one second before Docker escalates; SIGKILL has no grace.
+Cleanup shares one `managementTimeout` budget (60 seconds by default, also
+used when ordinary management deadlines are disabled). A failed state
+observation, stop or removal remains an error, including with `nothrow`.
+A command timeout becomes exit code 124 only after that confirmation.
+
+`autoRemove: false` retains a stopped container. An unstarted container is
+removed when admission was interrupted, so a pending start cannot escape
+cancellation. An unacknowledged `create` never authorizes a start; its error
+reports whether the owned unstarted resource was reconciled and removed,
+or cleanup remains unconfirmed. A concurrently replaced name is never a cleanup target.
+
+The reserved `sh.xec.execution` label is assigned a unique operation UUID
+before create and cannot be supplied through user options. If the create
+reply is lost, Xec reconciles that label within the management deadline,
+verifies the full ID and label, and removes only a still-unstarted owned
+container. Empty inventory observations do not prove a pending request can
+never complete. An unavailable daemon, ambiguous identity, unexpected
+running resource or exhausted deadline returns explicit uncertainty with
+the label needed for later inspection; no neighboring resource is adopted.
+
+Exec mode addresses an existing container whose lifetime Xec does not own.
+Stopping its local transport does **not** prove that the remote command has
+stopped, and Xec never stops the entire container for an exec cancellation.
+For a job requiring confirmed cancellation, use an owned run-mode container
+with the necessary network or volume access instead of a shell wrapper in a
+long-lived service. SSH and Kubernetes retain their own transport contracts;
+they do not acquire Docker's ownership guarantee.
 
 ## Volume Management {#volume-management}
 

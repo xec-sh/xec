@@ -36,8 +36,9 @@ describe.skipIf(process.platform === 'win32')('Docker native lifecycle', () => {
     await writeFile(binary, `#!${process.execPath}
 const fs = require('node:fs');
 const path = require('node:path');
-const args = process.argv.slice(2);
+let args = process.argv.slice(2);
 fs.appendFileSync(path.join(__dirname, 'calls.jsonl'), JSON.stringify({pid:process.pid,args,localEnv:process.env['REMOTE_ONLY']??null})+'\\n');
+if (args[0] === 'start' && args.includes('--attach')) args = ['run', ...JSON.parse(fs.readFileSync(path.join(__dirname,'owned-run'),'utf8')).slice(1)];
 const hang = () => { process.on('SIGTERM',()=>{}); setInterval(()=>{},1000); };
 const kind = args.at(-1);
 if (args[0] === 'ps') {
@@ -45,11 +46,14 @@ if (args[0] === 'ps') {
   else if (fs.existsSync(path.join(__dirname,'malformed'))) process.stdout.write('invalid-json');
   else if (fs.existsSync(path.join(__dirname,'created'))) process.stdout.write(JSON.stringify({ID:(fs.existsSync(path.join(__dirname,'replaced'))?'b':'a').repeat(64),Names:fs.readFileSync(path.join(__dirname,'created'),'utf8')}));
 } else if (args[0] === 'create') {
-  fs.writeFileSync(path.join(__dirname,'created'),args[args.indexOf('--name')+1]);
+  fs.writeFileSync(path.join(__dirname,'created'),args.includes('--name') ? args[args.indexOf('--name')+1] : 'generated');
+  if (!args.includes('-it')) { fs.writeFileSync(path.join(__dirname,'owned-run'),JSON.stringify(args));fs.writeFileSync(path.join(__dirname,'stopped'),'yes'); }
+  process.stdout.write('a'.repeat(64));
 } else if (args[0] === 'inspect') {
   const state = fs.existsSync(path.join(__dirname,'stopped')) ? 'exited' : 'running';
-  process.stdout.write(JSON.stringify([{Id:'a'.repeat(64), Name:'/fixture',
-    State:{Running:state==='running',Status:state,Health:{Status:'healthy'}},
+  const State = {Running:state==='running',Status:state,Pid:state==='running'?42:0,Health:{Status:'healthy'}};
+  process.stdout.write(JSON.stringify(args.includes('--format') ? State : [{Id:'a'.repeat(64), Name:'/fixture',
+    State,
     Config:{Image:'fixture-image',Labels:{token:'synthetic-fixture-value'}},
     Created:'2026-01-01T00:00:00Z',NetworkSettings:{Ports:{'80/tcp':[{HostIp:'127.0.0.1',HostPort:'32768'}],'53/udp':[{HostIp:'::1',HostPort:'32769'}]},Networks:{}}}]));
 } else if (args[0] === 'logs') {
@@ -66,10 +70,14 @@ if (args[0] === 'ps') {
     require('node:child_process').spawn(process.execPath,['-e',"setTimeout(()=>process.stdout.write('after exit'),100)"],{stdio:['ignore',1,2]}).unref();process.exit(0);
   } else process.stdout.write(JSON.stringify(args));
 } else if (args[0] === 'run') {
+  if (fs.existsSync(path.join(__dirname,'owned-run'))) {
+    fs.rmSync(path.join(__dirname,'stopped'),{force:true});
+    process.on('exit',()=>fs.writeFileSync(path.join(__dirname,'stopped'),'yes'));
+  }
   if (args.includes('-d')) {
     fs.writeFileSync(path.join(__dirname,'created'),args[args.indexOf('--name')+1]);
     process.stdout.write('a'.repeat(64));
-  } else if (kind === 'hang') hang();
+  } else if (kind === 'hang') { hang();process.stdout.write('ready\\n'); }
   else if (kind === 'iterate') { hang();process.stdout.write('ready\\n'); }
   else if (kind === 'failed') { process.stderr.write('command failed');process.exitCode=7; }
   else if (kind === 'stdin') { let data='';process.stdin.on('data',c=>data+=c);process.stdin.on('end',()=>process.stdout.write(data||'EOF')); }
@@ -77,7 +85,7 @@ if (args[0] === 'ps') {
   else process.stdout.write(JSON.stringify({args,cwd:process.cwd(),localEnv:process.env['REMOTE_ONLY']??null}));
 } else if (args[0] === 'exec') {
   process.stdout.write(JSON.stringify({args,localEnv:process.env['REMOTE_ONLY']??null}));
-} else if (args[0] === 'stop' && fs.existsSync(path.join(__dirname,'lifecycle'))) {
+} else if (args[0] === 'stop' && (fs.existsSync(path.join(__dirname,'lifecycle')) || fs.existsSync(path.join(__dirname,'owned-run')))) {
   if (fs.existsSync(path.join(__dirname,'refuse-stop'))) {process.stderr.write('stop refused');process.exitCode=7;}
   else { fs.writeFileSync(path.join(__dirname,'stopped'),'yes'); if(fs.existsSync(path.join(__dirname,'replace-on-stop'))) fs.writeFileSync(path.join(__dirname,'replaced'),'yes'); }
 } else if (args[0] === 'start') fs.rmSync(path.join(__dirname,'stopped'),{force:true});
@@ -88,7 +96,7 @@ else if (args[0] === 'network') {
 else if (args[0] === 'compose') process.stdout.write('done');
 else if (args[0] === 'rm') {
   if (fs.existsSync(path.join(__dirname,'replaced')) && args.at(-1)==='a'.repeat(64)) process.stdout.write('removed original');
-  else if (fs.existsSync(path.join(__dirname,'remove-success'))) fs.rmSync(path.join(__dirname,'created'),{force:true});
+  else if (fs.existsSync(path.join(__dirname,'owned-run')) || fs.existsSync(path.join(__dirname,'remove-success'))) fs.rmSync(path.join(__dirname,'created'),{force:true});
   else { process.stderr.write('cleanup refused'); process.exitCode=7; }
 }
 `, { mode: 0o700 });
@@ -157,10 +165,24 @@ else if (args[0] === 'rm') {
   it('preserves nonzero and timeout policies after confirmed process termination', async () => {
     await expect(adapter.execute({ command: 'failed', shell: false, adapterOptions: target })).rejects.toMatchObject({ code: 'DOCKER_ERROR' });
     await expect(adapter.execute({ command: 'failed', shell: false, nothrow: true, adapterOptions: target })).resolves.toMatchObject({ exitCode: 7 });
-    const result = await adapter.execute({ command: 'hang', shell: false, nothrow: true, timeout: 300, adapterOptions: target });
-    expect(result.exitCode).toBe(124);
-    for (const { pid } of await records()) expect(alive(pid)).toBe(false);
-    await expect(adapter.execute({ command: 'hang', shell: false, timeout: 300, adapterOptions: target })).rejects.toBeInstanceOf(TimeoutError);
+    for (const nothrow of [true, false]) {
+      // Observe the actual helper first; host startup latency is not this test's
+      // oracle. Advance the command deadline and escalation only after readiness.
+      vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+      try {
+        let ready!: () => void;
+        const started = new Promise<void>(resolve => { ready = resolve; });
+        const stdout = new Writable({ write(chunk, _encoding, done) { if (chunk.toString().includes('ready')) ready(); done(); } });
+        const pending = adapter.execute({ command: 'hang', shell: false, nothrow, stdout, timeout: 300, adapterOptions: target })
+          .then(result => ({ result }), error => ({ error }));
+        await Promise.race([started, pending.then(outcome => { throw 'error' in outcome ? outcome.error : new Error('Exited before readiness'); })]);
+        await vi.advanceTimersByTimeAsync(1301);
+        const outcome = await pending;
+        if (nothrow) expect(outcome).toMatchObject({ result: { exitCode: 124 } });
+        else expect('error' in outcome && outcome.error).toBeInstanceOf(TimeoutError);
+        for (const { pid } of await records()) expect(alive(pid)).toBe(false);
+      } finally { vi.useRealTimers(); }
+    }
   });
 
   it('retains every UTF-8 log line from both streams and exact filter argv', async () => {

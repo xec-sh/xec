@@ -112,7 +112,7 @@ describe('Docker target options through the public engine', () => {
     calls: string[][] = [];
     protected override async executeDockerCommand(args: string[]) {
       this.calls.push(args);
-      const stdout = args[0] === 'ps' ? JSON.stringify({ ID: 'a'.repeat(64), Names: 'api' }) : '';
+      const stdout = args[0] === 'create' ? 'a'.repeat(64) : args[0] === 'ps' && !args.includes('--filter') ? JSON.stringify({ ID: 'a'.repeat(64), Names: 'api' }) : '';
       return { stdout, stderr: '', stdall: stdout, exitCode: 0, signal: null };
     }
   }
@@ -135,7 +135,7 @@ describe('Docker target options through the public engine', () => {
       privileged: true,
     });
     await target.execute({ command: 'node', args: ['--version'], shell: false, env: { SHARED: 'command' } });
-    const argv = adapter.calls.at(-1)!;
+    const argv = adapter.calls.find(args => args[0] === 'create')!;
     expect(argv).toEqual(expect.arrayContaining([
       '-w', '/app', '-p', '127.0.0.1:18080:8080', '--network', 'private',
       '--platform', 'linux/arm64', '--pull', 'always', '--label', 'project=test',
@@ -165,7 +165,7 @@ describe('Docker target options through the public engine', () => {
     engine.registerAdapter('docker', adapter);
     await engine.docker({ image: 'alpine', entrypoint: ['tini', '--'] })
       .execute({ command: 'printf', args: ['literal space'], shell: false });
-    const argv = adapter.calls.at(-1)!;
+    const argv = adapter.calls.find(args => args[0] === 'create')!;
     expect(argv.slice(argv.indexOf('--entrypoint'))).toEqual([
       '--entrypoint', 'tini', 'alpine', '--', 'printf', 'literal space',
     ]);

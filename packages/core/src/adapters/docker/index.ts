@@ -1,3 +1,6 @@
+import { randomUUID } from 'node:crypto';
+import { setTimeout as wait } from 'node:timers/promises';
+
 import { LocalAdapter } from '../local/index.js';
 import { splitLines } from '../../utils/line-split.js';
 import { LocalCommandSession } from '../local/command-session.js';
@@ -109,12 +112,16 @@ const DEFAULT_MANAGEMENT_TIMEOUT = 60_000;
 /** Fallback timeout for image and compose operations, in ms. */
 const DEFAULT_TRANSFER_TIMEOUT = 600_000;
 
+/** Reserved admission identity, fixed before the Docker create request. */
+const EXECUTION_LABEL = 'sh.xec.execution';
+
 export class DockerAdapter extends BaseAdapter {
   protected readonly adapterName = 'docker';
   private dockerConfig: DockerAdapterConfig;
   private tempContainers: Set<string> = new Set();
   private local: LocalAdapter;
   private sessions = new Set<LocalCommandSession>();
+  private runs = new Set<Promise<unknown>>();
   private disposing?: Promise<void>;
 
   constructor(config: DockerAdapterConfig = {}) {
@@ -185,10 +192,18 @@ export class DockerAdapter extends BaseAdapter {
           command: this.buildCommandString(mergedCommand)
         });
 
-        const runArgs = this.buildDockerRunArgs(dockerOptions, mergedCommand);
+        if (Object.hasOwn(dockerOptions.labels ?? {}, EXECUTION_LABEL)) {
+          throw new DockerError(containerName, 'create', new Error(`${EXECUTION_LABEL} is reserved for execution ownership`));
+        }
+        const executionId = randomUUID();
+        const runArgs = this.buildDockerRunArgs({
+          ...dockerOptions, labels: { ...dockerOptions.labels, [EXECUTION_LABEL]: executionId },
+        }, mergedCommand);
         // cwd was translated to `-w` above; it names a directory inside the
         // container, so it must not become the local docker CLI's cwd.
-        result = await this.executeDockerCommand(runArgs, { ...mergedCommand, cwd: undefined });
+        const run = this.executeOwnedRun(runArgs, { ...mergedCommand, cwd: undefined }, dockerOptions.autoRemove !== false, executionId);
+        this.runs.add(run);
+        try { result = await run; } finally { this.runs.delete(run); }
       } else {
         // Use traditional exec mode
         // Validate container name for security
@@ -651,11 +666,163 @@ export class DockerAdapter extends BaseAdapter {
     return session;
   }
 
+  /** Create before attaching: cancellation must address an owned, immutable ID. */
+  private async executeOwnedRun(args: string[], command: Command, autoRemove: boolean, executionId: string) {
+    command.signal?.throwIfAborted();
+    const started = Date.now();
+    const timeout = Number(command.timeout ?? this.config.defaultTimeout);
+    const remaining = () => {
+      if (!(timeout > 0)) return timeout;
+      const value = timeout - (Date.now() - started);
+      if (value <= 0) throw new TimeoutError(this.buildCommandString(command), timeout);
+      return value;
+    };
+    // Keep the stopped container until state and exit code have been observed.
+    const createArgs = ['create', ...args.slice(1)];
+    if (createArgs[1] === '--rm') createArgs.splice(1, 1);
+    let id: string;
+    try {
+      const created = await this.executeDockerCommand(createArgs, { timeout: remaining(), signal: command.signal });
+      if (created.exitCode !== 0) throw new Error(created.stderr || created.stdout);
+      id = created.stdout.trim();
+      if (!/^[a-f0-9]{64}$/.test(id)) throw new Error('Docker did not acknowledge an immutable container ID');
+    } catch (error) {
+      let recovered: string;
+      try { recovered = await this.reconcileOwnedCreation(executionId); }
+      catch (cleanup) {
+        throw new DockerError(`${EXECUTION_LABEL}=${executionId}`, 'terminate', new AggregateError([error, cleanup],
+          'Container creation was not acknowledged and cleanup remains unconfirmed; no start request was sent'));
+      }
+      throw new DockerError(recovered, 'create', new Error('Container creation was not acknowledged; owned unstarted container removed', { cause: error }));
+    }
+    let signal: NodeJS.Signals = 'SIGTERM';
+    let failure: { error: unknown } | undefined;
+    let result: Awaited<ReturnType<DockerAdapter['executeDockerCommand']>> | undefined;
+    try {
+      command.signal?.throwIfAborted();
+      const attach = ['start', '--attach'];
+      if (args.includes('-i')) attach.push('--interactive');
+      attach.push('--', id);
+      result = await this.executeDockerCommand(attach, {
+        ...command, timeout: remaining(),
+        onSpawn: handle => command.onSpawn?.({
+          ...handle,
+          resource: { type: 'docker-container', id },
+          kill: (requested = 'SIGTERM') => { signal = requested; handle.kill(requested); },
+        }),
+      });
+    } catch (error) {
+      if (error instanceof TimeoutError) signal = (command.timeoutSignal ?? 'SIGTERM') as NodeJS.Signals;
+      failure = { error };
+    }
+    let interrupted: boolean;
+    try { interrupted = await this.finishOwnedRun(id, autoRemove, signal); }
+    catch (cleanup) {
+      // nothrow only concerns command exit status. Unconfirmed remote cleanup
+      // must never become a successful timeout/cancellation result.
+      throw new DockerError(id, 'terminate', failure === undefined
+        ? cleanup as Error : new AggregateError([failure.error, cleanup], 'Command failed and container termination was not confirmed'));
+    }
+    if (failure) throw failure.error;
+    if (interrupted && result?.exitCode === 0) {
+      throw new DockerError(id, 'execute', new Error('Docker transport exited before its container command finished'));
+    }
+    return result!;
+  }
+
+  private cleanupDeadline(): number {
+    // Cleanup remains bounded even when ordinary management deadlines are disabled.
+    const timeout = this.dockerConfig.managementTimeout && this.dockerConfig.managementTimeout > 0
+      ? this.dockerConfig.managementTimeout : DEFAULT_MANAGEMENT_TIMEOUT;
+    return Date.now() + timeout;
+  }
+
+  private cleanupCommand(args: string[], deadline: number) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) throw new Error('Container termination verification deadline exceeded');
+    return this.executeDockerCommand(args, { timeout: remaining }, true);
+  }
+
+  /** An empty observation cannot rule out a still-pending create request. */
+  private async reconcileOwnedCreation(executionId: string): Promise<string> {
+    const deadline = this.cleanupDeadline();
+    const selector = `${EXECUTION_LABEL}=${executionId}`;
+    while (Date.now() < deadline) {
+      const result = await this.cleanupCommand(['ps', '-a', '--no-trunc', '--filter', `label=${selector}`, '--format', '{{.ID}}'], deadline);
+      if (result.exitCode !== 0) throw new Error(result.stderr || 'Creation inventory unavailable');
+      const ids = result.stdout.trim().split(/\s+/).filter(Boolean);
+      if (ids.length > 1 || ids.some(id => !/^[a-f0-9]{64}$/.test(id))) throw new Error('Creation ownership is ambiguous or malformed');
+      if (ids[0]) {
+        const id = ids[0];
+        const inspected = await this.cleanupCommand(['inspect', '--format', '{{json .Config.Labels}}', '--', id], deadline);
+        if (inspected.exitCode !== 0) throw new Error(inspected.stderr || 'Creation ownership was not observed');
+        const labels: unknown = JSON.parse(inspected.stdout);
+        if (!labels || typeof labels !== 'object' || !(EXECUTION_LABEL in labels) || labels[EXECUTION_LABEL] !== executionId) {
+          throw new Error('Container ownership label does not match this execution');
+        }
+        await this.finishOwnedRun(id, true, 'SIGTERM', deadline, true);
+        return id;
+      }
+      await wait(Math.min(1000, Math.max(0, deadline - Date.now())));
+    }
+    throw new Error(`Creation outcome remains unconfirmed; reconcile Docker label ${selector}`);
+  }
+
+  private async finishOwnedRun(id: string, autoRemove: boolean, signal: NodeJS.Signals,
+    deadline = this.cleanupDeadline(), unstarted = false): Promise<boolean> {
+    const invoke = (args: string[]) => this.cleanupCommand(args, deadline);
+    const present = async () => {
+      const result = await invoke(['ps', '-a', '--no-trunc', '--filter', `id=${id}`, '--format', '{{json .}}']);
+      if (result.exitCode !== 0) throw new Error(result.stderr || 'Container inventory failed');
+      return parseContainerReference(result.stdout, id) !== null;
+    };
+    const state = async (): Promise<{ running: boolean; status: string } | null> => {
+      const result = await invoke(['inspect', '--format', '{{json .State}}', '--', id]);
+      if (result.exitCode !== 0) {
+        if (!await present()) return null;
+        throw new Error(result.stderr || 'Container state was not observed');
+      }
+      const value: unknown = JSON.parse(result.stdout);
+      if (!value || typeof value !== 'object' || !('Running' in value) || typeof value.Running !== 'boolean'
+        || !('Status' in value) || typeof value.Status !== 'string' || !('Pid' in value) || typeof value.Pid !== 'number') {
+        throw new Error('Malformed Docker container state');
+      }
+      return { running: value.Running || value.Pid !== 0 || value.Status === 'restarting', status: value.Status };
+    };
+    if (!await present()) return false;
+    let observed = await state();
+    if (!observed) return false;
+    if (unstarted && (observed.running || observed.status !== 'created')) {
+      throw new Error('Unacknowledged container is no longer unstarted; refusing to adopt its lifetime');
+    }
+    const interrupted = observed.running;
+    if (observed.running) {
+      // Docker owns escalation; only this execution's full ID is eligible.
+      const stopped = await invoke(['stop', '--signal', signal, '--timeout', signal === 'SIGKILL' ? '0' : '1', '--', id]);
+      if (!await present()) return interrupted;
+      observed = await state();
+      if (!observed) return interrupted;
+      if (observed.running && stopped.exitCode !== 0) throw new Error(stopped.stderr || 'Container stop failed');
+    }
+    if (observed.running || !['created', 'exited', 'dead'].includes(observed.status)) {
+      throw new Error('Container process termination was not confirmed');
+    }
+    // A start request interrupted before acknowledgement may still be pending.
+    // Remove an unstarted container even when debug retention was requested.
+    if (autoRemove || observed.status === 'created') {
+      const removed = await invoke(['rm', '--', id]);
+      if (!await present()) return interrupted;
+      throw new Error(removed.stderr || 'Owned container remains after removal');
+    }
+    return interrupted;
+  }
+
   protected async executeDockerCommand(
     args: string[],
-    command: Partial<Command>
+    command: Partial<Command>,
+    cleanup = false,
   ): Promise<{ stdout: string; stderr: string; stdall: string; exitCode: number; signal: string | null }> {
-    if (this.disposing) throw new DockerError('unknown', 'execute', new Error('Docker adapter has been disposed'));
+    if (this.disposing && !cleanup) throw new DockerError('unknown', 'execute', new Error('Docker adapter has been disposed'));
     const session = this.startSession(this.dockerCommand(args, command));
     const result = await session.result;
     if (session.stopped) throw new DockerError('unknown', 'execute', new Error('Docker operation stopped before completion'));
@@ -709,8 +876,11 @@ export class DockerAdapter extends BaseAdapter {
   }
 
   private async disposeOperations(): Promise<void> {
+    const owned = [...this.runs];
     const results = await Promise.allSettled([...this.sessions].map(session => session.stop()));
     const errors: unknown[] = results.filter(result => result.status === 'rejected').map(result => result.reason);
+    const runs = await Promise.allSettled(owned);
+    for (const run of runs) if (run.status === 'rejected' && run.reason instanceof DockerError && run.reason.operation === 'terminate') errors.push(run.reason);
     if (this.dockerConfig.autoCreate?.autoRemove) {
       for (const container of this.tempContainers) {
         try {

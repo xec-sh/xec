@@ -14,7 +14,7 @@ import type { Readable, Writable } from 'node:stream';
  * | Environment | What the handle wraps                               |
  * |-------------|-----------------------------------------------------|
  * | local       | the spawned child process                            |
- * | docker      | the `docker exec` CLI process                        |
+ * | docker      | the CLI transport; run mode also owns its container  |
  * | kubernetes  | the `kubectl exec` CLI process                       |
  * | ssh         | the exec channel on the pooled connection            |
  *
@@ -30,6 +30,9 @@ export interface ProcessHandle {
    */
   readonly pid?: number;
 
+  /** Immutable remote resource owned by this execution, never an exec target. */
+  readonly resource?: { readonly type: 'docker-container'; readonly id: string };
+
   /** Input stream, for commands that read from stdin. */
   readonly stdin: Writable | null;
 
@@ -42,9 +45,11 @@ export interface ProcessHandle {
   /**
    * Terminate the command.
    *
-   * For local, docker and kubernetes this signals the whole process tree —
-   * a shell command is a tree, and signalling only its root orphans whatever
-   * it started.
+   * Local execution signals its process tree. Docker run mode also stops its
+   * owned container; await the command to confirm remote termination. Failure
+   * to confirm remains an error, including with nothrow. Docker/kubernetes exec
+   * only stop their local transport: the existing container is not owned, and
+   * its remote process termination cannot be inferred from the transport exit.
    *
    * @param signal - Signal to deliver; defaults to SIGTERM.
    */
