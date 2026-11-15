@@ -88,7 +88,6 @@ export function SiteLayout({ children, document: doc, documents, config }: Lumen
         </a>
         <header className="site-header">
           <a className="brand" href="/" aria-label="Xec home">
-            <img src="/img/logo.svg" alt="" width={32} height={32} />
             <span>
               xec<span className="brand-period">.</span>
             </span>

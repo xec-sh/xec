@@ -1,6 +1,6 @@
 # Xec documentation
 
-The source for [xec.sh](https://xec.sh). Built with **Lumen 0.4.8** and **Prism 0.4.8**, using published npm packages.
+The source for [xec.sh](https://xec.sh). Built with **Lumen 0.4.10** and **Prism 0.4.10**, using published npm packages.
 
 ## Develop
 

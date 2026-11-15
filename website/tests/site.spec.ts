@@ -5,6 +5,13 @@ test('homepage is a real, keyboard-operable execution reference', async ({ page,
   page.on('pageerror', (error) => errors.push(error.message));
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.goto('/');
+  const home = page.getByRole('link', { name: 'Xec home', exact: true });
+  await expect(home).toHaveText('xec.');
+  await expect(home.locator('img, svg')).toHaveCount(0);
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('link', { name: 'Skip to content' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(home).toBeFocused();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Make thework flow.');
   for (const [name, source] of [
     ['Local', 'git rev-parse'],
@@ -99,17 +106,82 @@ test('mobile navigation and content fit the viewport', async ({ page }) => {
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(391);
 });
 
-test('visual evidence covers coherent light/dark themes, mobile and file-tree docs', async ({ page }, info) => {
+test('visual evidence covers coherent light/dark themes, mobile and file-tree docs', async ({
+  page,
+  browser,
+  baseURL,
+}, info) => {
+  const styles = (element: Element) => {
+    const value = getComputedStyle(element);
+    return {
+      color: value.color,
+      background: value.backgroundColor,
+      borderRadius: value.borderRadius,
+      display: value.display,
+      fontFamily: value.fontFamily,
+      fontSize: value.fontSize,
+      outline: value.outline,
+    };
+  };
+  const ssr = await browser.newContext({ javaScriptEnabled: false, baseURL, viewport: { width: 1440, height: 1000 } });
+  try {
+    const initial = await ssr.newPage();
+    await initial.goto('/');
+    const button = initial.getByRole('link', { name: 'Start building', exact: true });
+    await expect(button).toBeVisible();
+    await info.attach('cta-ssr-styles.json', {
+      body: JSON.stringify(await button.evaluate(styles)),
+      contentType: 'application/json',
+    });
+    await initial.screenshot({ path: info.outputPath('home-ssr.png') });
+    await expect(button).toHaveCSS('background-color', 'rgb(184, 176, 255)');
+  } finally {
+    await ssr.close();
+  }
   await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Color theme: system' })).toBeVisible();
   await expect(page.locator('.xec-site')).toHaveCSS('background-color', 'rgb(250, 250, 247)');
   await expect(page.locator('.brand')).toHaveCSS('color', 'rgb(32, 32, 43)');
+  const primary = page.getByRole('link', { name: 'Start building', exact: true });
+  await info.attach('cta-light-styles.json', {
+    body: JSON.stringify(await primary.evaluate(styles)),
+    contentType: 'application/json',
+  });
   await page.screenshot({ path: info.outputPath('home-light.png'), fullPage: true });
+  await expect(primary).toHaveCSS('background-color', 'rgb(91, 63, 211)');
+  await primary.focus();
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Shift+Tab');
+  await expect(primary).toBeFocused();
+  await info.attach('cta-keyboard-styles.json', {
+    body: JSON.stringify({
+      ...(await primary.evaluate(styles)),
+      focusVisible: await primary.evaluate((element) => element.matches(':focus-visible')),
+    }),
+    contentType: 'application/json',
+  });
+  await page.screenshot({ path: info.outputPath('cta-keyboard.png') });
+  await primary.hover();
+  await info.attach('cta-light-hover-styles.json', {
+    body: JSON.stringify(await primary.evaluate(styles)),
+    contentType: 'application/json',
+  });
   await page.getByRole('button', { name: 'Color theme: system' }).click();
   await page.getByRole('menuitem', { name: 'Dark', exact: true }).click();
   await expect(page.locator('.xec-site')).toHaveCSS('background-color', 'rgb(16, 17, 22)');
+  await primary.blur();
+  await page.mouse.move(0, 0);
+  await info.attach('cta-dark-styles.json', {
+    body: JSON.stringify(await primary.evaluate(styles)),
+    contentType: 'application/json',
+  });
   await page.screenshot({ path: info.outputPath('home-dark.png'), fullPage: true });
+  await expect(primary).toHaveCSS('background-color', 'rgb(184, 176, 255)');
+  await page.setViewportSize({ width: 320, height: 844 });
+  await expect(page.getByRole('link', { name: 'Xec home', exact: true })).toBeVisible();
+  await page.screenshot({ path: info.outputPath('home-mobile-320.png'), fullPage: true });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: info.outputPath('home-mobile.png'), fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(391);
