@@ -10,7 +10,7 @@ import { rm, open, mkdtemp, readFile } from 'node:fs/promises';
 import { distributionTag } from './packages.js';
 import { releaseCommand, ReleaseCommandError } from './command.js';
 import { assertReleaseHead, assertCleanReleaseTree } from './git.js';
-import { artifactIntegrity, loadPreparedRelease, inspectPackedPackage, verifyReleaseArtifact } from './artifacts.js';
+import { artifactIntegrity, loadPreparedRelease, validatePackedPackage, verifyReleaseArtifact } from './artifacts.js';
 
 export interface PublishReleaseOptions {
   registry?: string;
@@ -173,7 +173,7 @@ export async function preflightPreparedRelease(root: string, version: string, op
   let uploadRequired = false;
   // Check the complete batch before publishing its first package.
   for (const artifact of release.artifacts) {
-    const manifest = await inspectPackedPackage(root, artifact.file, artifact, run) as { publishConfig?: { registry?: string; tag?: string } };
+    const manifest = await validatePackedPackage(root, artifact.file, artifact, run) as { publishConfig?: { registry?: string; tag?: string } };
     if ((manifest.publishConfig?.registry && registryAddress(manifest.publishConfig.registry) !== registry)
         || (manifest.publishConfig?.tag && manifest.publishConfig.tag !== tag)) throw new Error(`Packed publishConfig conflicts with the release destination: ${artifact.name}`);
     const exists = await registryArtifactMatches(root, artifact, options);

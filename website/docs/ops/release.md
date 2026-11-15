@@ -273,6 +273,9 @@ packaging belongs here; version, Git, registry and recovery logic remain shared.
 run acceptance against each packed archive before sealing; rejection or a change
 to those bytes prevents preparation from completing.
 
+The development `validatePackedPackage` API returns the checked package manifest,
+so consumers can use the validated metadata without reading it again.
+
 The development API also exports `packReleaseArtifacts(workspace, temporary,
 packages, options)` for independent builders and archive-only CI checks. It
 uses the same per-package producer as `prepareReleaseArtifacts`; callers own the

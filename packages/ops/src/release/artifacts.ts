@@ -111,11 +111,7 @@ export async function verifyReleaseArtifact(artifact: ReleaseArtifact): Promise<
 }
 
 /** A packed package must have registry dependencies and every promised entry point. */
-export async function validatePackedPackage(root: string, file: string, pkg: Pick<ReleasePackage, 'name' | 'version'>, run: ReleaseCommand = releaseCommand): Promise<void> {
-  await inspectPackedPackage(root, file, pkg, run);
-}
-
-export async function inspectPackedPackage(root: string, file: string, pkg: Pick<ReleasePackage, 'name' | 'version'>, run: ReleaseCommand): Promise<Record<string, unknown>> {
+export async function validatePackedPackage(root: string, file: string, pkg: Pick<ReleasePackage, 'name' | 'version'>, run: ReleaseCommand = releaseCommand): Promise<Record<string, unknown>> {
   // GNU tar treats a colon before the first slash as a remote host. This local
   // archive may live on a different Windows drive from the release checkout.
   const archive = resolve(root, file);

@@ -28,7 +28,9 @@ describe('Windows package-manager argv execution', () => {
         ? JSON.stringify({ ...pkg, main: './index.js', types: './index.d.ts' })
         : 'package/index.js\r\npackage/index.d.ts\r\npackage/package.json';
     };
-    await validatePackedPackage('.', join(directory, 'fixture.tgz'), pkg, archive);
+    await expect(validatePackedPackage('.', join(directory, 'fixture.tgz'), pkg, archive)).resolves.toEqual({
+      ...pkg, main: './index.js', types: './index.d.ts',
+    });
   });
 
   it('uses the invoking manager and finds a sibling native pnpm and the Node npm CLI', async () => {

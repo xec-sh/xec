@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Archive validation returns its checked manifest for consumer reuse. Publication uses the same canonical validator; the redundant internal inspection wrapper is removed.
+
 - Pipeline command objects and `releaseCommand` carry Core environment replacement without reintroducing pipeline, step or ambient variables. The default remains inherited merge; streaming, redaction and cancellation retain their contracts.
 
 - Release preparation and independent builders share `packReleaseArtifacts`. The `prepareArchive` recipe runs before identity/export validation and hashing; acceptance and retained producers refer to those final bytes, without repacking. Its identity is included in producer reuse checks.
