@@ -35,8 +35,13 @@ tasks:
       - name: Typecheck documented examples
         command: xec docs check --strict
   docs:build:
-    description: Build the Lumen documentation site.
-    command: pnpm --dir website build
+    description: Build the Lumen site and verify its generated links and anchors.
+    timeout: 12m
+    steps:
+      - name: Compile with Lumen
+        command: pnpm --dir website exec lumen build
+      - name: Verify generated routes
+        command: pnpm --dir website exec node scripts/check-routes.js
   docs:start:
     description: Serve the documentation with live updates.
     command: pnpm --dir website start

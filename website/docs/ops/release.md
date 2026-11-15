@@ -63,6 +63,10 @@ sealed record is written. Local artifacts live at:
 - `publication.jsonl` — Publication observations, created during publication
 :::
 
+Archive filenames encode the package name: `%40scope%2Fpackage.tgz` represents
+`@scope/package`. The encoding is part of the stored filename, not text to paste
+into a package import.
+
 Keep this directory backed up until publication and recovery are complete.
 Archives are read-only and checked by SHA-512 on every resume. A different
 archive for an already published version is a conflict, even if its source

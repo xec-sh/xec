@@ -65,7 +65,7 @@ one another.
 
 ## Core Exports {#core-exports}
 
-### Main Function ($) {#main-function-}
+### Main Function (`$`) {#main-function-}
 
 ```typescript
 import { $ } from '@xec-sh/core';

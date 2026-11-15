@@ -1,334 +1,225 @@
 ---
 title: Script Execution Context
-description: The globals and context available inside Xec scripts
+description: Choose where commands run, read script arguments, and keep local and remote effects explicit.
 ---
 
 # Script Execution Context {#script-execution-context}
 
-Every Xec script runs within a rich execution context that provides access to targets, configuration, and utility functions. This guide explains the execution context and how to leverage it effectively.
+A script runs in the local Xec process. Its commands can run locally or on the
+SSH host, Docker container, or Kubernetes pod selected by the CLI. This distinction
+matters: reading a local file and running a command on a server are separate effects.
 
-## Understanding $target and $ {#understanding-target-and-}
+## Understanding `$target` and `$` {#understanding-target-and-}
 
-Xec provides two primary execution engines in your scripts:
+| Engine | Where its commands run |
+| --- | --- |
+| `$` | The local machine running Xec |
+| `$target` | The target selected by `xec run`, `xec on`, or `xec in` |
 
-```javascript
-// $target - Executes on the configured target (local, SSH, Docker, or Kubernetes)
-await $target`ls -la`;
+`xec run inspect.ts`, `xec inspect.ts`, and `xec -e` bind both engines to the local
+machine. `xec on hosts.staging inspect.ts` binds `$target` to the configured SSH
+host; `$` remains local. Selecting a remote target does not move the script itself.
 
-// $ - Always executes locally, regardless of target
-await $`pwd`;
+```typescript
+// inspect.ts — Node must be installed on the selected target.
+const local = await $`${process.execPath} --version`;
+const selected = await $target`node --version`;
+console.log({ local: local.stdout.trim(), target: selected.stdout.trim() });
 ```
 
-`$target` and `$targetInfo` are bound to whatever the CLI ran the script
-against: `xec on <host> script.js` and `xec in <container> script.js` bind
-them to that host or container, while `xec run script.js` — and its direct
-shorthand `xec script.js` — bind them to the local machine
-(`$targetInfo.type === 'local'`), and `-e` evaluation gets the same
-local binding. Code that may also run outside the CLI — under plain
-`node` — should still check with `typeof`, since there the variables
-aren't declared at all.
+A failed remote command must not fall back to `$`: that would change which
+machine receives the operation. Handle the failure or stop the workflow.
 
 ## Global Context Variables {#global-context-variables}
 
-When a script executes, Xec injects these globals:
+Xec supplies these values when it loads a script:
 
-```javascript
-// Primary execution engines
-$target     // CallableExecutionEngine - bound to the current target (see above)
-$targetInfo // TargetInfo - metadata about that target, present alongside $target
-$           // CallableExecutionEngine - local command execution, always present
-```
+| Global | Meaning |
+| --- | --- |
+| `$` | Local callable execution engine |
+| `$target` | Callable execution engine bound to the selected target |
+| `$targetInfo` | Target identity and configuration |
+| `args` | Arguments passed to the script, without the executable or script path |
+| `argv` | Interpreter, script path, then script arguments |
+| `__filename`, `__dirname` | The script's local file and directory |
 
-Script arguments and location are globals too: `args` is exactly what the
-script was invoked with, `argv` follows the shell convention (interpreter,
-script path, then the arguments), and `__filename`/`__dirname` name the
-script's own location. `xec run deploy.js staging --force` gives
-`args = ['staging', '--force']` — flags the `run` command owns itself go
-after `--`.
+These globals belong to the Xec runner. Plain `node inspect.ts` does not provide
+them. Libraries intended for both environments should accept an engine as an
+argument instead of depending on ambient globals.
 
 ### Target Information {#target-information}
 
-The `$targetInfo` object provides details about the execution target:
+`$targetInfo.type` is `local`, `ssh`, `docker`, or `kubernetes`. `name` identifies
+the selected target; `host`, `container`, `pod`, and `namespace` are optional
+metadata for the corresponding target type.
 
 ```typescript
 import type { TargetInfo } from '@xec-sh/loader';
 
 const target: TargetInfo = $targetInfo;
-console.log(target.type, target.name); // name is required; config is the target's own config
+console.log(`Inspecting ${target.type}: ${target.name}`);
+if (target.type === 'ssh') console.log(target.host);
 ```
 
-Example usage:
-
-```javascript
-if (typeof $targetInfo !== 'undefined') {
-  console.log(`Executing on ${$targetInfo.type} target: ${$targetInfo.name}`);
-  
-  switch ($targetInfo.type) {
-    case 'ssh':
-      console.log(`Connected to: ${$targetInfo.host}`);
-      break;
-    case 'docker':
-      console.log(`Container: ${$targetInfo.container}`);
-      break;
-    case 'kubernetes':
-      console.log(`Pod: ${$targetInfo.pod} in namespace ${$targetInfo.namespace}`);
-      break;
-  }
-}
-```
+Use the identity to validate a script's preconditions. Do not log the full
+`config` object: it can contain authentication settings.
 
 ## Utility Functions {#utility-functions}
 
-The CLI also makes a set of scripting utilities from `@xec-sh/ops`
-available as globals in every execution path (`xec run`, `xec script.js`,
-`-e`, the REPL), without an import — among them `glob`, `which`, `fs`,
-`os`, `path`, `sleep`, `retry`, `within`, `template`, `parseArgs`, `yaml`,
-`csv`, `diff`, and terminal helpers `log`/`echo`/`prism`/`kit`/`spinner`. See
-[TypeScript Configuration](./typescript-setup.md#type-definitions-for-global-context)
-for the full list and how to get IntelliSense for it. `chalk` is not one of
-them — import it normally if you use it (`import chalk from 'chalk'`).
+The runner also supplies utilities from `@xec-sh/ops`, including `fs`, `path`,
+`os`, `glob`, `which`, `sleep`, `retry`, `within`, `parseArgs`, `yaml`, and `csv`.
+Terminal helpers include `log`, `echo`, `prism`, `kit`, and `spinner`.
 
-```javascript
-// File globbing
-const files = await glob('**/*.js');
-const configs = await glob('config/*.yaml');
+```typescript
+const files = await glob('src/**/*.ts');
+console.log(`${files.length} local source files`);
 ```
 
-`glob` answers paths relative to `cwd`, separated by `/` on every platform
-— including Windows, where the result can be fed straight back into another
-pattern. A single `*` never crosses a directory boundary; `**` does. Pass
-`{ absolute: true }` for native paths instead, since those go to the
-filesystem.
-
-:::caution Changed in 0.11.0
-On Windows, results previously came back with `\` separators, which also
-meant a single `*` matched across directories there. Both are fixed; code
-that spliced the old separator back together needs no adjustment, but code
-comparing against a `\`-separated literal does.
-:::
+Filesystem utilities operate on the local machine, even when `$target` is remote.
+`glob` returns paths relative to its working directory with `/` separators on every
+platform; `{ absolute: true }` returns native absolute paths. `*` matches within a
+directory and `**` can cross directories. See [TypeScript setup](./typescript-setup.md#type-definitions-for-global-context)
+for the complete global declarations and editor configuration.
 
 ## Working with Multiple Targets {#working-with-multiple-targets}
 
-Scripts can be executed against different targets:
+Run the same script against a declared target:
 
 ```bash
-# Execute on SSH target
-xec on production script.js
-
-# Execute on Docker container
-xec in my-container script.js
-
-# Execute on Kubernetes pod
-xec in pods.my-pod script.js
+xec run inspect.ts
+xec on hosts.staging inspect.ts
+xec in containers.app inspect.ts
+xec in pods.app inspect.ts
 ```
 
-In the script:
+Inside the script, use `$target` for commands intended for that selection. If a
+script requires one target type, reject an incompatible selection before making
+changes:
 
-```javascript
-// script.js
-if ($targetInfo?.type === 'ssh') {
-  // SSH-specific logic
-  await $target`sudo systemctl restart nginx`;
-} else if ($targetInfo?.type === 'docker') {
-  // Docker-specific logic
-  await $target`apt-get update && apt-get install -y curl`;
-} else if ($targetInfo?.type === 'kubernetes') {
-  // Kubernetes-specific logic — runs inside the pod
-  await $target`cat /etc/resolv.conf`;
-} else {
-  // Local execution
-  await $`echo "Running locally"`;
+```typescript
+if ($targetInfo.type !== 'ssh') {
+  throw new Error('Select an SSH target with xec on hosts.<name> inspect.ts');
 }
-
-// Always execute locally regardless of target
-await $`echo "This always runs on the host"`;
+const version = await $target`node --version`;
+console.log(version.stdout.trim());
 ```
+
+For several independently configured targets in one workflow, use the
+[Core adapters](../../core/execution-engine/adapters/concept.md) or a
+[pipeline](../../ops/pipeline.md). Reuse their connection and cancellation
+contracts rather than invoking another CLI process to reconstruct a target.
 
 ## Parameter Parsing {#parameter-parsing}
 
-Command-line parameters aren't parsed automatically — a script gets its raw
-arguments as the `args` global and parses them itself. `parseArgs`, one of
-the globals from `@xec-sh/ops` (see [Utility Functions](#utility-functions)
-above), covers the common `--key=value` and `--flag` cases:
+A script receives raw `args`. The supplied `parseArgs` handles simple flags,
+`--key=value` pairs, and positional arguments:
 
-```javascript
-// Script called with: xec deploy.js --env=prod --version=1.2.3 --force
-const params = parseArgs(args);
-console.log(params.env);     // 'prod'
-console.log(params.version); // '1.2.3'
-console.log(params.force);   // true
-console.log(params._);       // [] — positional arguments land here
-
-// Values are always strings or booleans — parseArgs does not coerce
-// numbers, JSON, or anything else. Parse those yourself if you need them.
+```typescript
+// xec inspect.ts --label=staging --verbose
+const options = parseArgs(args);
+console.log(options.label);   // 'staging'
+console.log(options.verbose); // true
+console.log(options._);       // positional arguments
 ```
 
-The flags `run` owns — `--dry-run`, `--watch`, `-o/--output`,
-`-c/--config`, `--typescript`, `-p/--param`, the root
-`-v`/`-q` — are consumed by the CLI; everything else passes through. Put an
-owned flag after `--` to reach the script:
-`xec run deploy.js -- --dry-run`.
+Values remain strings or booleans. Validate required values before effects.
+When a workflow needs typed options, help text, or completion, define a
+[project command](../../commands/custom/creating-commands.md) with Xec's command
+schema instead of building another argument parser.
+
+CLI-owned flags such as `--watch` and `--dry-run` are consumed by the runner.
+Place them after `--` to pass them to the script: `xec run inspect.ts -- --dry-run`.
+A script receiving that argument must implement its own dry-run behavior.
 
 ## Context Isolation {#context-isolation}
 
-Each CLI invocation is its own process, and the globals Xec injects
-(`$target`, `$targetInfo`, the utility functions) are restored to their
-previous values after the script finishes. Variables your script assigns to
-`globalThis` itself are not tracked — in `--watch` mode, where the file is
-re-run inside the same process, they survive between runs.
+A CLI invocation has its own process. Xec restores the globals it injected when
+the script finishes. It does not sandbox the script or track arbitrary values
+assigned to `globalThis`.
+
+Watch mode reruns code in the same process. Module-scoped helpers and explicit
+cleanup avoid leaking state, timers, or resources between executions. Only run
+scripts and imports you trust.
 
 ## REPL Context {#repl-context}
 
-When running in REPL mode, additional helpers are available:
+Start the interactive runner with `xec run --repl`. It provides the same local
+engines and utility globals. Node REPL commands such as `.help` and `.clear` are
+dot-commands, not JavaScript functions.
 
 ```text
-// Start REPL
-xec run --repl
-
-// In REPL:
-> .help           // Show available commands
-> .clear          // Clear the console
-> await $`ls`     // Execute commands
+> await $`node --version`
+> .help
+> .clear
 ```
-
-`.help` and `.clear` are Node REPL dot-commands (`replServer.defineCommand`),
-not callable functions — they're typed without parentheses.
 
 ## Custom Context Extension {#custom-context-extension}
 
-Prefer ordinary module-scoped functions and imports. They preserve ownership and avoid leaking mutable globals between watch runs:
+Prefer a normal function with an explicit engine argument. It can be imported,
+tested, and used locally or remotely without changing globals:
 
-```javascript
-// extend-context.js
-import { $ } from '@xec-sh/core';
+```typescript
+import type { CallableExecutionEngine } from '@xec-sh/core';
 
-// Application helpers stay local to this module
-const utils = {
-  /** @param {string[]} targetNames */
-  async deployToAll(targetNames) {
-    for (const name of targetNames) {
-      console.log(`Deploying to ${name}...`);
-      await $`xec on ${name} "npm run deploy"`;
-    }
-  },
-  
-  /** @param {number} bytes */
-  formatBytes(bytes) {
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    if (bytes === 0) return '0 B';
-    const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
-  }
-};
+async function nodeVersion(engine: CallableExecutionEngine): Promise<string> {
+  const result = await engine`node --version`;
+  return result.stdout.trim();
+}
 
-// Use the extended context
-await utils.deployToAll(['staging', 'production']);
+console.log(await nodeVersion($target));
 ```
 
 ## Environment Variables {#environment-variables}
 
-Scripts inherit the process environment. Xec itself reads a few variables
-rather than setting them:
+Local commands inherit the local process environment. Declare remote command
+environment explicitly with `.env()`; do not assume the target has your local
+variables or tools.
 
-```javascript
-// Variables Xec reads
-process.env.XEC_DEBUG    // 'true' enables verbose/debug output
-process.env.XEC_CONFIG   // path to a config file to load
-process.env.XEC_PROFILE  // configuration profile to activate
-// Any other XEC_* variable overrides configuration by path:
-// XEC_VARS_APP_NAME=web  ->  vars.app_name = 'web'
-
-// Pass environment variables to commands
-process.env.API_KEY = 'example-token';
-// Use the value in the authenticated operation; never echo it.
-
-// Or use env option
-await $`node script.js`.env({ API_KEY: 'secret' });
+```typescript
+const version = await $target`node --version`.env({ NODE_ENV: 'production' });
+console.log(version.stdout.trim());
 ```
+
+Xec reads `XEC_CONFIG` to select a configuration file, `XEC_PROFILE` to select a
+profile, and `XEC_DEBUG` for debug output. Configuration overrides are limited to
+supported data paths such as `XEC_VARS_APP_NAME`; an environment variable cannot
+replace a task command. See [environment variables](../../configuration/variables/environment.md)
+for the exact configuration contract. Pass secrets through the intended environment
+or secret provider, and keep their values out of command strings and logs.
 
 ## Best Practices {#best-practices}
 
-1. **Check for target availability**:
-   ```javascript
-   if (typeof $target !== 'undefined') {
-     // Target-specific code
-   }
-   ```
-
-2. **Use type guards for target types**:
-   ```javascript
-   if ($targetInfo?.type === 'ssh') {
-     // SSH-specific operations
-   }
-   ```
-
-3. **Provide fallbacks for local execution**:
-   ```javascript
-   const engine = typeof $target === 'undefined' ? $ : $target;
-   await engine`ls -la`;
-   ```
-
-4. **Clean up resources**:
-   ```javascript
-   try {
-     // Your script logic
-   } finally {
-     // Cleanup code runs even on error
-   }
-   ```
-
-5. **Document expected parameters**:
-   ```javascript
-   // deploy.js
-   // Usage: xec deploy.js --env=<environment> --version=<version>
-   
-   const params = parseArgs(args);
-   if (!params.env || !params.version) {
-     console.error('Required parameters: --env and --version');
-     process.exit(1);
-   }
-   ```
+- Validate the target and arguments before making changes.
+- Keep local preparation on `$` and selected-target operations on `$target`.
+- Use tagged-template interpolation for data; use `exec` with `args` and
+  `shell: false` when no shell is needed.
+- Preserve failures and cancellation. `.nothrow()` permits inspecting a completed
+  command's exit code; it does not prove a lost remote operation had no effect.
+- Own the resources you create and await their cleanup in `finally`.
 
 ## Complete Example {#complete-example}
 
-Here's a comprehensive example using the execution context:
+This read-only inspection requires Node on the selected target. A target failure
+terminates the script; it never retries the command locally.
 
-```javascript
-// inspect-target.js — run through xec run/on/in.
-import { $ } from '@xec-sh/core';
-import { prism } from '@xec-sh/kit';
-
-async function inspect() {
-  // Selecting a remote target must never silently fall back to local execution.
-  if (typeof $target === 'undefined' || typeof $targetInfo === 'undefined') {
-    throw new Error('Run this script with xec run, xec on or xec in');
-  }
-  console.log(prism.blue(`Inspecting ${$targetInfo.type}: ${$targetInfo.name}`));
-  const remote = await $target`node --version`;
-  const local = await $`${process.execPath} --version`;
-  console.log({ targetVersion: remote.stdout.trim(), localVersion: local.stdout.trim() });
+```typescript
+// inspect.ts
+if (typeof $target === 'undefined' || typeof $targetInfo === 'undefined') {
+  throw new Error('Run with xec run, xec on, or xec in');
 }
-
-try {
-  await inspect();
-} catch (error) {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exitCode = 1;
-}
+const options = parseArgs(args);
+const label = typeof options.label === 'string' ? options.label : $targetInfo.name;
+const result = await $target`node --version`;
+console.log(`${label}: ${result.stdout.trim()}`);
 ```
-
-Run this script with different targets:
 
 ```bash
-# Inspect locally
-xec run inspect-target.js
-
-# Inspect an SSH server
-xec on hosts.production inspect-target.js
-
-# Inspect a Docker container
-xec in containers.app inspect-target.js
-
-# Inspect a Kubernetes pod
-xec in pods.app inspect-target.js
+xec on hosts.staging inspect.ts --label=staging
 ```
+
+## Related guides {#related-guides}
+
+- [Portable scripts](../../introduction/portable-scripts.md)
+- [TypeScript setup](./typescript-setup.md)
+- [Project commands](../../commands/custom/creating-commands.md)
+- [Error handling](../../core/execution-engine/features/error-handling.md)

@@ -96,14 +96,14 @@ test('documentation retains navigation, syntax highlighting and current-section 
 test('mobile navigation and content fit the viewport', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
-  await page.locator('.mobile-nav > summary').click();
+  await page.getByRole('button', { name: 'Open navigation', exact: true }).click();
   await page
-    .getByRole('navigation', { name: 'Mobile main navigation' })
+    .getByRole('navigation', { name: 'Navigation', exact: true })
     .getByRole('link', { name: 'Learn', exact: true })
     .click();
   await expect(page.locator('.lumen-doc h1')).toBeVisible();
-  await page.locator('.mobile-document-nav > summary').click();
-  await expect(page.getByRole('navigation', { name: 'Mobile documentation' })).toBeVisible();
+  await page.getByRole('button', { name: 'Browse documentation', exact: true }).click();
+  await expect(page.getByRole('navigation', { name: 'The Xec manual', exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(391);
 });
 
@@ -217,3 +217,24 @@ for (const route of [
     expect(errors).toEqual([]);
   });
 }
+
+
+test('external project links open a safe new tab', async ({ page }) => {
+  await page.goto('/');
+  for (const link of await page.locator('a[href^="https://"]').all()) {
+    await expect(link).toHaveAttribute('target', '_blank');
+    await expect(link).toHaveAttribute('rel', /noopener/);
+    await expect(link).toHaveAttribute('rel', /noreferrer/);
+  }
+  await expect(page.locator('.site-colophon a')).toHaveAttribute('href', 'https://omnitron.dev/');
+});
+
+test('execution API headings retain literal identifiers and stable anchors', async ({ page }) => {
+  await page.goto('/docs/scripting/basics/execution-context');
+  const heading = page.locator('#understanding-target-and-');
+  await expect(heading).toHaveText('Understanding $target and $');
+  await expect(heading.locator('code')).toHaveCount(2);
+  await expect(heading.locator('.katex')).toHaveCount(0);
+  await expect(page.getByRole('navigation', { name: 'Table of contents', exact: true })
+    .locator('a[href="#understanding-target-and-"]')).toHaveText('Understanding $target and $');
+});

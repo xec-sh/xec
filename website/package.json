@@ -6,7 +6,7 @@
   "description": "Xec documentation, built with Lumen and Prism",
   "scripts": {
     "start": "lumen dev",
-    "build": "xec run scripts/build.ts",
+    "build": "xec --cwd .. run docs:build",
     "serve": "lumen serve",
     "typecheck": "tsc6 --noEmit",
     "check:routes": "node scripts/check-routes.js",

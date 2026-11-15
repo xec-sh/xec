@@ -9,7 +9,7 @@ sidebar_position: 5
 
 A portable Xec script keeps its TypeScript orchestration on the machine running the CLI and directs commands through `$target`. The same execution API reaches local, SSH, Docker and Kubernetes targets. Portability still requires compatible commands, paths, permissions and shell syntax on those targets.
 
-## The $target Concept {#the-target-concept}
+## The `$target` Concept {#the-target-concept}
 
 When you execute a script with Xec's CLI commands (`xec run`, `xec on`, `xec in`), the execution engine injects two globals into your script's context: `$target`, an execution engine bound to the current target — run commands through it and they execute there — and `$targetInfo`, a plain object describing that target. Plain `$` always executes locally, whatever the target.
 
@@ -91,7 +91,7 @@ const results = await checks[$targetInfo.type]();
 console.log(`Health check for ${$targetInfo.name}:`, results);
 ```
 
-## $targetInfo Properties {#targetinfo-properties}
+## `$targetInfo` Properties {#targetinfo-properties}
 
 `$target` itself is an execution engine — call it with a template literal. The
 metadata lives on `$targetInfo`:

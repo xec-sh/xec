@@ -33,7 +33,6 @@ test('SSH comparison and security remain readable and navigable without JavaScri
     await expect(page.locator('.lumen-doc')).toContainText('there is no silent compatibility fallback');
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(391);
     await page.screenshot({ path: info.outputPath('ssh-comparison-mobile-nojs.png'), fullPage: true });
-    await page.locator('.mobile-document-nav > summary').click();
     const navigation = page.getByRole('navigation', { name: 'Mobile documentation', exact: true });
     for (const route of sshRoutes) await expect(navigation.locator(`a[href="/docs/ssh/${route}"]`).first()).toBeVisible();
     await navigation.locator('a[href="/docs/ssh/security"]').click();

@@ -6,13 +6,15 @@ import React, { useState, useEffect } from 'react';
 import { LumenShell } from '@omnitron-dev/lumen-ui/runtime';
 import { LumenSearchDialog } from '@omnitron-dev/lumen-ui/search';
 import { DocSectionNav, MermaidDiagram } from '@omnitron-dev/lumen-ui';
+import { DocSidebar } from '@omnitron-dev/prism/components/doc-layout';
 import { PrismProvider, usePrismContext } from '@omnitron-dev/prism/core';
 
 import { xecTheme } from './theme.ts';
+import { MobileNavigation } from './navigation.tsx';
 import { ExecutionExplorer } from './execution-explorer.tsx';
 import { OpenSearch, SearchPage, SearchTrigger, ThemeSelector } from './controls.tsx';
 
-const islands = { DocSectionNav, MermaidDiagram, SearchTrigger, SearchPage, ThemeSelector, ExecutionExplorer };
+const islands = { DocSidebar, MobileNavigation, DocSectionNav, MermaidDiagram, SearchTrigger, SearchPage, ThemeSelector, ExecutionExplorer };
 function Content() {
   const { theme } = usePrismContext();
   const searchRoute = location.pathname.replace(/\/$/, '') === '/search';
