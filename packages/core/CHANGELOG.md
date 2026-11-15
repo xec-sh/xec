@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Tagged-template interpolation now follows surrounding POSIX/PowerShell quote context and preserves argument data inside normal quotes. NUL bytes, escaped/comment positions, complex shell expansions/here-documents and quoted arrays fail closed. Use explicit `shell: false` argument arrays for arbitrary data or complex programs.
+- `cmd.exe` interpolation refuses percent/delayed expansion and line breaks, which caret quoting cannot safely neutralize across invocation modes. Raw execution remains an explicit trusted-source API.
+
 - Caller-journalled `operationId` UUIDs cannot use automatic retries. Awaited `onResource` persists daemon identity before create and full container ID before start.
 - Generic `ExecutionOutcomeUnknownError` preserves typed ownership evidence. `inspectExecution` and `terminateExecution` verify daemon ID, operation label and full ID. Absence on another daemon never acknowledges cleanup.
 - Docker target selection is pinned per adapter; explicit context, host and socket settings are honored.

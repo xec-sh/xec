@@ -75,7 +75,7 @@ describe('TaskParser', () => {
 
       const errors = parser.getErrors();
       expect(errors).toHaveLength(1);
-      expect(errors[0].message).toContain('must have either command, steps, or script');
+      expect(errors[0].message).toContain('must define exactly one of command, steps, or script');
     });
 
     it('should reject task with both command and steps', () => {
@@ -89,7 +89,7 @@ describe('TaskParser', () => {
 
       const errors = parser.getErrors();
       expect(errors).toHaveLength(1);
-      expect(errors[0].message).toContain('cannot have both command and steps');
+      expect(errors[0].message).toContain('must define exactly one of command, steps, or script');
     });
   });
 
@@ -208,7 +208,7 @@ describe('TaskParser', () => {
       parser.parseTask('test', config);
       const errors = parser.getErrors();
       expect(errors).toHaveLength(1);
-      expect(errors[0].message).toContain('Retry count must be positive');
+      expect(errors[0].message).toContain('Retry count must be a non-negative integer');
     });
 
     it('should validate step targets', () => {
@@ -289,7 +289,7 @@ describe('TaskParser', () => {
         } else {
           expect(result).toBeNull();
           const errors = parser.getErrors();
-          expect(errors[0].message).toContain('Timeout must be positive');
+          expect(errors[0].message).toContain('Timeout must be a non-negative integer');
         }
       });
     });
@@ -307,9 +307,9 @@ describe('TaskParser', () => {
 
       parser.parseTask('test', config);
       const errors = parser.getErrors();
-      expect(errors).toHaveLength(2);
-      expect(errors[0].message).toContain('Cache key is required');
-      expect(errors[1].message).toContain('TTL must be positive');
+      expect(errors).toHaveLength(1);
+      expect(errors[0].path).toBe('tasks.test.cache');
+      expect(errors[0].message).toContain('Unsupported task capability');
     });
   });
 

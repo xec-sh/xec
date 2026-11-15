@@ -297,7 +297,9 @@ export function isDirectCommand(args: string[], commandRegistry?: string[], task
 /**
  * Create execution engine for a target
  */
-export async function createTargetEngine(target: any, options: any = {}): Promise<any> {
+type TargetExecutionEngine = ReturnType<typeof $.local> | ReturnType<typeof $.ssh> | ReturnType<typeof $.k8s>;
+
+export async function createTargetEngine(target: any, options: any = {}): Promise<TargetExecutionEngine> {
   const config = target.config as any;
 
   switch (target.type) {

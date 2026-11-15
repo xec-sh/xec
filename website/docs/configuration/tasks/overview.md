@@ -1,558 +1,181 @@
 ---
 title: Tasks Overview
-description: Understanding automation tasks in Xec
+description: Named commands and bounded pipelines, with explicit execution and failure contracts
 ---
 
 # Tasks Overview {#tasks-overview}
 
-Tasks are reusable automation workflows that encapsulate complex operations into simple, parameterized commands. They form the backbone of Xec's automation capabilities, enabling you to define once and execute anywhere.
+Use a task when an operation should have a stable project command: `xec run check`,
+`xec run build`, or `xec run report --format json`. A task names existing tools and
+coordinates their execution. It does not replace their build graph, cache, schema
+migration rules, or service lifecycle.
 
-## What Are Tasks? {#what-are-tasks}
+For example, Xec manages this repository through `.xec` commands and tasks;
+Turbo still owns the package build/test graph and cache. Omnitron owns the
+applications it manages. Keep that division when writing your own automation.
 
-Tasks are named sequences of commands that can:
-- Execute across multiple targets
-- Accept parameters
-- Handle errors gracefully
-- Run steps conditionally
-- Execute in parallel
-- Emit and respond to events
-- Be composed into larger workflows
+## Version boundary {#version-boundary}
+
+The published **0.12.0** CLI supports tasks, but its executor has important defects:
+YAML command values are inserted as raw shell text, script tasks ignore dry-run,
+fail-fast can skip `alwaysRun`, and pipeline defaults can be lost. Do not use that
+version to accept untrusted task parameters or to preview an operation with side
+effects. A TypeScript program with explicit Core argument arrays is the appropriate
+boundary for untrusted input on that release.
+
+The hardened contract below is implemented in **unreleased `main`**. It is not a
+claim that installing `@xec-sh/cli@0.12.0` receives these fixes. Confirm the release
+containing them before relying on the changed behavior.
 
 ## Basic Task Structure {#basic-task-structure}
 
+Place tasks in `.xec/config.yaml`:
+
 ```yaml
+version: "1.0"
 tasks:
-  # Simple command task
-  hello:
-    command: echo "Hello, World!"
-  
-  # Multi-step task
-  deploy:
-    description: Deploy application
+  version: node --version
+  check:
+    description: Check types, then run the package tests
     steps:
-      - command: git pull
-      - command: npm install
-      - command: npm run build
-      - command: pm2 restart app
+      - name: Types
+        command: pnpm typecheck
+      - name: Tests
+        command: pnpm test
 ```
+
+```bash
+pnpm exec xec inspect tasks
+pnpm exec xec run version
+pnpm exec xec run check
+```
+
+These commands assume the CLI is pinned in the project's dependencies and the
+package supplies `typecheck` and `test` scripts. A bare task name is also available
+through the CLI dispatcher; `xec run <name>` is unambiguous when a task name could
+collide with a built-in or project command.
 
 ## Task Types {#task-types}
 
-### 1. Command Tasks {#1-command-tasks}
+A task defines exactly one execution form:
 
-Single command execution:
+| Form | Meaning |
+| --- | --- |
+| `command: string` | Trusted shell program, with configured values passed through Core's escaping boundary |
+| `script: path` | Local JavaScript/TypeScript file loaded through Xec; the value is a file path, not inline code |
+| `steps: [...]` | An ordered or bounded parallel pipeline of commands, nested tasks and script files |
 
-```yaml
-tasks:
-  backup:
-    command: tar -czf backup.tar.gz /data
-    target: backup-server
-```
+Use a TypeScript script for branching, typed data processing, external APIs, or
+an operation whose state must be reconciled after interruption. Use a dynamic
+[project command](../../commands/custom/creating-commands.md) for a dedicated CLI with
+its own options and help. YAML tasks are intentionally smaller than those APIs.
 
-### 2. Script Tasks {#2-script-tasks}
-
-Execute scripts:
-
-```yaml
-tasks:
-  process:
-    script: |
-      const data = await fetchData();
-      const processed = transform(data);
-      await save(processed);
-    description: Process data pipeline
-```
-
-### 3. Multi-Step Tasks {#3-multi-step-tasks}
-
-Complex workflows:
+## Parameters and data {#parameters-and-data}
 
 ```yaml
+version: "1.0"
 tasks:
-  release:
-    steps:
-      - name: Run tests
-        command: npm test
-      - name: Build application
-        command: npm run build
-      - name: Deploy to production
-        task: deploy-prod
-```
-
-### 4. Parallel Tasks {#4-parallel-tasks}
-
-Concurrent execution:
-
-```yaml
-tasks:
-  health-check:
-    parallel: true
-    targets:
-      - hosts.web-1
-      - hosts.web-2
-      - hosts.web-3
-    command: curl http://localhost/health
-```
-
-## Task Parameters {#task-parameters}
-
-Accept input parameters:
-
-```yaml
-tasks:
-  scale:
-    description: Scale deployment
+  greet:
     params:
-      - name: replicas
-        type: number
-        required: true
-        min: 1
-        max: 10
-        description: Number of replicas
-    command: |
-      kubectl scale deployment/app \
-        --replicas=${params.replicas}
+      - name: name
+        type: string
+        default: World
+    command: printf 'Hello, %s\n' ${params.name}
 ```
-
-## Task Composition {#task-composition}
-
-Build complex tasks from simpler ones:
-
-```yaml
-tasks:
-  setup:
-    steps:
-      - command: apt-get update
-      - command: apt-get install -y nginx
-  
-  deploy:
-    steps:
-      - task: setup
-      - command: cp app.conf /etc/nginx/
-      - command: systemctl restart nginx
-```
-
-## Error Handling {#error-handling}
-
-Control error behavior:
-
-```yaml
-tasks:
-  resilient:
-    steps:
-      - command: test-connection
-        onFailure:
-          retry: 3
-          delay: 5s
-      
-      - command: critical-operation
-        onFailure: abort
-      
-      - command: optional-cleanup
-        onFailure: continue
-```
-
-## Conditional Execution {#conditional-execution}
-
-Execute steps conditionally:
-
-```yaml
-tasks:
-  smart-deploy:
-    steps:
-      - command: check-health
-        register: health_status
-      
-      - command: deploy-blue
-        when: health_status.exitCode != 0
-      
-      - command: deploy-green
-        when: health_status.exitCode == 0
-```
-
-## Task Hooks {#task-hooks}
-
-Execute code at specific points:
-
-```yaml
-tasks:
-  monitored:
-    hooks:
-      before:
-        - command: echo "Starting task..."
-      after:
-        - command: echo "Task completed"
-      onError:
-        - command: send-alert
-    
-    command: critical-operation
-```
-
-## Event System {#event-system}
-
-Emit and respond to events:
-
-```yaml
-tasks:
-  producer:
-    command: process-data
-    emits:
-      - name: data-processed
-        data: { status: "complete" }
-  
-  consumer:
-    on:
-      data-processed: |
-        echo "Data processing complete"
-```
-
-## Task Scheduling {#task-scheduling}
-
-Schedule recurring tasks:
-
-```yaml
-tasks:
-  backup:
-    schedule: "0 2 * * *"  # 2 AM daily
-    command: backup.sh
-    
-  cleanup:
-    schedule: "@hourly"
-    command: clean-temp-files.sh
-```
-
-## Task Templates {#task-templates}
-
-Create reusable patterns:
-
-```yaml
-tasks:
-  $template-deploy:
-    params:
-      - name: service
-        required: true
-    steps:
-      - command: docker pull ${params.service}:latest
-      - command: docker stop ${params.service}
-      - command: docker run -d ${params.service}:latest
-  
-  deploy-web:
-    template: $template-deploy
-    params:
-      service: web-app
-  
-  deploy-api:
-    template: $template-deploy
-    params:
-      service: api-server
-```
-
-## Task Dependencies {#task-dependencies}
-
-Define execution order:
-
-```yaml
-tasks:
-  prepare:
-    command: setup-environment
-  
-  build:
-    dependsOn: [prepare]
-    command: compile-code
-  
-  test:
-    dependsOn: [build]
-    command: run-tests
-  
-  deploy:
-    dependsOn: [test]
-    command: deploy-application
-```
-
-## Task Caching {#task-caching}
-
-Cache task results:
-
-```yaml
-tasks:
-  expensive-operation:
-    command: generate-report
-    cache:
-      key: "report-${params.date}"
-      ttl: 3600  # 1 hour
-      storage: redis
-```
-
-## Private Tasks {#private-tasks}
-
-Hide internal tasks:
-
-```yaml
-tasks:
-  _internal-setup:  # Prefix with underscore
-    private: true
-    command: internal-configuration
-  
-  public-task:
-    steps:
-      - task: _internal-setup
-      - command: public-operation
-```
-
-## Task Execution {#task-execution}
-
-### Direct Execution {#direct-execution}
 
 ```bash
-# Execute task
-xec run deploy
-
-# With parameters
-xec run scale -p replicas=5
-# or, invoking the task directly without `run`:
-xec scale --replicas 5
-
-# On specific target
-xec on hosts.backup-server --task backup
+pnpm exec xec run greet --name Engineer
+pnpm exec xec run greet -p name=Engineer
 ```
 
-### From Configuration {#from-configuration}
+In the hardened executor, parameters, environment values, secrets, command output
+and registered step output remain data. A value containing `${cmd:...}` is not
+executed again. Only variable templates authored in configuration may recursively
+refer to other declared variables. This does not make an untrusted configuration
+safe: its literal commands and scripts are executable code.
 
-```yaml
-# Reference in other tasks
-tasks:
-  full-deploy:
-    steps:
-      - task: test
-      - task: build
-      - task: deploy
+Environment overrides such as `XEC_VARS_NAME` remain literal data even through
+variable references and save/reload. They cannot introduce task, profile or
+extension definitions. A separate profile YAML file is subject to the same
+command-substitution trust gate as the main configuration. These protections are
+also part of the unreleased fixes.
+
+Arrays expand to separate arguments and must appear outside literal quotes.
+Normal POSIX/PowerShell quoted scalar values are supported. Complex shell
+expansions, here-documents, and escaped interpolation positions fail explicitly;
+move that logic into a script and use an explicit argument array.
+
+## Execution scope {#execution-scope}
+
+A pipeline carries its `target`, `workdir`, `env` and command `timeout` into its
+steps and nested tasks. An explicit step target overrides the inherited target;
+caller options override task defaults. Environment forwarding includes only
+explicit target/task/step/caller configuration. Local commands still inherit the
+local process environment in the local adapter.
+
+A command task can provide distinct `targets` for fan-out. Every target resolves
+before commands start; the default concurrency limit is 8. Set `maxConcurrent`
+when a smaller or larger bounded fan-out is appropriate. `target` and `targets`
+are mutually exclusive. Multiple targets on script or pipeline definitions are
+rejected; call explicit per-target tasks instead.
+
+A script runs locally. Inherited command defaults configure its `$target` handle;
+they do not change `process.cwd()`, mutate `process.env`, move JavaScript to the
+remote host, or impose a deadline on arbitrary JavaScript. In-process script
+steps, including nested script tasks, cannot run in a parallel pipeline.
+
+## Completion and failure {#completion-and-failure}
+
+The CLI exits nonzero for a failed task. The `TaskManager` API returns a
+`TaskResult`; callers must inspect `success` rather than assume that a resolved
+promise proves success.
+
+```typescript
+import { ConfigurationManager, TaskManager } from '@xec-sh/ops';
+
+const manager = new TaskManager({ configManager: new ConfigurationManager() });
+const result = await manager.run('check');
+if (!result.success) {
+  throw result.error ?? new Error('Project checks failed');
+}
 ```
 
-### From Scripts {#from-scripts}
+Pipeline results retain source order and indices, even when names repeat or steps
+finish concurrently. Skipped steps include a reason. `alwaysRun` performs cleanup
+after a failure; in a parallel pipeline it waits for every already-started step.
+A successful cleanup does not turn the failed operation into a success.
 
-```javascript
-import { tasks } from '@xec-sh/ops';
+`failFast` stops queued work; it does not cancel work already running. Automatic
+retry is restricted to a single command with a confirmed nonzero exit. A timeout
+or lost response is not proof that an effect did not occur. Recovery for critical
+operations needs an operation-specific state/ownership contract; a generic task
+pipeline does not supply durable transactions or automatic rollback.
 
-await tasks.run('deploy', { version: '1.2.3' });
-```
+## Preview {#preview}
 
-## Task Variables {#task-variables}
+In hardened `main`, `xec run <task> --dry-run` validates the task shape and shows
+authored operations without loading scripts, resolving targets, evaluating
+conditions, or running executable value providers. Values that require command or
+secret-provider evaluation during configuration load cause an explicit refusal.
+They are unknown, not replaced with invented values.
 
-Access task context:
+Preview success means that a preview completed. It is not an execution receipt or
+proof that a target is reachable. The published 0.12.0 dry-run limitations above
+still apply until the corrected release is installed.
 
-```yaml
-tasks:
-  context-aware:
-    command: |
-      echo "Task: ${task.name}"
-      echo "Target: ${target.name}"
-      echo "Profile: ${profile}"
-      echo "Param: ${params.value}"
-```
+## Deliberate limits {#deliberate-limits}
 
-## Best Practices {#best-practices}
+The task executor does not implement `hooks`, `emits`, event subscriptions through
+`on`, `cache`, `schedule`, `template`, or `dependsOn`. Hardened `main` rejects these
+keys instead of silently ignoring them. Use explicit steps, the owning operation
+API, an external scheduler, and the build tool's cache where applicable.
 
-### 1. Single Responsibility {#1-single-responsibility}
-
-```yaml
-# Good - focused tasks
-tasks:
-  test:
-    command: npm test
-  build:
-    command: npm run build
-
-# Bad - doing too much
-tasks:
-  do-everything:
-    command: npm test && npm build && deploy
-```
-
-### 2. Descriptive Names {#2-descriptive-names}
-
-```yaml
-# Good
-tasks:
-  deploy-production-api:
-    description: Deploy API to production cluster
-
-# Bad
-tasks:
-  d-p-a:  # Unclear
-```
-
-### 3. Parameter Validation {#3-parameter-validation}
-
-```yaml
-tasks:
-  validated:
-    params:
-      - name: environment
-        type: enum
-        values: [dev, staging, prod]
-        required: true
-```
-
-### 4. Error Recovery {#4-error-recovery}
-
-```yaml
-tasks:
-  resilient:
-    steps:
-      - command: risky-operation
-        onFailure:
-          retry: 3
-          task: recovery-task
-```
-
-### 5. Documentation {#5-documentation}
-
-```yaml
-tasks:
-  complex-migration:
-    description: |
-      Performs database migration with backup.
-      WARNING: This task modifies production data.
-      Duration: ~15 minutes
-      Required permissions: DBA role
-```
-
-## Common Patterns {#common-patterns}
-
-### Deployment Pipeline {#deployment-pipeline}
-
-```yaml
-tasks:
-  ci-pipeline:
-    steps:
-      - name: Checkout code
-        command: git pull origin main
-      
-      - name: Install dependencies
-        command: npm ci
-      
-      - name: Run tests
-        command: npm test
-        onFailure: abort
-      
-      - name: Build application
-        command: npm run build
-      
-      - name: Deploy
-        task: deploy-${params.environment}
-```
-
-### Health Monitoring {#health-monitoring}
-
-```yaml
-tasks:
-  monitor-services:
-    parallel: true
-    targets:
-      - hosts.web-server
-      - hosts.api-server
-      - hosts.db-server
-    steps:
-      - command: check-service-health
-      - command: check-disk-space
-      - command: check-memory-usage
-```
-
-### Backup Strategy {#backup-strategy}
-
-```yaml
-tasks:
-  backup-all:
-    steps:
-      - name: Backup database
-        task: backup-db
-        target: hosts.db-server
-      
-      - name: Backup files
-        task: backup-files
-        target: hosts.file-server
-      
-      - name: Verify backups
-        task: verify-backups
-        target: hosts.backup-server
-```
-
-## Advanced Features {#advanced-features}
-
-### Dynamic Task Generation {#dynamic-task-generation}
-
-```yaml
-tasks:
-  deploy-all:
-    script: |
-      const services = await getServices();
-      for (const service of services) {
-        await xec.run('deploy', {
-          params: { service: service.name }
-        });
-      }
-```
-
-### Task Middleware {#task-middleware}
-
-```yaml
-tasks:
-  authenticated:
-    middleware:
-      - auth-check
-      - rate-limit
-    command: sensitive-operation
-```
-
-### Task Metrics {#task-metrics}
-
-```yaml
-tasks:
-  monitored:
-    metrics:
-      enabled: true
-      collector: prometheus
-    command: important-operation
-```
-
-## Troubleshooting {#troubleshooting}
-
-### Task Not Found {#task-not-found}
-
-```bash
-# List available tasks
-xec task list
-
-# Check task definition
-xec config show --tasks
-```
-
-### Parameter Issues {#parameter-issues}
-
-```bash
-# Show task parameters
-xec task info deploy
-
-# Validate parameters
-xec run deploy --dry-run --replicas 5
-```
-
-### Execution Failures {#execution-failures}
-
-```bash
-# Debug mode
-xec run deploy --debug
-
-# Verbose output
-xec run deploy --verbose
-```
-
-## Next Steps {#next-steps}
-
-- [Simple Tasks](./simple-tasks.md) - Basic task creation
-- [Multi-Step Tasks](./multi-step-tasks.md) - Complex workflows
+`private` hides a task from the ordinary listing. It is not authorization: a caller
+who knows the name can still execute it.
 
 ## See Also {#see-also}
 
-- [Task Command](../../commands/built-in/run.md) - Running tasks
-- [Best Practices](../advanced/best-practices.md) - Task design patterns
+- [Command and script tasks](./simple-tasks.md)
+- [Pipeline execution and recovery](./multi-step-tasks.md)
+- [`run` command](../../commands/built-in/run.md)
+- [Choosing CLI, scripts, tasks or library APIs](../../introduction/when-to-use.md)

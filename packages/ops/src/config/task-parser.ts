@@ -22,10 +22,19 @@ export class TaskParser {
 
     // Handle simple string command
     if (typeof config === 'string') {
+      if (!config.trim()) {
+        this.addError(`tasks.${taskName}`, 'Command must be a non-empty string');
+        return null;
+      }
       return {
         command: config,
         description: `Execute: ${config}`,
       };
+    }
+
+    if (!config || typeof config !== 'object' || Array.isArray(config)) {
+      this.addError(`tasks.${taskName}`, 'Task must be a command string or an object');
+      return null;
     }
 
     // Validate task definition
@@ -67,49 +76,70 @@ export class TaskParser {
    */
   private validateTaskDefinition(name: string, task: TaskDefinition): void {
     const path = `tasks.${name}`;
-
-    // Must have either command, steps, or script
-    if (!task.command && !task.steps && !task.script) {
-      this.addError(path, 'Task must have either command, steps, or script');
+    const known = new Set(['command', 'script', 'description', 'target', 'targets', 'params', 'steps',
+      'env', 'workdir', 'timeout', 'parallel', 'failFast', 'maxConcurrent', 'onSuccess', 'onError', 'private',
+      'hooks', 'emits', 'on', 'cache', 'schedule', 'template', 'dependsOn']);
+    for (const key of Object.keys(task)) if (!known.has(key)) this.addError(`${path}.${key}`, 'Unknown task option');
+    for (const key of ['parallel', 'failFast', 'private'] as const) {
+      if (task[key] !== undefined && typeof task[key] !== 'boolean') this.addError(`${path}.${key}`, 'Must be a boolean');
     }
+    this.validateEnvironment(`${path}.env`, task.env);
+    this.validateString(`${path}.workdir`, task.workdir);
+    this.validateTaskHandler(`${path}.onSuccess`, task.onSuccess);
+    this.validateTaskHandler(`${path}.onError`, task.onError);
+    if (task.parallel !== undefined && !task.steps) this.addError(`${path}.parallel`, 'parallel requires a pipeline task');
+    if (task.failFast !== undefined && !task.steps) this.addError(`${path}.failFast`, 'failFast requires a pipeline task');
+    if (task.maxConcurrent !== undefined && !task.parallel && !task.targets) this.addError(`${path}.maxConcurrent`, 'maxConcurrent requires parallel steps or command targets');
 
-    // Cannot have both command and steps
-    if (task.command && task.steps) {
-      this.addError(path, 'Task cannot have both command and steps');
+
+    for (const key of ['hooks', 'emits', 'on', 'cache', 'schedule', 'template', 'dependsOn'] as const) {
+      if (task[key] !== undefined) this.addError(`${path}.${key}`, 'Unsupported task capability; use an explicit script or operation API');
+    }
+    for (const key of ['command', 'script'] as const) {
+      if (task[key] !== undefined && (typeof task[key] !== 'string' || !task[key]!.trim())) {
+        this.addError(`${path}.${key}`, 'Must be a non-empty string');
+      }
+    }
+    if ([task.command, task.steps, task.script].filter(value => value !== undefined).length !== 1) {
+      this.addError(path, 'Task must define exactly one of command, steps, or script');
+    }
+    this.validateTargets(path, task);
+    if (task.targets && !task.command) this.addError(`${path}.targets`, 'Multiple targets require a command task');
+    if (task.steps !== undefined && (!Array.isArray(task.steps) || task.steps.length === 0)) {
+      this.addError(`${path}.steps`, 'Must be a non-empty array');
+      return;
     }
 
     // Validate parameters
-    if (task.params) {
-      this.validateParameters(path, task.params);
+    if (task.params !== undefined) {
+      if (!Array.isArray(task.params)) this.addError(`${path}.params`, 'Parameters must be an array');
+      else this.validateParameters(path, task.params);
     }
 
     // Validate steps
     if (task.steps) {
       this.validateSteps(path, task.steps);
+      if (task.parallel) {
+        task.steps.forEach((step, index) => {
+          if (!step || typeof step !== 'object') return;
+          if (step.register) this.addError(`${path}.steps[${index}].register`, 'Parallel steps cannot register outputs for dependent steps');
+          if (step.script) this.addError(`${path}.steps[${index}].script`, 'In-process scripts cannot run as parallel steps; use command tasks for process isolation');
+        });
+      }
     }
 
     // Validate parallel execution options
-    if (task.parallel && task.maxConcurrent !== undefined) {
-      if (task.maxConcurrent < 1) {
+    if (task.maxConcurrent !== undefined) {
+      if (!Number.isSafeInteger(task.maxConcurrent) || task.maxConcurrent < 1) {
         this.addError(`${path}.maxConcurrent`, 'Must be at least 1');
-      }
-    }
-
-    // Validate cache configuration
-    if (task.cache) {
-      if (!task.cache.key) {
-        this.addError(`${path}.cache`, 'Cache key is required');
-      }
-      if (task.cache.ttl !== undefined && task.cache.ttl < 0) {
-        this.addError(`${path}.cache.ttl`, 'TTL must be positive');
       }
     }
 
     // Validate timeout
     if (task.timeout !== undefined) {
       const timeout = this.parseTimeout(task.timeout);
-      if (timeout < 0) {
-        this.addError(`${path}.timeout`, 'Timeout must be positive');
+      if (!Number.isSafeInteger(timeout) || timeout < 0) {
+        this.addError(`${path}.timeout`, 'Timeout must be a non-negative integer in milliseconds');
       }
     }
   }
@@ -122,6 +152,10 @@ export class TaskParser {
 
     params.forEach((param, index) => {
       const paramPath = `${path}.params[${index}]`;
+      if (!param || typeof param !== 'object' || typeof param.name !== 'string' || !param.name) {
+        this.addError(paramPath, 'Parameter must be an object with a non-empty name');
+        return;
+      }
 
       // Check for duplicate names
       if (names.has(param.name)) {
@@ -170,6 +204,30 @@ export class TaskParser {
   private validateSteps(path: string, steps: TaskStep[]): void {
     steps.forEach((step, index) => {
       const stepPath = `${path}.steps[${index}]`;
+      if (!step || typeof step !== 'object' || Array.isArray(step)) {
+        this.addError(stepPath, 'Step must be an object');
+        return;
+      }
+      const known = new Set(['name', 'command', 'task', 'script', 'target', 'targets', 'args', 'env',
+        'when', 'onSuccess', 'onFailure', 'alwaysRun', 'register', 'parallel']);
+      for (const key of Object.keys(step)) if (!known.has(key)) this.addError(`${stepPath}.${key}`, 'Unknown step option');
+      if (step.onSuccess !== undefined && !['continue', 'abort'].includes(step.onSuccess)) this.addError(`${stepPath}.onSuccess`, 'Expected continue or abort');
+      if (step.onFailure !== undefined && !(typeof step.onFailure === 'string' && ['continue', 'abort', 'ignore'].includes(step.onFailure)) &&
+        (!step.onFailure || typeof step.onFailure !== 'object' || Array.isArray(step.onFailure))) {
+        this.addError(`${stepPath}.onFailure`, 'Expected continue, abort, ignore, or a recovery object');
+      }
+      for (const key of ['command', 'task', 'script', 'register'] as const) this.validateString(`${stepPath}.${key}`, step[key]);
+      this.validateEnvironment(`${stepPath}.env`, step.env);
+      if (step.alwaysRun !== undefined && typeof step.alwaysRun !== 'boolean') this.addError(`${stepPath}.alwaysRun`, 'Must be a boolean');
+
+
+      if (step.script && step.register) this.addError(`${stepPath}.register`, 'Script console output is not captured; register a command or nested command task');
+      if (step.parallel !== undefined) this.addError(`${stepPath}.parallel`, 'Set parallel on the containing task, not a step');
+      this.validateTargets(stepPath, step);
+      if (step.targets && !step.command) this.addError(`${stepPath}.targets`, 'Multiple targets require a command step');
+      if (step.args !== undefined && (!step.script || !Array.isArray(step.args) || !step.args.every(arg => typeof arg === 'string'))) {
+        this.addError(`${stepPath}.args`, 'args is an array of strings for a script step');
+      }
 
       // Must have command, task, or script
       if (!step.command && !step.task && !step.script) {
@@ -182,21 +240,31 @@ export class TaskParser {
         this.addError(stepPath, 'Step can only have one of: command, task, or script');
       }
 
-      // Validate targets
-      if (step.target && step.targets) {
-        this.addError(stepPath, 'Step cannot have both target and targets');
-      }
-
       // Validate error handling
-      if (step.onFailure && typeof step.onFailure === 'object') {
-        const handler = step.onFailure as any;
-        if (handler.retry !== undefined && handler.retry < 0) {
-          this.addError(`${stepPath}.onFailure.retry`, 'Retry count must be positive');
+      if (step.onFailure && typeof step.onFailure === 'object' && !Array.isArray(step.onFailure)) {
+        const handler = step.onFailure;
+        if (step.targets) this.addError(`${stepPath}.onFailure`, 'Fan-out recovery needs explicit per-target tasks; it cannot fall back to local execution');
+        for (const key of Object.keys(handler)) if (!['retry', 'delay', 'task', 'command'].includes(key)) this.addError(`${stepPath}.onFailure.${key}`, 'Unknown recovery option');
+        if (handler.retry !== undefined && (!Number.isSafeInteger(handler.retry) || handler.retry < 0)) {
+          this.addError(`${stepPath}.onFailure.retry`, 'Retry count must be a non-negative integer');
         }
+        if (handler.retry && (!step.command || step.targets)) {
+          this.addError(`${stepPath}.onFailure.retry`, 'Automatic retry requires one command on one target');
+        }
+        for (const key of ['task', 'command'] as const) this.validateString(`${stepPath}.onFailure.${key}`, handler[key]);
+        const delay = handler.delay === undefined ? 0 : this.parseTimeout(handler.delay);
+        if (!Number.isSafeInteger(delay) || delay < 0) {
+          this.addError(`${stepPath}.onFailure.delay`, 'Invalid retry delay');
+        }
+        if (handler.task && handler.command) this.addError(`${stepPath}.onFailure`, 'Choose either a recovery task or command');
+        if (handler.retry === undefined && !handler.command && !handler.task) this.addError(`${stepPath}.onFailure`, 'Empty error handler');
       }
 
       // Validate conditional execution
-      if (step.when) {
+      if (step.when !== undefined && !['string', 'number', 'boolean'].includes(typeof step.when)) {
+        this.addError(`${stepPath}.when`, 'Condition must be a boolean, number or expression string');
+      }
+      if (typeof step.when === 'string') {
         // Basic validation - just check it's not empty
         if (step.when.trim() === '') {
           this.addError(`${stepPath}.when`, 'Condition cannot be empty');
@@ -205,9 +273,42 @@ export class TaskParser {
     });
   }
 
+  private validateString(path: string, value: unknown): void {
+    if (value !== undefined && (typeof value !== 'string' || !value.trim())) this.addError(path, 'Must be a non-empty string');
+  }
+
+  private validateEnvironment(path: string, value: unknown): void {
+    if (value !== undefined && (!value || typeof value !== 'object' || Array.isArray(value) ||
+      Object.values(value).some(item => typeof item !== 'string'))) this.addError(path, 'Environment must be an object of string values');
+  }
+
+  private validateTaskHandler(path: string, value: unknown): void {
+    if (value === undefined) return;
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      this.addError(path, 'Task handler must be an object with emit or command');
+      return;
+    }
+    const handler = value as Record<string, unknown>;
+    for (const key of Object.keys(handler)) if (!['emit', 'command'].includes(key)) this.addError(`${path}.${key}`, 'Unknown task handler option');
+    if (handler['emit'] === undefined && handler['command'] === undefined) this.addError(path, 'Task handler must define emit or command');
+    this.validateString(`${path}.emit`, handler['emit']);
+    this.validateString(`${path}.command`, handler['command']);
+  }
+
   /**
-   * Validate parameter default value matches type
+   * Validate explicit target selection before execution
    */
+  private validateTargets(path: string, value: { target?: string; targets?: string[] }): void {
+    if (value.target !== undefined && (typeof value.target !== 'string' || !value.target.trim())) {
+      this.addError(`${path}.target`, 'Target must be a non-empty string');
+    }
+    if (value.target !== undefined && value.targets !== undefined) this.addError(path, 'Step or task cannot have both target and targets');
+    if (value.targets !== undefined && (!Array.isArray(value.targets) || value.targets.length === 0 ||
+      value.targets.some(ref => typeof ref !== 'string' || !ref.trim()) || new Set(value.targets).size !== value.targets.length)) {
+      this.addError(`${path}.targets`, 'Targets must be a non-empty list of distinct target references');
+    }
+  }
+
   private validateDefaultValue(path: string, param: TaskParameter): void {
     const { type, default: defaultValue } = param;
 
@@ -256,6 +357,7 @@ export class TaskParser {
       return timeout;
     }
 
+    if (typeof timeout !== 'string') return -1;
     const match = timeout.match(/^(\d+)(ms|s|m|h)?$/);
     if (!match) {
       return -1;

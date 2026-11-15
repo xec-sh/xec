@@ -69,6 +69,7 @@ export function dialectFor(shell?: string | boolean): ShellDialect {
  * ```
  */
 export function quoteForShell(value: string, dialect: ShellDialect): string {
+  if (value.includes('\0')) throw new TypeError('A command argument cannot contain a NUL byte');
   switch (dialect) {
     case 'posix':
       return quotePosix(value);
@@ -133,13 +134,14 @@ const CMD_METACHARACTERS = /[()<>&|^"!,;=\s]/g;
  *    every metacharacter, including the quotes produced by layer 1, is
  *    caret-escaped.
  *
- * `%` cannot be fully neutralised by a caret. It is broken up with an empty
- * variable reference (`%` → `%%cd:~0,0%%`-style expansion is fragile), so we
- * instead emit `^%` and rely on the surrounding caret escaping; callers that
- * must pass literal `%` through `cmd.exe` should use argv execution
- * (`shell: false`) instead.
+ * Percent expansion, delayed expansion and line breaks cannot be neutralised
+ * consistently across cmd.exe invocation modes. Refuse those inputs; direct
+ * argv execution (`shell: false` with an args array) preserves them exactly.
  */
 function quoteCmd(value: string): string {
+  if (/[%!\r\n]/.test(value)) {
+    throw new TypeError('cmd.exe cannot safely interpolate %, ! or line breaks; use shell: false with an args array');
+  }
   if (value === '') return '^"^"';
   if (SAFE_TOKEN.test(value) && !value.includes('%')) return value;
 
@@ -263,7 +265,7 @@ export function validateEnvName(name: string): string {
  * @returns The assembled command string.
  */
 export function interpolate(strings: TemplateStringsArray, ...values: unknown[]): string {
-  return interpolateWithQuote(strings, undefined, ...values);
+  return interpolateInContext(strings, dialectFor(undefined), values);
 }
 
 /**
@@ -279,7 +281,7 @@ export function interpolateForShell(
   strings: TemplateStringsArray,
   ...values: unknown[]
 ): string {
-  return interpolateWithQuote(strings, value => quoteForShell(value, dialect), ...values);
+  return interpolateInContext(strings, dialect, values);
 }
 
 /**
@@ -330,29 +332,108 @@ export function interpolateWithQuote(
   quoteFn?: ((value: string) => string) | undefined,
   ...values: unknown[]
 ): string {
-  const applyQuote = quoteFn ?? ((value: string) => escapeArg(value));
+  return interpolateInContext(strings, dialectFor(undefined), values, quoteFn);
+}
+
+type QuoteContext = 'unquoted' | 'single' | 'double';
+
+/**
+ * Track only trusted literal syntax. Values never participate in this state
+ * machine. Normal single/double-quoted words are supported; shell programs
+ * embedded inside expansion/heredoc syntax require their own parser and are
+ * deliberately refused rather than receiving a falsely "escaped" value.
+ */
+function interpolateInContext(
+  strings: TemplateStringsArray,
+  dialect: ShellDialect,
+  values: readonly unknown[],
+  quoteFn?: (value: string) => string,
+): string {
+  let context: QuoteContext = 'unquoted';
+  let escaped = false;
+  let comment = false;
   let result = '';
+  let previous = '';
+  const escape = dialect === 'powershell' ? '`' : dialect === 'cmd' ? '^' : '\\';
 
-  for (let i = 0; i < strings.length; i++) {
-    result += strings[i];
-
-    if (i < values.length) {
-      const value = values[i];
-
-      // `null`/`undefined` would otherwise stringify to "null"/"undefined" and
-      // silently become a real argument. Emit an empty quoted token so the
-      // argument position is preserved rather than shifting the whole argv.
-      if (value === null || value === undefined) {
-        result += applyQuote('');
+  const inspect = (literal: string): void => {
+    for (let offset = 0; offset < literal.length; offset++) {
+      const char = literal[offset]!;
+      const next = literal[offset + 1];
+      if (comment) {
+        if (char === '\n') comment = false;
+        previous = char;
         continue;
       }
-
-      result += Array.isArray(value)
-        ? value.map(item => applyQuote(valueToString(item))).join(' ')
-        : applyQuote(valueToString(value));
+      if (escaped) {
+        escaped = false;
+        previous = char;
+        continue;
+      }
+      if (context === 'single') {
+        if (char === "'") {
+          if (dialect === 'powershell' && next === "'") offset++;
+          else context = 'unquoted';
+        }
+        previous = char;
+        continue;
+      }
+      if (char === escape) {
+        escaped = true;
+      } else if (dialect !== 'cmd' && values.length > 0 && (
+        (char === '$' && (next === '(' || next === '{' || next === "'" || next === '"')) ||
+        (dialect === 'posix' && char === '`') ||
+        (context === 'unquoted' && char === '<' && next === '<') ||
+        (dialect === 'powershell' && char === '@' && (next === '"' || next === "'"))
+      )) {
+        throw new TypeError('Interpolation inside shell expansions or here-documents is unsupported; resolve the value separately or use shell: false with an args array');
+      } else if (char === '"') {
+        context = context === 'double' ? 'unquoted' : 'double';
+      } else if (context === 'unquoted' && char === "'" && dialect !== 'cmd') {
+        context = 'single';
+      } else if (context === 'unquoted' && char === '#' && dialect !== 'cmd' &&
+        (dialect === 'powershell' || !previous || /[\s;|&()]/.test(previous))) {
+        comment = true;
+      }
+      previous = char;
     }
-  }
+  };
 
+  const encode = (value: unknown): string => {
+    const text = valueToString(value);
+    if (text.includes('\0')) throw new TypeError('A command argument cannot contain a NUL byte');
+    if (escaped || comment || (previous === '$' && context !== 'single')) {
+      throw new TypeError('An interpolated value cannot follow a shell escape or expansion prefix, or occur inside a comment');
+    }
+    if (context === 'unquoted') return (quoteFn ?? (v => quoteForShell(v, dialect)))(text);
+    if (quoteFn || dialect === 'cmd') {
+      throw new TypeError('This shell cannot safely interpolate inside literal quotes; remove the surrounding quotes or use shell: false with an args array');
+    }
+    if (context === 'single') {
+      return dialect === 'powershell' ? text.replace(/'/g, "''") : text.replace(/'/g, "'\\''");
+    }
+    return dialect === 'powershell'
+      ? text.replace(/[`"$]/g, char => '`' + char)
+      : text.replace(/[\\"$`]/g, char => '\\' + char);
+  };
+
+  for (let index = 0; index < strings.length; index++) {
+    const literal = strings[index]!;
+    inspect(literal);
+    result += literal;
+    if (index >= values.length) continue;
+    const value = values[index];
+    if (Array.isArray(value)) {
+      if (context !== 'unquoted') {
+        throw new TypeError('An interpolated argument array cannot occur inside literal quotes');
+      }
+      result += value.map(encode).join(' ');
+    } else {
+      result += encode(value);
+    }
+    // The next literal follows a complete data word, not the preceding syntax.
+    previous = 'x';
+  }
   return result;
 }
 

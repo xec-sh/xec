@@ -1,523 +1,207 @@
 ---
 title: Template Literals API
 sidebar_label: Template Literals
-description: Safe command building through template literals with automatic escaping
+description: Keep trusted command syntax separate from argument data, with explicit shell and argv contracts
 ---
 
 # Template Literals API {#template-literals-api}
 
-Template literals are the primary way to build commands in Xec. This API provides safe variable injection into commands with automatic escaping, preventing injections and errors.
+A tagged template separates the command you wrote from values received at runtime.
+The literal parts are trusted program syntax; substituted values are arguments.
+Keep that boundary when values come from a user, configuration, a file, an API or
+another command.
+
+```typescript
+import { $ } from '@xec-sh/core';
+
+const file = 'README.md';
+const result = await $`wc -c -- ${file}`;
+console.log(result.stdout);
+```
+
+This example uses POSIX tools. Choose tools available on the execution target;
+safe interpolation does not make shell syntax or programs portable.
 
 ## Basic Usage {#basic-usage}
 
-### Simple Command Execution {#simple-command-execution}
+A template is a shell program. Operators in its literal text, such as `|`, `&&`
+and `>`, are interpreted by the selected shell. Operators inside an interpolated
+value remain data.
 
 ```typescript
 import { $ } from '@xec-sh/core';
 
-// Simple command
-await $`ls -la`;
-
-// With variables
-const dir = '/home/user';
-await $`ls -la ${dir}`;
-
-// Multi-line commands
-await $`
-  echo "Starting process..."
-  npm install
-  npm build
-  echo "Process completed"
-`;
+const value = 'text; with $(shell syntax)';
+const result = await $`printf '%s\n' ${value}`;
+console.log(result.stdout);
 ```
 
-### Automatic Escaping {#automatic-escaping}
+Use an explicit `--` separator where the called program supports one. Escaping
+prevents a value from becoming shell source; it cannot stop a program from treating
+an argument such as `--delete` as an option.
 
-All values substituted through `${}` are automatically escaped:
+## Automatic Escaping {#automatic-escaping}
+
+Quoting follows the target shell: POSIX single-quoted words, PowerShell literal
+strings, or the supported `cmd.exe` encoding. The shell is selected through the
+engine or target configuration, not inferred from the argument itself.
+
+**Release boundary:** surrounding-quote handling and the fail-closed rules below
+are fixes in **unreleased `main`**, not published 0.12.0. On 0.12.0, place scalar
+substitutions outside literal quotes; use explicit `shell: false` argument arrays
+when exact arbitrary data is required.
+
+In hardened `main`, normal POSIX and PowerShell quoted scalar values are also
+supported. Do not add quotes merely to escape an argument; Xec already does that.
 
 ```typescript
-// Files with spaces
-const file = "my document.txt";
-await $`cat ${file}`;
-// Executes: cat 'my document.txt'
+import { $ } from '@xec-sh/core';
 
-// Special characters — a literal single quote inside the value is closed,
-// escaped, and reopened (the standard POSIX trick), not double-quoted
-const dangerous = "'; rm -rf /; echo '";
-await $`echo ${dangerous}`;
-// Executes: echo ''\''; rm -rf /; echo '\'''
-// Output: '; rm -rf /; echo '
+const name = 'Engineer';
+await $`printf '%s\n' ${name}`;
 ```
 
-The quoting shown here is POSIX, because that is the shell in play. Values
-are always quoted for the shell that will actually parse the command —
-`cmd.exe` gets caret escaping, PowerShell gets its own — so the protection
-and the parser never disagree. Set the shell with
-[`.shell(...)`](../../targets/local/shell-config.md) and the escaping
-follows.
+Complex shell expansions, here-documents, ANSI-C quoted literals and interpolation
+following an escape or inside a comment are rejected when a template contains
+values. Quoted arrays are rejected because one quoted word cannot represent
+several arguments. Resolve an operation separately or use a script with explicit
+argument arrays; do not bypass the refusal with `.raw` for untrusted input.
 
-The value arrives intact either way; what a shell then *prints* is its own
-convention, and `echo` differs between them. See
-[Windows and cross-platform scripts](../../targets/local/cross-platform.md).
+`cmd.exe` percent expansion, delayed expansion and line breaks cannot be reliably
+neutralized by caret quoting across invocation modes. Hardened `main` refuses
+those interpolated values, and interpolation inside literal cmd quotes. Direct
+argv execution is the appropriate path. NUL bytes are rejected because operating
+system argument strings cannot contain them.
+
+## Direct arguments without a shell {#direct-arguments-without-a-shell}
+
+Use the public command object when you have an executable and an argument array:
 
 ```typescript
+import { $ } from '@xec-sh/core';
 
-// Command injection attempt
-const userInput = "$(malicious command)";
-await $`echo ${userInput}`;
-// Safe! Outputs: $(malicious command)
+const values = ['a b', '%PATH%', '$(not executed)', 'line1\nline2'];
+const result = await $.execute({
+  command: process.execPath,
+  args: ['-e', 'console.log(JSON.stringify(process.argv.slice(1)))', '--', ...values],
+  shell: false,
+});
+console.log(result.stdout);
 ```
 
-Values are quoted with single quotes (POSIX shells don't expand anything
-inside single quotes), not double quotes — this matters if you're predicting
-the exact command string, e.g. for logs or tests.
+This preserves argument boundaries without a shell parser. The called program
+still interprets its own options and input; validate those semantics separately.
+A remote adapter may need to encode argv for its transport, so consult its target
+contract rather than assuming every remote protocol offers native argv.
 
 ## Data Types and Their Handling {#data-types-and-their-handling}
 
-### Strings {#strings}
-
-Strings are escaped with context awareness:
-
-```typescript
-const text = "Hello, World!";
-await $`echo ${text}`;  // echo 'Hello, World!'
-
-const path = "/path/with spaces/file.txt";
-await $`cat ${path}`;  // cat '/path/with spaces/file.txt'
-
-const quote = 'He said "Hello"';
-await $`echo ${quote}`;  // echo 'He said "Hello"' — double quotes need no escaping inside single quotes
-```
-
-### Numbers and Boolean Values {#numbers-and-boolean-values}
-
-```typescript
-const port = 3000;
-const count = 42;
-const enabled = true;
-
-await $`node server.js --port ${port}`;  // --port 3000
-await $`head -n ${count} file.txt`;       // head -n 42
-await $`./script.sh --verbose ${enabled}`; // --verbose true
-```
-
-### Arrays {#arrays}
-
-Arrays are expanded into separate arguments:
-
-```typescript
-const files = ['file1.txt', 'file2.txt', 'file3.txt'];
-await $`rm ${files}`;
-// Executes: rm file1.txt file2.txt file3.txt
-
-const flags = ['-v', '--recursive', '--force'];
-await $`command ${flags} target`;
-// Executes: command -v --recursive --force target
-
-// Empty array is ignored
-const empty: string[] = [];
-await $`ls ${empty} -la`;  // ls -la
-```
-
-### Objects {#objects}
-
-Objects are converted to JSON:
-
-```typescript
-const config = { 
-  name: 'app',
-  version: '1.0.0',
-  port: 3000 
-};
-
-await $`echo ${config}`;
-// Executes: echo '{"name":"app","version":"1.0.0","port":3000}'
-
-// Use in configuration files
-await $`echo ${config} > config.json`;
-```
-
-### null and undefined {#null-and-undefined}
-
-`null` and `undefined` interpolate to an empty **quoted argument** (`''`) —
-they don't vanish, so they still occupy a position in `argv`:
-
-```typescript
-const nullValue = null;
-const undefinedValue = undefined;
-
-await $`echo Value: ${nullValue}`;      // echo Value: ''
-await $`echo Value: ${undefinedValue}`; // echo Value: ''
-```
-
-This means `undefined` is not a clean way to make a flag disappear —
-`` $`command ${optionalFlag} file.txt` `` still passes an empty-string
-argument when `optionalFlag` is `undefined`, which most CLIs don't treat the
-same as omitting it entirely. Filter it out of an array instead:
-
-```typescript
-import { $ } from '@xec-sh/core';
-
-const verbose = process.env.VERBOSE === '1';
-const flags = verbose ? ['--verbose'] : [];
-await $`git status ${flags}`;
-```
-
-### Promises and Async Values {#promises-and-async-values}
-
-Template literals automatically await promise resolution:
-
-```typescript
-// Function returns Promise
-async function getVersion() {
-  return '1.2.3';
-}
-
-// Promise is automatically resolved
-await $`npm publish --tag ${getVersion()}`;
-// Executes: npm publish --tag 1.2.3
-
-// Promise chaining
-const data = fetch('/api/config').then(r => r.json());
-await $`deploy --config ${data}`;
-
-// Parallel resolution
-const [user, host] = [
-  Promise.resolve('admin'),
-  Promise.resolve('server.com')
-];
-await $`ssh ${user}@${host}`;
-```
-
-## Raw Mode - Without Escaping {#raw-mode---without-escaping}
-
-For cases when you need to disable escaping, `$.raw` is a separate tagged
-template that skips it:
-
-```typescript
-import { $ } from '@xec-sh/core';
-
-// Normal mode - with escaping
-const pattern = '*.txt';
-await $`ls ${pattern}`;  // ls '*.txt' (looks for file named *.txt)
-
-// Raw mode - without escaping
-await $.raw`ls ${pattern}`;  // ls *.txt (works as glob)
-
-// Useful for:
-// - Glob patterns
-const files = '*.{js,ts}';
-await $.raw`rm ${files}`;
-
-// - Redirections
-const output = '> output.txt';
-await $.raw`echo "test" ${output}`;
-
-// - Pipes
-const pipe = '| grep error';
-await $.raw`cat log.txt ${pipe}`;
-```
-
-⚠️ **Warning**: Use raw mode only with trusted data!
-
-## Complex Examples {#complex-examples}
-
-### Dynamic Command Building {#dynamic-command-building}
-
-```typescript
-// Conditional flags
-const verbose = process.env.DEBUG === 'true';
-const dryRun = process.env.DRY_RUN === 'true';
-
-const flags = [
-  verbose && '--verbose',
-  dryRun && '--dry-run',
-  '--color'
-].filter(Boolean);
-
-await $`npm publish ${flags}`;
-```
-
-### Command Templating {#command-templating}
-
-```typescript
-// Creating a reusable template
-function gitCommit(message: string, files: string[] = []) {
-  return $`git add ${files.length ? files : '.'} && git commit -m ${message}`;
-}
-
-await gitCommit('Initial commit');
-await gitCommit('Add features', ['src/feature.ts', 'tests/feature.test.ts']);
-```
-
-### Working with Paths {#working-with-paths}
-
-```typescript
-import * as path from 'path';
-
-const baseDir = '/projects';
-const projectName = 'my-app';
-const fileName = 'config.json';
-
-// Safe path construction
-const fullPath = path.join(baseDir, projectName, fileName);
-await $`cat ${fullPath}`;
-
-// Multiple paths
-const dirs = ['src', 'tests', 'docs'].map(d => path.join(baseDir, d));
-await $`ls -la ${dirs}`;
-```
-
-### Working with Environment {#working-with-environment}
-
-```typescript
-// Environment variables in commands
-const env = {
-  NODE_ENV: 'production',
-  PORT: '3000',
-  API_KEY: 'secret-key'
-};
-
-// Pass through env
-await $`node app.js`.env(env);
-
-// Or inline
-const port = 3000;
-const host = 'localhost';
-await $`NODE_ENV=production npm start -- --port ${port} --host ${host}`;
-```
-
-## Special Characters and Their Handling {#special-characters-and-their-handling}
-
-### Quotes {#quotes}
-
-```typescript
-// Single quotes — the value gets closed, escaped, and reopened
-const single = "It's a test";
-await $`echo ${single}`;  // echo 'It'\''s a test'
-
-// Double quotes — no escaping needed inside a single-quoted token
-const double = 'Say "Hello"';
-await $`echo ${double}`;  // echo 'Say "Hello"'
-
-// Mixed
-const mixed = `It's "complex"`;
-await $`echo ${mixed}`;  // echo 'It'\''s "complex"'
-```
-
-### Shell Characters {#shell-characters}
-
-```typescript
-// Special characters are escaped
-const special = '$HOME && ls || rm -rf /';
-await $`echo ${special}`;
-// Output: $HOME && ls || rm -rf /
-
-// Backticks
-const backticks = '`command`';
-await $`echo ${backticks}`;  // echo '`command`'
-
-// Shell variables
-const shellVar = '${PATH}';
-await $`echo ${shellVar}`;  // echo '${PATH}'
-```
-
-### Unicode and Emoji {#unicode-and-emoji}
-
-```typescript
-// Unicode is supported
-const unicode = 'Hello, world! 你好世界';
-await $`echo ${unicode}`;
-
-// Emoji work
-const emoji = '🚀 Deploying...';
-await $`echo ${emoji}`;
-
-// Special characters
-const special = '→ ← ↑ ↓ • × ÷';
-await $`echo ${special}`;
-```
-
-## Function Interpolation {#function-interpolation}
-
-Call the function yourself — `${getTimestamp()}`, not `${getTimestamp}` —
-interpolation doesn't invoke a bare function reference for you; it would be
-stringified as its source text instead. A `Promise` returned by the call is
-awaited automatically, as shown earlier.
-
-```typescript
-function getTimestamp() {
-  return new Date().toISOString();
-}
-
-await $`echo "Deployed at: ${getTimestamp()}"`;
-
-// Async functions
-async function getGitHash() {
-  return $`git rev-parse HEAD`.text();
-}
-
-await $`docker build -t app:${getGitHash()} .`;
-
-// Object methods
-const config = {
-  getConnectionString() {
-    return 'postgresql://localhost/db';
-  }
-};
-
-await $`psql ${config.getConnectionString()}`;
-```
-
-## Nested Template Literals {#nested-template-literals}
-
-```typescript
-// Commands can be nested
-const branch = await $`git branch --show-current`.text();
-await $`git push origin ${branch}`;
-
-// Or in one line
-await $`git push origin ${await $`git branch --show-current`.text()}`;
-
-// Complex compositions
-const files = await $`find . -name "*.js"`.lines();
-await $`eslint ${files}`;
-```
-
-## Multi-line Commands {#multi-line-commands}
-
-```typescript
-// Shell scripts
-await $`
-  set -e
-  echo "Starting deployment..."
-  
-  # Update code
-  git pull origin main
-  
-  # Install dependencies
-  npm ci
-  
-  # Build
-  npm run build
-  
-  # Restart
-  pm2 restart app
-  
-  echo "Deployment completed!"
-`;
-
-// With variables
-const appName = 'my-app';
-const environment = 'production';
-
-await $`
-  echo "Deploying ${appName} to ${environment}"
-  cd /apps/${appName}
-  git checkout ${environment}
-  npm run deploy:${environment}
-`;
-```
-
-## Error Handling in Template Literals {#error-handling-in-template-literals}
-
-```typescript
-import { $, CommandError } from '@xec-sh/core';
-
-try {
-  const result = await $`exit 1`;
-  console.log(result.stdout);
-} catch (error) {
-  if (!(error instanceof CommandError)) throw error;
-  console.error(error.exitCode, error.stderr);
-}
-```
-
-## Performance and Optimizations {#performance-and-optimizations}
-
-### String Reuse {#string-reuse}
+| Value | Representation |
+| --- | --- |
+| String | One escaped argument |
+| Number or boolean | Its textual value |
+| Array | Separate escaped arguments; an empty array contributes none |
+| Plain object | JSON text as one argument |
+| `null` or `undefined` | One empty argument, preserving its position |
+| Promise/thenable | Awaited before rendering |
+| Execution result | Its trimmed text output |
+
+Call a function to use its return value; interpolating a function reference does
+not invoke it. Avoid non-serializable objects as command input: circular objects
+can fall back to their string representation, which is not a useful data contract.
 
 ```typescript
 import { $ } from '@xec-sh/core';
 
 const files = ['README.md', 'package.json'];
-await $`wc -c ${files}`;
-const sizes = await $.parallel.map(files, file => $`wc -c ${file}`, { maxConcurrent: 2 });
-console.log(sizes);
+await $`wc -c -- ${files}`;
+
+const flags = process.env['VERBOSE'] === '1' ? ['--verbose'] : [];
+await $`git status ${flags}`;
 ```
 
-### Result Caching {#result-caching}
+Do not use `undefined` to omit a flag: it contributes an empty argument. Build an
+array of the arguments actually needed.
 
-```typescript
-// Caching expensive operations
-const getData = () => $`expensive-operation`.cache({ ttl: 60000 });
+## Promises and Async Values {#promises-and-async-values}
 
-// First call executes the command
-const data1 = await getData();
-
-// Second call returns cache
-const data2 = await getData();
-```
-
-## Debugging Template Literals {#debugging-template-literals}
-
-There is no built-in way to preview the resolved command string before
-running it — `ProcessPromise` doesn't expose the command, and calling
-`.toString()` on one just gives `"[object Object]"` (the default inherited
-from `Object.prototype`; it's unrelated to `ExecutionResult`'s own
-`.toString()`, which returns stdout once a command has actually run). To see
-what actually ran, either turn on verbose mode, which echoes each command
-before it runs:
-
-```typescript
-const file = "test file.txt";
-
-$.verbose = true;
-await $`cat ${file}`;
-// Outputs: $ cat 'test file.txt'
-```
-
-or listen for the `command:start` event, which fires with the same string:
+A returned command result remains data in the next operation:
 
 ```typescript
 import { $ } from '@xec-sh/core';
 
-$.on('command:start', ({ command }) => console.log('Executing', command));
-const file = 'test file.txt';
-await $`cat ${file}`;
+const revision = await $`git rev-parse --short HEAD`.text();
+await $`printf 'Revision: %s\n' ${revision}`;
 ```
 
-## Best Practices {#best-practices}
+Promise values are awaited before the command starts. Creating an input Promise
+may itself start work, so a template's laziness is not a no-effect preview of all
+code used to construct its inputs.
 
-### ✅ Good Practices {#-good-practices}
+## Raw Mode - Without Escaping {#raw-mode---without-escaping}
+
+`$.exec(command)` accepts a trusted complete command string. `$.raw` is a tagged
+template that inserts values verbatim. Both deliberately give their input shell
+program authority.
 
 ```typescript
-// Use variables for readability
-const sourceDir = '/source';
-const destDir = '/dest';
-await $`rsync -av ${sourceDir}/ ${destDir}/`;
+import { $ } from '@xec-sh/core';
 
-// Break down complex commands
-const files = await $`find . -type f -name "*.ts"`.lines();
-const filtered = files.filter(f => !f.includes('node_modules'));
-await $`prettier --write ${filtered}`;
-
-// Use destructuring
-const { stdout: version } = await $`node --version`;
+// Static program source owned by this script.
+const command = 'git status --short';
+const result = await $.exec(command);
+console.log(result.stdout);
 ```
 
-### ❌ Avoid {#-avoid}
+Do not build these strings with user parameters, API responses, secrets or command
+stdout. A local configuration file is not automatically trusted merely because
+it is on disk. YAML task commands in hardened `main` use the same Core literal/data
+boundary; they do not turn every resolved value into `.raw` source.
 
-Pass values as template substitutions and use `$.exec` only for trusted complete command text. Await the final command. Supply credentials through the target environment or stdin and register secrets before execution so diagnostic output can redact them.
+## Working with Environment {#working-with-environment}
 
-## Conclusion {#conclusion}
+Pass explicit environment through the command API:
 
-The Template Literals API in Xec provides:
+```typescript
+import { $ } from '@xec-sh/core';
 
-- **Security**: automatic escaping prevents injections
-- **Convenience**: natural JavaScript syntax
-- **Flexibility**: support for all JavaScript data types
-- **Asynchronicity**: automatic promise handling
-- **Readability**: code looks like regular shell commands
+const result = await $`node --version`.env({ NODE_ENV: 'test' });
+console.log(result.stdout);
+```
 
-This API is the foundation for safe and convenient command execution across all environments supported by Xec.
+Use the target's environment/stdin contract for credentials and register secrets
+for diagnostic redaction. Escaping is not redaction: putting a secret in an
+argument can expose it through process metadata even if the shell cannot execute
+it as code.
+
+## Error Handling in Template Literals {#error-handling-in-template-literals}
+
+Commands reject on failure by default. `.nothrow()` lets you inspect a completed
+command result; check `ok` or `exitCode`. It does not turn transport loss or
+unconfirmed cancellation into success.
+
+```typescript
+import { $ } from '@xec-sh/core';
+
+const result = await $`git diff --quiet`.nothrow();
+if (result.exitCode === 1) console.log('Working tree has changes');
+else if (!result.ok) throw new Error(`git diff failed: ${result.exitCode}`);
+```
+
+Await the command whose completion matters. A lost acknowledgement is not evidence
+that a remote operation did nothing, and repeating a command requires an
+operation-specific decision.
+
+## Debugging Template Literals {#debugging-template-literals}
+
+Verbose mode and `command:start` events describe execution. They are not dry-run
+APIs. `ProcessPromise.toString()` does not expose a resolved command plan. For
+reviewable automation, separate pure input/plan validation from execution and
+keep side-effecting providers out of preview paths.
+
+## See Also {#see-also}
+
+- [Local shell configuration](../../targets/local/shell-config.md)
+- [Portable scripts](../../introduction/portable-scripts.md)
+- [Task value and preview contract](../../configuration/tasks/overview.md)
+- [Execution errors](./features/error-handling.md)

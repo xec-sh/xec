@@ -188,14 +188,14 @@ describe('VariableInterpolator', () => {
     });
 
     it('interpolates nested templates inside resolved values', () => {
-      const context: VariableContext = { vars: { a: 'x-${vars.b}', b: 'y' } };
+      const context: VariableContext = { varsAreTemplates: true, vars: { a: 'x-${vars.b}', b: 'y' } };
       expect(interpolator.resolveValue('vars.a', context)).toBe('x-y');
     });
   });
 
   describe('circular references', () => {
     it('detects circular variable references', () => {
-      const context: VariableContext = { vars: { a: '${vars.b}', b: '${vars.a}' } };
+      const context: VariableContext = { varsAreTemplates: true, vars: { a: '${vars.b}', b: '${vars.a}' } };
       expect(() => interpolator.interpolate('${vars.a}', context)).toThrow(/Circular variable reference/);
     });
   });
@@ -353,6 +353,7 @@ describe('VariableInterpolator comprehensive suite', () => {
     });
 
     it('should handle recursive interpolation', () => {
+      context.varsAreTemplates = true;
       context.vars!.ref = '${vars.appName}';
       context.vars!.doubleRef = '${vars.ref}-${vars.version}';
 
@@ -361,6 +362,7 @@ describe('VariableInterpolator comprehensive suite', () => {
     });
 
     it('should detect circular references', () => {
+      context.varsAreTemplates = true;
       context.vars!.a = '${vars.b}';
       context.vars!.b = '${vars.a}';
 
@@ -368,6 +370,7 @@ describe('VariableInterpolator comprehensive suite', () => {
     });
 
     it('should handle maximum depth', () => {
+      context.varsAreTemplates = true;
       // Create deep chain
       let current = 'final';
       for (let i = 0; i < 15; i++) {
@@ -381,6 +384,7 @@ describe('VariableInterpolator comprehensive suite', () => {
     });
 
     it('should handle maximum depth in async interpolation', async () => {
+      context.varsAreTemplates = true;
       // Create deep chain for async
       let current = 'final';
       for (let i = 0; i < 15; i++) {
@@ -671,5 +675,45 @@ describe('VariableInterpolator comprehensive suite', () => {
       expect(resolved.undefinedValue).toBe(undefined);
       expect(resolved.vars?.test).toBe('plain-value');
     });
+  });
+});
+
+describe('variable provenance', () => {
+  const interpolator = new VariableInterpolator();
+  const payload = String.raw`\${cmd:echo NEVER_EXECUTE}`;
+
+  it('keeps runtime params, env, secrets and registered variables terminal', async () => {
+    const context: VariableContext = { params: { value: payload }, env: { VALUE: payload },
+      secrets: { value: payload }, vars: { value: payload }, varsAreTemplates: false };
+    for (const reference of ['params.value', 'env.VALUE', 'secrets.value', 'vars.value']) {
+      const expression = '${' + reference + '}';
+      expect(interpolator.interpolate(expression, context)).toBe(payload);
+      expect(await interpolator.interpolateAsync(expression, context)).toBe(payload);
+    }
+  });
+
+  it('allows authored variable references to recurse without reinterpreting their runtime results', async () => {
+    const result = await interpolator.resolveConfig({ version: '1.0', vars: {
+      first: '${env.VALUE}', second: '${vars.first}', third: '${vars.second}',
+    } }, { env: { VALUE: payload } });
+    expect(result.vars).toEqual({ first: payload, second: payload, third: payload });
+  });
+
+  it('keeps command stdout terminal even when it resembles another command reference', async () => {
+    const value = '${cmd:echo NEVER_EXECUTE}';
+    const file = path.join(tmpdir(), `xec-provenance-${process.pid}-${Date.now()}`);
+    await fs.writeFile(file, value);
+    try {
+      // The authored command reads a synthetic file; its output must not be
+      // parsed again as an executable ${cmd:...} expression.
+      expect(await interpolator.interpolateAsync('${cmd:cat ' + file + '}', {})).toBe(value);
+    } finally { await fs.rm(file); }
+  });
+
+  it('refuses dynamic evaluation explicitly in a preview, even in lenient mode', async () => {
+    for (const value of ['${cmd:echo NEVER_EXECUTE}', '${secret:any}']) {
+      await expect(interpolator.interpolateAsync(value, {}, { evaluateCommands: false, onUndefined: 'keep' }))
+        .rejects.toThrow(/Dry-run.*unknown/);
+    }
   });
 });

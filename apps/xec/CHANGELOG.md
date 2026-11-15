@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `run --dry-run` previews tasks, script files, inline evaluation and REPL without executing them. Executable configuration and secret-provider values fail explicitly during preview; provider initialization is skipped. CLI output distinguishes a preview from completed execution.
+
 - PostgreSQL service restore ignores `.psqlrc`, stops on SQL errors and uses a
   single transaction for ordinary plain dumps. Inherited `nothrow` and retries
   cannot hide or repeat a failed restore. Errors retain their cause and require

@@ -21,8 +21,8 @@ import { SecretManager } from '../secrets/index.js';
 import { TargetResolver } from './target-resolver.js';
 import { ConfigValidator } from './config-validator.js';
 import { deepMerge, getGlobalConfigDir } from './utils.js';
-import { VariableInterpolator, type InterpolateOptions } from './variable-interpolator.js';
 import { isTrusted, untrustedMessage, trustedByEnvironment, usesCommandSubstitution } from './command-trust.js';
+import { VariableInterpolator, type InterpolateOptions, DynamicValueUnavailableError } from './variable-interpolator.js';
 
 /**
  * Default configuration values
@@ -76,6 +76,7 @@ export class UntrustedConfigError extends Error {
 
 export class ConfigurationManager {
   private sources: ConfigSource[] = [];
+  private literalConfigPaths = new Set<string>();
   private merged?: Configuration;
   /**
    * The merged configuration BEFORE variable interpolation. This is what
@@ -132,8 +133,8 @@ export class ConfigurationManager {
     this.merged = undefined;
     this.rawMerged = undefined;
 
-    // Initialize secret manager
-    await this.secretManager.initialize();
+    // A preview must not initialize a provider that can create files or run Git.
+    if (this.options.evaluateCommands !== false) await this.secretManager.initialize();
 
     // 1. Load from multiple sources in priority order
     await this.loadBuiltinDefaults();
@@ -148,7 +149,7 @@ export class ConfigurationManager {
     // 3. Update secret provider from configuration if specified.
     // Unsupported provider types are reported as validation errors instead of
     // letting SecretManager initialization throw a raw SecretError mid-load.
-    if (this.merged.secrets) {
+    if (this.merged.secrets && this.options.evaluateCommands !== false) {
       const providerType = this.merged.secrets.provider;
       if (!SecretManager.isSupported(providerType)) {
         const error: ValidationError = {
@@ -173,6 +174,14 @@ export class ConfigurationManager {
 
     // Preserve the uninterpolated configuration for save()
     this.rawMerged = JSON.parse(JSON.stringify(this.merged)) as Configuration;
+    for (const literalPath of this.literalConfigPaths) {
+      const value = this.getByPath(this.rawMerged, literalPath);
+      if (typeof value === 'string') {
+        // Persist terminal data with the existing literal-reference syntax;
+        // save/reload must not promote an environment value into program text.
+        this.setByPath(this.rawMerged, literalPath, value.replace(/\$\{/g, '\\${'));
+      }
+    }
 
     // 4. Resolve variables
     try {
@@ -537,6 +546,9 @@ export class ConfigurationManager {
    */
   private async assertCommandSubstitutionAllowed(filePath: string, content: string): Promise<void> {
     if (!usesCommandSubstitution(content)) return;
+    if (this.options.evaluateCommands === false) {
+      throw new DynamicValueUnavailableError('command substitution', filePath);
+    }
     if (trustedByEnvironment()) return;
     if (await isTrusted(filePath, content)) return;
 
@@ -562,7 +574,7 @@ export class ConfigurationManager {
       // and an empty config would let everything carry on against defaults,
       // which is a different run than the one that was asked for — and it
       // would make the refusal look advisory.
-      if (error instanceof UntrustedConfigError) {
+      if (error instanceof UntrustedConfigError || error instanceof DynamicValueUnavailableError) {
         throw error;
       }
 
@@ -680,6 +692,9 @@ export class ConfigurationManager {
           .toLowerCase()
           .replace(/_/g, '.');
 
+        if (['tasks', 'profiles', 'extensions'].includes(p.split('.')[0]!)) {
+          throw new Error(`${key} cannot define executable configuration; declare it in a trusted configuration file and pass runtime data through vars`);
+        }
         this.setByPath(envConfig, p, value);
       }
     }
@@ -773,9 +788,11 @@ export class ConfigurationManager {
         for (const profilePath of profilePaths) {
           try {
             const content = await fs.readFile(profilePath, 'utf-8');
+            await this.assertCommandSubstitutionAllowed(profilePath, content);
             profileConfig = jsYaml.load(content) as ProfileConfig;
             break;  // Use first found
           } catch (error: any) {
+            if (error instanceof UntrustedConfigError || error instanceof DynamicValueUnavailableError) throw error;
             if (error.code !== 'ENOENT') {
               console.warn(`Failed to load profile ${currentName} from ${profilePath}: ${error.message}`);
             }
@@ -827,11 +844,26 @@ export class ConfigurationManager {
     // Sort sources by priority
     const sorted = [...this.sources].sort((a, b) => a.priority - b.priority);
 
-    // Start with empty config
+    // Provenance follows the same precedence as the merged values. A later
+    // authored profile may replace runtime data; an environment string never
+    // acquires program authority merely by entering the configuration tree.
+    this.literalConfigPaths = new Set();
+    const leafPaths = (value: unknown, prefix = ''): string[] => {
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        return Object.entries(value).flatMap(([key, item]) => leafPaths(item, prefix ? `${prefix}.${key}` : key));
+      }
+      return [prefix];
+    };
     let merged: Configuration = { version: '1.0' };
 
     // Merge each source
     for (const source of sorted) {
+      for (const valuePath of leafPaths(source.config)) {
+        for (const literal of this.literalConfigPaths) {
+          if (literal === valuePath || literal.startsWith(valuePath + '.') || valuePath.startsWith(literal + '.')) this.literalConfigPaths.delete(literal);
+        }
+        if (source.type === 'env' && source.name === 'environment') this.literalConfigPaths.add(valuePath);
+      }
       merged = deepMerge(merged, source.config) as Configuration;
     }
 
@@ -841,6 +873,7 @@ export class ConfigurationManager {
   private async resolveVariables(config: Configuration): Promise<Configuration> {
     const context: VariableContext = {
       vars: config.vars || {},
+      literalPaths: this.literalConfigPaths,
       env: this.getEnvironmentVariables(),
       profile: this.getCurrentProfile()
     };
@@ -863,7 +896,8 @@ export class ConfigurationManager {
     // password). ${params.*} references stay literal — they resolve at task
     // runtime.
     const resolved = await this.interpolator.resolveConfig(configCopy, context, {
-      lenientTypes: ['params']
+      lenientTypes: ['params'],
+      evaluateCommands: this.options.evaluateCommands ?? true
     });
 
     // Add tasks and profiles back without resolution

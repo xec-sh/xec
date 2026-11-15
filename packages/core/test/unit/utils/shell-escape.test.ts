@@ -146,11 +146,10 @@ describe('quoteForShell', () => {
       expect(quoteForShell('abc', 'cmd')).toBe('abc');
     });
 
-    it('always quotes a value containing %, and caret-escapes the %', () => {
-      // Caret escaping alone does not reliably stop cmd.exe variable
-      // expansion, so % never rides through on the safe-token path.
-      expect(quoteForShell('a%b', 'cmd')).toBe('^"a^%b^"');
-      expect(quoteForShell('100%', 'cmd')).toBe('^"100^%^"');
+    it('rejects cmd.exe expansions and line breaks instead of claiming safe quoting', () => {
+      for (const value of ['%PATH%', '100%', '!TOKEN!', 'one\ntwo', 'one\rtwo']) {
+        expect(() => quoteForShell(value, 'cmd')).toThrow('use shell: false');
+      }
     });
 
     it('caret-escapes every cmd.exe metacharacter, including the quotes it adds', () => {

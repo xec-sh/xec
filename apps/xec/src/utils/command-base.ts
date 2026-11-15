@@ -341,6 +341,7 @@ export abstract class BaseCommand {
       projectRoot: process.cwd(),
       configFilePath,
       profile: options.profile,
+      evaluateCommands: !options.dryRun,
       // A configuration containing `${cmd:...}` runs commands when it is
       // read. The CLI is the one place with a human to ask.
       onUntrustedConfig: promptForConfigTrust,

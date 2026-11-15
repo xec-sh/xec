@@ -126,10 +126,8 @@ describe('quoting a value', () => {
       expect(q('')).toBe('^"^"');
     });
 
-    it('quotes a percent even in an otherwise safe token', () => {
-      // `%PATH%` expands. A token that is safe by every other measure is
-      // not safe if it contains one.
-      expect(q('100%')).toBe('^"100^%^"');
+    it('refuses percent expansion rather than claiming cmd.exe can quote it safely', () => {
+      expect(() => q('100%')).toThrow(/shell: false/);
     });
 
     it('leaves a token with nothing to interpret alone', () => {

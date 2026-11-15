@@ -98,7 +98,7 @@ describe('Phase 1 and Phase 2 Feature Verification', () => {
               { name: 'name', default: 'World' },
               { name: 'times', type: 'number', default: 1 }
             ],
-            command: 'for i in $(seq 1 ${params.times}); do echo "Hello ${params.name}"; done'
+            command: `node -e 'const [name,times]=process.argv.slice(1);for(let i=0;i<Number(times);i++)console.log("Hello "+name)' -- \${params.name} \${params.times}`
           }
         }
       };

@@ -350,13 +350,13 @@ describe('Secret Interpolation Integration', () => {
       expect(result).toBe('${secret:fail}');
     });
 
-    it('should handle circular references in secrets', async () => {
+    it('keeps template-shaped secret values terminal instead of following references', async () => {
       await secretManager.set('circular1', '${secret:circular2}');
       await secretManager.set('circular2', '${secret:circular1}');
 
       await expect(
         interpolator.interpolateAsync('${secret:circular1}', {})
-      ).rejects.toThrow('Circular variable reference detected');
+      ).resolves.toBe('${secret:circular2}');
     });
   });
 

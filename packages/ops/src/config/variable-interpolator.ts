@@ -37,6 +37,9 @@ export interface InterpolateOptions {
    */
   onUndefined?: 'error' | 'keep';
 
+  /** Disable executable providers for previews; unresolved values fail explicitly. */
+  evaluateCommands?: boolean;
+
   /**
    * Reference types that are kept as literal text when unresolvable even in
    * 'error' mode. Used for load-time config resolution, where `${params.*}`
@@ -47,13 +50,23 @@ export interface InterpolateOptions {
 
 interface ResolvedInterpolateOptions {
   onUndefined: 'error' | 'keep';
+  evaluateCommands: boolean;
   lenientTypes: readonly VariableType[];
 }
 
 const DEFAULT_OPTIONS: ResolvedInterpolateOptions = {
   onUndefined: 'error',
+  evaluateCommands: true,
   lenientTypes: [],
 };
+
+/** A preview refused an executable provider; its value remains unknown. */
+export class DynamicValueUnavailableError extends Error {
+  constructor(kind: string, source?: string) {
+    super(`Dry-run cannot resolve ${kind}${source ? ` in ${source}` : ''}; its value is unknown and no provider was executed`);
+    this.name = 'DynamicValueUnavailableError';
+  }
+}
 
 /**
  * Variable interpolator implementation
@@ -86,7 +99,7 @@ export class VariableInterpolator {
     const resolving = new Set<string>();
 
     const result = this.interpolateWithDepth(value, context, resolving, 0, opts);
-    return this.unescape(result);
+    return result;
   }
 
   /**
@@ -107,7 +120,7 @@ export class VariableInterpolator {
     const resolving = new Set<string>();
 
     const result = await this.interpolateWithDepthAsync(value, context, resolving, 0, opts);
-    return this.unescape(result);
+    return result;
   }
 
   /**
@@ -129,15 +142,57 @@ export class VariableInterpolator {
       return kept === match ? undefined : kept;
     }
 
-    if (typeof value === 'string' && this.hasVariables(value)) {
+    if (this.isTemplateReference(reference, context) && typeof value === 'string') {
       return this.interpolate(value, context, options);
     }
 
-    if (typeof value === 'string') {
-      return this.unescape(value);
-    }
-
     return value;
+  }
+
+  /** Resolve one reference without reinterpreting runtime data as template code. */
+  async resolveValueAsync(reference: string, context: VariableContext, options?: InterpolateOptions): Promise<unknown> {
+    const opts = this.resolveOptions(options);
+    const value = await this.resolveVariableAsync(reference, context, opts);
+    if (value === undefined) {
+      this.handleUnresolved(`\${${reference}}`, reference, opts, 'async');
+      return undefined;
+    }
+    if (this.isTemplateReference(reference, context) && typeof value === 'string') {
+      return this.interpolateAsync(value, context, options);
+    }
+    return value;
+  }
+
+  /**
+   * Compile a configured command into the same literal/data boundary as a Core
+   * tagged template. The owning target performs shell-aware escaping; resolved
+   * values never become literal command source or recursively evaluated code.
+   */
+  async commandTemplate(value: string, context: VariableContext): Promise<{
+    strings: TemplateStringsArray;
+    values: unknown[];
+  }> {
+    const literals: string[] = [];
+    const values: unknown[] = [];
+    let lastIndex = 0;
+    for (const match of value.matchAll(new RegExp(VariableInterpolator.VARIABLE_REGEX))) {
+      literals.push(value.slice(lastIndex, match.index));
+      values.push(await this.resolveValueAsync(match[1]!, context));
+      lastIndex = match.index! + match[0].length;
+    }
+    literals.push(value.slice(lastIndex));
+    const strings = Object.freeze(Object.assign(literals, { raw: Object.freeze([...literals]) }));
+    return { strings, values };
+  }
+
+  private isTemplateReference(reference: string, context: VariableContext): boolean {
+    const parsed = this.parseReference(reference);
+    return context.varsAreTemplates === true && parsed?.type === 'vars' &&
+      !this.isLiteralPath(`vars.${parsed.path}`, context);
+  }
+
+  private isLiteralPath(path: string, context: VariableContext): boolean {
+    return [...(context.literalPaths ?? [])].some(literal => path === literal || path.startsWith(literal + '.'));
   }
 
   /**
@@ -154,12 +209,16 @@ export class VariableInterpolator {
     if (config.vars) {
       config.vars = await this.resolveObject(config.vars, {
         ...context,
-        vars: config.vars
-      }, opts);
+        vars: config.vars,
+        varsAreTemplates: true,
+      }, opts, 'vars');
 
       // Update context with resolved vars
       context.vars = config.vars;
+      context.varsAreTemplates = false;
     }
+
+    context.varsAreTemplates = false;
 
     // Second pass: resolve the rest of the config. The vars section must not
     // be interpolated again — its escape backslashes were already stripped by
@@ -214,6 +273,7 @@ export class VariableInterpolator {
   private resolveOptions(options?: InterpolateOptions): ResolvedInterpolateOptions {
     return {
       onUndefined: options?.onUndefined ?? DEFAULT_OPTIONS.onUndefined,
+      evaluateCommands: options?.evaluateCommands ?? DEFAULT_OPTIONS.evaluateCommands,
       lenientTypes: options?.lenientTypes ?? DEFAULT_OPTIONS.lenientTypes,
     };
   }
@@ -289,33 +349,29 @@ export class VariableInterpolator {
       throw new Error(`Maximum variable interpolation depth (${VariableInterpolator.MAX_DEPTH}) exceeded`);
     }
 
-    // The replacer-function form of String.replace is immune to `$&`/`$1`
-    // pattern expansion in the substituted value.
-    return value.replace(VariableInterpolator.VARIABLE_REGEX, (match, inner: string) => {
-      // Check for circular reference
-      if (resolving.has(match)) {
-        throw new Error(`Circular variable reference detected: ${match}`);
-      }
-
-      resolving.add(match);
-
+    let result = '';
+    let lastIndex = 0;
+    for (const match of value.matchAll(new RegExp(VariableInterpolator.VARIABLE_REGEX))) {
+      const fullMatch = match[0];
+      const inner = match[1]!;
+      result += this.unescape(value.slice(lastIndex, match.index));
+      lastIndex = match.index! + fullMatch.length;
+      if (resolving.has(fullMatch)) throw new Error(`Circular variable reference detected: ${fullMatch}`);
+      resolving.add(fullMatch);
       try {
         const resolved = this.resolveVariable(inner, context, opts);
-
         if (resolved === undefined) {
-          return this.handleUnresolved(match, inner, opts, 'sync');
+          result += this.handleUnresolved(fullMatch, inner, opts, 'sync');
+        } else if (this.isTemplateReference(inner, context) && typeof resolved === 'string') {
+          result += this.interpolateWithDepth(resolved, context, resolving, depth + 1, opts);
+        } else {
+          result += String(resolved);
         }
-
-        // Recursively interpolate the resolved value
-        if (typeof resolved === 'string' && this.hasVariables(resolved)) {
-          return this.interpolateWithDepth(resolved, context, resolving, depth + 1, opts);
-        }
-
-        return String(resolved);
       } finally {
-        resolving.delete(match);
+        resolving.delete(fullMatch);
       }
-    });
+    }
+    return result + this.unescape(value.slice(lastIndex));
   }
 
   private async interpolateWithDepthAsync(
@@ -346,7 +402,7 @@ export class VariableInterpolator {
         continue;
       }
 
-      result += value.slice(lastIndex, index);
+      result += this.unescape(value.slice(lastIndex, index));
       lastIndex = index + fullMatch.length;
 
       // Check circular reference
@@ -365,7 +421,7 @@ export class VariableInterpolator {
         }
 
         // Recursively interpolate the resolved value
-        if (typeof resolved === 'string' && this.hasVariables(resolved)) {
+        if (this.isTemplateReference(inner, context) && typeof resolved === 'string') {
           result += await this.interpolateWithDepthAsync(resolved, context, resolving, depth + 1, opts);
         } else {
           result += String(resolved);
@@ -375,7 +431,7 @@ export class VariableInterpolator {
       }
     }
 
-    result += value.slice(lastIndex);
+    result += this.unescape(value.slice(lastIndex));
     return result;
   }
 
@@ -524,10 +580,12 @@ export class VariableInterpolator {
         break;
 
       case 'cmd':
+        if (!opts.evaluateCommands) throw new DynamicValueUnavailableError('command substitution');
         value = await this.executeCommandAsync(parsed.path, opts);
         break;
 
       case 'secret':
+        if (!opts.evaluateCommands) throw new DynamicValueUnavailableError('secret provider');
         value = await this.getSecretAsync(parsed.path, context, opts);
         break;
 
@@ -551,8 +609,10 @@ export class VariableInterpolator {
   private async resolveObject(
     obj: any,
     context: VariableContext,
-    opts: ResolvedInterpolateOptions
+    opts: ResolvedInterpolateOptions,
+    objectPath = ''
   ): Promise<any> {
+    if (this.isLiteralPath(objectPath, context)) return obj;
     if (obj === null || obj === undefined) {
       return obj;
     }
@@ -562,7 +622,7 @@ export class VariableInterpolator {
     }
 
     if (Array.isArray(obj)) {
-      return Promise.all(obj.map(item => this.resolveObject(item, context, opts)));
+      return Promise.all(obj.map((item, index) => this.resolveObject(item, context, opts, `${objectPath}.${index}`)));
     }
 
     if (typeof obj === 'object') {
@@ -578,7 +638,7 @@ export class VariableInterpolator {
         const resolvedKey = await this.interpolateAsync(key, context, opts);
 
         // Resolve value
-        resolved[resolvedKey] = await this.resolveObject(value, context, opts);
+        resolved[resolvedKey] = await this.resolveObject(value, context, opts, objectPath ? `${objectPath}.${key}` : key);
       }
 
       return resolved;

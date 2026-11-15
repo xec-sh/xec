@@ -423,7 +423,7 @@ tasks:
         `version: '2.0'
 tasks:
   validated:
-    command: 'echo "validated \${params.count} \${params.env} \${params.tags} \${params.version}" > ${path.join(testDir, 'test-output', 'validated.txt')}'
+    command: 'echo validated \${params.count} \${params.env} \${params.tags} \${params.version} > ${path.join(testDir, 'test-output', 'validated.txt')}'
     params:
       - name: 'count'
         type: 'number'

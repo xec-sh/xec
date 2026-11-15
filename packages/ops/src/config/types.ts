@@ -57,6 +57,12 @@ export type TargetType = 'local' | 'ssh' | 'docker' | 'kubernetes';
  * Base target configuration
  */
 export interface BaseTarget {
+  /** Common command defaults, applied by TargetResolver to every target. */
+  timeout?: number;
+  shell?: boolean | string;
+  encoding?: string;
+  maxBuffer?: number;
+  throwOnNonZeroExit?: boolean;
   type: TargetType;
   name?: string;
   description?: string;
@@ -550,6 +556,8 @@ export interface TaskResult {
   output?: string;
   error?: Error;
   steps?: StepResult[];
+  /** Preview only; success reports structural validation, not execution. */
+  dryRun?: boolean;
 }
 
 /**
@@ -562,8 +570,14 @@ export interface StepResult {
   output?: string;
   error?: Error;
   target?: string;
-  /** True when the step was skipped because its `when:` condition evaluated to false */
+  /** Stable source index, independent of completion order or duplicate names. */
+  index?: number;
   skipped?: boolean;
+  skipReason?: 'condition' | 'failure' | 'onSuccess';
+  /** Preview only: no action or executable value was evaluated. */
+  dryRun?: boolean;
+  /** Recovery is recorded separately and never replaces the original failure. */
+  recovery?: StepResult;
 }
 
 /**
@@ -582,6 +596,11 @@ export interface ConfigSource {
  */
 export interface VariableContext {
   vars?: Record<string, any>;
+  /** True only for unevaluated variable templates authored in configuration.
+   * Runtime parameters, environment, secrets and command output are always data. */
+  varsAreTemplates?: boolean;
+  /** Configuration paths originating from runtime overrides, never template source. */
+  literalPaths?: ReadonlySet<string>;
   env?: Record<string, string>;
   params?: Record<string, any>;
   secrets?: Record<string, string>;
@@ -603,6 +622,8 @@ export interface ValidationError {
  * Configuration manager options
  */
 export interface ConfigManagerOptions {
+  /** Disable command/secret provider evaluation for a no-effect preview. */
+  evaluateCommands?: boolean;
   /** Project root directory (default: process.cwd()) */
   projectRoot?: string;
 

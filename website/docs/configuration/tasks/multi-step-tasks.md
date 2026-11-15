@@ -1,601 +1,191 @@
 ---
 title: Multi-Step Tasks
-description: Creating complex workflows with multi-step tasks
+description: Compose tasks with predictable ordering, bounded parallelism, explicit cleanup and failure results
 ---
 
 # Multi-Step Tasks {#multi-step-tasks}
 
-Multi-step tasks enable you to create complex workflows by combining multiple commands, tasks, and scripts into a single, orchestrated operation. They provide advanced control flow, error handling, and parallel execution capabilities.
+A pipeline coordinates commands that belong to one operation. It can stop queued
+work after a failure and run explicit cleanup. It does not provide a durable
+transaction, automatic service rollback, or exactly-once delivery.
+
+The corrected execution contract below is in **unreleased `main`**. Published
+0.12.0 loses some inherited defaults and can skip `alwaysRun` after fail-fast;
+see the [version boundary](./overview.md#version-boundary).
 
 ## Basic Multi-Step Structure {#basic-multi-step-structure}
 
 ```yaml
+version: "1.0"
 tasks:
-  deploy:
-    description: Deploy application
+  check:
+    description: Validate this package
+    timeout: 2m
     steps:
-      - command: git pull origin main
-      - command: npm install
-      - command: npm run build
-      - command: pm2 restart app
+      - name: Type-check
+        command: pnpm typecheck
+      - name: Test
+        command: pnpm test
 ```
+
+Steps run sequentially by default. The next command starts only after the previous
+command finishes. `timeout` applies to each command, not to the total pipeline.
 
 ## Step Types {#step-types}
 
-### Command Steps {#command-steps}
-
-Execute shell commands:
+A step chooses exactly one of `command`, `task`, or `script`:
 
 ```yaml
+version: "1.0"
 tasks:
-  setup:
+  types:
+    command: pnpm typecheck
+  check:
     steps:
-      - command: apt-get update
-      - command: apt-get install -y nginx
-      - command: systemctl start nginx
+      - name: Reuse the type check
+        task: types
+      - name: Test
+        command: pnpm test
+      - name: Write the report
+        script: .xec/scripts/report.ts
+        args: [--format, json]
 ```
 
-### Task Steps {#task-steps}
+The report file is a project-owned script. Nested tasks inherit parameters, then
+apply their own defaults for missing values. Missing required parameters, cycles,
+and nesting beyond ten tasks fail explicitly. Script arguments are strings passed
+through Xec's script context; a nested task receives parameters, not `args`.
 
-Call other tasks:
+## Execution scope {#execution-scope}
 
-```yaml
-tasks:
-  backup-db:
-    command: pg_dump production > backup.sql
-  
-  backup-files:
-    command: tar -czf files.tar.gz /var/www
-  
-  full-backup:
-    steps:
-      - task: backup-db
-      - task: backup-files
-      - command: rsync -av /backup/ remote:/backup/
-```
+The containing task's target, environment, working directory and command timeout
+flow into steps and nested tasks. `step.target` selects a different target for
+that step; `step.env` overrides the task environment, and caller environment has
+highest priority. A step does not define its own `workdir` or `timeout`. Inherited
+caller options also take precedence over a nested task's defaults. Use a separate
+top-level task or an explicit TypeScript execution handle when a distinct scope
+is needed.
 
-### Script Steps {#script-steps}
-
-Execute JavaScript code:
-
-```yaml
-tasks:
-  process:
-    steps:
-      - script: |
-          const data = await fetchData();
-          console.log(`Processing ${data.length} items`);
-          return data;
-        register: fetched_data
-      
-      - script: |
-          const processed = fetched_data.map(transform);
-          await saveResults(processed);
-```
-
-## Step Properties {#step-properties}
-
-### Named Steps {#named-steps}
-
-Add names for clarity:
-
-```yaml
-tasks:
-  deploy:
-    steps:
-      - name: Pull latest code
-        command: git pull origin main
-      
-      - name: Install dependencies
-        command: npm install
-      
-      - name: Run tests
-        command: npm test
-      
-      - name: Build application
-        command: npm run build
-      
-      - name: Deploy to production
-        command: ./deploy.sh
-```
-
-### Step Targets {#step-targets}
-
-Override task target per step:
-
-```yaml
-tasks:
-  multi-server:
-    steps:
-      - name: Update web server
-        command: apt-get update
-        target: hosts.web-server
-      
-      - name: Update database server
-        command: apt-get update
-        target: hosts.db-server
-      
-      - name: Update cache server
-        command: apt-get update
-        target: hosts.cache-server
-```
-
-### Step Environment {#step-environment}
-
-Set environment per step:
-
-```yaml
-tasks:
-  build-multiple:
-    steps:
-      - name: Build for development
-        command: npm run build
-        env:
-          NODE_ENV: development
-      
-      - name: Build for production
-        command: npm run build
-        env:
-          NODE_ENV: production
-          MINIFY: true
-```
-
-## Parallel Execution {#parallel-execution}
-
-### Parallel Steps {#parallel-steps}
-
-Execute steps concurrently:
-
-```yaml
-tasks:
-  parallel-deploy:
-    steps:
-      - name: Deploy services
-        parallel: true
-        steps:
-          - command: deploy-web.sh
-            target: hosts.web
-          - command: deploy-api.sh
-            target: hosts.api
-          - command: deploy-worker.sh
-            target: hosts.worker
-```
-
-### Parallel with Groups {#parallel-with-groups}
-
-Group parallel operations:
-
-```yaml
-tasks:
-  complex-parallel:
-    steps:
-      - name: Prepare all servers
-        parallel: true
-        steps:
-          - command: prepare.sh
-            targets: ["hosts.web-1", "hosts.web-2"]
-      
-      - name: Deploy application
-        parallel: true
-        steps:
-          - command: deploy.sh
-            targets: ["hosts.web-1", "hosts.web-2"]
-      
-      - name: Verify deployment
-        command: health-check.sh
-        targets: ["hosts.web-1", "hosts.web-2"]
-```
+`step.targets` supports bounded command fan-out. It cannot be combined with a
+single target, a script/nested-task step, or object recovery handlers. Compose
+separate per-target tasks when recovery depends on the machine that failed.
 
 ## Conditional Execution {#conditional-execution}
 
-### When Conditions {#when-conditions}
-
-Execute steps conditionally:
-
-A registered variable holds the step's **trimmed output as a string** and is referenced in conditions as `${vars.<name>}`:
-
 ```yaml
+version: "1.0"
 tasks:
-  smart-deploy:
+  check:
+    params:
+      - name: tests
+        type: boolean
+        default: true
     steps:
-      - name: Check environment
-        command: echo $ENVIRONMENT
-        register: env_check
-      
-      - name: Deploy to staging
-        command: deploy-staging.sh
-        when: ${vars.env_check} == "staging"
-      
-      - name: Deploy to production
-        command: deploy-production.sh
-        when: ${vars.env_check} == "production"
+      - command: pnpm typecheck
+      - command: pnpm test
+        when: '${params.tests} == true'
 ```
 
-### Complex Conditions {#complex-conditions}
+A false condition records a skipped step. A malformed expression or unresolved
+value is an error, not a successful skip. Conditions use the configuration
+expression evaluator; they do not execute arbitrary JavaScript or shell commands.
 
-Conditions support `==`, `!=`, `<`, `<=`, `>`, `>=`, `&&`, `||`, `!`, and parentheses. References use `${...}` syntax; method calls are not supported:
+## Registered output {#registered-output}
 
 ```yaml
+version: "1.0"
 tasks:
-  conditional:
+  revision:
     steps:
-      - command: check-health
-        register: health
-      
-      - command: restart-service
-        when: ${vars.health} != "healthy"
-      
-      - command: scale-up
-        when: ${vars.health} == "high-load" && ${params.autoScale} == true
+      - command: git rev-parse --short HEAD
+        register: revision
+      - command: printf 'Revision: %s\n' ${vars.revision}
 ```
 
-## Error Handling {#error-handling}
+`register` stores trimmed stdout in `vars` for later sequential steps. It is not a
+JSON parser or a persistent artifact. Empty output can be registered. Failed or
+skipped steps do not provide a new value. The stored text remains data, even when
+it contains `${cmd:...}`. Parallel steps cannot register dependent outputs.
 
-### Step Failure Behavior {#step-failure-behavior}
-
-```yaml
-tasks:
-  resilient:
-    steps:
-      - name: Critical step
-        command: important-operation
-        onFailure: abort  # Stop task (default)
-      
-      - name: Optional step
-        command: nice-to-have
-        onFailure: continue  # Continue to next step
-      
-      - name: Ignorable step
-        command: cleanup-maybe
-        onFailure: ignore  # Don't count as failure
-```
-
-### Retry Logic {#retry-logic}
+## Failure and cleanup {#failure-and-cleanup}
 
 ```yaml
+version: "1.0"
 tasks:
-  with-retry:
+  check:
+    failFast: true
     steps:
-      - name: Connect to service
-        command: test-connection
-        onFailure:
-          retry: 3
-          delay: 5s
-```
-
-The retry handler supports `retry` (number of attempts) and `delay` (fixed pause between attempts, e.g. `5s`). There is no backoff option — the delay is constant across attempts. An `onFailure` handler can also run a recovery `task:` or `command:` instead of retrying.
-
-### Error Recovery {#error-recovery}
-
-```yaml
-tasks:
-  with-recovery:
-    steps:
-      - name: Main operation
-        command: risky-operation
-        onFailure:
-          task: recovery-task
-      
-      - name: Alternative approach
-        command: backup-operation
-        onFailure:
-          command: emergency-cleanup
-```
-
-## Data Flow {#data-flow}
-
-### Register Variables {#register-variables}
-
-Pass data between steps:
-
-The registered value is the step's trimmed stdout (a string), for both `command:` and `script:` steps:
-
-```yaml
-tasks:
-  data-pipeline:
-    steps:
-      - name: Get version
-        command: cat version.txt
-        register: version
-      
-      - name: Build with version
-        command: docker build -t app:${vars.version} .
-      
-      - name: Tag latest
-        command: docker tag app:${vars.version} app:latest
-        when: ${vars.version} == "stable"
-```
-
-To pass structured data between steps, print it as JSON in one step and parse it in the next (e.g. with `jq`), or do the whole flow inside a single `script:` step.
-
-## Step Ordering and Task Dependencies {#step-ordering-and-task-dependencies}
-
-Steps always run **in the order they are written** (unless `parallel: true` groups them). There is no per-step `dependsOn`; to run prerequisite tasks first, reference them as steps:
-
-```yaml
-tasks:
-  prepare-db:
-    command: setup-database.sh
-  
-  prepare-cache:
-    command: setup-cache.sh
-  
-  deploy-app:
-    steps:
-      - task: prepare-db     # Run another task as a step
-      - task: prepare-cache
-      - command: deploy.sh
-```
-
-(The schema also accepts a task-level `dependsOn:` list, but it is only validated — the executor does not run dependencies automatically.)
-
-## Always Run Steps {#always-run-steps}
-
-Execute regardless of previous failures:
-
-```yaml
-tasks:
-  with-cleanup:
-    steps:
-      - name: Main operation
-        command: process-data
-      
-      - name: Risky operation
-        command: dangerous-task
-      
-      - name: Cleanup
-        command: cleanup-resources
-        alwaysRun: true  # Runs even if previous steps failed
-      
-      - name: Send notification
-        command: notify-complete
+      - name: Run checks
+        command: pnpm test
+      - name: Summarize
+        command: pnpm report
+      - name: Release the test fixture
+        command: pnpm fixture:release
         alwaysRun: true
 ```
 
-## Hooks {#hooks}
+The project must supply `report` and `fixture:release`. Cleanup must address only
+resources owned by this operation and be safe when setup did not finish.
 
-### Task-Level Hooks {#task-level-hooks}
+| Setting | Effect |
+| --- | --- |
+| `failFast: true` (default) | Stop starting ordinary steps after an unhandled failure |
+| `failFast: false` | Continue ordinary steps while retaining failure |
+| `onFailure: continue` or `ignore` | Explicitly accept this failed step for pipeline continuation and aggregate success; the step remains failed in results |
+| `onFailure: abort` | Stop queued ordinary steps even when fail-fast is disabled |
+| `onSuccess: abort` | End ordinary work after this successful step |
+| `alwaysRun: true` | Run this step even when ordinary work has stopped |
+
+A condition-evaluation error cannot be accepted as a successful condition by an
+error handler. Cleanup failure also fails the pipeline. Results stay in source
+order with stable indices and skipped reasons, so duplicate display names do not
+change failure classification.
+
+## Retry and recovery {#retry-and-recovery}
+
+An object `onFailure` may specify `retry` and `delay` for a **single command on one
+target**. Only a confirmed nonzero command exit is retried. A timeout, cancelled
+transport or unknown result is not blindly repeated. The task author must still
+ensure that repeating a completed failed command is safe.
+
+After retries are exhausted, `onFailure.command` or `onFailure.task` can run an
+explicit recovery action. Choose one. Its result is recorded separately as
+`recovery`; even successful cleanup does not convert the original failed action
+into success. If recovery fails too, both errors remain available.
+
+For a deployment, inspect the actual operation state before deciding to retry.
+Use the [Pipeline API](../../ops/pipeline.md) or the system's native deployment
+owner when its state/rollback contract is required; YAML scheduling alone does not
+supply that contract.
+
+## Parallel Execution {#parallel-execution}
 
 ```yaml
+version: "1.0"
 tasks:
-  monitored:
-    hooks:
-      before:
-        - command: echo "Task starting at $(date)"
-        - command: check-prerequisites
-      
-      after:
-        - command: echo "Task completed at $(date)"
-        - command: cleanup-temp
-      
-      onError:
-        - command: send-alert
-        - command: rollback
-    
-    steps:
-      - command: main-operation
-      - command: verify-results
-```
-
-Hooks exist at the **task level** only — individual steps do not accept a `hooks:` key. To bracket a critical step with setup/verification, make them explicit neighboring steps (with `alwaysRun: true` for cleanup) or use the step's `onFailure` handler.
-
-## Real-World Examples {#real-world-examples}
-
-### CI/CD Pipeline {#cicd-pipeline}
-
-```yaml
-tasks:
-  ci-pipeline:
-    description: Complete CI/CD pipeline
-    steps:
-      - name: Checkout code
-        command: git checkout ${params.branch}
-      
-      - name: Install dependencies
-        command: npm ci
-        timeout: 300000
-      
-      - name: Run linting
-        command: npm run lint
-        onFailure: continue
-      
-      - name: Run tests
-        command: npm test
-        onFailure: abort
-      
-      - name: Build application
-        command: npm run build
-        env:
-          NODE_ENV: production
-      
-      - name: Build Docker image
-        command: |
-          docker build -t app:${params.version} .
-          docker tag app:${params.version} app:latest
-      
-      - name: Push to registry
-        command: docker push app:${params.version}
-        when: ${params.branch} == "main"
-      
-      - name: Deploy to staging
-        task: deploy-staging
-        when: ${params.branch} == "develop"
-      
-      - name: Deploy to production
-        task: deploy-production
-        when: ${params.branch} == "main" && ${params.deploy} == true
-```
-
-### Database Migration {#database-migration}
-
-```yaml
-tasks:
-  db-migration:
-    description: Safe database migration with rollback
-    steps:
-      - name: Create backup
-        command: |
-          f=backup-$(date +%Y%m%d).sql
-          pg_dump production > "$f"
-          echo "$f"
-        target: hosts.db-primary
-        register: backup_file
-      
-      - name: Verify backup
-        command: test -s ${vars.backup_file}
-        onFailure: abort
-      
-      - name: Run migration
-        command: psql production < migration.sql
-        target: hosts.db-primary
-        onFailure:
-          command: psql production < ${vars.backup_file}
-      
-      - name: Update replicas
-        parallel: true
-        steps:
-          - command: pg_dump production | psql replica
-            target: hosts.db-replica-1
-          - command: pg_dump production | psql replica
-            target: hosts.db-replica-2
-      
-      - name: Cleanup old backup
-        command: find /backup -name "*.sql" -mtime +30 -delete
-        alwaysRun: true
-```
-
-### Blue-Green Deployment {#blue-green-deployment}
-
-```yaml
-tasks:
-  blue-green-deploy:
-    description: Zero-downtime blue-green deployment
-    steps:
-      - name: Identify current environment
-        command: kubectl get service app -o jsonpath='{.spec.selector.version}'
-        register: current_env
-      
-      - name: Set target environment
-        command: |
-          [ "${vars.current_env}" = "blue" ] && echo green || echo blue
-        register: deploy_env
-      
-      - name: Deploy to inactive environment
-        command: |
-          kubectl set image deployment/app-${vars.deploy_env} \
-            app=myapp:${params.version}
-      
-      - name: Wait for rollout
-        command: |
-          kubectl rollout status deployment/app-${vars.deploy_env} \
-            --timeout=600s
-        onFailure:
-          retry: 3
-          delay: 30s
-      
-      - name: Run smoke tests
-        command: ./smoke-test.sh ${vars.deploy_env}
-        onFailure:
-          command: kubectl rollout undo deployment/app-${vars.deploy_env}
-      
-      - name: Switch traffic
-        command: |
-          kubectl patch service app \
-            -p '{"spec":{"selector":{"version":"${vars.deploy_env}"}}}'
-      
-      - name: Verify switch
-        command: curl -f https://app.example.com/health
-        onFailure:
-          retry: 5
-          delay: 10s
-      
-      - name: Scale down old environment
-        command: kubectl scale deployment/app-${vars.current_env} --replicas=0
-        when: ${params.keepOld} != true
-```
-
-## Best Practices {#best-practices}
-
-### 1. Use Named Steps {#1-use-named-steps}
-
-```yaml
-# Good - clear step purposes
-steps:
-  - name: Install dependencies
-    command: npm install
-  - name: Run tests
-    command: npm test
-
-# Bad - unclear steps
-steps:
-  - command: npm install
-  - command: npm test
-```
-
-### 2. Handle Errors Appropriately {#2-handle-errors-appropriately}
-
-```yaml
-steps:
-  - name: Critical operation
-    command: important-task
-    onFailure: abort
-  
-  - name: Optional enhancement
-    command: nice-to-have
-    onFailure: continue
-```
-
-### 3. Use Parallel Execution Wisely {#3-use-parallel-execution-wisely}
-
-```yaml
-# Good - independent operations
-steps:
-  - name: Parallel independent tasks
+  independent-checks:
     parallel: true
+    maxConcurrent: 2
     steps:
-      - command: backup-db
-      - command: backup-files
-      - command: backup-configs
-
-# Bad - dependent operations
-steps:
-  - parallel: true
-    steps:
-      - command: stop-service
-      - command: start-service  # Depends on stop!
+      - name: Package A
+        command: pnpm --filter package-a test
+      - name: Package B
+        command: pnpm --filter package-b test
 ```
 
-### 4. Clean Up Resources {#4-clean-up-resources}
+Only use this for independent operations. The default parallel limit is 8.
+Fail-fast stops queued steps but awaits those already started. `alwaysRun` steps
+form an ordered cleanup phase after all started ordinary work settles, preventing
+cleanup from racing with a still-running worker.
 
-```yaml
-steps:
-  - name: Main operation
-    command: create-resources
-  
-  - name: Cleanup
-    command: delete-resources
-    alwaysRun: true
-```
-
-### 5. Document Complex Logic {#5-document-complex-logic}
-
-```yaml
-tasks:
-  complex-workflow:
-    description: |
-      This task performs a rolling update with health checks.
-      It will automatically rollback on failure.
-      Expected duration: 15-20 minutes
-    steps:
-      # Step descriptions...
-```
-
-## Next Steps {#next-steps}
-
-- [Simple Tasks](./simple-tasks.md) - Basic task concepts
-- [Task Overview](./overview.md) - Task management concepts
+In-process scripts cannot run in a parallel pipeline, including through a nested
+task. Their process/global effects cannot be isolated by a Promise. Use command
+steps for isolated program processes, or let a TypeScript program explicitly own
+its concurrency.
 
 ## See Also {#see-also}
 
-- [Task Command](../../commands/built-in/run.md) - Running tasks
-- [Best Practices](../advanced/best-practices.md) - Task design guidelines
+- [Task contract and release boundary](./overview.md)
+- [Command and script tasks](./simple-tasks.md)
+- [Parameters and configuration](../variables/overview.md)
+- [Pipeline API](../../ops/pipeline.md)

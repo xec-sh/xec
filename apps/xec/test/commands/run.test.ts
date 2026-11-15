@@ -59,6 +59,47 @@ describe('run command', () => {
     });
   });
 
+  it('does not load a script or evaluate code through the registered CLI command', async () => {
+    const program = `require('node:fs').writeFileSync(${JSON.stringify(markerPath)}, 'bad')`;
+    const file = path.join(projectDir, 'sideeffect.mjs');
+    await fs.writeFile(file, `import{writeFileSync}from'node:fs';writeFileSync(${JSON.stringify(markerPath)},'bad');`);
+    for (const argv of [[file, '--dry-run'], ['--eval', program, '--dry-run']]) {
+      await new RunCommand().create().parseAsync(argv, { from: 'user' });
+      expect(existsSync(markerPath)).toBe(false);
+    }
+  });
+
+  it('refuses executable configuration in dry-run even when the file is trusted', async () => {
+    const previous = process.env['XEC_TRUST_CONFIG'];
+    process.env['XEC_TRUST_CONFIG'] = '1';
+    try {
+      await fs.writeFile(path.join(projectDir, '.xec', 'config.yaml'), [
+        'version: "1.0"',
+        'vars:',
+        `  effect: "\${cmd:touch ${markerPath}}"`,
+        'tasks:',
+        '  sideeffect: echo harmless',
+      ].join('\n'));
+      await expect(execute({ dryRun: true })).rejects.toThrow(/Dry-run.*unknown/);
+      expect(existsSync(markerPath)).toBe(false);
+    } finally {
+      if (previous === undefined) delete process.env['XEC_TRUST_CONFIG'];
+      else process.env['XEC_TRUST_CONFIG'] = previous;
+    }
+  });
+
+  it('does not initialize secret storage while previewing a task', async () => {
+    const storage = path.join(projectDir, 'never-created-secrets');
+    await fs.writeFile(path.join(projectDir, '.xec', 'config.yaml'), [
+      'version: "1.0"', 'secrets:', '  provider: local', '  config:',
+      `    storageDir: ${JSON.stringify(storage)}`,
+      'tasks:', '  sideeffect: echo harmless',
+    ].join('\n'));
+    await execute({ dryRun: true });
+    expect(existsSync(storage)).toBe(false);
+    expect(existsSync(markerPath)).toBe(false);
+  });
+
   describe('without --dry-run', () => {
     it('executes the task', async () => {
       await execute({});

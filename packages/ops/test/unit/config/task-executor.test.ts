@@ -253,8 +253,8 @@ describe('TaskExecutor', () => {
 
         const execEnv = await (executor as any).buildExecutionEnv(
           context,
-          { TASK_VAR: 'from-task', REGION: '${vars.region}' },
-          { STEP_VAR: 'from-step' },
+          [{ TASK_VAR: 'from-task', REGION: '${vars.region}' },
+          { STEP_VAR: 'from-step' }],
           { CALLER_VAR: 'from-caller', TASK_VAR: 'overridden' }
         );
 
@@ -498,7 +498,8 @@ describe('TaskExecutor execution behaviours', () => {
       const result = await executor.execute('failfast', task);
 
       expect(result.success).toBe(false);
-      expect(result.steps).toHaveLength(2); // Should stop after failure
+      expect(result.steps).toHaveLength(3);
+      expect(result.steps?.[2]).toMatchObject({ success: false, skipped: true, skipReason: 'failure' });
 
       // First file should exist
       await expect(fs.access(path.join(testDir, 'ff1.txt'))).resolves.toBeUndefined();

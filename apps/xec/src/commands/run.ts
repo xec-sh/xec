@@ -144,6 +144,10 @@ export class RunCommand extends BaseCommand {
    * Run script using unified loader
    */
   private async runScript(scriptPath: string, args: string[], options: RunOptions): Promise<void> {
+    if (options.dryRun ?? this.options.dryRun) {
+      log.info('[DRY RUN] Program not loaded or evaluated; its effects cannot be inferred without execution');
+      return;
+    }
     // Build execution options
     const execOptions: ExecutionOptions = {
       verbose: this.options.verbose || process.env['XEC_DEBUG'] === 'true',
@@ -181,6 +185,10 @@ export class RunCommand extends BaseCommand {
    * Evaluate code using unified loader
    */
   private async evalCode(code: string, args: string[], options: RunOptions): Promise<void> {
+    if (options.dryRun ?? this.options.dryRun) {
+      log.info('[DRY RUN] Program not loaded or evaluated; its effects cannot be inferred without execution');
+      return;
+    }
     // Build execution options
     const execOptions: ExecutionOptions = {
       verbose: this.options.verbose || process.env['XEC_DEBUG'] === 'true',
@@ -213,6 +221,10 @@ export class RunCommand extends BaseCommand {
    * Start REPL using unified loader
    */
   private async startRepl(options: RunOptions): Promise<void> {
+    if (options.dryRun ?? this.options.dryRun) {
+      log.info('[DRY RUN] Program not loaded or evaluated; its effects cannot be inferred without execution');
+      return;
+    }
     // Build execution options
     const execOptions: ExecutionOptions = {
       verbose: this.options.verbose || process.env['XEC_DEBUG'] === 'true',
@@ -244,6 +256,7 @@ export class RunCommand extends BaseCommand {
     const configManager = new ConfigurationManager({
       projectRoot: process.cwd(),
       configFilePath,
+      evaluateCommands: !(options.dryRun ?? this.options.dryRun ?? false),
     });
 
     // Initialize task manager
@@ -321,7 +334,8 @@ export class RunCommand extends BaseCommand {
     }
 
     if (!this.options.quiet) {
-      log.success(`Task '${taskName}' completed successfully`);
+      if (result.dryRun) log.info(`Preview of '${taskName}' completed; no actions or dynamic values were evaluated`);
+      else log.success(`Task '${taskName}' completed successfully`);
     }
 
   }
