@@ -401,7 +401,7 @@ describe('ConfigValidator', () => {
       const errors = await validator.validate(config);
       expect(errors).toContainEqual({
         path: 'tasks.invalid',
-        message: 'Task must have either command, steps, or script',
+        message: 'Task must define exactly one of command, steps, or script',
         rule: 'error'
       });
     });
@@ -420,7 +420,7 @@ describe('ConfigValidator', () => {
       const errors = await validator.validate(config);
       expect(errors).toContainEqual({
         path: 'tasks.invalid',
-        message: 'Task cannot have both command and steps',
+        message: 'Task must define exactly one of command, steps, or script',
         rule: 'error'
       });
     });
@@ -483,12 +483,12 @@ describe('ConfigValidator', () => {
       const errors = await validator.validate(config);
       expect(errors).toContainEqual({
         path: 'tasks.test.params[0].type',
-        message: 'Invalid parameter type: invalid',
+        message: 'Invalid type: invalid',
         rule: 'error'
       });
       expect(errors).toContainEqual({
         path: 'tasks.test.params[1]',
-        message: 'Enum parameter must have values',
+        message: 'Enum type requires values array',
         rule: 'error'
       });
     });
@@ -532,8 +532,8 @@ describe('ConfigValidator', () => {
         rule: 'error'
       });
       expect(errors).toContainEqual({
-        path: 'tasks.test.params[2].name',
-        message: 'Parameter name is required',
+        path: 'tasks.test.params[2]',
+        message: 'Parameter must be an object with a non-empty name',
         rule: 'error'
       });
     });
@@ -575,7 +575,7 @@ describe('ConfigValidator', () => {
       const errors = await validator.validate(config);
       expect(errors).toContainEqual({
         path: 'tasks.pipeline.steps[1]',
-        message: 'Step must have either command, task, or script',
+        message: 'Step must have command, task, or script',
         rule: 'error'
       });
       expect(errors).toContainEqual({
@@ -616,13 +616,13 @@ describe('ConfigValidator', () => {
 
       expect(errors).toContainEqual(expect.objectContaining({
         path: 'tasks.invalid1.timeout',
-        message: 'Timeout must be positive',
+        message: 'Timeout must be a non-negative integer in milliseconds',
         rule: 'error'
       }));
 
       expect(errors).toContainEqual(expect.objectContaining({
         path: 'tasks.invalid2.timeout',
-        message: 'Invalid timeout format. Use number (ms) or duration string (e.g., 30s, 5m, 1h)',
+        message: 'Timeout must be a non-negative integer in milliseconds',
         rule: 'error'
       }));
 
@@ -635,7 +635,7 @@ describe('ConfigValidator', () => {
       expect(timeoutErrors).toHaveLength(0);
     });
 
-    it('should validate task dependencies and templates', async () => {
+    it('rejects unsupported task dependencies and templates', async () => {
       const config: Configuration = {
         version: '2.0',
         tasks: {
@@ -657,24 +657,13 @@ describe('ConfigValidator', () => {
       };
 
       const errors = await validator.validate(config);
-      expect(errors).toContainEqual({
-        path: 'tasks.deploy.dependsOn',
-        message: "Dependency task 'build' not found",
-        rule: 'error'
-      });
-      expect(errors).toContainEqual({
-        path: 'tasks.deploy.dependsOn',
-        message: "Dependency task 'nonexistent' not found",
-        rule: 'error'
-      });
-      expect(errors).toContainEqual({
-        path: 'tasks.templated.template',
-        message: "Template task 'missing-template' not found",
-        rule: 'error'
-      });
+      for (const field of ['tasks.deploy.dependsOn', 'tasks.templated.template']) {
+        expect(errors).toContainEqual(expect.objectContaining({ path: field, rule: 'error',
+          message: 'Unsupported task capability; use an explicit script or operation API' }));
+      }
     });
 
-    it('should validate target references', async () => {
+    it('allows bare target names for the resolver without inventing a namespace warning', async () => {
       const config: Configuration = {
         version: '2.0',
         tasks: {
@@ -686,11 +675,7 @@ describe('ConfigValidator', () => {
       };
 
       const errors = await validator.validate(config);
-      expect(errors).toContainEqual({
-        path: 'tasks.deploy.target',
-        message: "Target reference 'invalid-target' may not be valid. Expected format: hosts.name, containers.name, pods.name, or local",
-        rule: 'warning'
-      });
+      expect(errors).toEqual([]);
     });
   });
 
@@ -880,58 +865,20 @@ describe('ConfigValidator', () => {
       });
     });
 
-    it('should validate extensions', async () => {
-      const config: Configuration = {
-        version: '2.0',
-        extensions: [
-          {
-            source: '@xec/plugin'
-          },
-          {} as any, // Missing source
-          {
-            source: 'plugin',
-            tasks: 'not-array' as any
-          }
-        ]
-      };
-
-      const errors = await validator.validate(config);
-      expect(errors).toContainEqual({
-        path: 'extensions[1].source',
-        message: 'Extension source is required',
-        rule: 'error'
-      });
-      expect(errors).toContainEqual({
-        path: 'extensions[2].tasks',
-        message: 'Tasks must be an array',
-        rule: 'error'
-      });
+    it('rejects extension configuration rather than accepting an unimplemented loader', async () => {
+      const config = { version: '1.0', extensions: [{ source: '@xec/plugin' }] };
+      expect(await validator.validate(config)).toEqual([{
+        path: 'extensions', rule: 'error',
+        message: 'Extension loading is not implemented. Use native project commands in .xec/commands/ or explicit task definitions.'
+      }]);
     });
 
-    it('should validate command defaults', async () => {
-      const config: Configuration = {
-        version: '2.0',
-        commands: {
-          in: {
-            defaultTimeout: 'invalid'
-          },
-          watch: {
-            interval: -1
-          }
-        }
-      };
-
-      const errors = await validator.validate(config);
-      expect(errors).toContainEqual({
-        path: 'commands.in.defaultTimeout',
-        message: 'Invalid timeout format. Use number (ms) or duration string (e.g., 30s, 5m, 1h)',
-        rule: 'error'
-      });
-      expect(errors).toContainEqual({
-        path: 'commands.watch.interval',
-        message: 'Interval must be a positive number',
-        rule: 'error'
-      });
+    it('validates command containers and delegates option schemas to the CLI', async () => {
+      const errors = await validator.validate({ version: '1.0', commands: {
+        on: 'not an object' as unknown as Record<string, unknown>,
+        logs: { tail: '20' },
+      } });
+      expect(errors).toEqual([{ path: 'commands.on', message: 'Command defaults must be an object', rule: 'error' }]);
     });
   });
 });

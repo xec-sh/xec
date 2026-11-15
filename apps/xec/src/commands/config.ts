@@ -1,15 +1,19 @@
+import type { Configuration } from '@xec-sh/ops';
+
 import * as yaml from 'js-yaml';
-import { Command } from 'commander';
+import { Command, type Option } from 'commander';
 import { getExecutionSignal } from '@xec-sh/core';
 import { join, resolve, dirname } from 'node:path';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { log, box, text, note, prism, intro, outro, cancel, select, confirm, spinner, isCancel, password } from '@xec-sh/kit';
-import { isTrusted, listTrusted, revokeTrust, sortConfigKeys , getDefaultConfig, mergeWithDefaults, ConfigurationManager, usesCommandSubstitution } from '@xec-sh/ops';
+import { isTrusted, listTrusted, revokeTrust, sortConfigKeys , ConfigValidator, getDefaultConfig, mergeWithDefaults, ConfigurationManager, usesCommandSubstitution } from '@xec-sh/ops';
 
 import { BaseCommand } from '../utils/command-base.js';
+import { COMMAND_MANIFEST } from '../utils/command-manifest.js';
 import { canPrompt, isPlainOutput } from '../utils/plain-mode.js';
 import { ConfigFileEditor } from '../utils/config-file-editor.js';
 import { promptForConfigTrust } from '../utils/config-trust-prompt.js';
+import { configurableOptions, validateCommandDefaults, supportsConfigurationDefaults } from '../utils/command-defaults.js';
 
 
 /**
@@ -108,7 +112,9 @@ export class ConfigCommand extends BaseCommand {
     if (!this.configManager) {
       this.configManager = new ConfigurationManager({
         projectRoot: process.cwd(),
-        profile: undefined
+        profile: undefined,
+        configFilePath: await this.requireConfigFile(this.options),
+        evaluateCommands: !this.isDryRun(),
       });
     }
   }
@@ -170,7 +176,7 @@ export class ConfigCommand extends BaseCommand {
       .command('doctor')
       .description('Check and fix configuration issues')
       .option('--dry-run', 'Preview the change without writing the configuration file')
-      .option('--defaults', 'Show all possible configuration options with default values')
+      .option('--defaults', 'Include the shared configuration baseline')
       .action(async (options) => {
         await this.ensureInitialized();
         await this.runDoctor(options);
@@ -462,7 +468,7 @@ export class ConfigCommand extends BaseCommand {
         case 'doctor': {
           const showDefaults = await confirm({
             signal: getExecutionSignal(),
-            message: 'Show all possible configuration options with default values?',
+            message: 'Include the shared configuration baseline?',
             initialValue: false
           });
           if (!isCancel(showDefaults)) {
@@ -1610,58 +1616,13 @@ export class ConfigCommand extends BaseCommand {
 
   private async validateTasks(): Promise<void> {
     const config = await this.configManager.load();
-    const tasks = config.tasks || {};
-
-    if (Object.keys(tasks).length === 0) {
-      log.info('No tasks to validate');
-      return;
-    }
-
-    log.info('Validating tasks...');
-
-    let hasErrors = false;
-    for (const [name, task] of Object.entries(tasks)) {
-      for (const problem of ConfigCommand.taskFormErrors(name, task)) {
-        log.error(problem);
-        hasErrors = true;
-      }
-    }
-
-    if (!hasErrors) {
-      log.success('All tasks are valid');
-    }
-  }
-
-  /**
-   * The task forms the executor actually runs: a bare command string, or an
-   * object carrying `command`, `script` or `steps` (each step in turn one of
-   * command / script / task). Anything else never executes, and both
-   * validation paths must agree on that — they had drifted, one rejecting
-   * every form but `steps`.
-   */
-  private static taskFormErrors(name: string, task: unknown): string[] {
-    if (typeof task === 'string') return [];
-    const t = task as Record<string, any> | null;
-    if (!t || typeof t !== 'object') {
-      return [`Task '${name}': must be a command string or a task object`];
-    }
-    if (t['steps'] !== undefined) {
-      if (!Array.isArray(t['steps'])) {
-        return [`Task '${name}': 'steps' must be a list`];
-      }
-      const errors: string[] = [];
-      for (let i = 0; i < t['steps'].length; i++) {
-        const step = t['steps'][i];
-        if (!step || (!step.command && !step.script && !step.task)) {
-          errors.push(`Task '${name}', step ${i + 1}: must have either 'command', 'script', or 'task'`);
-        }
-      }
-      return errors;
-    }
-    if (!t['command'] && !t['script']) {
-      return [`Task '${name}': must have 'command', 'script' or 'steps'`];
-    }
-    return [];
+    const diagnostics = await new ConfigValidator().validate({ version: config.version, tasks: config.tasks });
+    const errors = diagnostics.filter(item => item.rule !== 'warning').map(item => `${item.path}: ${item.message}`);
+    if (errors.length) process.exitCode = 1;
+    this.emitResult({ valid: errors.length === 0, errors }, () => {
+      if (errors.length) errors.forEach(message => log.error(message));
+      else log.success('All task definitions are valid');
+    });
   }
 
   private async manageDefaults(): Promise<void> {
@@ -2125,81 +2086,52 @@ export class ConfigCommand extends BaseCommand {
     await this.commit('Kubernetes defaults updated');
   }
 
+  private async commandSchema(name: string): Promise<Command> {
+    const entry = COMMAND_MANIFEST.find(item => item.name === name);
+    if (!entry) throw new Error(`Unknown built-in command defaults: commands.${name}`);
+    const module = await import(/* @vite-ignore */ `./${entry.module}.js`) as { default(program: Command): void };
+    const program = new Command();
+    module.default(program);
+    const schema = program.commands.find(item => item.name() === name);
+    if (!schema) throw new Error(`Missing command registration: ${name}`);
+    return schema;
+  }
+
   private async setCommandDefaults(): Promise<void> {
-    const config = await this.editableConfig();
-    if (!config.commands) config.commands = {};
-
-    const cmd = await select({
-      signal: getExecutionSignal(),
-      message: 'Select command to configure defaults for',
-      options: [
-        { value: 'exec', label: 'exec' },
-        { value: 'logs', label: 'logs' },
-        { value: 'cp', label: 'cp' },
-        { value: 'sync', label: 'sync' },
-      ],
-    }) as string;
-
-    if (isCancel(cmd)) return;
-
-    if (!config.commands[cmd]) config.commands[cmd] = {};
-
-    log.info(`Setting defaults for '${cmd}' command`);
-
-    // Command-specific defaults
-    // eslint-disable-next-line default-case
-    switch (cmd) {
-      case 'logs':
-        {
-          const tail = await text({
-            signal: getExecutionSignal(),
-            message: 'Default number of lines to tail',
-            placeholder: '50',
-            defaultValue: '50',
-          }) as string;
-          if (isCancel(tail)) return;
-          if (!config.commands['logs']) config.commands['logs'] = {};
-          config.commands['logs']['tail'] = tail;
-
-          const timestamps = await confirm({
-            signal: getExecutionSignal(),
-            message: 'Show timestamps by default?',
-          });
-          if (isCancel(timestamps)) return;
-          if (!config.commands['logs']) config.commands['logs'] = {};
-          config.commands['logs']['timestamps'] = timestamps;
-          break;
-        }
-
-      case 'exec':
-        {
-          const shell = await text({
-            signal: getExecutionSignal(),
-            message: 'Default shell',
-            placeholder: '/bin/sh',
-            defaultValue: '/bin/sh',
-          }) as string;
-          if (isCancel(shell)) return;
-          if (!config.commands['exec']) config.commands['exec'] = {};
-          config.commands['exec']['shell'] = shell;
-          break;
-        }
-
-      case 'cp':
-      case 'sync':
-        {
-          const recursive = await confirm({
-            signal: getExecutionSignal(),
-            message: 'Recursive by default?',
-          });
-          if (isCancel(recursive)) return;
-          if (!config.commands[cmd]) config.commands[cmd] = {};
-          config.commands[cmd]['recursive'] = recursive;
-          break;
-        }
+    const schemas = (await Promise.all(COMMAND_MANIFEST.map(entry => this.commandSchema(entry.name))))
+      .filter(supportsConfigurationDefaults);
+    const selected = await select({ signal: getExecutionSignal(), message: 'Command defaults',
+      options: schemas.map(schema => ({ value: schema, label: schema.name(), hint: schema.description() })),
+    });
+    if (isCancel(selected)) return;
+    const entries: { path: string[]; option: Option }[] = [];
+    const visit = (schema: Command, scope: string[]) => {
+      for (const option of configurableOptions(schema)) entries.push({ path: scope, option });
+      for (const child of schema.commands) visit(child, [...scope, child.name()]);
+    };
+    visit(selected, []);
+    const entry = await select({ signal: getExecutionSignal(), message: 'Option',
+      options: entries.map(item => ({ value: item,
+        label: [...item.path, item.option.long ?? item.option.flags].join(' '), hint: item.option.description })),
+    });
+    if (isCancel(entry)) return;
+    let value: unknown;
+    if (!entry.option.required && !entry.option.optional) {
+      value = await confirm({ signal: getExecutionSignal(), message: `Enable ${entry.option.attributeName()}?` });
+    } else {
+      const answer = await text({ signal: getExecutionSignal(), message: 'Value (use a JSON array for repeated arguments)' });
+      if (isCancel(answer)) return;
+      value = answer.startsWith('[') ? JSON.parse(answer) : answer;
     }
-
-    await this.commit(`Defaults for '${cmd}' command updated`);
+    if (isCancel(value)) return;
+    const config = await this.editableConfig();
+    const candidate = structuredClone(config) as Record<string, unknown>;
+    const commands = (candidate['commands'] ??= {}) as Record<string, unknown>;
+    let current = (commands[selected.name()] ??= {}) as Record<string, unknown>;
+    for (const segment of entry.path) current = (current[segment] ??= {}) as Record<string, unknown>;
+    current[entry.option.attributeName()] = value;
+    validateCommandDefaults(selected, commands[selected.name()], `commands.${selected.name()}`);
+    await this.commit(`Defaults for '${selected.name()}' updated`, candidate);
   }
 
   private async resetDefaults(): Promise<void> {
@@ -2322,36 +2254,28 @@ export class ConfigCommand extends BaseCommand {
       }
     }
 
-    // Runtime defaults (SSH keep-alives, command timeouts, …) exist whether
-    // or not the file spells them out; injecting them uninvited buried the
-    // user's few real settings under dozens of restated defaults. They are
-    // written only when explicitly requested:
+    // Only the configuration baseline is persisted on explicit request.
+    // Adapter and CLI defaults stay with their native implementation.
     if (options?.defaults) {
-      if (this.machineFormat() === null && !this.options.quiet) log.info('📋 Adding all default values to configuration...');
+      if (this.machineFormat() === null && !this.options.quiet) log.info('Adding the shared configuration baseline...');
       config = mergeWithDefaults(config, defaultConfig);
     }
 
-    // Persist exactly the diagnosed changes. An untouched file is not
-    // rewritten: a serializer round-trip would drop the user's comments
-    // and reorder their keys for no gain.
+    const validation = await this.validateConfig(false, config as Configuration);
     const editor = this.fileEditor!;
-    editor.apply(this.fileSnapshot!, config);
-    const changed = editor.dirty;
+    if (validation.valid) editor.apply(this.fileSnapshot!, config);
+    const changed = validation.valid && editor.dirty;
     if (changed) {
       if (this.isDryRun()) {
         if (this.machineFormat() === null && !this.options.quiet) log.info(`Dry run: would update ${editor.filePath}`);
-      } else {
-        await editor.save();
-      }
+      } else await editor.save();
     }
-
-    const validation = await this.validateConfig(this.machineFormat() === null);
     this.emitResult({ recommendations, changed, dryRun: this.isDryRun(), validation }, () => {
       if (this.options.quiet) return;
       // Report results
       if (recommendations.length > 0) {
-        const content = recommendations.map(rec => `✅ ${rec}`).join('\n');
-        box(content, '🏥 Doctor Improvements', {
+        const content = recommendations.map(rec => `• ${rec}`).join('\n');
+        box(content, 'Configuration review', {
           width: 'auto',
           contentAlign: 'left',
           contentPadding: 1,
@@ -2360,6 +2284,8 @@ export class ConfigCommand extends BaseCommand {
         });
       }
 
+      for (const error of validation.errors) log.error(error);
+      if (!validation.valid) log.warning('No fixes were written because validation failed.');
       if (recommendations.length === 0 && validation.valid && validation.warnings.length === 0) {
         note('Configuration is healthy! No changes needed.', '🏥 Doctor', {
           format: (line) => prism.green(line)
@@ -2368,7 +2294,7 @@ export class ConfigCommand extends BaseCommand {
     });
   }
 
-  private async validateConfig(report = true): Promise<{ valid: boolean; errors: string[]; warnings: string[] }> {
+  private async validateConfig(report = true, candidate?: Configuration): Promise<{ valid: boolean; errors: string[]; warnings: string[] }> {
     const indicator = spinner({
       enabled: !this.options.quiet && !isPlainOutput() && this.machineFormat() === null,
       output: process.stderr,
@@ -2378,57 +2304,16 @@ export class ConfigCommand extends BaseCommand {
     const errors: string[] = [];
     const warnings: string[] = [];
     try {
-      const config = await this.configManager.load();
-
-      // Check project name
-      if (!config.name) {
-        errors.push('Project name is missing');
+      const config = candidate ?? await this.configManager.load();
+      const diagnostics = await new ConfigValidator().validate(config);
+      for (const item of diagnostics) {
+        (item.rule === 'warning' ? warnings : errors).push(`${item.path}: ${item.message}`);
       }
-
-      // Check targets
-      if (config.targets) {
-        // Validate SSH hosts
-        if (config.targets.hosts) {
-          for (const [name, host] of Object.entries(config.targets.hosts)) {
-            const h = host as any;
-            if (!h.host) {
-              errors.push(`SSH host '${name}': missing 'host' field`);
-            }
-            if (!h.username && !h.user) {
-              warnings.push(`SSH host '${name}': no username specified`);
-            }
-            if (!h.privateKey && !h.password) {
-              warnings.push(`SSH host '${name}': no authentication method specified`);
-            }
-          }
-        }
-
-        // Validate Docker containers
-        if (config.targets.containers) {
-          for (const [name, container] of Object.entries(config.targets.containers)) {
-            const c = container as any;
-            if (!c.container && !c.image) {
-              errors.push(`Docker container '${name}': must specify either 'container' or 'image'`);
-            }
-          }
-        }
-
-        // Validate K8s pods
-        if (config.targets.pods) {
-          for (const [name, pod] of Object.entries(config.targets.pods)) {
-            const p = pod as any;
-            if (!p.pod) {
-              errors.push(`Kubernetes pod '${name}': missing 'pod' field`);
-            }
-          }
-        }
-      }
-
-      // Validate tasks against the forms the executor actually runs.
-      if (config.tasks) {
-        for (const [name, task] of Object.entries(config.tasks)) {
-          errors.push(...ConfigCommand.taskFormErrors(name, task));
-        }
+      // Register only the configured built-ins, without executing their actions.
+      // Doctor and execution use the same option/subcommand schema.
+      for (const [name, value] of Object.entries(config.commands ?? {})) {
+        try { validateCommandDefaults(await this.commandSchema(name), value, `commands.${name}`); }
+        catch (error) { errors.push(error instanceof Error ? error.message : String(error)); }
       }
 
     } catch (error) {

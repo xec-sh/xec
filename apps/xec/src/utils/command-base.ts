@@ -4,12 +4,14 @@ import { z } from 'zod';
 import * as jsYaml from 'js-yaml';
 import { Command } from 'commander';
 import { access } from 'node:fs/promises';
+import { isDeepStrictEqual } from 'node:util';
 import { $, getExecutionSignal } from '@xec-sh/core';
 import { log, prism, type SpinnerResult, spinner as kitSpinner } from '@xec-sh/kit';
 import { handleError , TaskManager , TargetResolver, OutputFormatter, validateOptions, ConfigurationManager } from '@xec-sh/ops';
 
 import { isPlainOutput } from './plain-mode.js';
 import { promptForConfigTrust } from './config-trust-prompt.js';
+import { configuredDefaults, registerDefaultsCommand, validateCommandDefaults } from './command-defaults.js';
 
 export const OUTPUT_FORMATS = ['text', 'json', 'yaml', 'csv'] as const;
 export type OutputFormat = (typeof OUTPUT_FORMATS)[number];
@@ -83,6 +85,8 @@ export interface CommandConfig {
   name: string;
   description: string;
   aliases?: string[];
+  /** This command consumes commands.<name> through its native option schema. */
+  configurationDefaults?: boolean;
   arguments?: string;
   options?: Array<{
     flags: string;
@@ -113,6 +117,9 @@ export interface ConfigAwareOptions {
 }
 
 export abstract class BaseCommand {
+  private registeredCommand?: Command;
+  private invokedCommand?: Command;
+  private parsedOptions = new Map<string, unknown>();
   protected formatter: OutputFormatter;
   protected currentSpinner: SpinnerResult | null = null;
   protected options: CommandOptions = {
@@ -137,6 +144,17 @@ export abstract class BaseCommand {
    */
   create(): Command {
     const command = new Command(this.config.name);
+    this.registeredCommand = command;
+    if (this.config.configurationDefaults) registerDefaultsCommand(command);
+    command.hook('preAction', (_group, invoked) => {
+      this.invokedCommand = invoked;
+      this.parsedOptions.clear();
+      for (let current: Command | null = invoked; current; current = current.parent) {
+        for (const [key, value] of Object.entries(current.opts())) {
+          if (!this.parsedOptions.has(key)) this.parsedOptions.set(key, structuredClone(value));
+        }
+      }
+    });
 
     command
       .description(this.config.description)
@@ -370,10 +388,11 @@ export abstract class BaseCommand {
       return {};
     }
 
-    const commandKey = this.getCommandConfigKey();
-    const defaults = this.xecConfig.commands?.[commandKey] || {};
-
-    return defaults;
+    const schema = this.registeredCommand ?? this.create();
+    const prefix = `commands.${this.getCommandConfigKey()}`;
+    const defaults = this.xecConfig.commands?.[this.getCommandConfigKey()] ?? {};
+    const validated = validateCommandDefaults(schema, defaults, prefix);
+    return configuredDefaults(schema, this.invokedCommand ?? schema, validated);
   }
 
   /**
@@ -554,34 +573,19 @@ export abstract class BaseCommand {
     options: T,
     defaults: ConfigCommandConfig
   ): T & ConfigCommandConfig {
-    // Start with config defaults, then apply command-line options
-    const merged: any = { ...options };
-
-    // Apply config defaults for any keys that weren't explicitly set on command line
-    Object.keys(defaults).forEach(key => {
-      // Check if this option was explicitly provided on command line
-      // For now, we'll apply config defaults for all options from config
-      if (defaults[key] !== undefined) {
-        // If the option exists in command defaults but not explicitly overridden, use config
-        // This is a simplified approach - in reality we'd need to track which options
-        // were explicitly set vs defaulted by commander
-        if (!this.wasOptionExplicitlySet(key, options)) {
-          merged[key] = defaults[key];
-        }
-      }
-    });
-
+    const merged = { ...options };
+    for (const [key, value] of Object.entries(defaults)) {
+      if (value === undefined) continue;
+      const source = this.invokedCommand?.getOptionValueSourceWithGlobals(key);
+      const explicit = this.invokedCommand
+        ? (source !== undefined && source !== 'default') ||
+          (Object.hasOwn(options, key) && !isDeepStrictEqual(options[key], this.parsedOptions.get(key)))
+        : options[key] !== undefined;
+      if (!explicit) (merged as Record<string, unknown>)[key] = value;
+    }
+    // Apply the same command validation to effective values before effects.
+    this.config.validateOptions?.(merged);
     return merged as T & ConfigCommandConfig;
-  }
-
-  /**
-   * Check if an option was explicitly set (this is a simplified check)
-   */
-  private wasOptionExplicitlySet(key: string, options: any): boolean {
-    // If the option exists in the options object and is not undefined,
-    // we assume it was explicitly set (either by command line or by commander defaults).
-    // This means command-line options will take precedence over config defaults.
-    return options[key] !== undefined;
   }
 
   /**

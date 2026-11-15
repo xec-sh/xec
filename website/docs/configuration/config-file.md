@@ -1,656 +1,280 @@
 ---
 title: Configuration File Structure
-description: Complete reference for the .xec/config.yaml file format
+description: Configuration fields, source precedence and implemented runtime boundaries
 ---
 
 # Configuration File Structure {#configuration-file-structure}
 
-The `.xec/config.yaml` file is the heart of Xec's configuration system. This document provides a comprehensive reference for all configuration options and their usage.
+The project file describes reusable values, execution targets and tasks. The
+format version is `version: '1.0'`; it is independent of the installed Xec package
+version. `name` and `description` are optional metadata.
 
-## File Format {#file-format}
+## File location {#file-location}
 
-Xec configuration files use YAML format with the following conventions:
+From the working directory, discovery prefers the nearest ancestor containing
+`.xec/config.yaml` or `.xec/config.yml`, then the nearest `package.json` with
+`workspaces`, then the nearest `.git` root. It falls back to the working directory.
 
-- **YAML 1.2** specification
-- **UTF-8** encoding
-- **2-space** indentation (recommended)
-- **Comments** supported with `#`
-
-## File Location {#file-location}
-
-Xec first determines the project root by walking up from the current directory, taking the first of:
-
-1. A directory containing `.xec/config.yaml` (or `.yml`)
-2. A monorepo root (`package.json` with `workspaces`)
-3. A git repository root (`.git`)
-4. The current directory, if none of the above are found
-
-Within that root it loads the first configuration file found among (in order):
-
-1. `.xec/config.yaml` - Project directory (recommended)
-2. `.xec/config.yml` - Alternative extension
-3. `xec.yaml` - Root directory
-4. `xec.yml` - Alternative root location
-
-A global configuration at `~/.xec/config.yaml` (overridable via `XEC_HOME_DIR`) is loaded before the project file, and `XEC_CONFIG` can point to an additional file that overrides both. See [Configuration Precedence](#configuration-precedence) below for the full merge order.
+Within the chosen root, `.xec/config.yaml` and `.xec/config.yml` precede the
+root-level `xec.yaml` and `xec.yml`. If the working directory differs, its
+`.xec` candidates are also checked before the root-level files. The first found
+project file is used; these candidates are not all merged.
 
 ```bash
-# Validate your configuration
-xec config validate
-
-# Show loaded configuration
-xec config view
+pnpm exec xec config validate
+pnpm exec xec config --config .xec/preview.yaml validate
 ```
 
-## Root Structure {#root-structure}
+An explicit `--config` replaces project discovery for a command that supports
+that option. `XEC_CONFIG` instead adds a higher-priority file to the discovered
+configuration. Neither removes the global, environment or profile layers.
+
+## Root structure {#root-structure}
 
 ```yaml
-# Configuration version (required)
-version: "1.0"
-
-# Project metadata (optional)
-name: my-project
-description: My awesome project configuration
-
-# Global variables
+version: '1.0'
+name: example
 vars:
-  key: value
-
-# Execution targets
+  app:
+    name: example
 targets:
-  # Target definitions...
-
-# Automation tasks
-tasks:
-  # Task definitions...
-
-# Environment profiles
-profiles:
-  # Profile definitions...
-
-# Command defaults
-commands:
-  # Command configurations...
-
-# Script configuration
-scripts:
-  # Script settings...
-
-# Secrets management
-secrets:
-  # Secret provider config...
-
-# Extensions
-extensions:
-  # Extension configurations...
-```
-
-## Version Field {#version-field}
-
-The `version` field specifies the configuration format version:
-
-```yaml
-version: "1.0"  # Current version
-```
-
-**Required**: Yes  
-**Type**: String  
-**Current Version**: "1.0"
-
-Future versions will maintain backward compatibility or provide migration tools.
-
-## Project Metadata {#project-metadata}
-
-Optional fields for project identification:
-
-```yaml
-name: my-application
-description: |
-  Production deployment configuration for
-  the e-commerce platform backend services.
-```
-
-### Fields {#fields}
-
-- **name** (string): Project identifier
-- **description** (string): Human-readable description
-
-## Variables Section {#variables-section}
-
-Global variables for reuse throughout configuration:
-
-```yaml
-vars:
-  # Simple values
-  app_name: myapp
-  version: "2.1.0"
-  port: 8080
-  
-  # Complex structures
-  database:
-    host: db.example.com
-    port: 5432
-    name: production_db
-  
-  # Lists
-  servers:
-    - web1.example.com
-    - web2.example.com
-    - web3.example.com
-  
-  # Computed values
-  image_tag: "${app_name}:${version}"
-  connection_string: "postgres://${database.host}:${database.port}/${database.name}"
-```
-
-### Variable Types {#variable-types}
-
-- **Strings**: Text values
-- **Numbers**: Integer or float
-- **Booleans**: true/false
-- **Objects**: Nested structures
-- **Arrays**: Lists of values
-
-### Variable Interpolation {#variable-interpolation}
-
-Variables can reference other variables. The supported reference forms are `${vars.name}` (or bare `${name}`), `${env.NAME}`, `${params.name}` (inside tasks), `${secrets.name}` / `${secret:name}`, and `${cmd:command}`:
-
-```yaml
-vars:
-  base_url: https://api.example.com
-  api_endpoint: "${base_url}/v2"
-  
-  # Nested references
-  env: production
-  config_file: "/etc/${app_name}/${env}.conf"
-  
-  # Environment variables
-  home_dir: "${env.HOME}"
-  # Default values: everything after ':' is the default
-  # (bash-style ':-' is NOT supported — ':-x' would yield the default '-x')
-  path_with_default: "${env.CUSTOM_PATH:/default/path}"
-```
-
-### Command Substitution {#command-substitution}
-
-`${cmd:command}` executes a shell command **at configuration load time** and substitutes its trimmed stdout. Keep these commands fast and side-effect free — they run every time the configuration is loaded, and their output is never written back to disk by `xec config set`:
-
-```yaml
-vars:
-  git_sha: ${cmd:git rev-parse --short HEAD}
-  build_date: ${cmd:date +%Y-%m-%d}
-  image_tag: "myapp:${cmd:git describe --tags --always}"
-```
-
-If the command fails, configuration loading fails with a descriptive error.
-
-## Targets Section {#targets-section}
-
-Define execution environments:
-
-```yaml
-targets:
-  # Global defaults for all targets
-  defaults:
-    timeout: 30000
-    shell: /bin/bash
-    encoding: utf8
-    
-    # Type-specific defaults
-    ssh:
-      port: 22
-      keepAlive: true
-    docker:
-      tty: true
-    kubernetes:
-      namespace: default
-  
-  # Local execution (optional, has built-in defaults)
   local:
     type: local
-    workdir: /workspace
-  
-  # SSH hosts (the field is 'user'; the programmatic $.ssh() API uses 'username')
-  hosts:
-    web-server:
-      host: web.example.com
-      user: deploy
-      privateKey: ~/.ssh/id_rsa
-    
-    db-server:
-      host: db.example.com
-      user: admin
-      password: ${secrets.db_password}
-  
-  # Docker containers
-  containers:
-    app:
-      image: node:18
-      volumes:
-        - ./app:/app
-      workdir: /app
-    
-    database:
-      image: postgres:15
-      env:
-        POSTGRES_PASSWORD: ${secrets.pg_password}
-  
-  # Kubernetes pods
-  pods:
-    frontend:
-      namespace: production
-      selector: app=frontend
-      container: nginx
-    
-    backend:
-      namespace: production
-      pod: backend-7f8b9c-xyz
-      container: app
-```
-
-## Tasks Section {#tasks-section}
-
-Define reusable automation workflows:
-
-```yaml
 tasks:
-  # Simple command task
-  backup:
-    command: pg_dump mydb > backup.sql
-    target: db-server
-  
-  # Multi-step task
-  deploy:
-    description: Deploy application to production
-    target: web-server
-    steps:
-      - name: Pull latest code
-        command: git pull origin main
-      
-      - name: Install dependencies
-        command: npm install
-      
-      - name: Run tests
-        command: npm test
-        onFailure: abort
-      
-      - name: Build application
-        command: npm run build
-      
-      - name: Restart service
-        command: systemctl restart myapp
-  
-  # Parameterized task
-  scale:
-    description: Scale application replicas
-    params:
-      - name: replicas
-        type: number
-        required: true
-        min: 1
-        max: 10
-    command: kubectl scale deployment/app --replicas=${params.replicas}
-  
-  # Parallel execution task
-  health-check:
-    description: Check all services
-    parallel: true
-    targets:
-      - web-server
-      - db-server
-      - cache-server
-    command: curl -f http://localhost/health
-```
-
-## Profiles Section {#profiles-section}
-
-Environment-specific configurations:
-
-```yaml
+  runtime:
+    command: node --version
 profiles:
-  # Development profile
-  development:
-    vars:
-      environment: dev
-      debug: true
-      replicas: 1
-    targets:
-      hosts:
-        web-server:
-          host: localhost
-          port: 2222
-  
-  # Staging profile
   staging:
-    extends: development  # Inherit from another profile
     vars:
-      environment: staging
-      debug: false
-      replicas: 2
-    targets:
-      hosts:
-        web-server:
-          host: staging.example.com
-  
-  # Production profile
-  production:
-    vars:
-      environment: prod
-      debug: false
-      replicas: 3
-      monitoring: enabled
-    targets:
-      hosts:
-        web-server:
-          host: prod-web.example.com
-        db-server:
-          host: prod-db.example.com
+      app:
+        name: example-staging
 ```
 
-## Commands Section {#commands-section}
+### File format {#file-format}
 
-Configure defaults for built-in commands:
+Use UTF-8 YAML and quote values that must remain strings. Two-space indentation
+keeps mappings readable. Avoid duplicate mapping keys: they cannot represent
+separate configuration layers.
 
-```yaml
-commands:
-  # xec in command defaults
-  in:
-    defaultTimeout: 30s
-    shell: /bin/bash
-  
-  # xec on command defaults
-  on:
-    parallel: true
-    failFast: false
-  
-  # xec copy command defaults
-  copy:
-    compress: true
-    progress: true
-    preserveMode: true
-  
-  # xec forward command defaults
-  forward:
-    dynamic: true
-    privileged: false
-  
-  # xec watch command defaults
-  watch:
-    interval: 2
-    clear: true
-    initialRun: true
-  
-  # xec logs command defaults
-  logs:
-    tail: 100
-    follow: false
-    timestamps: true
-    prefix: true
-```
+## Variables {#variables-section}
 
-## Scripts Section {#scripts-section}
+Variables are reusable configuration data: strings, numbers, booleans, arrays
+and nested objects.
 
-Configure script execution environment:
+### Interpolation {#variable-interpolation}
+
+| Reference | Meaning |
+| --- | --- |
+| `${vars.app.name}` or `${app.name}` | A configuration variable |
+| `${env.HOME}` | A process environment variable |
+| `${env.DEPLOY_ENV:staging}` | Environment variable with a literal fallback |
+| `${params.message}` | A task parameter, resolved for that invocation |
+| `${secrets.api_key}` or `${secret:api_key}` | A value from the selected secret provider |
+| `${cmd:git rev-parse --short HEAD}` | Trimmed stdout from a load-time shell command |
+
+The fallback separator is `:`, not Bash's `:-`. An unresolved reference fails;
+it is not silently replaced with an empty value. Do not name a configuration
+variable `env`, `params`, `cmd` or `secret`, which are reserved namespaces.
+
+### Command substitution {#command-substitution}
+
+A command reference is executable configuration. Review and approve the exact
+file before loading it with [configuration trust](../commands/built-in/config.md#configuration-trust).
+A failing command fails loading. Saving through `ConfigurationManager` retains
+the original template rather than writing resolved secrets or stdout to disk.
+
+Current source treats parameters, environment overrides, secrets and command
+stdout as terminal data; it does not recursively evaluate them as new templates.
+This security correction is newer than published 0.12.0. Until upgrading, do not
+feed untrusted values into interpolated shell command definitions.
+
+## Targets {#targets-section}
 
 ```yaml
-scripts:
-  # Environment variables for all scripts
-  env:
-    NODE_ENV: production
-    API_KEY: ${secrets.api_key}
-```
-
-:::warning Not implemented
-The schema also accepts `scripts.globals` and `scripts.sandbox` keys, but they are only validated — **no sandboxing or global-module auto-loading is enforced at runtime**. Do not rely on `sandbox` for security isolation.
-:::
-
-## Secrets Section {#secrets-section}
-
-Configure secret management. The supported providers are `local`, `env`, and `git`:
-
-```yaml
-secrets:
-  # Local encrypted storage (default)
-  provider: local
-  config:
-    storageDir: ~/.xec/secrets
-    passphrase: ${env.XEC_PASSPHRASE}
-  
-  # Environment variables (reads SECRET_* by default)
-  # provider: env
-  # config:
-  #   prefix: SECRET_
-  
-  # Encrypted file tracked in git
-  # provider: git
-```
-
-:::warning Not implemented
-`vault`, `aws-secrets`, `1password`, and `dotenv` are declared in the provider type but **not implemented** — selecting them fails with a configuration error listing the supported providers.
-:::
-
-## Extensions Section {#extensions-section}
-
-:::warning Not implemented
-The configuration schema accepts an `extensions:` array (each entry with a `source` and optional `tasks`/`config`), and it passes validation — but **nothing loads extensions at runtime**. The section currently has no effect. To extend Xec, use [custom commands](../commands/custom/creating-commands.md) in `.xec/commands/` instead.
-:::
-
-## Complete Example {#complete-example}
-
-Here's a complete configuration example:
-
-```yaml
-version: "1.0"
-name: microservices-platform
-description: Production microservices deployment
-
-# Global variables
-vars:
-  project: ecommerce
-  environment: ${env.DEPLOY_ENV:staging}
-  region: us-east-1
-  
-  # Service versions
-  versions:
-    api: "2.1.0"
-    web: "1.5.3"
-    worker: "1.2.0"
-
-# Execution targets
 targets:
   defaults:
-    timeout: 60000
-    ssh:
-      keepAlive: true
-      connectionPool:
-        max: 5
-  
+    timeout: 30000
+  local:
+    type: local
   hosts:
-    api-server:
-      host: api.${environment}.example.com
+    staging:
+      host: staging.example.com
       user: deploy
-      privateKey: ~/.ssh/deploy_key
-    
-    web-server:
-      host: web.${environment}.example.com
-      user: deploy
-      privateKey: ~/.ssh/deploy_key
-  
+      privateKey: ~/.ssh/id_ed25519
+      hostKeyChecking: strict
   containers:
-    database:
-      image: postgres:15
-      env:
-        POSTGRES_DB: ${project}
-        POSTGRES_PASSWORD: ${secrets.db_password}
-  
-  kubernetes:
-    $namespace: ${project}-${environment}
-    $context: ${region}-cluster
+    worker:
+      container: existing-worker
+  pods:
+    api:
+      namespace: staging
+      selector: app=api
+```
 
-# Automation tasks
+These are declarations; this example does not create the host, container or pod.
+Use qualified references such as `hosts.staging` when another target could have
+the same short name. For SSH configuration the field is `user`; the programmatic
+Core API uses `username`. Review the verified host key before connecting.
+
+Put an execution deadline in `targets.defaults.timeout` or the specific task.
+There is no root-level `timeout` or `XEC_TIMEOUT` execution setting. Adapter-specific
+defaults belong under `targets.defaults.ssh`, `.docker` or `.kubernetes`; see the
+[target reference](./targets/overview.md) for their supported fields.
+
+## Tasks {#tasks-section}
+
+```yaml
 tasks:
-  deploy-api:
-    description: Deploy API service
-    target: api-server
+  runtime:
+    command: node --version
+  message:
+    params:
+      - name: text
+        type: string
+        default: Ready
+    env:
+      MESSAGE: ${params.text}
+    command: node -e "console.log(process.env.MESSAGE)"
+  check:
     steps:
-      - command: docker pull ${project}/api:${versions.api}
-      - command: docker stop api || true
-      - command: docker run -d --name api ${project}/api:${versions.api}
-      - command: ./health-check.sh api
-        onFailure:
-          retry: 3
-          delay: 5s
-  
-  deploy-web:
-    description: Deploy web frontend
-    target: web-server
-    steps:
-      - command: docker pull ${project}/web:${versions.web}
-      - command: docker stop web || true
-      - command: docker run -d --name web ${project}/web:${versions.web}
-  
-  deploy-all:
-    description: Deploy all services
-    parallel: true
-    steps:
-      - task: deploy-api
-      - task: deploy-web
-      - task: deploy-worker
+      - task: runtime
+      - task: message
+        args:
+          text: Checks completed
+```
 
-# Environment profiles
+A task uses one command, one script, or a step list. Steps may run commands,
+scripts or another named task. An unsupported capability must not be inferred
+from an arbitrary YAML key: scheduling, task caching, event hooks and automatic
+rollback are not implemented by the configuration task executor. Current source
+explicitly rejects these previously accepted declarations.
+
+Task and step defaults, fan-out, cancellation and failure policies are detailed
+in the [task guide](./tasks/simple-tasks.md). A script can implement a richer
+workflow through Ops. A recovery command is not proof that recovery succeeded;
+verify the postcondition before reporting success.
+
+## Profiles {#profiles-section}
+
+```yaml
 profiles:
+  base:
+    vars:
+      environment: development
   staging:
+    extends: base
     vars:
       environment: staging
-      replicas: 2
     targets:
-      kubernetes:
-        $namespace: ${project}-staging
-  
-  production:
-    vars:
-      environment: production
-      replicas: 5
-      monitoring: enabled
-    targets:
-      kubernetes:
-        $namespace: ${project}-prod
-        $context: prod-cluster
+      local:
+        type: local
+        env:
+          NODE_ENV: ${vars.environment}
+```
 
-# Command defaults
+A profile overrides `vars` and `targets`. Select one with `XEC_PROFILE=staging`,
+with the library's `profile` option, or with a CLI command's declared `--profile`
+option. It is not a universal root flag; `xec run` uses `XEC_PROFILE`.
+A separate `.xec/profiles/staging.yaml` contains the profile body, without a
+`profiles:` wrapper. Inherited profiles must exist; keep their relationship
+explicit.
+
+## Command defaults {#commands-section}
+
+```yaml
 commands:
+  on:
+    parallel: true
+    maxConcurrent: 4
   logs:
-    tail: 200
-    follow: true
-    timestamps: true
+    tail: 100
+  docker:
+    service:
+      redis:
+        port: '16379'
+```
 
-# Secrets configuration
+Current source validates these against the same Commander option tree that
+parses the CLI. Use canonical command names (`copy`, not `cp`), camel-cased option
+names and real nested subcommand names. Configured values override parser
+defaults; explicit CLI values, including `false`, `0` and an empty string, win.
+Unknown keys fail before the owning operation starts.
+
+The commands consuming this section are `on`, `in`, `copy`, `forward`, `watch`,
+`logs` and `docker`. Invocation controls such as `config`, `profile`, `dryRun` and
+`output` must be selected on the command line. There is no `commands.defaults`
+catch-all. These precedence and validation fixes are not in npm 0.12.0; with that
+version, pass critical options explicitly and verify the effective behavior.
+
+## Scripts {#scripts-section}
+
+The existing schema contains `scripts.env`, `scripts.globals` and
+`scripts.sandbox`, but the script loader does not implement those controls.
+`profile.env` also feeds `scripts.env` and is not a reliable way to configure
+processes. Do not use any of them as a security boundary.
+
+Set process values explicitly in the script or in a task/target `env` mapping.
+Import modules explicitly. For isolation, use an actual container or other
+execution boundary and verify its restrictions.
+
+## Secrets {#secrets-section}
+
+```yaml
 secrets:
-  provider: local
-  config:
-    storageDir: ~/.xec/secrets
+  provider: env
 ```
 
-## Schema Validation {#schema-validation}
+Implemented providers are `local`, `env` and `git`. The environment provider reads
+`SECRET_*` variables by default. The local provider stores encrypted secrets;
+configure its storage through the [secrets command](../commands/built-in/secrets.md).
+Declared names such as `vault`, `aws-secrets`, `1password` and `dotenv` have no
+implementation and are rejected.
 
-Xec validates the merged configuration on load:
+Provider configuration is selected before general variable interpolation; do not
+assume a `${...}` expression inside provider setup has already been resolved.
+Pass the provider the concrete configuration required by its API.
+
+## Unsupported extensions {#extensions-section}
+
+Published 0.12.0 accepted an `extensions` array but did not load anything from it.
+Current source removes that schema and refuses the key before initialization or
+command substitution. Put a native command in `.xec/commands/`, import a normal
+package from a script, or declare the tasks directly. There is no extension
+manifest or extension installation lifecycle.
+
+## Configuration precedence {#configuration-precedence}
+
+| Priority, low to high | Source |
+| --- | --- |
+| 1 | Built-in baseline |
+| 2 | Global configuration |
+| 3 | Project file or explicit `--config` file |
+| 4 | Additional `XEC_CONFIG` file |
+| 5 | `XEC_*` path-based overrides |
+| 6 | Active profile |
+
+For example, `XEC_VARS_APP_NAME=web` writes the string `web` at `vars.app.name`.
+All underscores separate path components; this mechanism cannot spell a literal
+underscore in a key. Task parameters are separate invocation data. Current source
+also refuses executable task/profile definitions supplied through environment
+paths rather than reviewed configuration files.
+
+## Validation {#schema-validation}
 
 ```bash
-# Validate configuration
-xec config validate
-
-# Validate a specific file
-XEC_CONFIG=custom-config.yaml xec config validate
+pnpm exec xec config --output json validate
+pnpm exec xec config doctor --dry-run
 ```
 
-## Configuration Precedence {#configuration-precedence}
-
-Configuration sources are merged in this order — later sources override earlier ones:
-
-1. **Built-in defaults** - Lowest priority
-2. **Global configuration** - `~/.xec/config.yaml` (or `$XEC_HOME_DIR/config.yaml`)
-3. **Project configuration** - First file found (see [File Location](#file-location))
-4. **`XEC_CONFIG` file** - Extra file referenced by the environment variable
-5. **`XEC_*` environment variables** - e.g. `XEC_VARS_PORT=9000` sets `vars.port`
-6. **Active profile** - Selected via `XEC_PROFILE`; highest priority
-
-Task parameters (`${params.name}`) are not part of this merge — they are supplied per task invocation and live in their own namespace.
-
-## Best Practices {#best-practices}
-
-### 1. Use Version Control {#1-use-version-control}
-
-```bash
-# Always version your configuration
-git add .xec/config.yaml
-git commit -m "Add production deployment configuration"
-```
-
-### 2. Separate Environments {#2-separate-environments}
-
-```yaml
-# Use profiles for different environments
-profiles:
-  dev:
-    vars: { debug: true }
-  prod:
-    vars: { debug: false }
-```
-
-### 3. Keep Secrets Secure {#3-keep-secrets-secure}
-
-```yaml
-# Never hardcode secrets
-password: ${secrets.db_password}  # Good
-password: "mypassword123"         # Bad
-```
-
-### 4. Use Descriptive Names {#4-use-descriptive-names}
-
-```yaml
-tasks:
-  dpl:    # Bad - unclear
-  deploy: # Good - descriptive
-```
-
-### 5. Document Complex Tasks {#5-document-complex-tasks}
-
-```yaml
-tasks:
-  complex-migration:
-    description: |
-      Performs database migration with backup.
-      Duration: ~15 minutes
-      Requirements: 5GB free space
-```
-
-## Migration Guide {#migration-guide}
-
-### From v0.x to v1.0 {#from-v0x-to-v10}
-
-```yaml
-# Old format (v0.x)
-hosts:
-  - name: web
-    address: example.com
-
-# New format (v1.0)
-targets:
-  hosts:
-    web:
-      host: example.com
-```
-
-## Next Steps {#next-steps}
-
-- [Defining Targets](./targets/overview.md) - Configure execution environments
-- [Creating Tasks](./tasks/overview.md) - Build automation workflows
-- [Using Profiles](./profiles/overview.md) - Manage environments
-- [Variable System](./variables/overview.md) - Dynamic configuration
-- [Best Practices](./advanced/best-practices.md) - Configuration patterns
+The CLI checks configuration and the native command-default schema. It does not
+prove remote access, script correctness or deployment health. `doctor` is an
+explicit edit: review its proposed changes before applying them. There is no
+promised automatic migration from an invented older configuration format.
 
 ## See Also {#see-also}
 
-- [Configuration Commands](../commands/built-in/config.md) - CLI configuration management
-- [Troubleshooting](./advanced/troubleshooting.md) - Common issues
-- [Validation](./advanced/validation.md) - Configuration validation
+- [Configuration overview](./overview.md)
+- [Configuration CLI](../commands/built-in/config.md)
+- [Variables](./variables/overview.md)
+- [Tasks](./tasks/simple-tasks.md)
+- [Targets](./targets/overview.md)

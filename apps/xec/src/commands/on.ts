@@ -48,6 +48,7 @@ export class OnCommand extends ConfigAwareCommand {
   constructor() {
     super({
       name: 'on',
+      configurationDefaults: true,
       description: 'Execute commands on SSH hosts',
       arguments: '<hosts> [command...]',
       options: [

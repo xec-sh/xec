@@ -30,6 +30,7 @@ export class CopyCommand extends ConfigAwareCommand {
   constructor() {
     super({
       name: 'copy',
+      configurationDefaults: true,
       aliases: ['cp'],
       description: 'Copy files between targets',
       arguments: '<source> <destination>',

@@ -261,7 +261,7 @@ describe('ConfigurationManager', () => {
 
       expect(config.version).toBe('1.0');
       expect(config.targets?.local?.type).toBe('local');
-      expect(config.commands?.in?.defaultTimeout).toBe('30s');
+      expect(config.commands).toBeUndefined(); // Native command schemas own option defaults.
     });
 
     it('should load project configuration', async () => {

@@ -17,43 +17,13 @@ import * as jsYaml from 'js-yaml';
 import { existsSync } from 'node:fs';
 import * as fs from 'node:fs/promises';
 
+import { getDefaultConfig } from './defaults.js';
 import { SecretManager } from '../secrets/index.js';
 import { TargetResolver } from './target-resolver.js';
 import { ConfigValidator } from './config-validator.js';
 import { deepMerge, getConfigValue, setConfigValue, getGlobalConfigDir } from './utils.js';
 import { isTrusted, untrustedMessage, trustedByEnvironment, usesCommandSubstitution } from './command-trust.js';
 import { VariableInterpolator, type InterpolateOptions, DynamicValueUnavailableError } from './variable-interpolator.js';
-
-/**
- * Default configuration values
- */
-const DEFAULT_CONFIG: Partial<Configuration> = {
-  version: '1.0',
-  targets: {
-    local: {
-      type: 'local'
-    }
-  },
-  commands: {
-    in: {
-      defaultTimeout: '30s'
-    },
-    on: {
-      parallel: false
-    },
-    copy: {
-      compress: true,
-      progress: true
-    },
-    forward: {
-      dynamic: true
-    },
-    watch: {
-      interval: 2,
-      clear: true
-    }
-  }
-};
 
 /**
  * Configuration manager implementation
@@ -133,9 +103,6 @@ export class ConfigurationManager {
     this.merged = undefined;
     this.rawMerged = undefined;
 
-    // A preview must not initialize a provider that can create files or run Git.
-    if (this.options.evaluateCommands !== false) await this.secretManager.initialize();
-
     // 1. Load from multiple sources in priority order
     await this.loadBuiltinDefaults();
     await this.loadGlobalConfig();
@@ -145,6 +112,7 @@ export class ConfigurationManager {
 
     // 2. Merge configurations
     this.merged = this.mergeConfigurations();
+    this.assertSupportedCapabilities(this.merged);
 
     // 3. Update secret provider from configuration if specified.
     // Unsupported provider types are reported as validation errors instead of
@@ -171,6 +139,10 @@ export class ConfigurationManager {
         });
       }
     }
+
+    // Initialize only the selected provider after unsupported contracts were refused.
+    // A preview must not create a secret store or run Git.
+    if (this.options.evaluateCommands !== false) await this.secretManager.initialize();
 
     // Preserve the uninterpolated configuration for save()
     this.rawMerged = JSON.parse(JSON.stringify(this.merged)) as Configuration;
@@ -332,8 +304,12 @@ export class ConfigurationManager {
    * @returns The full path to the configuration file
    */
   async getConfigPath(): Promise<string> {
-    const saveRoot = await this.findProjectRoot(this.options.projectRoot!);
-    return path.join(saveRoot || this.options.projectRoot!, this.configDirName, this.configFileNames[0] || 'config.yaml');
+    if (this.options.configFilePath) return path.resolve(this.options.configFilePath);
+    const loadedProject = this.sources.find(source => source.type === 'project' && source.path);
+    if (loadedProject?.path) return loadedProject.path;
+    const root = await this.findProjectRoot(this.options.projectRoot!) || this.options.projectRoot!;
+    return this.buildConfigSearchPaths(root).find(candidate => existsSync(candidate))
+      ?? path.join(root, this.configDirName, this.configFileNames[0] || 'config.yaml');
   }
 
   /**
@@ -367,12 +343,8 @@ export class ConfigurationManager {
       throw new Error('No configuration to save');
     }
 
-    // If no path specified, save to project config directory
-    let targetPath = filePath;
-    if (!targetPath) {
-      const saveRoot = await this.findProjectRoot(this.options.projectRoot!);
-      targetPath = path.join(saveRoot || this.options.projectRoot!, this.configDirName, this.configFileNames[0] || 'config.yaml');
-    }
+    // Write back to the selected project source; never invent a second config.
+    const targetPath = filePath ?? await this.getConfigPath();
 
     const dir = path.dirname(targetPath);
 
@@ -567,14 +539,16 @@ export class ConfigurationManager {
   private async tryLoadConfigFile(filePath: string): Promise<Configuration | undefined> {
     try {
       const content = await fs.readFile(filePath, 'utf-8');
+      const config = jsYaml.load(content) as Configuration;
+      this.assertSupportedCapabilities(config);
       await this.assertCommandSubstitutionAllowed(filePath, content);
-      return jsYaml.load(content) as Configuration;
+      return config;
     } catch (error: any) {
       // A refused configuration stops the command. Degrading to a warning
       // and an empty config would let everything carry on against defaults,
       // which is a different run than the one that was asked for — and it
       // would make the refusal look advisory.
-      if (error instanceof UntrustedConfigError || error instanceof DynamicValueUnavailableError) {
+      if (error instanceof UntrustedConfigError || error instanceof DynamicValueUnavailableError || error instanceof ConfigValidationError) {
         throw error;
       }
 
@@ -590,12 +564,17 @@ export class ConfigurationManager {
     }
   }
 
+  private assertSupportedCapabilities(config: unknown): void {
+    const errors = ConfigValidator.unsupportedCapabilities(config);
+    if (errors.length) throw new ConfigValidationError('Unsupported configuration', errors);
+  }
+
   private async loadBuiltinDefaults(): Promise<void> {
     this.sources.push({
       type: 'builtin',
       name: 'defaults',
       priority: 0,
-      config: DEFAULT_CONFIG
+      config: getDefaultConfig()
     });
   }
 
@@ -686,13 +665,13 @@ export class ConfigurationManager {
     // Look for environment variables with prefix
     for (const [key, value] of Object.entries(process.env)) {
       if (key.startsWith(prefix) && key !== `${prefix}PROFILE`) {
-        // Convert XEC_VARS_APP_NAME to vars.app_name
+        // Every underscore separates a path segment: XEC_VARS_APP_NAME -> vars.app.name
         const p = key
           .substring(prefix.length)
           .toLowerCase()
           .replace(/_/g, '.');
 
-        if (['tasks', 'profiles', 'extensions'].includes(p.split('.')[0]!)) {
+        if (['tasks', 'profiles'].includes(p.split('.')[0]!)) {
           throw new Error(`${key} cannot define executable configuration; declare it in a trusted configuration file and pass runtime data through vars`);
         }
         setConfigValue(envConfig, p, value);
@@ -788,11 +767,12 @@ export class ConfigurationManager {
         for (const profilePath of profilePaths) {
           try {
             const content = await fs.readFile(profilePath, 'utf-8');
-            await this.assertCommandSubstitutionAllowed(profilePath, content);
             profileConfig = jsYaml.load(content) as ProfileConfig;
+            this.assertSupportedCapabilities(profileConfig);
+            await this.assertCommandSubstitutionAllowed(profilePath, content);
             break;  // Use first found
           } catch (error: any) {
-            if (error instanceof UntrustedConfigError || error instanceof DynamicValueUnavailableError) throw error;
+            if (error instanceof UntrustedConfigError || error instanceof DynamicValueUnavailableError || error instanceof ConfigValidationError) throw error;
             if (error.code !== 'ENOENT') {
               console.warn(`Failed to load profile ${currentName} from ${profilePath}: ${error.message}`);
             }

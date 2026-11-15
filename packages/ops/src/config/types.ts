@@ -42,9 +42,6 @@ export interface Configuration {
 
   /** Secrets configuration */
   secrets?: SecretsConfig;
-
-  /** Extensions configuration */
-  extensions?: ExtensionConfig[];
 }
 
 /**
@@ -283,6 +280,9 @@ export interface KubernetesDefaults {
  * Profile configuration
  */
 export interface ProfileConfig {
+  /** Human-readable profile purpose. */
+  description?: string;
+
   /** Profile-specific variables */
   vars?: Record<string, any>;
 
@@ -478,20 +478,6 @@ export interface SecretsConfig {
     passphrase?: string;
     [key: string]: any;
   };
-}
-
-/**
- * Extension configuration
- */
-export interface ExtensionConfig {
-  /** Extension source (npm package, git repo, local path) */
-  source: string;
-
-  /** Tasks to import from extension */
-  tasks?: string[];
-
-  /** Extension-specific configuration */
-  config?: Record<string, any>;
 }
 
 /**

@@ -1,225 +1,35 @@
-/**
- * Default configuration values for Xec
- */
+import type { Configuration } from './types.js';
 
-export interface DefaultConfig {
-  version?: string;
-  name?: string;
-  description?: string;
-  targets?: {
-    local?: any;
-    hosts?: Record<string, any>;
-    containers?: Record<string, any>;
-    pods?: Record<string, any>;
-    defaults?: {
-      ssh?: {
-        port?: number;
-        keepAlive?: boolean;
-        keepAliveInterval?: number;
-        timeout?: number;
-      };
-      docker?: {
-        workdir?: string;
-        tty?: boolean;
-        interactive?: boolean;
-      };
-      kubernetes?: {
-        namespace?: string;
-        context?: string;
-      };
-    };
-  };
-  commands?: {
-    exec?: {
-      shell?: string;
-      tty?: boolean;
-      interactive?: boolean;
-    };
-    logs?: {
-      tail?: string;
-      timestamps?: boolean;
-      follow?: boolean;
-      prefix?: boolean;
-      since?: string;
-      until?: string;
-      grep?: string;
-      color?: boolean;
-    };
-    cp?: {
-      recursive?: boolean;
-      preserveMode?: boolean;
-      preserveTimestamps?: boolean;
-      followSymlinks?: boolean;
-    };
-    sync?: {
-      delete?: boolean;
-      exclude?: string[];
-      dryRun?: boolean;
-    };
-  };
-  secrets?: {
-    provider?: 'env' | 'file' | 'vault';
-    path?: string;
-  };
-  vars?: Record<string, string>;
-  tasks?: Record<string, any>;
+import { isDeepStrictEqual } from 'node:util';
+
+import { deepMerge, getConfigValue, assertConfigData } from './utils.js';
+
+/** Configuration-level defaults only. CLI options and adapters own theirs. */
+export function getDefaultConfig(): Configuration {
+  return { version: '1.0', targets: { local: { type: 'local' } } };
 }
 
-/**
- * Get default configuration values
- */
-export function getDefaultConfig(): DefaultConfig {
-  return {
-    version: '1.0.0',
-    name: 'my-project',
-    description: 'A Xec managed project',
-    targets: {
-      local: {
-        type: 'local'
-      },
-      defaults: {
-        ssh: {
-          port: 22,
-          keepAlive: true,
-          keepAliveInterval: 30000,
-          timeout: 60000
-        },
-        docker: {
-          // No default workdir. `/app` is a convention of some images and a
-          // directory that does not exist in most, and the adapter maps it to
-          // `docker exec -w`, so every container without `/app` failed with
-          // "chdir to cwd (\"/app\") failed" — including the documented
-          // `xec in <container> <command>`. A container's own WORKDIR is the
-          // right default, and it is the one Docker already applies.
-          tty: true,
-          interactive: true
-        },
-        kubernetes: {
-          namespace: 'default',
-          context: undefined
-        }
-      }
-    },
-    commands: {
-      exec: {
-        shell: '/bin/sh',
-        tty: true,
-        interactive: true
-      },
-      logs: {
-        tail: '50',
-        timestamps: false,
-        follow: false,
-        prefix: false,
-        since: undefined,
-        until: undefined,
-        grep: undefined,
-        color: true
-      },
-      cp: {
-        recursive: true,
-        preserveMode: true,
-        preserveTimestamps: false,
-        followSymlinks: false
-      },
-      sync: {
-        delete: false,
-        exclude: [],
-        dryRun: false
-      }
-    },
-    secrets: {
-      provider: 'env',
-      path: undefined
-    },
-    vars: {},
-    tasks: {}
-  };
-}
-
-/**
- * Define the order of root keys for sorting
- */
 export const ROOT_KEY_ORDER = [
-  'version',
-  'name',
-  'description',
-  'defaults',
-  'targets',
-  'commands',
-  'secrets',
-  'vars',
-  'tasks'
-];
+  'version', 'name', 'description', 'targets', 'commands', 'secrets',
+  'vars', 'tasks', 'profiles', 'scripts',
+] as const;
 
-/**
- * Sort configuration keys according to the defined order
- */
-export function sortConfigKeys(config: any): any {
-  if (!config || typeof config !== 'object' || Array.isArray(config)) {
-    return config;
-  }
-
-  const sorted: any = {};
-
-  // First add keys in the defined order
-  for (const key of ROOT_KEY_ORDER) {
-    if (key in config) {
-      sorted[key] = config[key];
-    }
-  }
-
-  // Then add any remaining custom keys
-  for (const key in config) {
-    if (!ROOT_KEY_ORDER.includes(key)) {
-      sorted[key] = config[key];
-    }
-  }
-
-  return sorted;
+/** Preserve authored values while presenting the known sections consistently. */
+export function sortConfigKeys<T>(config: T): T {
+  if (!config || typeof config !== 'object' || Array.isArray(config)) return config;
+  assertConfigData(config);
+  const keys = [...ROOT_KEY_ORDER.filter(key => Object.hasOwn(config, key)),
+    ...Object.keys(config).filter(key => !ROOT_KEY_ORDER.some(known => known === key))];
+  return Object.fromEntries(keys.map(key => [key, (config as Record<string, unknown>)[key]])) as T;
 }
 
-/**
- * Merge configuration with defaults
- */
-export function mergeWithDefaults(config: any, defaults: any = getDefaultConfig()): any {
-  const result: any = {};
-
-  // Start with defaults
-  for (const key in defaults) {
-    if (defaults[key] !== undefined) {
-      if (typeof defaults[key] === 'object' && !Array.isArray(defaults[key]) && defaults[key] !== null) {
-        result[key] = mergeWithDefaults(config?.[key] || {}, defaults[key]);
-      } else {
-        result[key] = config?.[key] !== undefined ? config[key] : defaults[key];
-      }
-    }
-  }
-
-  // Add any keys from config that aren't in defaults
-  for (const key in config) {
-    if (!(key in result)) {
-      result[key] = config[key];
-    }
-  }
-
-  return result;
+export function mergeWithDefaults<T extends object>(config: T): T & Configuration;
+export function mergeWithDefaults<T extends object, D extends object>(config: T, defaults: D): T & D;
+export function mergeWithDefaults(config: object, defaults: object = getDefaultConfig()): object {
+  return deepMerge(defaults, config, { skipUndefined: true });
 }
 
-/**
- * Check if a value is a default value
- */
-export function isDefaultValue(path: string, value: any, defaults: any = getDefaultConfig()): boolean {
-  const keys = path.split('.');
-  let defaultValue: any = defaults;
-
-  for (const key of keys) {
-    if (defaultValue && typeof defaultValue === 'object' && key in defaultValue) {
-      defaultValue = defaultValue[key];
-    } else {
-      return false;
-    }
-  }
-
-  return JSON.stringify(value) === JSON.stringify(defaultValue);
+export function isDefaultValue(valuePath: string, value: unknown, defaults: object = getDefaultConfig()): boolean {
+  const configured = getConfigValue(defaults, valuePath);
+  return configured !== undefined && isDeepStrictEqual(configured, value);
 }

@@ -64,6 +64,15 @@ export class TaskParser {
       }
     }
 
+    for (const [name, task] of Object.entries(tasks)) {
+      if (typeof task !== 'object' || !Array.isArray(task?.steps)) continue;
+      task.steps?.forEach((step, index) => {
+        if (step?.task && !Object.hasOwn(tasks, step.task)) {
+          allErrors.push({ path: `tasks.${name}.steps[${index}].task`, message: `Task '${step.task}' not found`, rule: 'error' });
+        }
+      });
+    }
+
     if (allErrors.length > 0) {
       throw new TaskParseError('Failed to parse tasks', allErrors);
     }
@@ -179,6 +188,14 @@ export class TaskParser {
       // Validate pattern for string type
       if (param.pattern && param.type && param.type !== 'string') {
         this.addError(paramPath, 'Pattern can only be used with string type');
+      }
+
+      if (param.pattern) {
+        try { new RegExp(param.pattern); }
+        catch { this.addError(`${paramPath}.pattern`, 'Invalid regular expression'); }
+      }
+      if (param.min !== undefined && param.max !== undefined && param.min > param.max) {
+        this.addError(paramPath, 'min cannot be greater than max');
       }
 
       // Validate min/max for number type

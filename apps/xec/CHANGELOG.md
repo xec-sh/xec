@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Command configuration defaults use the native option schema and Commander provenance: explicit CLI values win, configured values override parser defaults, and unknown/invocation-only keys are rejected. `config doctor` validates its proposed document before writing.
+- Project/task/profile scaffolds use the execution configuration contract and preserve existing named definitions unless `--force` is explicit. Nonfunctional extensions and unused scaffold flags are removed; unsupported previews or machine output fail before filesystem effects. Confirmed Git initialization no longer stages or commits unrelated project files.
+
 - `run --dry-run` previews tasks, script files, inline evaluation and REPL without executing them. Executable configuration and secret-provider values fail explicitly during preview; provider initialization is skipped. CLI output distinguishes a preview from completed execution.
 
 - PostgreSQL service restore ignores `.psqlrc`, stops on SQL errors and uses a

@@ -6,12 +6,11 @@
 import type {
   TaskConfig,
   Configuration,
-  TaskParameter,
   TargetsConfig,
-  TaskDefinition,
   ValidationError
 } from './types.js';
 
+import { TaskParser, TaskParseError } from './task-parser.js';
 import { SUPPORTED_SECRET_PROVIDERS, UNIMPLEMENTED_SECRET_PROVIDERS } from '../secrets/index.js';
 
 /**
@@ -20,11 +19,25 @@ import { SUPPORTED_SECRET_PROVIDERS, UNIMPLEMENTED_SECRET_PROVIDERS } from '../s
 export class ConfigValidator {
   private errors: ValidationError[] = [];
 
+  /** Reject unsupported executable contracts before loading can create files or run code. */
+  static unsupportedCapabilities(config: unknown): ValidationError[] {
+    if (!config || typeof config !== 'object' || Array.isArray(config)) return [];
+    const value = config as Record<string, unknown>;
+    const entries: Array<[string, unknown]> = [['', value]];
+    if (value['profiles'] && typeof value['profiles'] === 'object' && !Array.isArray(value['profiles'])) {
+      entries.push(...Object.entries(value['profiles']).map(([name, profile]): [string, unknown] => [`profiles.${name}.`, profile]));
+    }
+    return entries.flatMap(([prefix, entry]) => entry && typeof entry === 'object' && Object.hasOwn(entry, 'extensions')
+      ? [{ path: `${prefix}extensions`, rule: 'error',
+        message: 'Extension loading is not implemented. Use native project commands in .xec/commands/ or explicit task definitions.' }]
+      : []);
+  }
+
   /**
    * Validate configuration
    */
   async validate(config: Configuration): Promise<ValidationError[]> {
-    this.errors = [];
+    this.errors = ConfigValidator.unsupportedCapabilities(config);
 
     // Validate version
     this.validateVersion(config.version);
@@ -56,10 +69,6 @@ export class ConfigValidator {
 
     if (config.secrets) {
       this.validateSecrets(config.secrets);
-    }
-
-    if (config.extensions) {
-      this.validateExtensions(config.extensions);
     }
 
     return this.errors;
@@ -195,154 +204,14 @@ export class ConfigValidator {
   }
 
   private validateTasks(tasks: Record<string, TaskConfig>): void {
-    const taskNames = new Set(Object.keys(tasks));
-
-    for (const [name, task] of Object.entries(tasks)) {
-      const path = `tasks.${name}`;
-
-      if (typeof task === 'string') {
-        // Simple command task - no validation needed
-        continue;
-      }
-
-      const taskDef = task as TaskDefinition;
-
-      // Validate task structure
-      if (!taskDef.command && !taskDef.steps && !taskDef.script) {
-        this.addError(path, 'Task must have either command, steps, or script');
-      }
-
-      if (taskDef.command && taskDef.steps) {
-        this.addError(path, 'Task cannot have both command and steps');
-      }
-
-      // Validate parameters
-      if (taskDef.params) {
-        this.validateTaskParameters(taskDef.params, `${path}.params`);
-      }
-
-      // Validate steps
-      if (taskDef.steps) {
-        this.validateTaskSteps(taskDef.steps, `${path}.steps`, taskNames);
-      }
-
-      // Validate target references
-      if (taskDef.target) {
-        this.validateTargetReference(taskDef.target, `${path}.target`);
-      }
-
-      if (taskDef.targets) {
-        for (let i = 0; i < taskDef.targets.length; i++) {
-          const target = taskDef.targets[i];
-          if (target !== undefined) {
-            this.validateTargetReference(target, `${path}.targets[${i}]`);
-          }
-        }
-      }
-
-      // Validate timeout
-      if (taskDef.timeout) {
-        this.validateTimeout(taskDef.timeout, `${path}.timeout`);
-      }
-
-      // Validate dependencies
-      if (taskDef.dependsOn) {
-        for (const dep of taskDef.dependsOn) {
-          if (!taskNames.has(dep)) {
-            this.addError(`${path}.dependsOn`, `Dependency task '${dep}' not found`);
-          }
-        }
-      }
-
-      // Validate template reference
-      if (taskDef.template && !tasks[taskDef.template]) {
-        this.addError(`${path}.template`, `Template task '${taskDef.template}' not found`);
-      }
+    if (!tasks || typeof tasks !== 'object' || Array.isArray(tasks)) {
+      this.addError('tasks', 'Tasks must be an object');
+      return;
     }
-  }
-
-  private validateTaskParameters(params: TaskParameter[], path: string): void {
-    const names = new Set<string>();
-
-    for (let i = 0; i < params.length; i++) {
-      const param = params[i];
-      if (!param) continue;
-
-      const paramPath = `${path}[${i}]`;
-
-      if (!param.name) {
-        this.addError(`${paramPath}.name`, 'Parameter name is required');
-        continue;
-      }
-
-      if (names.has(param.name)) {
-        this.addError(paramPath, `Duplicate parameter name: ${param.name}`);
-      }
-      names.add(param.name);
-
-      // Validate type
-      if (param.type && !['string', 'number', 'boolean', 'array', 'enum'].includes(param.type)) {
-        this.addError(`${paramPath}.type`, `Invalid parameter type: ${param.type}`);
-      }
-
-      // Validate enum values
-      if (param.type === 'enum' && !param.values) {
-        this.addError(paramPath, 'Enum parameter must have values');
-      }
-
-      // Validate pattern
-      if (param.pattern) {
-        try {
-          new RegExp(param.pattern);
-        } catch {
-          this.addError(`${paramPath}.pattern`, 'Invalid regular expression');
-        }
-      }
-
-      // Validate min/max
-      if (param.min !== undefined && param.max !== undefined && param.min > param.max) {
-        this.addError(paramPath, 'min cannot be greater than max');
-      }
-    }
-  }
-
-  private validateTaskSteps(steps: any[], path: string, taskNames: Set<string>): void {
-    for (let i = 0; i < steps.length; i++) {
-      const step = steps[i];
-      const stepPath = `${path}[${i}]`;
-
-      if (!step.command && !step.task && !step.script) {
-        this.addError(stepPath, 'Step must have either command, task, or script');
-      }
-
-      if (step.task && !taskNames.has(step.task)) {
-        this.addError(`${stepPath}.task`, `Task '${step.task}' not found`);
-      }
-
-      if (step.target) {
-        this.validateTargetReference(step.target, `${stepPath}.target`);
-      }
-
-      if (step.targets) {
-        for (let j = 0; j < step.targets.length; j++) {
-          const targetRef = step.targets[j];
-          if (targetRef) {
-            this.validateTargetReference(targetRef, `${stepPath}.targets[${j}]`);
-          }
-        }
-      }
-    }
-  }
-
-  private validateTargetReference(ref: string, path: string): void {
-    // Basic validation of target reference format
-    const validPrefixes = ['hosts.', 'containers.', 'pods.', 'local'];
-    const hasValidPrefix = validPrefixes.some(prefix =>
-      ref === 'local' || ref.startsWith(prefix)
-    );
-
-    if (!hasValidPrefix) {
-      this.addWarning(path, `Target reference '${ref}' may not be valid. Expected format: hosts.name, containers.name, pods.name, or local`);
+    try { new TaskParser().parseTasks(tasks); }
+    catch (error) {
+      if (!(error instanceof TaskParseError)) throw error;
+      this.errors.push(...error.errors.map(item => ({ ...item, rule: item.rule ?? 'error' })));
     }
   }
 
@@ -377,17 +246,12 @@ export class ConfigValidator {
     }
   }
 
-  private validateCommands(commands: Record<string, any>): void {
-    // Command-specific validation
-    for (const [cmd, config] of Object.entries(commands)) {
-      const path = `commands.${cmd}`;
-
-      if (config.defaultTimeout) {
-        this.validateTimeout(config.defaultTimeout, `${path}.defaultTimeout`);
-      }
-
-      if (config.interval && (typeof config.interval !== 'number' || config.interval < 0)) {
-        this.addError(`${path}.interval`, 'Interval must be a positive number');
+  private validateCommands(commands: Record<string, unknown>): void {
+    // The CLI owns option names, types and subcommands. Ops only validates
+    // this container; it must not maintain a second command option schema.
+    for (const [name, value] of Object.entries(commands)) {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        this.addError(`commands.${name}`, 'Command defaults must be an object');
       }
     }
   }
@@ -408,21 +272,6 @@ export class ConfigValidator {
         ? `Secrets provider '${secrets.provider}' is not yet implemented. Supported providers: ${supported.join(', ')}`
         : `Unknown secrets provider: '${secrets.provider}'. Supported providers: ${supported.join(', ')}`;
       this.addError('secrets.provider', message);
-    }
-  }
-
-  private validateExtensions(extensions: any[]): void {
-    for (let i = 0; i < extensions.length; i++) {
-      const ext = extensions[i];
-      const path = `extensions[${i}]`;
-
-      if (!ext.source) {
-        this.addError(`${path}.source`, 'Extension source is required');
-      }
-
-      if (ext.tasks && !Array.isArray(ext.tasks)) {
-        this.addError(`${path}.tasks`, 'Tasks must be an array');
-      }
     }
   }
 

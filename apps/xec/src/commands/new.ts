@@ -3,10 +3,11 @@ import path from 'node:path';
 import * as yaml from 'js-yaml';
 import { Command } from 'commander';
 import { getExecutionSignal } from '@xec-sh/core';
-import { sortConfigKeys , getDefaultConfig, ConfigurationManager } from '@xec-sh/ops';
 import { log, text, prism, intro, outro, select, confirm, spinner } from '@xec-sh/kit';
+import { sortConfigKeys, ConfigValidator, getDefaultConfig, type Configuration, ConfigurationManager } from '@xec-sh/ops';
 
 import { canPrompt } from '../utils/plain-mode.js';
+import { ConfigFileEditor } from '../utils/config-file-editor.js';
 import { InteractiveHelpers } from '../utils/interactive-helpers.js';
 import { BaseCommand, CommandOptions } from '../utils/command-base.js';
 
@@ -19,8 +20,6 @@ interface NewOptions extends CommandOptions {
   type?: string;
   advanced?: boolean;
   js?: boolean;
-  profile?: string;
-  from?: string;
   interactive?: boolean;
 }
 
@@ -37,7 +36,7 @@ function isNonInteractive(): boolean {
 }
 
 // Artifact types
-type ArtifactType = 'project' | 'script' | 'command' | 'task' | 'profile' | 'extension';
+type ArtifactType = 'project' | 'script' | 'command' | 'task' | 'profile';
 
 // JavaScript with checked JSDoc is valid in both generated script languages.
 const ADVANCED_SCRIPT = `#!/usr/bin/env xec
@@ -60,7 +59,7 @@ const { values: options } = parseArgs({
 });
 validateEnvironment(options.env);
 
-const manager = new ConfigurationManager();
+const manager = new ConfigurationManager({ evaluateCommands: !options['dry-run'] });
 let configuration = await manager.load();
 if (configuration.profiles?.[options.env]) {
   await manager.useProfile(options.env);
@@ -672,314 +671,7 @@ async function deleteItem(id: string): Promise<void> {
     }
   },
 
-  task: {
-    simple: `# Simple command task
-{name}:
-  description: {description}
-  command: echo "Task {name} executed!"
-`,
-    standard: `# Standard task with parameters
-{name}:
-  description: {description}
-  params:
-    - name: message
-      description: Message to display
-      default: "Hello from {name}"
-  command: |
-    echo "Starting {name} task..."
-    echo "\${params.message}"
-    echo "Task completed!"
-`,
-    advanced: `# Advanced multi-step task
-{name}:
-  description: {description}
-  params:
-    - name: target
-      description: Target environment
-      required: true
-      values: [development, staging, production]
-    - name: version
-      description: Version to deploy
-      required: true
-      pattern: "^v\\\\d+\\\\.\\\\d+\\\\.\\\\d+$"
-  
-  # Task-specific variables
-  env:
-    LOG_LEVEL: info
-    DEPLOY_PATH: /opt/apps/myapp
-  
-  steps:
-    # Step 1: Validation
-    - name: Validate environment
-      command: |
-        if [ "\${params.target}" = "production" ]; then
-          echo "⚠️  Production deployment - proceed with caution!"
-        fi
-      onFailure: abort
-    
-    # Step 2: Build
-    - name: Build application
-      command: npm run build:\${params.target}
-      register: build_output
-    
-    # Step 3: Run tests
-    - name: Run tests
-      command: npm test
-      when: params.target != 'production'
-      onFailure:
-        retry: 2
-        delay: 5s
-    
-    # Step 4: Deploy to target
-    - name: Deploy to \${params.target}
-      target: hosts.\${params.target}
-      command: |
-        cd \${env.DEPLOY_PATH}
-        git fetch origin
-        git checkout \${params.version}
-        npm install --production
-        npm run migrate
-        pm2 reload app
-      alwaysRun: true
-    
-    # Step 5: Health check
-    - name: Verify deployment
-      command: |
-        sleep 5
-        curl -f http://\${params.target}.example.com/health || exit 1
-      onFailure:
-        command: |
-          echo "Health check failed!"
-          # Rollback logic here
-  
-  # Hooks
-  hooks:
-    before:
-      - command: echo "🚀 Starting deployment to \${params.target}"
-    after:
-      - command: echo "✅ Deployment completed successfully"
-    onError:
-      - command: echo "❌ Deployment failed"
-      - task: notify:slack
-        args:
-          message: "Deployment to \${params.target} failed"
-  
-  # Success/error handlers
-  onSuccess:
-    emit: deployment:completed
-  onError:
-    emit: deployment:failed
-`
-  },
 
-  profile: {
-    basic: `# Basic environment profile
-{name}:
-  description: {description}
-  
-  # Profile-specific variables
-  vars:
-    environment: {name}
-    log_level: info
-  
-  # Environment variables
-  env:
-    NODE_ENV: {name}
-    LOG_LEVEL: \${vars.log_level}
-`,
-    advanced: `# Advanced environment profile with targets
-{name}:
-  description: {description}
-  extends: base  # Inherit from base profile
-  
-  # Profile-specific variables
-  vars:
-    environment: {name}
-    region: us-east-1
-    deploy_path: /opt/apps/myapp
-    log_level: info
-    api_url: https://api-{name}.example.com
-  
-  # Environment variables
-  env:
-    NODE_ENV: {name}
-    API_URL: \${vars.api_url}
-    AWS_REGION: \${vars.region}
-    LOG_LEVEL: \${vars.log_level}
-  
-  # Profile-specific targets
-  targets:
-    hosts:
-      app-server:
-        host: {name}.example.com
-        user: deploy
-        privateKey: ~/.ssh/{name}_rsa
-    
-    containers:
-      app:
-        image: myapp:{name}
-        env:
-          - NODE_ENV=\${vars.environment}
-          - API_URL=\${vars.api_url}
-    
-    pods:
-      web:
-        namespace: {name}
-        selector: app=web,env={name}
-`
-  },
-
-  extension: {
-    basic: `# Basic Xec extension
-name: {name}
-description: {description}
-version: 1.0.0
-
-# Tasks provided by this extension
-tasks:
-  {name}:hello:
-    description: Say hello from {name} extension
-    command: echo "Hello from {name} extension!"
-  
-  {name}:info:
-    description: Show extension information
-    command: |
-      echo "Extension: {name}"
-      echo "Version: 1.0.0"
-      echo "Description: {description}"
-
-# Configuration schema
-config:
-  type: object
-  properties:
-    enabled:
-      type: boolean
-      default: true
-    settings:
-      type: object
-      properties:
-        option1:
-          type: string
-          default: "default value"
-`,
-    advanced: `# Advanced Xec extension
-name: {name}
-description: {description}
-version: 1.0.0
-author: Your Name
-
-# Dependencies
-requires:
-  - xec: ">=0.7.0"
-  - node: ">=18.0.0"
-
-# Tasks provided by this extension
-tasks:
-  # Setup task
-  {name}:setup:
-    description: Setup {name} extension
-    params:
-      - name: config
-        description: Configuration file path
-        default: ./{name}.config.json
-    command: |
-      echo "Setting up {name} extension..."
-      if [ ! -f "\${params.config}" ]; then
-        echo '{
-          "version": "1.0.0",
-          "settings": {}
-        }' > "\${params.config}"
-      fi
-      echo "Setup complete!"
-  
-  # Main task with multiple steps
-  {name}:run:
-    description: Run {name} main task
-    params:
-      - name: mode
-        description: Execution mode
-        values: [fast, normal, thorough]
-        default: normal
-    steps:
-      - name: Validate environment
-        command: |
-          if ! command -v node &> /dev/null; then
-            echo "Node.js is required but not installed"
-            exit 1
-          fi
-      
-      - name: Execute main logic
-        script: ./scripts/{name}-main.ts
-        env:
-          MODE: \${params.mode}
-      
-      - name: Generate report
-        command: |
-          echo "Generating report..."
-          echo "Mode: \${params.mode}"
-          echo "Timestamp: $(date)"
-  
-  # Cleanup task
-  {name}:clean:
-    description: Clean up {name} resources
-    command: |
-      echo "Cleaning up {name} resources..."
-      rm -rf ./{name}-temp/
-      rm -f ./{name}.log
-      echo "Cleanup complete!"
-
-# Hooks that other tasks can use
-hooks:
-  before_{name}:
-    description: Hook to run before {name} tasks
-    command: echo "Preparing {name} environment..."
-  
-  after_{name}:
-    description: Hook to run after {name} tasks
-    command: echo "{name} task completed"
-
-# Configuration schema
-config:
-  type: object
-  required: [enabled]
-  properties:
-    enabled:
-      type: boolean
-      default: true
-      description: Enable or disable this extension
-    
-    settings:
-      type: object
-      properties:
-        logLevel:
-          type: string
-          enum: [debug, info, warn, error]
-          default: info
-        
-        timeout:
-          type: number
-          minimum: 0
-          default: 30
-          description: Task timeout in seconds
-        
-        features:
-          type: array
-          items:
-            type: string
-          default: []
-          description: Enabled features
-
-# Scripts included with the extension
-scripts:
-  - scripts/{name}-main.ts
-  - scripts/{name}-utils.ts
-
-# Documentation
-docs:
-  readme: README.md
-  examples: examples/
-`
-  }
 };
 
 async function getArtifactType(): Promise<ArtifactType> {
@@ -993,7 +685,6 @@ async function getArtifactType(): Promise<ArtifactType> {
       { value: 'command', label: '⚡ Command - Add a CLI command' },
       { value: 'task', label: '🔧 Task - Define a reusable task' },
       { value: 'profile', label: '🌍 Profile - Environment configuration' },
-      { value: 'extension', label: '🧩 Extension - Create an Xec extension' },
     ]
   }) as ArtifactType;
 
@@ -1018,7 +709,6 @@ function validateName(name: string, type: ArtifactType): string | undefined {
     case 'command':
     case 'task':
     case 'profile':
-    case 'extension':
       if (!/^[a-z0-9-_:]+$/i.test(name)) {
         return 'Name must contain only letters, numbers, hyphens, underscores, and colons';
       }
@@ -1143,9 +833,6 @@ async function createProject(name: string, options: NewOptions) {
   const defaultConfig = getDefaultConfig();
   const config = {
     ...defaultConfig,
-    // The defaults say 1.0.0 while the validator demands major.minor, so a
-    // fresh project warned about its own version on every invocation.
-    version: '1.0',
     name: projectName,
     description: projectDescription || 'An Xec automation project'
   };
@@ -1175,76 +862,22 @@ async function createProject(name: string, options: NewOptions) {
     await fs.ensureDir(path.dirname(configPath));
     await fs.writeFile(configPath, yaml.dump(sortedConfig, { indent: 2, lineWidth: -1 }));
   } else {
-    // For standard projects, use full default config with some example content
-    config.vars = {
-      app_name: config.name,
-      deploy_path: `/opt/apps/${config.name}`,
-      log_level: 'info'
-    };
-
-    // Add example tasks
+    // Runnable local checks; deployment targets and recovery belong to the
+    // project, not to a scaffold with invented remote hosts or schedules.
+    config.vars = { app: { name: config.name } };
     config.tasks = {
       hello: {
-        description: 'Say hello',
-        command: `echo "Hello from ${config.name}!"`
+        description: 'Print the configured project name',
+        env: { PROJECT_NAME: '${vars.app.name}' },
+        command: 'node -e "console.log(process.env.PROJECT_NAME)"',
       },
-      deploy: {
-        description: 'Deploy application',
-        params: [
-          {
-            name: 'version',
-            required: true,
-            description: 'Version to deploy'
-          }
-        ],
+      check: {
+        description: 'Verify the local runtime and configuration',
         steps: [
-          {
-            name: 'Build application',
-            command: 'npm run build'
-          },
-          {
-            name: 'Run tests',
-            command: 'npm test',
-            onFailure: 'abort'
-          },
-          {
-            name: 'Deploy to servers',
-            targets: ['hosts.staging', 'hosts.production'],
-            command: `cd \${vars.deploy_path}
-git pull origin \${params.version}
-npm install --production
-npm run migrate
-pm2 reload app`
-          }
-        ]
+          { name: 'Node.js', command: 'node --version' },
+          { name: 'Project', task: 'hello' },
+        ],
       },
-      backup: {
-        description: 'Backup database and files',
-        schedule: '0 2 * * *',
-        target: 'hosts.production',
-        command: `pg_dump myapp > /backup/db-$(date +%Y%m%d).sql
-tar -czf /backup/files-$(date +%Y%m%d).tar.gz /app/uploads`
-      }
-    };
-
-    // Add profiles
-    (config as any).profiles = {
-      development: {
-        vars: {
-          log_level: 'debug'
-        },
-        env: {
-          NODE_ENV: 'development'
-        }
-      },
-      production: {
-        vars: {
-          log_level: 'error'
-        },
-        env: {
-          NODE_ENV: 'production'
-        }
-      }
     };
 
     // Sort and save config
@@ -1266,13 +899,12 @@ tar -czf /backup/files-$(date +%Y%m%d).tar.gz /app/uploads`
       '  # hosts:',
       '  #   staging:',
       '  #     host: staging.example.com',
-      '  #     username: deploy',
+      '  #     user: deploy',
+      '  #     hostKeyChecking: strict',
       '  #     privateKey: ~/.ssh/id_rsa',
       '  # containers:',
       '  #   app:',
-      '  #     image: node:22',
-      '  #     volumes:',
-      '  #       - ./:/app',
+      '  #     container: existing-app',
       '  #     workdir: /app',
       '  # pods:',
       '  #   web:',
@@ -1305,7 +937,7 @@ secrets/
 
 /**
  * Example Xec script
- * Run with: xec scripts/example.ts
+ * Run with: pnpm exec xec run .xec/scripts/example.ts
  */
 
 // Use the $ function from @xec-sh/core
@@ -1316,6 +948,7 @@ log.success(result.stdout);
 const name = process.stdin.isTTY
   ? await kit.text({ message: 'What is your name?' })
   : 'world';
+if (kit.isCancel(name)) throw new Error('Cancelled');
 log.info(\`Hello, \${name}!\`);
 
 // Work with targets: the configuration comes from @xec-sh/ops
@@ -1325,106 +958,39 @@ const hosts = config.get('targets.hosts') ?? {};
 log.info(\`Found \${Object.keys(hosts).length} hosts\`);
 
 // Use helper functions
-await sleep(1000);
 log.info('Done!');
 `;
     const exampleScriptPath = path.join(scriptsDir, 'example.ts');
     await fs.writeFile(exampleScriptPath, exampleScript);
     await fs.chmod(exampleScriptPath, '755');
 
-    // Create or update README.md
     const readmePath = path.join(targetDir, 'README.md');
-    const readmeExists = await fs.exists(readmePath);
+    const guide = `## Xec Automation
 
-    if (!readmeExists) {
-      // Create new README.md
-      const readmeContent = `# ${config.name}
+Pin the CLI in this project and commit the manifest and lockfile:
 
-${config.description}
+\`\`\`sh
+pnpm add -D -E @xec-sh/cli
+pnpm exec xec inspect tasks
+pnpm exec xec run check
+pnpm exec xec run .xec/scripts/example.ts
+\`\`\`
 
-## Getting Started
+The example checks run locally. Define and verify targets before adding remote
+operations. Configuration is in \`.xec/config.yaml\`; scripts and native project
+commands belong in \`.xec/scripts/\` and \`.xec/commands/\`.
 
-1. Install Xec CLI globally:
-   \`\`\`bash
-   npm install -g @xec-sh/cli
-   \`\`\`
-
-2. Explore the project:
-   \`\`\`bash
-   xec inspect
-   \`\`\`
-
-3. Run the example task:
-   \`\`\`bash
-   xec run hello
-   \`\`\`
-
-## Project Structure
-
-- \`.xec/config.yaml\` - Project configuration
-- \`.xec/scripts/\` - Xec TypeScript scripts
-- \`.xec/commands/\` - Custom CLI commands
-- \`.xec/cache/\` - Cache directory
-- \`.xec/logs/\` - Log files
-
-## Configuration
-
-Edit \`.xec/config.yaml\` to:
-- Add SSH hosts, Docker containers, or Kubernetes pods
-- Define reusable tasks
-- Set up environment profiles
-- Configure secrets management
-
-## Learn More
-
-- [Xec Documentation](https://xec.sh/docs)
-- [Configuration Reference](https://xec.sh/docs/config)
-- [Task System](https://xec.sh/docs/tasks)
+[Configuration](https://xec.sh/docs/configuration/config-file) ·
+[Tasks](https://xec.sh/docs/configuration/tasks/overview) ·
+[Project commands](https://xec.sh/docs/commands/custom/creating-commands)
 `;
-      await fs.writeFile(readmePath, readmeContent);
-      log.info(prism.green('✅ Created README.md'));
+    if (!await fs.exists(readmePath)) {
+      await fs.writeFile(readmePath, `# ${config.name}\n\n${config.description}\n\n${guide}`);
     } else {
-      // Append Xec section to existing README if it doesn't already have it
-      const existingReadme = await fs.readFile(readmePath, 'utf8');
-
-      // Check if Xec section already exists
-      if (!existingReadme.includes('## Xec Automation')) {
-        const xecSection = `\n\n## Xec Automation
-
-This project has been initialized with Xec for automation tasks.
-
-### Getting Started with Xec
-
-1. Install Xec CLI globally:
-   \`\`\`bash
-   npm install -g @xec-sh/cli
-   \`\`\`
-
-2. Explore the project automation:
-   \`\`\`bash
-   xec inspect
-   \`\`\`
-
-3. Run the example task:
-   \`\`\`bash
-   xec run hello
-   \`\`\`
-
-### Xec Project Structure
-
-- \`.xec/config.yaml\` - Xec configuration
-- \`.xec/scripts/\` - Automation scripts
-- \`.xec/commands/\` - Custom CLI commands
-
-For more information, see [Xec Documentation](https://xec.sh/docs).
-`;
-
-        await fs.writeFile(readmePath, existingReadme + xecSection);
-        log.info(prism.green('✅ Added Xec section to existing README.md'));
-      } else {
-        log.info(prism.dim('README.md already contains Xec information'));
-      }
+      const existing = await fs.readFile(readmePath, 'utf8');
+      if (!existing.includes('## Xec Automation')) await fs.writeFile(readmePath, `${existing}\n\n${guide}`);
     }
+
   }
 
   // Create additional directories
@@ -1474,8 +1040,6 @@ For more information, see [Xec Documentation](https://xec.sh/docs).
       s.start('Initializing git repository...');
       const { $ } = await import('@xec-sh/core');
       await $`cd ${targetDir} && git init`;
-      await $`cd ${targetDir} && git add .`;
-      await $`cd ${targetDir} && git commit -m "Initial Xec project setup"`.nothrow();
       s.stop('Git repository initialized');
     }
   }
@@ -1492,9 +1056,9 @@ For more information, see [Xec Documentation](https://xec.sh/docs).
   }
 
   if (!options.minimal) {
-    log.info(`  ${prism.cyan('xec')} scripts/example.ts`);
-    log.info(`  ${prism.cyan('xec')} hello World`);
-    log.info(`  ${prism.cyan('xec')} run hello`);
+    log.info('  pnpm exec xec run .xec/scripts/example.ts');
+    log.info('  pnpm exec xec run check');
+    log.info('  pnpm exec xec run hello');
   }
   log.info(`  ${prism.cyan('xec')} new script my-script`);
   log.info(`  ${prism.cyan('xec')} new task deploy`);
@@ -1578,8 +1142,8 @@ async function createScript(name: string, options: NewOptions) {
 
   // Show usage
   log.info('\nUsage:');
-  log.info(`  ${prism.cyan('xec')} scripts/${fileName}`);
-  log.info(`  ${prism.cyan('xec')} scripts/${fileName} --env=production`);
+  log.info(`  ${prism.cyan('xec')} run .xec/scripts/${fileName}`);
+  if (options.advanced) log.info(`  ${prism.cyan('xec')} run .xec/scripts/${fileName} -- --dry-run`);
 }
 
 async function createCommand(name: string, options: NewOptions) {
@@ -1669,7 +1233,7 @@ async function createTask(name: string, options: NewOptions) {
   // Extract the description from desc option
   const description = options.desc;
 
-  const configManager = new ConfigurationManager();
+  const configManager = new ConfigurationManager({ configFilePath: options.config });
   const config = await configManager.load();
 
   if (!config) {
@@ -1714,7 +1278,7 @@ async function createTask(name: string, options: NewOptions) {
       options: [
         { value: 'simple', label: 'Simple - Single command' },
         { value: 'standard', label: 'Standard - With parameters' },
-        { value: 'advanced', label: 'Advanced - Multi-step with hooks' }
+        { value: 'advanced', label: 'Advanced - Validated multi-step task' }
       ]
     });
 
@@ -1725,22 +1289,27 @@ async function createTask(name: string, options: NewOptions) {
     complexity = result as string || 'simple';
   }
 
-  // Get template
-  const template = TEMPLATES.task[complexity as keyof typeof TEMPLATES.task];
-  const taskYaml = template
-    .replace(/{name}/g, name)
-    .replace(/{description}/g, String(taskDescription || ''));
-
-  // Parse the task YAML
-  const taskConfig = yaml.load(taskYaml) as any;
-
-  // Add to configuration
-  const existingTasks = configManager.get('tasks') || {};
-  const updatedTasks = { ...existingTasks, ...taskConfig };
-  configManager.set('tasks', updatedTasks);
-
-  // Save configuration
-  await configManager.save();
+  const task: Exclude<NonNullable<Configuration['tasks']>[string], string> = {
+    description: String(taskDescription),
+    target: 'local',
+    command: 'node -e "console.log(process.env.MESSAGE)"',
+    env: { MESSAGE: `Task ${name} executed!` },
+  };
+  if (complexity !== 'simple') {
+    task.params = [{ name: 'message', type: 'string', description: 'Message to display', default: `Hello from ${name}` }];
+    task.env = { MESSAGE: '${params.message}' };
+  }
+  if (complexity === 'advanced') {
+    delete task.command;
+    task.steps = [
+      { name: 'Inspect runtime', command: 'node --version' },
+      { name: 'Display message', command: 'node -e "console.log(process.env.MESSAGE)"' },
+    ];
+  }
+  if (Object.hasOwn(config.tasks || {}, name) && !options.force) {
+    throw new Error(`Task ${name} already exists. Use --force to replace it.`);
+  }
+  await saveValidatedConfig(configManager, { ...config, tasks: { ...config.tasks, [name]: task } }, ['tasks', name], task);
 
   outro(prism.green(`✅ Created task: ${name}`));
 
@@ -1756,7 +1325,7 @@ async function createProfile(name: string, options: NewOptions) {
   // Extract the description from desc option
   const description = options.desc;
 
-  const configManager = new ConfigurationManager();
+  const configManager = new ConfigurationManager({ configFilePath: options.config });
   const config = await configManager.load();
 
   if (!config) {
@@ -1786,224 +1355,31 @@ async function createProfile(name: string, options: NewOptions) {
     }
   }
 
-  // Select template
-  const templateKey = options.advanced ? 'advanced' : 'basic';
-  const template = TEMPLATES.profile[templateKey];
-
-  const profileYaml = template
-    .replace(/{name}/g, name)
-    .replace(/{description}/g, String(profileDescription || ''));
-
-  // Parse the profile YAML
-  const profileConfig = yaml.load(profileYaml) as any;
-
-  // Add to configuration
-  const existingProfiles = configManager.get('profiles') || {};
-  const updatedProfiles = { ...existingProfiles, ...profileConfig };
-  configManager.set('profiles', updatedProfiles);
-
-  // Save configuration
-  await configManager.save();
+  const profile: NonNullable<Configuration['profiles']>[string] = {
+    description: String(profileDescription),
+    vars: { environment: name, logLevel: 'info' },
+  };
+  if (options.advanced) {
+    profile.targets = { local: { type: 'local', env: { NODE_ENV: '${vars.environment}' } } };
+  }
+  if (Object.hasOwn(config.profiles || {}, name) && !options.force) {
+    throw new Error(`Profile ${name} already exists. Use --force to replace it.`);
+  }
+  await saveValidatedConfig(configManager, { ...config, profiles: { ...config.profiles, [name]: profile } }, ['profiles', name], profile);
 
   outro(prism.green(`✅ Created profile: ${name}`));
 
   // Show usage
   log.info('\nUsage:');
-  log.info(`  ${prism.cyan('xec')} --profile ${name} <command>`);
   log.info(`  ${prism.cyan('XEC_PROFILE=')}${name} xec <command>`);
 }
 
-async function createExtension(name: string, options: NewOptions) {
-  const targetDir = path.resolve(name);
-
-  // Check if directory exists
-  if (fs.existsSync(targetDir) && !options.force) {
-    // In non-interactive mode, fail
-    if (isNonInteractive()) {
-      throw new Error(`Directory ${name} already exists. Use --force to overwrite.`);
-    }
-
-    const shouldContinue = await confirm({
-      signal: getExecutionSignal(),
-      message: `Directory ${name} already exists. Continue?`,
-      initialValue: false
-    });
-
-    if (InteractiveHelpers.isCancelled(shouldContinue) || !shouldContinue) {
-      log.info('Extension creation cancelled');
-      return;
-    }
-  }
-
-  // Get description
-  let extensionDescription = options.desc;
-
-  if (!extensionDescription) {
-    // In non-interactive mode (CI), use default
-    if (isNonInteractive()) {
-      extensionDescription = `Xec extension ${name}`;
-    } else {
-      const result = await text({
-        signal: getExecutionSignal(),
-        message: 'Extension description:',
-        defaultValue: `Xec extension ${name}`
-      });
-
-      if (InteractiveHelpers.isCancelled(result)) {
-        throw new Error('cancelled');
-      }
-
-      extensionDescription = result as string || `Xec extension ${name}`;
-    }
-  }
-
-  const s = spinner();
-  s.start('Creating extension structure...');
-
-  // Select template
-  const templateKey = options.advanced ? 'advanced' : 'basic';
-  const template = TEMPLATES.extension[templateKey];
-
-  const extensionYaml = template
-    .replace(/{name}/g, name)
-    .replace(/{description}/g, String(extensionDescription || ''));
-
-  // Create extension structure
-  await fs.ensureDir(targetDir);
-  await fs.writeFile(path.join(targetDir, 'extension.yaml'), extensionYaml);
-
-  // Create additional files for advanced template
-  if (options.advanced) {
-    // Scripts directory
-    await fs.ensureDir(path.join(targetDir, 'scripts'));
-    const mainScriptPath = path.join(targetDir, 'scripts', `${name}-main.ts`);
-    await fs.writeFile(
-      mainScriptPath,
-      `#!/usr/bin/env node
-/// <reference types="@xec-sh/cli/globals" />
-
-// Main script for ${name} extension
-
-const mode = process.env.MODE || 'normal';
-console.log(\`Running ${name} in \${mode} mode...\`);
-
-// Your extension logic here
-`
-    );
-    await fs.chmod(mainScriptPath, '755');
-
-    await fs.writeFile(
-      path.join(targetDir, 'scripts', `${name}-utils.ts`),
-      `/// <reference types="@xec-sh/cli/globals" />
-
-// Utility functions for ${name} extension
-
-export function helper(): string {
-  return 'Helper function';
-}
-`
-    );
-
-    // Examples directory
-    await fs.ensureDir(path.join(targetDir, 'examples'));
-    await fs.writeFile(
-      path.join(targetDir, 'examples', 'basic.yaml'),
-      `# Example usage of ${name} extension
-
-extensions:
-  - source: ./${name}
-    config:
-      enabled: true
-      settings:
-        logLevel: info
-
-tasks:
-  example:
-    description: Example using ${name}
-    steps:
-      - task: ${name}:setup
-      - task: ${name}:run
-        args:
-          mode: fast
-`
-    );
-
-    // README - only create if it doesn't exist
-    const readmePath = path.join(targetDir, 'README.md');
-    const readmeExists = await fs.exists(readmePath);
-
-    if (!readmeExists) {
-      await fs.writeFile(
-        readmePath,
-        `# ${name}
-
-${extensionDescription}
-
-## Installation
-
-\`\`\`yaml
-# In your .xec/config.yaml
-extensions:
-  - source: path/to/${name}
-    config:
-      enabled: true
-\`\`\`
-
-## Usage
-
-\`\`\`bash
-# Setup the extension
-xec run ${name}:setup
-
-# Run the main task
-xec run ${name}:run --mode=fast
-\`\`\`
-
-## Configuration
-
-See \`extension.yaml\` for configuration options.
-
-## Tasks
-
-- \`${name}:setup\` - Initial setup
-- \`${name}:run\` - Main task
-- \`${name}:clean\` - Cleanup resources
-`
-      );
-      log.info(prism.green('✅ Created README.md'));
-    } else {
-      log.info(prism.dim('README.md already exists, skipping'));
-    }
-  }
-
-  // Create package.json for npm distribution
-  await fs.writeFile(
-    path.join(targetDir, 'package.json'),
-    JSON.stringify({
-      name: `xec-ext-${name}`,
-      version: '1.0.0',
-      description: extensionDescription,
-      main: 'extension.yaml',
-      keywords: ['xec', 'extension', name],
-      files: ['extension.yaml', 'scripts', 'examples', 'README.md'],
-      engines: {
-        xec: '>=0.7.0'
-      }
-    }, null, 2)
-  );
-
-  s.stop('Extension structure created');
-
-  outro(prism.green(`✅ Created extension: ${name}`));
-
-  // Show next steps
-  log.info('\nNext steps:');
-  log.info(`  ${prism.cyan('cd')} ${name}`);
-  log.info(`  ${prism.cyan('edit')} extension.yaml`);
-  log.info('\nTo use in a project:');
-  log.info(`  Add to .xec/config.yaml:`);
-  log.info(`  ${prism.gray('extensions:')}`);
-  log.info(`  ${prism.gray('  - source:')} ${targetDir}`);
+async function saveValidatedConfig(manager: ConfigurationManager, candidate: Configuration, field: readonly string[], value: unknown): Promise<void> {
+  const errors = (await new ConfigValidator().validate(candidate)).filter(error => error.rule !== 'warning');
+  if (errors.length) throw new Error(errors.map(error => `${error.path}: ${error.message}`).join('\n'));
+  const editor = await ConfigFileEditor.open(await manager.getConfigPath());
+  editor.set(field, value);
+  await editor.save();
 }
 
 export class NewCommand extends BaseCommand {
@@ -2037,14 +1413,6 @@ export class NewCommand extends BaseCommand {
         {
           flags: '--js',
           description: 'Create JavaScript instead of TypeScript (scripts/commands only)'
-        },
-        {
-          flags: '--from <template>',
-          description: 'Create from a template or example'
-        },
-        {
-          flags: '-p, --profile <name>',
-          description: 'Apply profile after creation'
         },
         {
           flags: '-i, --interactive',
@@ -2093,6 +1461,20 @@ export class NewCommand extends BaseCommand {
       options = commandObject as NewOptions;
     }
 
+    if (options?.output && options.output !== 'text') {
+      throw new Error('new produces human-readable scaffold instructions; structured output is not implemented.');
+    }
+    if (options?.config) {
+      if (type !== 'task' && type !== 'profile') throw new Error('--config selects the file edited by new task or new profile only.');
+      await this.requireConfigFile(options);
+    }
+    if (options?.dryRun) {
+      throw new Error('new does not implement a dry-run preview. No files were created; inspect the generated template in an isolated directory.');
+    }
+    if (type === 'extension') {
+      throw new Error('Extension loading is not implemented. Use "xec new command <name>" for a native project command.');
+    }
+
     try {
       // Set up cancel handlers for interactive mode
       InteractiveHelpers.setupCancelHandlers();
@@ -2131,7 +1513,7 @@ export class NewCommand extends BaseCommand {
         intro(prism.bold('🎨 Create new Xec artifact'));
 
         // Determine artifact type
-        if (type && ['project', 'script', 'command', 'task', 'profile', 'extension'].includes(type)) {
+        if (type && ['project', 'script', 'command', 'task', 'profile'].includes(type)) {
           artifactType = type as ArtifactType;
         } else if (type && !name) {
           // If only one argument provided and it's not a valid type, treat it as name for project
@@ -2204,10 +1586,7 @@ export class NewCommand extends BaseCommand {
         case 'profile':
           await createProfile(artifactName, options || {});
           break;
-        case 'extension':
-          await createExtension(artifactName, options || {});
-          break;
-      }
+          }
 
     } catch (error) {
       if (error instanceof Error && error.message.includes('cancelled')) {
@@ -2220,7 +1599,6 @@ export class NewCommand extends BaseCommand {
   }
 }
 
-// Export for backward compatibility
 export async function createArtifact(type?: string, name?: string, options?: NewOptions): Promise<void> {
   const cmd = new NewCommand();
   const args: any[] = [];

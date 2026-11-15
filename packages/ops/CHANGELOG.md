@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Configuration saves resolve the explicit or discovered project source instead of creating a second config file.
+- Configuration loading, editors and scaffolds share one minimal baseline; adapter and CLI defaults stay with their owners. Task validation uses TaskParser rather than a separate weaker schema.
+- The unimplemented `extensions` configuration contract is rejected before provider initialization or command evaluation, including profile files. The obsolete public extension type is removed.
+
 - Configuration merges, mutations and interpolation share an own-property path boundary. Prototype keys and circular data are rejected before mutation, including nested array entries.
 
 - Task commands use the Core literal/data boundary. Runtime parameters, environment, secrets, command stdout and registered outputs are terminal data; only explicitly authored config variable templates recurse.

@@ -234,15 +234,15 @@ describe('new command', () => {
       );
     });
 
-    it('should create advanced task with hooks', async () => {
+    it('should create an executable advanced task', async () => {
       runXec('new task deploy --advanced --force --desc "Deploy task"');
       
       const config = await fs.readFile(path.join(tempDir, '.xec/config.yaml'), 'utf-8');
       expect(config).toContain('deploy:');
       expect(config).toContain('description: Deploy task');
-      expect(config).toContain('hooks:');
-      expect(config).toContain('before:');
-      expect(config).toContain('after:');
+      expect(config).not.toContain('hooks:');
+      expect(config).toContain('MESSAGE:');
+      expect(config).toContain('node --version');
       expect(config).toContain('steps:');
     });
   });
@@ -274,40 +274,15 @@ describe('new command', () => {
       expect(config).toContain('staging:');
       expect(config).toContain('description: Staging profile');
       expect(config).toContain('targets:');
-      expect(config).toContain('hosts:');
-      expect(config).toContain('containers:');
+      expect(config).toContain('local:');
+      expect(config).toContain('NODE_ENV:');
     });
   });
 
-  describe('extension creation', () => {
-    it('should create basic extension structure', async () => {
-      runXec('new extension my-ext --force --desc "My extension"');
-      
-      const extDir = path.join(tempDir, 'my-ext');
-      expect(await fs.pathExists(path.join(extDir, 'extension.yaml'))).toBe(true);
-      expect(await fs.pathExists(path.join(extDir, 'package.json'))).toBe(true);
-      
-      // Verify extension.yaml content
-      const extensionYaml = await fs.readFile(path.join(extDir, 'extension.yaml'), 'utf-8');
-      expect(extensionYaml).toContain('name: my-ext');
-      expect(extensionYaml).toContain('version:');
-      expect(extensionYaml).toContain('description: My extension');
-      
-      // Verify package.json content
-      const packageJson = await fs.readFile(path.join(extDir, 'package.json'), 'utf-8');
-      const pkg = JSON.parse(packageJson);
-      expect(pkg.name).toBe('xec-ext-my-ext');
-      expect(pkg.description).toBe('My extension');
-    });
-
-    it('should create advanced extension with scripts', async () => {
-      runXec('new extension my-ext --advanced --force --desc "My extension"');
-      
-      const extDir = path.join(tempDir, 'my-ext');
-      expect(await fs.pathExists(path.join(extDir, 'scripts/my-ext-main.ts'))).toBe(true);
-      expect(await fs.pathExists(path.join(extDir, 'scripts/my-ext-utils.ts'))).toBe(true);
-      expect(await fs.pathExists(path.join(extDir, 'README.md'))).toBe(true);
-      expect(await fs.pathExists(path.join(extDir, 'examples/basic.yaml'))).toBe(true);
+  describe('unsupported extensions', () => {
+    it('refuses a nonfunctional extension scaffold without creating files', async () => {
+      expect(() => runXec('new extension my-ext --force')).toThrow(/Extension loading is not implemented/);
+      expect(await fs.readdir(tempDir)).toEqual([]);
     });
   });
 
@@ -400,8 +375,7 @@ describe('new command', () => {
       const artifacts = [
         { type: 'project', name: 'test-proj', path: 'test-proj/.xec/config.yaml', needsSetup: false },
         { type: 'script', name: 'test-script', path: '.xec/scripts/test-script.ts', needsSetup: true },
-        { type: 'command', name: 'test-cmd', path: '.xec/commands/test-cmd.ts', needsSetup: true },
-        { type: 'extension', name: 'test-ext', path: 'test-ext/extension.yaml', needsSetup: false }
+        { type: 'command', name: 'test-cmd', path: '.xec/commands/test-cmd.ts', needsSetup: true }
       ];
 
       for (const artifact of artifacts) {

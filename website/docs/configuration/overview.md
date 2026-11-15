@@ -1,283 +1,143 @@
 ---
 title: Configuration Overview
-description: Understanding Xec's declarative configuration system
+description: Choose what belongs in configuration, scripts and native project commands
 ---
 
 # Configuration Overview {#configuration-overview}
 
-Xec's configuration system provides a powerful, declarative way to define your infrastructure, automation tasks, and execution environments. Using a simple YAML format, you can describe complex workflows, manage multiple environments, and automate repetitive tasks across diverse infrastructure.
+Use `.xec/config.yaml` to name execution targets, compose repeatable tasks and
+select environment-specific values. Keep branching application logic in
+TypeScript scripts. Give an operation its own native project command when it
+needs validated options, generated help and a clear operator interface.
 
-## Philosophy {#philosophy}
+Configuration describes commands to execute. It does not continuously reconcile
+infrastructure, discover a rollback procedure or prove that a remote deployment
+completed. A deployment workflow must define those operations and verify their
+outcomes. Omnitron owns the lifecycle of applications managed by Omnitron.
 
-Xec's configuration follows several key principles:
+## Start with one runnable task {#quick-start-example}
 
-### 1. **Declarative Over Imperative** {#1-declarative-over-imperative}
-Define *what* you want to achieve, not *how* to achieve it. Xec handles the implementation details.
+Create `.xec/config.yaml` in a project with the [pinned CLI](../introduction/installation.md):
 
 ```yaml
-# Declarative: Define the desired state
+version: '1.0'
+name: example
+vars:
+  app:
+    name: example
+
 tasks:
-  deploy:
-    description: Deploy application to production
-    target: production-servers
+  runtime:
+    description: Inspect the local Node runtime
+    command: node --version
+  hello:
+    params:
+      - name: message
+        type: string
+        default: Hello from Xec
+    env:
+      MESSAGE: ${params.message}
+    command: node -e "console.log(process.env.MESSAGE)"
+  check:
     steps:
-      - command: docker-compose up -d
+      - task: runtime
+      - task: hello
 ```
 
-### 2. **Convention Over Configuration** {#2-convention-over-configuration}
-Sensible defaults minimize boilerplate while allowing customization when needed.
-
-```yaml
-# Minimal configuration - uses conventions
-targets:
-  hosts:
-    web-server:
-      host: web.example.com
-      # Port defaults to 22, username to current user
+```bash
+pnpm exec xec config validate
+pnpm exec xec run check
+pnpm exec xec run hello --message 'A message with spaces'
 ```
 
-### 3. **Composability** {#3-composability}
-Build complex configurations from simple, reusable components.
+The first two tasks are independent operations. `check` composes them in order;
+a failure stops the sequence unless the task explicitly declares another policy.
+The message is process data, not a fragment of shell program text.
 
-```yaml
-# Compose configurations through profiles
-profiles:
-  production:
-    extends: base
-    vars:
-      environment: production
-      replicas: 3
-```
+## Choose the owner of each concern {#key-concepts}
 
-### 4. **Progressive Disclosure** {#4-progressive-disclosure}
-Start simple, add complexity only when needed.
+| Concern | Configuration or API |
+| --- | --- |
+| Where a command executes | `targets` and a task's `target` |
+| Repeated command or ordered steps | `tasks` |
+| Values shared by tasks | `vars` |
+| Named environment overrides | `profiles` |
+| Credentials | Implemented secret provider and secret references |
+| Defaults for an existing CLI command | `commands.<canonical-name>` |
+| Branching, typed data, custom recovery | `.xec/scripts/*.ts` and Core/Ops APIs |
+| A project-specific operator interface | `.xec/commands/*.ts` or `.js` |
 
-```yaml
-# Simple start
-tasks:
-  backup: rsync -av /data /backup
+A script runs locally; its `$` calls select local or remote execution engines.
+Loading a script is not equivalent to uploading its entire JavaScript runtime to
+a target. Xec can invoke Turbo to use an existing package dependency graph and
+build cache; YAML tasks do not replace Turbo's package graph.
 
-# Add complexity as needed
-tasks:
-  backup:
-    description: Backup data with retention
-    steps:
-      - command: rsync -av /data /backup/$(date +%Y%m%d)
-      - command: find /backup -mtime +7 -delete
-```
+## Configuration hierarchy {#configuration-hierarchy}
 
-## Configuration Hierarchy {#configuration-hierarchy}
+The manager merges these sources, from lowest to highest priority:
 
-Xec loads and merges configurations from multiple sources in a specific order:
+1. Shared built-in baseline.
+2. Global `~/.xec/config.yaml`, or `$XEC_HOME_DIR/config.yaml`.
+3. The discovered project file, or a file explicitly selected by a supported `--config` option.
+4. An additional file named by `XEC_CONFIG`.
+5. Path-based `XEC_*` environment overrides.
+6. The selected profile, including its inherited values.
 
-1. **Built-in Defaults** - Xec's internal defaults
-2. **Global Configuration** - `~/.xec/config.yaml` (or `$XEC_HOME_DIR/config.yaml`)
-3. **Project Configuration** - `.xec/config.yaml` (or `xec.yaml`) at the project root
-4. **`XEC_CONFIG` File** - Extra file referenced by the environment variable
-5. **Environment Variables** - `XEC_*` prefixed variables (e.g. `XEC_VARS_PORT`)
-6. **Profile Configuration** - Active profile (`XEC_PROFILE`), highest priority
+Objects merge recursively; arrays are replaced. Task parameters are supplied for
+one invocation and have their own `${params.name}` namespace. They are not a
+seventh configuration layer.
 
-Later sources override earlier ones, allowing flexible customization at different levels.
+Every underscore in an environment override separates a path segment:
+`XEC_VARS_APP_NAME=service` sets `vars.app.name`, not `vars.app_name`. Values from
+this source are strings. A profile has higher precedence than this environment
+layer, so it can replace the value again.
 
-## File Structure {#file-structure}
+## Organize a project {#file-structure}
 
-A typical Xec project configuration looks like:
-
-:::filetree{title=".xec/"}
-- `config.yaml` — Main configuration file
-- `profiles/` — Environment-specific profiles
-  - `dev.yaml`
-  - `staging.yaml`
-  - `production.yaml`
-- `scripts/` — Custom scripts
-  - `health-check.js`
-- `commands/` — Custom commands
-  - `backup.js`
+:::filetree{title="Project automation"}
+- `.xec/`
+  - `config.yaml` — Targets, tasks and reusable values
+  - `profiles/`
+    - `staging.yaml` — An optional separate profile
+  - `scripts/`
+    - `check.ts` — Typed orchestration
+  - `commands/`
+    - `deploy.ts` — Native command registration and implementation
+- `package.json` — Pinned Xec dependency and familiar task aliases
+- `pnpm-lock.yaml` — Exact dependency resolution
 :::
-## Key Concepts {#key-concepts}
 
-### Targets {#targets}
-Execution environments where commands run:
-- **Local** - Your development machine
-- **SSH Hosts** - Remote servers via SSH
-- **Docker Containers** - Containerized environments
-- **Kubernetes Pods** - Cloud-native workloads
+Commit the configuration and lockfile. Keep credentials in the secret provider
+or the process environment, not in examples, task arguments or source control.
 
-### Tasks {#tasks}
-Reusable automation workflows with:
-- Multi-step execution
-- Parameter support
-- Error handling
-- Conditional logic
-- Parallel execution
-
-### Profiles {#profiles}
-Environment-specific configurations:
-- Development settings
-- Staging configurations
-- Production parameters
-- Custom environments
-
-### Variables {#variables}
-Dynamic values that can be:
-- Interpolated in strings
-- Shared across configurations
-- Overridden at different levels
-- Sourced from environment
-
-## Quick Start Example {#quick-start-example}
-
-Here's a complete configuration showcasing key features:
-
-```yaml
-# .xec/config.yaml
-version: "1.0"
-name: my-app
-description: My application deployment configuration
-
-# Global variables
-vars:
-  app_name: myapp
-  version: "1.0.0"
-
-# Define execution targets
-targets:
-  hosts:
-    web:
-      host: web.example.com
-      user: deploy
-    db:
-      host: db.example.com
-      user: admin
-
-# Define reusable tasks
-tasks:
-  deploy:
-    description: Deploy application
-    target: web
-    steps:
-      - command: docker pull ${app_name}:${version}
-      - command: docker stop ${app_name} || true
-      - command: docker run -d --name ${app_name} ${app_name}:${version}
-      
-  backup:
-    description: Backup database
-    target: db
-    command: pg_dump mydb > /backup/mydb-$(date +%Y%m%d).sql
-
-# Command defaults
-commands:
-  logs:
-    tail: 100
-    follow: true
-    
-# Environment profiles
-profiles:
-  production:
-    vars:
-      version: "stable"
-    targets:
-      hosts:
-        web:
-          host: prod-web.example.com
-```
-
-## Configuration Validation {#configuration-validation}
-
-Xec validates your configuration at multiple levels:
-
-1. **Schema Validation** - Structure and types
-2. **Reference Validation** - Target and task references
-3. **Variable Validation** - Variable interpolation
-4. **Semantic Validation** - Logical consistency
-
-Run validation explicitly:
+## Validate before execution {#configuration-validation}
 
 ```bash
-xec config validate
+pnpm exec xec config validate
+pnpm exec xec config tasks validate
+pnpm exec xec inspect tasks
 ```
 
-## Best Practices {#best-practices}
+Validation detects configuration and task-definition errors. It does not connect
+to every declared host, verify remote permissions or execute every script. A
+successful schema check is preparation evidence, not a deployment receipt.
 
-### 1. Keep Secrets Secure {#1-keep-secrets-secure}
-Never store secrets directly in configuration files:
+`${cmd:...}` runs code while loading configuration and therefore requires trust
+in the exact reviewed file. Prefer literal configuration plus an explicit task
+when an observation may be slow, fail or have an effect.
 
-```yaml
-# Bad - exposed secret
-password: "mysecretpass"
-
-# Good - use secret management
-password: ${secrets.db_password}
-```
-
-### 2. Use Version Control {#2-use-version-control}
-Track configuration changes:
-
-```bash
-git add .xec/config.yaml
-git commit -m "Add production deployment configuration"
-```
-
-### 3. Organize by Environment {#3-organize-by-environment}
-Separate environment-specific settings:
-
-```yaml
-# .xec/profiles/production.yaml
-vars:
-  replicas: 3
-  debug: false
-  
-# .xec/profiles/development.yaml
-vars:
-  replicas: 1
-  debug: true
-```
-
-### 4. Document Complex Tasks {#4-document-complex-tasks}
-Add descriptions and comments:
-
-```yaml
-tasks:
-  complex-deployment:
-    description: |
-      Performs blue-green deployment with health checks.
-      Requires: docker, nginx
-      Duration: ~5 minutes
-    steps:
-      # Step 1: Health check
-      - command: curl -f http://localhost/health
-        name: "Verify current deployment"
-```
-
-### 5. Leverage Composition {#5-leverage-composition}
-Build complex configurations from simple components:
-
-```yaml
-# Base configuration
-tasks:
-  base-setup:
-    steps:
-      - command: apt-get update
-      - command: apt-get install -y curl git
-
-# Extended configuration
-tasks:
-  app-setup:
-    steps:
-      - task: base-setup
-      - command: npm install
-```
-
-## Next Steps {#next-steps}
-
-- [Configuration File Structure](./config-file.md) - Deep dive into config.yaml
-- [Defining Targets](./targets/overview.md) - Configure execution environments
-- [Creating Tasks](./tasks/simple-tasks.md) - Build automation workflows
-- [Using Profiles](./profiles/overview.md) - Manage multiple environments
-- [Variable Management](./variables/overview.md) - Dynamic configuration values
+:::note Published version and upcoming corrections
+The examples above use the published 0.12.0 CLI. Current source also fixes native
+command-default precedence and validates `doctor` changes before writing them.
+It rejects the old, nonfunctional `extensions` contract and generates runnable
+project/task/profile starters. Those corrections are not in npm 0.12.0; see the
+[config command](../commands/built-in/config.md) and [new command](../commands/built-in/new.md).
+:::
 
 ## See Also {#see-also}
 
-- [CLI Commands](../commands/built-in/config.md) - Configuration management commands
-- [Best Practices](./advanced/best-practices.md) - Configuration patterns
-- [Troubleshooting](./advanced/troubleshooting.md) - Common issues and solutions
+- [Configuration file reference](./config-file.md)
+- [Targets](./targets/overview.md)
+- [Tasks](./tasks/simple-tasks.md)
+- [Profiles](./profiles/overview.md)
+- [Native project commands](../commands/custom/creating-commands.md)

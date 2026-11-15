@@ -1,316 +1,44 @@
-/**
- * Tests for defaults.ts
- */
+import { describe, expect, it } from 'vitest';
+import { getDefaultConfig, isDefaultValue, mergeWithDefaults, ROOT_KEY_ORDER, sortConfigKeys } from '../../../src/config/defaults.js';
 
-
-import {
-  sortConfigKeys,
-  isDefaultValue,
-  ROOT_KEY_ORDER,
-  getDefaultConfig,
-  mergeWithDefaults
-} from '../../../src/config/defaults.js';
-
-describe('Configuration Defaults', () => {
-  describe('getDefaultConfig()', () => {
-    it('should return default configuration with correct structure', () => {
-      const defaults = getDefaultConfig();
-
-      expect(defaults).toBeDefined();
-      expect(defaults.version).toBe('1.0.0');
-      expect(defaults.name).toBe('my-project');
-      expect(defaults.description).toBe('A Xec managed project');
-    });
-
-    it('should include all default target settings', () => {
-      const defaults = getDefaultConfig();
-
-      expect(defaults.targets?.local).toEqual({ type: 'local' });
-      expect(defaults.targets?.defaults?.ssh).toMatchObject({
-        port: 22,
-        keepAlive: true,
-        keepAliveInterval: 30000,
-        timeout: 60000
-      });
-      expect(defaults.targets?.defaults?.docker).toMatchObject({
-        tty: true,
-        interactive: true
-      });
-      expect(defaults.targets?.defaults?.kubernetes).toMatchObject({
-        namespace: 'default',
-        context: undefined
-      });
-    });
-
-    it('should include all default command settings', () => {
-      const defaults = getDefaultConfig();
-
-      expect(defaults.commands?.exec).toMatchObject({
-        shell: '/bin/sh',
-        tty: true,
-        interactive: true
-      });
-      expect(defaults.commands?.logs).toMatchObject({
-        tail: '50',
-        timestamps: false,
-        follow: false,
-        prefix: false,
-        color: true
-      });
-      expect(defaults.commands?.cp).toMatchObject({
-        recursive: true,
-        preserveMode: true,
-        preserveTimestamps: false,
-        followSymlinks: false
-      });
-      expect(defaults.commands?.sync).toMatchObject({
-        delete: false,
-        exclude: [],
-        dryRun: false
-      });
-    });
-
-    it('should include default secrets configuration', () => {
-      const defaults = getDefaultConfig();
-
-      expect(defaults.secrets).toMatchObject({
-        provider: 'env',
-        path: undefined
-      });
-    });
-
-    it('should include empty vars and tasks', () => {
-      const defaults = getDefaultConfig();
-
-      expect(defaults.vars).toEqual({});
-      expect(defaults.tasks).toEqual({});
-    });
+describe('configuration baseline helpers', () => {
+  it('returns independent data and leaves execution defaults with the owning API', () => {
+    const first = getDefaultConfig();
+    first.targets!.local!.workdir = '/changed';
+    expect(getDefaultConfig()).toEqual({ version: '1.0', targets: { local: { type: 'local' } } });
+    expect(getDefaultConfig()).not.toHaveProperty('secrets');
+    expect(getDefaultConfig()).not.toHaveProperty('commands');
   });
-
-  describe('sortConfigKeys()', () => {
-    it('should sort configuration keys according to ROOT_KEY_ORDER', () => {
-      const unsorted = {
-        tasks: { test: 'npm test' },
-        version: '2.0',
-        vars: { env: 'prod' },
-        name: 'project',
-        description: 'desc'
-      };
-
-      const sorted = sortConfigKeys(unsorted);
-      const keys = Object.keys(sorted);
-
-      expect(keys).toEqual(['version', 'name', 'description', 'vars', 'tasks']);
-    });
-
-    it('should preserve custom keys after standard keys', () => {
-      const config = {
-        customKey: 'custom',
-        version: '2.0',
-        name: 'project',
-        anotherCustom: 'value'
-      };
-
-      const sorted = sortConfigKeys(config);
-      const keys = Object.keys(sorted);
-
-      expect(keys[0]).toBe('version');
-      expect(keys[1]).toBe('name');
-      expect(keys.includes('customKey')).toBe(true);
-      expect(keys.includes('anotherCustom')).toBe(true);
-    });
-
-    it('should handle null and non-object values', () => {
-      expect(sortConfigKeys(null)).toBeNull();
-      expect(sortConfigKeys(undefined)).toBeUndefined();
-      expect(sortConfigKeys('string')).toBe('string');
-      expect(sortConfigKeys(123)).toBe(123);
-      expect(sortConfigKeys([1, 2, 3])).toEqual([1, 2, 3]);
-    });
-
-    it('should handle empty objects', () => {
-      expect(sortConfigKeys({})).toEqual({});
-    });
-
-    it('should maintain the correct order for all ROOT_KEY_ORDER keys', () => {
-      const config: any = {};
-      // Add keys in reverse order
-      ROOT_KEY_ORDER.slice().reverse().forEach(key => {
-        config[key] = `value_${key}`;
-      });
-
-      const sorted = sortConfigKeys(config);
-      const keys = Object.keys(sorted);
-
-      expect(keys).toEqual(ROOT_KEY_ORDER);
-    });
+  it('sorts only the root and preserves custom data, arrays and falsy values', () => {
+    const source = { custom: { zero: 0 }, tasks: {}, version: '1.0', name: '', vars: { enabled: false } };
+    const result = sortConfigKeys(source);
+    expect(Object.keys(result)).toEqual(['version', 'name', 'vars', 'tasks', 'custom']);
+    expect(result).toEqual(source);
+    expect(result.custom).toBe(source.custom);
+    for (const value of [null, undefined, 'text', 0, false, [1, 2]]) expect(sortConfigKeys(value)).toBe(value);
   });
-
-  describe('mergeWithDefaults()', () => {
-    it('should merge configuration with defaults', () => {
-      const config = {
-        version: '2.0',
-        name: 'custom-project'
-      };
-
-      const merged = mergeWithDefaults(config);
-
-      expect(merged.version).toBe('2.0'); // From config
-      expect(merged.name).toBe('custom-project'); // From config
-      expect(merged.description).toBe('A Xec managed project'); // From defaults
-    });
-
-    it('should deep merge nested objects', () => {
-      const config = {
-        targets: {
-          defaults: {
-            ssh: {
-              port: 2222
-            }
-          }
-        }
-      };
-
-      const merged = mergeWithDefaults(config);
-
-      expect(merged.targets.defaults.ssh.port).toBe(2222); // Overridden
-      expect(merged.targets.defaults.ssh.keepAlive).toBe(true); // From defaults
-      // No default workdir: `/app` exists in some images and not most, and
-      // it maps to `docker exec -w`, so it broke every container without it.
-      expect(merged.targets.defaults.docker.workdir).toBeUndefined(); // From defaults
-    });
-
-    it('should preserve arrays from config', () => {
-      const config = {
-        commands: {
-          sync: {
-            exclude: ['node_modules', '.git']
-          }
-        }
-      };
-
-      const merged = mergeWithDefaults(config);
-
-      expect(merged.commands.sync.exclude).toEqual(['node_modules', '.git']);
-      expect(merged.commands.sync.delete).toBe(false); // From defaults
-    });
-
-    it('should add custom keys not in defaults', () => {
-      const config = {
-        customSection: {
-          customValue: 'test'
-        },
-        version: '2.0'
-      };
-
-      const merged = mergeWithDefaults(config);
-
-      expect(merged.customSection).toEqual({ customValue: 'test' });
-      expect(merged.version).toBe('2.0');
-    });
-
-    it('should handle null and undefined values correctly', () => {
-      const config = {
-        version: null,
-        name: undefined,
-        description: 'Custom description'
-      };
-
-      const merged = mergeWithDefaults(config);
-
-      expect(merged.version).toBeNull(); // Null from config
-      expect(merged.name).toBe('my-project'); // From defaults (undefined in config)
-      expect(merged.description).toBe('Custom description'); // From config
-    });
-
-    it('should work with custom defaults', () => {
-      const customDefaults = {
-        version: '3.0',
-        customDefault: 'value'
-      };
-
-      const config = {
-        name: 'project'
-      };
-
-      const merged = mergeWithDefaults(config, customDefaults);
-
-      expect(merged.version).toBe('3.0');
-      expect(merged.customDefault).toBe('value');
-      expect(merged.name).toBe('project');
-    });
+  it('includes every known root key once', () => {
+    expect(new Set(ROOT_KEY_ORDER).size).toBe(ROOT_KEY_ORDER.length);
+    const data = Object.fromEntries([...ROOT_KEY_ORDER].reverse().map(key => [key, {}]));
+    expect(Object.keys(sortConfigKeys(data))).toEqual(ROOT_KEY_ORDER);
   });
-
-  describe('isDefaultValue()', () => {
-    it('should identify default values correctly', () => {
-      const defaults = getDefaultConfig();
-
-      expect(isDefaultValue('version', '1.0.0', defaults)).toBe(true);
-      expect(isDefaultValue('name', 'my-project', defaults)).toBe(true);
-      expect(isDefaultValue('targets.defaults.ssh.port', 22, defaults)).toBe(true);
-      expect(isDefaultValue('commands.exec.shell', '/bin/sh', defaults)).toBe(true);
-    });
-
-    it('should identify non-default values', () => {
-      const defaults = getDefaultConfig();
-
-      expect(isDefaultValue('version', '2.0', defaults)).toBe(false);
-      expect(isDefaultValue('name', 'custom', defaults)).toBe(false);
-      expect(isDefaultValue('targets.defaults.ssh.port', 2222, defaults)).toBe(false);
-    });
-
-    it('should handle nested paths correctly', () => {
-      const defaults = getDefaultConfig();
-
-      // There is no default docker workdir, so any value is a user's choice.
-      expect(isDefaultValue('targets.defaults.docker.workdir', '/app', defaults)).toBe(false);
-      expect(isDefaultValue('targets.defaults.docker.tty', true, defaults)).toBe(true);
-      expect(isDefaultValue('commands.logs.tail', '50', defaults)).toBe(true);
-      expect(isDefaultValue('commands.logs.tail', '100', defaults)).toBe(false);
-    });
-
-    it('should handle non-existent paths', () => {
-      const defaults = getDefaultConfig();
-
-      expect(isDefaultValue('nonexistent.path', 'value', defaults)).toBe(false);
-      expect(isDefaultValue('targets.nonexistent', 'value', defaults)).toBe(false);
-    });
-
-    it('should handle empty objects and arrays', () => {
-      const defaults = getDefaultConfig();
-
-      expect(isDefaultValue('vars', {}, defaults)).toBe(true);
-      expect(isDefaultValue('tasks', {}, defaults)).toBe(true);
-      expect(isDefaultValue('commands.sync.exclude', [], defaults)).toBe(true);
-    });
-
-    it('should work with custom defaults', () => {
-      const customDefaults = {
-        custom: {
-          nested: {
-            value: 'test'
-          }
-        }
-      };
-
-      expect(isDefaultValue('custom.nested.value', 'test', customDefaults)).toBe(true);
-      expect(isDefaultValue('custom.nested.value', 'other', customDefaults)).toBe(false);
-    });
-
-    it('should handle complex objects comparison', () => {
-      const defaults = getDefaultConfig();
-
-      const sshDefaults = {
-        port: 22,
-        keepAlive: true,
-        keepAliveInterval: 30000,
-        timeout: 60000
-      };
-
-      expect(isDefaultValue('targets.defaults.ssh', sshDefaults, defaults)).toBe(true);
-
-      const modifiedSsh = { ...sshDefaults, port: 2222 };
-      expect(isDefaultValue('targets.defaults.ssh', modifiedSsh, defaults)).toBe(false);
-    });
+  it('shares merge semantics with configuration loading without mutating inputs', () => {
+    const baseline = { vars: { nested: { a: 1, b: 2 }, list: ['default'], unset: true, keep: 'yes' } };
+    const input = { vars: { nested: { a: 3 }, list: ['own'], unset: '$unset', keep: undefined } };
+    expect(mergeWithDefaults(input, baseline)).toEqual({ vars: { nested: { a: 3, b: 2 }, list: ['own'], keep: 'yes' } });
+    expect(baseline.vars.nested.a).toBe(1);
+    expect(input.vars.nested).not.toHaveProperty('b');
+  });
+  it('does not replace null, false, zero or empty text with defaults', () => {
+    const input = { a: null, b: false, c: 0, d: '' };
+    expect(mergeWithDefaults(input, { a: true, b: true, c: 1, d: 'text' })).toEqual(input);
+  });
+  it('compares declared defaults without traversing prototypes', () => {
+    expect(isDefaultValue('version', '1.0')).toBe(true);
+    expect(isDefaultValue('targets.local', { type: 'local' })).toBe(true);
+    expect(isDefaultValue('missing', undefined)).toBe(false);
+    expect(isDefaultValue('vars.list', [], { vars: { list: [] } })).toBe(true);
+    expect(() => isDefaultValue('constructor.prototype', {})).toThrow(/Unsafe/);
+    expect(() => sortConfigKeys(JSON.parse('{"__proto__": {"injected": true}}'))).toThrow(/Unsafe/);
   });
 });

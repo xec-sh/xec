@@ -102,7 +102,14 @@ xec config defaults k8s
 xec config defaults commands
 ```
 
-The four editors write target or command defaults after the complete prompt flow succeeds. Each accepts `--dry-run`. Ordinary configuration files can keep defaults implicit. Use `config set` for an explicit unattended change.
+The four editors write target or command defaults after the complete prompt flow
+succeeds. Each accepts `--dry-run`. Ordinary files can keep defaults implicit.
+Use `config set` for an explicit unattended change.
+
+Current source derives the command-default editor from registered native command
+options and subcommands. It no longer advertises nonexistent `exec`, `sync` or
+alias-only `cp` schemas. Unknown keys and invocation-only controls are refused.
+This change is newer than published 0.12.0.
 
 ## Validation and doctor {#validation-and-doctor}
 
@@ -113,9 +120,19 @@ xec config doctor
 xec config doctor --defaults
 ```
 
-`validate` loads configuration and reports schema, target, and task-definition problems. Validation errors produce a failing exit status. `validate --output json` returns one document with `valid`, `errors`, and `warnings`. `doctor --output json` includes its changes and validation result in one document. SSH authentication warnings describe incomplete explicit settings and can also apply to environments using an agent.
+`validate` loads configuration and reports schema, target, and task-definition problems. Validation errors produce a failing exit status. `validate --output json` returns one document with `valid`, `errors`, and `warnings`. `doctor --output json` includes its changes and validation result in one document.
 
-`doctor` normalizes the configuration version and proposes missing project metadata. It persists diagnosed changes. `--dry-run` previews those changes. `--defaults` additionally writes the complete default configuration into the project document.
+`doctor` normalizes the configuration version and proposes missing project
+metadata. In current source it validates the complete proposed candidate before
+writing any fixes; invalid native command options also block the write.
+`--dry-run` validates and previews that candidate without saving it. `--defaults`
+adds the shared baseline (`version: '1.0'` and the local target), not a second
+inventory of every CLI or adapter default.
+
+These validation/default corrections are newer than npm 0.12.0. On that release,
+review the proposed edits and run explicit validation after editing. Metadata is
+optional, and a Kubernetes target may legitimately select pods by label without
+an explicit pod name.
 
 ## Configuration trust {#configuration-trust}
 

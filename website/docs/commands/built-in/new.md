@@ -1,387 +1,175 @@
 ---
 title: new
-description: Initialize Xec in a project or create new artifacts
+description: Create runnable project, script, command, task and profile starters
 ---
 
 # new {#new}
 
-Create new Xec artifacts (projects, scripts, commands, tasks, profiles, or extensions).
+`new` scaffolds a small starting point that you own and review. It does not deploy
+an application or register an extension runtime.
+
+:::note Upcoming scaffold corrections
+The behavior below describes current source. Published 0.12.0 has older project,
+task and profile templates, an ineffective extension generator and options that
+do not implement their advertised behavior. The current source fixes those
+starters, rejects unsupported previews and removes `--from` and the ineffective
+`new --profile` option. Use explicit reviewed configuration on 0.12.0.
+:::
 
 ## Synopsis {#synopsis}
 
 ```bash
-xec new [type] [name] [options]
-xec n [type] [name] [options]  # Alias
+pnpm exec xec new [type] [name] [options]
+pnpm exec xec n [type] [name] [options]
+pnpm exec xec init [type] [name] [options]
 ```
-
-## Description {#description}
-
-The `new` command creates various Xec artifacts with pre-configured templates. It provides an interactive mode when no arguments are provided, or can be used with specific arguments for automation.
 
 ## Arguments {#arguments}
 
-- `[type]` - Type of artifact to create: `project`, `script`, `command`, `task`, `profile`, or `extension`
-- `[name]` - Name for the new artifact
+Supported types are `project`, `script`, `command`, `task` and `profile`.
+With an interactive terminal, omitted choices prompt. In a pipe or CI, provide
+the type and name explicitly; `new project` can initialize the current directory.
 
 ## Options {#options}
 
-### Common Options {#common-options}
+| Option | Scope |
+| --- | --- |
+| `-d, --desc <text>` | Artifact description |
+| `-f, --force` | Explicitly replace the named existing artifact |
+| `-m, --minimal` | Project without the sample script and documentation |
+| `--skip-git` | Do not initialize Git for a project |
+| `--advanced` | Extended script/command or multi-step task/local-target profile |
+| `--js` | Generate JavaScript instead of TypeScript for a script/command |
+| `-c, --config <path>` | Explicit file edited by `new task` or `new profile` |
 
-- `-o, --output <format>` - Output format: `text` (default), `json`, `yaml`, `csv`
-- `-c, --config <path>` - Path to configuration file
-- `--dry-run` - Perform a dry run without making changes
+There is no template download or profile-activation operation. Current source
+refuses `--dry-run` and nontext `--output` before writing anything: it cannot
+produce a faithful general scaffold preview or structured receipt. Generate in
+an isolated directory to inspect a starter before adoption.
 
-### General Options {#general-options}
-
-- `-d, --desc <desc>` - Description for the artifact
-- `-f, --force` - Overwrite existing files
-- `-p, --profile <name>` - Apply profile after creation
-- `-i, --interactive` - Enable interactive mode (default for this command)
-
-### Project Options {#project-options}
-
-- `-m, --minimal` - Create minimal structure (projects only)
-- `--skip-git` - Skip git initialization (projects only)
-
-### Script & Command Options {#script--command-options}
-
-- `--advanced` - Use advanced template with more features
-- `--js` - Create JavaScript instead of TypeScript (scripts/commands only)
-
-### Template Options {#template-options}
-
-- `--from <template>` - Create from a template or example
-
-## Examples {#examples}
-
-### Interactive Mode {#interactive-mode}
+## Initialize a project {#project-creation}
 
 ```bash
-# Interactive mode to create any artifact
-xec new
-
-# Interactive mode with alias
-xec n
+pnpm exec xec new project automation --skip-git --desc 'Project operations'
+cd automation
+pnpm add -D -E @xec-sh/cli
+pnpm exec xec run check
 ```
 
-### Project Creation {#project-creation}
+In an existing Node project, the command uses the current project directory and
+its metadata. Review the detected directory; passing a name does not force a
+nested project when `package.json` is already present. `--force` authorizes
+replacing that project's Xec configuration.
 
-```bash
-# Create a new Xec project
-xec new project my-app
+The standard scaffold includes a runnable `hello` task and a `check` sequence
+that inspects Node and calls `hello`. Minimal mode keeps the small configuration.
+The command does not install dependencies for you.
 
-# Create minimal project structure
-xec new project my-app --minimal
-
-# Create project with description
-xec new project my-app --desc "My automation project"
-
-# Skip git initialization
-xec new project my-app --skip-git
-```
-
-### Script Creation {#script-creation}
-
-```bash
-# Create a new TypeScript script
-xec new script deploy
-
-# Create JavaScript script
-xec new script deploy --js
-
-# Create advanced script with more features
-xec new script deploy --advanced
-
-# Create script with description
-xec new script backup --desc "Database backup script"
-```
-
-### Command Creation {#command-creation}
-
-```bash
-# Create a new CLI command
-xec new command mycmd
-
-# Create advanced command with subcommands
-xec new command mycmd --advanced
-
-# Create JavaScript command
-xec new command mycmd --js
-```
-
-### Task Creation {#task-creation}
-
-```bash
-# Create a new task
-xec new task build
-
-# Create task with description
-xec new task deploy --desc "Deploy application to production"
-
-# Create advanced multi-step task
-xec new task deploy --advanced
-```
-
-### Profile Creation {#profile-creation}
-
-```bash
-# Create environment profile
-xec new profile production
-
-# Create profile with description
-xec new profile staging --desc "Staging environment configuration"
-
-# Create advanced profile with targets
-xec new profile production --advanced
-```
-
-### Extension Creation {#extension-creation}
-
-```bash
-# Create a new extension
-xec new extension my-extension
-
-# Create advanced extension
-xec new extension my-extension --advanced
-
-# Create extension with description
-xec new extension monitoring --desc "System monitoring extension"
-```
-
-## Artifact Types {#artifact-types}
-
-### Project {#project}
-
-Creates a complete Xec project with:
-- `.xec/config.yaml` - Main configuration
-- `.xec/scripts/` - Script directory with examples
-- `.xec/commands/` - Custom commands directory
-- `.xec/.gitignore` - Git ignore file
-- Documentation and examples
-
-**Templates:**
-- **Minimal** - Basic structure with essential files
-- **Standard** - Full structure with examples and documentation
-
-### Script {#script}
-
-Creates executable scripts with shebang and imports:
-- TypeScript or JavaScript files
-- Pre-configured with Xec imports
-- Executable permissions set
-- Example code and documentation
-
-**Templates:**
-- **Basic** - Simple script structure
-- **Advanced** - Complex script with argument parsing and error handling
-
-### Command {#command}
-
-Creates dynamic CLI commands:
-- Command definition with arguments and options
-- Action handlers
-- Help documentation
-- Integration with Commander.js
-
-**Templates:**
-- **Basic** - Simple command with basic options
-- **Advanced** - Complex command with subcommands and validation
-
-### Task {#task}
-
-Creates reusable task definitions:
-- Task configuration in YAML format
-- Parameter definitions
-- Step definitions
-- Error handling configuration
-
-**Templates:**
-- **Simple** - Single command task
-- **Standard** - Task with parameters
-- **Advanced** - Multi-step task with hooks and error handling
-
-### Profile {#profile}
-
-Creates environment profiles:
-- Environment-specific variables
-- Target configurations
-- Environment variables
-- Profile inheritance
-
-**Templates:**
-- **Basic** - Simple profile with variables
-- **Advanced** - Complex profile with targets and inheritance
-
-### Extension {#extension}
-
-Creates Xec extensions:
-- Extension manifest
-- Task definitions
-- Configuration schema
-- Documentation and examples
-
-**Templates:**
-- **Basic** - Simple extension structure
-- **Advanced** - Full extension with scripts and examples
-
-## Template Variables {#template-variables}
-
-All templates support variable replacement:
-
-- `{name}` - Artifact name
-- `{description}` - Artifact description
-- `{filepath}` - File path (scripts only)
-
-## Project Structure {#project-structure}
-
-When creating a project, the following structure is generated:
-
-:::filetree{title="my-project/"}
+:::filetree{title="Standard project"}
 - `.xec/`
-  - `config.yaml` — Main configuration
-  - `.gitignore` — Git ignore rules
-  - `scripts/` — Executable scripts
-    - `example.js` — Example script
-  - `commands/` — Custom CLI commands
-    - `hello.js` — Example command
-  - `cache/` — Cache directory
-  - `logs/` — Log files
-  - `tmp/` — Temporary files
-- `README.md` — Project documentation
+  - `config.yaml` — Runnable task definitions
+  - `.gitignore` — Generated local-artifact exclusions
+  - `scripts/`
+    - `example.ts` — Local script example
+  - `commands/` — Native project commands
+- `package.json` — New project metadata and command types
+- `README.md` — Usage; existing README content is preserved
 :::
-## Script Templates {#script-templates}
 
-### Basic Script (TypeScript) {#basic-script-typescript}
+### Git initialization {#git-integration}
 
-```typescript
-#!/usr/bin/env xec
+In an interactive terminal, Git initialization is offered unless `--skip-git` is
+supplied. Noninteractive scaffolding does not initialize Git. Current source
+only runs `git init` after confirmation; it does not stage the working tree or
+create a commit. Review generated content and commit it yourself.
 
-/**
- * {description}
- * 
- * Usage: xec {filepath}
- */
+## Scripts {#script-creation}
 
-// Type-safe command execution
-const result = await $`echo "Hello from TypeScript!"`;
-log.success(result.stdout);
-
-// Work with files using built-in fs
-const files = await glob('**/*.ts');
-log.step(`Found ${files.length} TypeScript files`);
-
-// Interactive prompts with type inference
-const name = await kit.text({ message: 'What is your name?', defaultValue: 'Developer' });
-if (kit.isCancel(name)) throw new Error('Cancelled');
-log.info(prism.blue(`Hello, ${name}!`));
+```bash
+pnpm exec xec new script inspect-runtime --desc 'Inspect the local runtime'
+pnpm exec xec run .xec/scripts/inspect-runtime.ts
+pnpm exec xec new script inspect-target --advanced --js
+pnpm exec xec run .xec/scripts/inspect-target.js -- --dry-run
 ```
 
-### Advanced Script Features {#advanced-script-features}
+### Script files {#file-permissions}
 
-- Command line argument parsing
-- Configuration loading and declared profile application
-- Explicit local/staging/production target resolution; missing remote targets fail
-- Bounded retry of an idempotent runtime observation and propagated failures
-- Progress indicators and spinners
-- Environment validation
-- Cleanup limited to resources explicitly created by your script
+Scripts are written under `.xec/scripts/` and marked executable. The basic
+starter performs local observations. The advanced starter parses its own
+`--env`, `--dry-run` and `--verbose` arguments. Development selects local;
+staging/production require the corresponding configured SSH target and never
+fall back to local execution. Retry covers only the idempotent runtime check.
 
-The advanced starter reads `--env`, `--dry-run` and `--verbose` with Node's typed argument parser. Development selects the local target; staging and production require `hosts.staging` and `hosts.production` in the project configuration. A dry run resolves the configuration but does not execute the observation. The starter does not fetch external APIs or delete existing temporary directories.
+In current source, its preview disallows configuration command evaluation and
+does not execute the runtime check. It is still an ordinary program you must
+review before adding effects or more retry behavior.
 
-## Command Templates {#command-templates}
+## Native commands {#command-creation}
 
-### Basic Command {#basic-command}
-
-```javascript
-/**
- * {description}
- * 
- * This command will be available as: xec {name} [arguments]
- */
-
-/** @param {import('commander').Command} program */
-export function command(program) {
-  program
-    .command('{name} [args...]')
-    .description('{description}')
-    .option('-v, --verbose', 'Enable verbose output')
-    .action(async (
-      /** @type {string[]} */ args,
-      /** @type {{ verbose?: boolean }} */ options
-    ) => {
-      const { log } = await import('@xec-sh/kit');
-      
-      // Your command logic here
-      log.info('Running {name} command...');
-      
-      if (options.verbose) {
-        log.step('Verbose mode enabled');
-        log.step(`Arguments: ${args.join(', ') || 'none'}`);
-      }
-      
-      // Example: Use $ from @xec-sh/core
-      const { $ } = await import('@xec-sh/core');
-      const result = await $`echo "Command {name} executed successfully!"`;
-      
-      log.success(result.stdout);
-    });
-}
+```bash
+pnpm exec xec new command inspect-app
+pnpm exec xec inspect-app --help
+pnpm exec xec new command inventory --advanced --js
+pnpm exec xec inventory list
 ```
 
-## Validation {#validation}
+Commands are written under `.xec/commands/` and register through Commander.
+The advanced example demonstrates subcommands and explicit confirmation. Its
+sample create/delete actions are demonstrations; they do not persist an
+inventory. Replace them with the real owning operation before presenting the
+command as an application API.
 
-The command validates artifact names based on type:
+No extension manifest, private CLI base class or second forwarding parser is
+required. See [native command development](../custom/creating-commands.md).
 
-- **Project names**: Letters, numbers, hyphens, underscores
-- **Script names**: Letters, numbers, hyphens, underscores, dots
-- **Command/Task/Profile names**: Letters, numbers, hyphens, underscores, colons
-- **Extension names**: Letters, numbers, hyphens, underscores
+## Tasks and profiles {#task-creation}
 
-## Git Integration {#git-integration}
-
-For projects, git initialization is automatic unless `--skip-git` is used:
-
-- Creates git repository
-- Adds all files
-- Creates initial commit with message "Initial Xec project setup"
-
-## File Permissions {#file-permissions}
-
-Scripts are automatically made executable (chmod 755) after creation.
-
-## Error Handling {#error-handling}
-
-The command provides helpful error messages for:
-
-- Invalid artifact names
-- Existing files (unless `--force` is used)
-- Missing project directories
-- Invalid template options
-
-## Related Commands {#related-commands}
-
-- [run](run.md) - Execute scripts and tasks
-- [config](config.md) - Manage configuration
-- [inspect](inspect.md) - Inspect created artifacts
-
-## Configuration {#configuration}
-
-Command behavior can be configured in `.xec/config.yaml`:
-
-```yaml
-commands:
-  new:
-    defaultType: script
-    defaultLanguage: typescript
-    gitInit: true
-    makeExecutable: true
+```bash
+pnpm exec xec new task inspect --advanced --desc 'Check runtime and print a message'
+pnpm exec xec run inspect --message 'Reviewed input'
+pnpm exec xec new profile staging --advanced
+XEC_PROFILE=staging pnpm exec xec run inspect
 ```
 
-## Exit Codes {#exit-codes}
+Tasks and profiles are added to the project file, or the explicitly selected
+`--config` file. Existing named entries require `--force` to replace. Generated
+configuration is validated before saving, and descriptions remain literal YAML
+data even when they contain punctuation or newlines.
 
-- `0` - Success
-- `1` - General error
-- `2` - Invalid arguments
-- `3` - File exists (without --force)
-- `4` - Validation error
-- `5` - Template error
+The advanced task has a declared string parameter, a task environment mapping
+and two local command steps. It does not invent scheduling, event hooks,
+automatic deployment or rollback.
+
+### Profiles {#profile-creation}
+
+The advanced profile adds local-target `NODE_ENV`; it does not reference a
+nonexistent base profile or remote server. The last example uses POSIX
+environment assignment syntax.
+
+## Unsupported extensions {#extension-creation}
+
+`new extension` now fails before creating files, because Xec has no extension
+loader. An old `extensions` configuration key is also rejected before provider
+initialization or command substitution. Use native commands, explicit tasks or
+normal imported packages instead.
+
+## Validation and failures {#validation}
+
+Names cannot contain path separators. Project names use letters, digits,
+hyphens and underscores; script names additionally allow dots; command/task/profile
+names additionally allow colons. The current directory is an explicit project
+initialization case, not an arbitrary path escape.
+
+### Failures {#error-handling}
+
+No prompt is assumed to be accepted in a noninteractive process. Invalid input,
+unsupported features and refused overwrites produce a failing status. See the
+[shared exit-code contract](../cli-reference.md#exit-codes); artifact-specific
+numeric codes are not promised.
+
+## See Also {#see-also}
+
+- [Run](./run.md)
+- [Configuration editing](./config.md)
+- [Native command development](../custom/creating-commands.md)
+- [Installation](../../introduction/installation.md)

@@ -78,6 +78,7 @@ export class LogsCommand extends ConfigAwareCommand {
   constructor() {
     super({
       name: 'logs',
+      configurationDefaults: true,
       aliases: ['l'],
       description: 'View and stream logs from targets (interactive mode if no target specified)',
       arguments: '[target] [path]',

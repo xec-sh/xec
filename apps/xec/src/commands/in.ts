@@ -33,6 +33,7 @@ export class InCommand extends ConfigAwareCommand {
   constructor() {
     super({
       name: 'in',
+      configurationDefaults: true,
       description: 'Execute commands in containers or Kubernetes pods',
       arguments: '<target> [command...]',
       options: [

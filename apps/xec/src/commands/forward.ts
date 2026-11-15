@@ -35,6 +35,7 @@ export class ForwardCommand extends ConfigAwareCommand {
   constructor() {
     super({
       name: 'forward',
+      configurationDefaults: true,
       aliases: ['fwd'],
       description: 'Forward ports from remote systems',
       arguments: '<target> <port-mapping>',

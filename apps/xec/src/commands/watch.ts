@@ -42,6 +42,7 @@ export class WatchCommand extends ConfigAwareCommand {
   constructor() {
     super({
       name: 'watch',
+      configurationDefaults: true,
       description: 'Watch files for changes and execute commands',
       arguments: '<target> [paths...]',
       options: [
@@ -166,16 +167,15 @@ export class WatchCommand extends ConfigAwareCommand {
       throw new Error('Target specification is required');
     }
 
-    if (!options.command && !options.task && !options.script) {
-      throw new Error('Either --command, --task, or --script must be specified');
-    }
-
     // Initialize configuration
     await this.initializeConfig(options);
 
     // Apply command defaults from config
     const defaults = this.getCommandDefaults();
     const mergedOptions = this.applyDefaults(options, defaults);
+    if (!mergedOptions.command && !mergedOptions.task && !mergedOptions.script) {
+      throw new Error('Either --command, --task, or --script must be specified');
+    }
 
     // Resolve target
     const target = await this.resolveTarget(targetSpec);

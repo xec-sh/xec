@@ -1,184 +1,120 @@
 ---
 title: Command System Overview
-description: Comprehensive overview of Xec's command system architecture and capabilities
-keywords: [commands, cli, architecture, built-in, custom, dynamic]
+description: Choose built-in commands, scripts, tasks or native project commands
 ---
 
 # Command System Overview {#command-system-overview}
 
-## Overview {#overview}
+Xec gives a project one operator interface for local and remote execution.
+Start with a built-in command for a single operation. Keep reusable orchestration
+in TypeScript or configuration, and expose a native command when it needs its own
+arguments, options and help.
 
-Xec provides a powerful and extensible command system that supports both built-in commands and custom user-defined commands. This section covers the complete command reference for the Xec CLI.
+## Choose an interface {#command-types}
 
-The CLI entry point lives in `apps/xec/src/main.ts`. Built-in commands are the modules in `apps/xec/src/commands/`, each registering itself with the commander program. Dynamic commands are loaded by `loadDynamicCommands()` from `apps/xec/src/utils/cli-command-manager.ts`, and built-ins share `apps/xec/src/utils/command-base.ts`. Project commands register with the public Commander program instead of importing that private base class.
+| Need | Interface | Example |
+| --- | --- | --- |
+| Inspect a configured SSH host | Built-in command | `xec on hosts.staging node --version` |
+| Reuse a named sequence | Configuration task | `xec run check` |
+| Branch on typed results or implement recovery | TypeScript script | `xec run .xec/scripts/check.ts` |
+| Offer a validated project operation | Native project command | `xec deploy --help`, after defining it |
+| Embed execution in another application | Core/Ops library | Import the API in that application |
 
-## Command Types {#command-types}
+There is no built-in universal `deploy`, `build` or `test` command. Projects own
+those definitions. For example, this repository's Xec tasks invoke Turbo to retain
+its package graph and cache; Xec owns the surrounding workflow and operator CLI.
 
-Xec supports three types of commands:
+## Built-in commands {#1-built-in-commands}
 
-### 1. Built-in Commands {#1-built-in-commands}
+| Command | Purpose |
+| --- | --- |
+| [run](built-in/run.md) | Run a script, task, inline program or REPL |
+| [on](built-in/on.md) | Execute on SSH hosts |
+| [in](built-in/in.md) | Execute in a container or Kubernetes pod |
+| [copy](built-in/copy.md) | Transfer between source and destination paths |
+| [forward](built-in/forward.md) | Forward a port |
+| [logs](built-in/logs.md) | Read or follow target logs |
+| [watch](built-in/watch.md) | Run a declared action after file changes |
+| `docker` | Operate Docker resources through the shared Docker API |
+| [config](built-in/config.md) | Inspect and edit configuration |
+| [inspect](built-in/inspect.md) | Inspect targets, tasks and project metadata |
+| [secrets](built-in/secrets.md) | Manage values through a secret provider |
+| [new](built-in/new.md) | Scaffold a project, script, command, task or profile |
+| [doctor](built-in/doctor.md) | Inspect the local execution environment |
+| [completion](built-in/completion.md) | Generate shell completion |
 
-Core commands that are included with Xec:
+Use the pinned installation, for example `pnpm exec xec`, so the local terminal,
+CI and AI agents use the same version. The installed command's `--help` is the
+option reference for that version.
 
-- **[completion](built-in/completion.md)** - Generate shell completion.
-- **[doctor](built-in/doctor.md)** - Check the local execution environment.
-- **[config](built-in/config.md)** - Manage Xec configuration (aliases: `conf`, `cfg`)
-- **[copy](built-in/copy.md)** - Copy files between targets (alias: `cp`)
-- **docker** - Manage Docker containers, images, networks, and Compose via the fluent API (alias: `d`)
-- **[forward](built-in/forward.md)** - Forward ports between local and remote systems (alias: `fwd`)
-- **[in](built-in/in.md)** - Execute commands inside Docker containers or Kubernetes pods
-- **[inspect](built-in/inspect.md)** - Inspect configuration and targets
-- **[logs](built-in/logs.md)** - View and stream logs from various sources
-- **[new](built-in/new.md)** - Create new Xec artifacts (scripts, configs, tasks)
-- **[on](built-in/on.md)** - Execute commands on SSH hosts
-- **[run](built-in/run.md)** - Run Xec scripts or tasks
-- **[secrets](built-in/secrets.md)** - Manage secrets and credentials
-- **[watch](built-in/watch.md)** - Watch files for changes and execute commands
-
-### 2. Dynamic Commands {#2-dynamic-commands}
-
-Commands loaded from `.xec/commands/` directory that extend Xec's functionality.
-
-### 3. Script and Task Execution {#3-script-and-task-execution}
-
-Direct execution of JavaScript/TypeScript files as Xec scripts (`xec ./script.ts`), and execution of tasks defined in configuration by name (`xec deploy`).
-
-## Command Structure {#command-structure}
-
-All Xec commands follow a consistent structure:
-
-```bash
-xec [global-options] <command> [command-options] [arguments]
-```
-
-### Global Options {#global-options}
-
-Options that apply to all commands:
-
-- `-v, --verbose` - Enable verbose output
-- `-q, --quiet` - Suppress non-error output
-- `--cwd <path>` - Set current working directory
-- `--no-color` - Disable colored output (sets `NO_COLOR`)
-- `-e, --eval <code>` - Evaluate code directly
-- `--repl` - Start interactive REPL
-
-Options such as `--dry-run`, `--profile`, or config-file selection are **per-subcommand**, not global — check `xec <command> --help` for what each command supports. The configuration file location is controlled by the `XEC_CONFIG` environment variable rather than a global flag.
-
-## Command Resolution {#command-resolution}
-
-When you run `xec <something>`, the CLI resolves it in the following order:
-
-1. **`-e`/`--eval` and `--repl`** - Handled first, before any command lookup
-2. **Script files** - If the first argument ends in `.js`, `.ts`, or `.mjs`, or is an existing file, it runs as a script
-3. **Tasks** - If the argument is not a registered command but matches a task in configuration, the task runs (task parameters are passed as `--param=value` or `--param value`)
-4. **Direct command execution** - Target-prefixed direct execution (e.g. running a command on a configured target)
-5. **Built-in and dynamic commands** - Resolved by commander, including aliases
-6. **Unknown command** - Prints an error with "did you mean" typo suggestions
-
-## Target Selection {#target-selection}
-
-Many commands operate on targets (local, SSH, Docker, Kubernetes). The target selection pattern is:
+## Command structure {#command-structure}
 
 ```bash
-xec <command> <target-pattern> [options]
+pnpm exec xec [global-options] <command> [command-options] [arguments]
+pnpm exec xec --cwd ./project config validate
+pnpm exec xec run .xec/scripts/check.ts -- --format json
 ```
 
-Target patterns can be:
-- `local` - Local machine
-- `hosts.<name>` - SSH host
-- `containers.<name>` - Docker container
-- `pods.<name>` - Kubernetes pod
-- `hosts.*` - All SSH hosts (wildcard)
-- `{hosts.web1,hosts.web2}` - Multiple targets (brace expansion)
+Root flags go before the command. `--config`, `--profile` and `--dry-run` are
+command-specific, not universal root controls. `--` separates a script's own
+arguments from Xec's options.
 
-## Configuration Integration {#configuration-integration}
+### Command resolution {#command-resolution}
 
-Commands respect configuration from:
+A task may also be invoked by its name (`xec check`) when no registered command
+owns that name. `xec run check` makes task intent explicit. Built-in and dynamic
+commands take precedence over the task shorthand.
 
-1. `.xec/config.yaml` - Project configuration
-2. Command-specific defaults in configuration
-3. Environment variables (`XEC_*`)
-4. Command-line options (highest priority)
+## Native project commands {#command-development}
 
-## Error Handling {#error-handling}
+Put JavaScript or TypeScript files under `.xec/commands/`. Export
+`command(program)`, `setup(program)` or a default registration function. Register
+arguments, options, subcommands and actions with the supplied Commander program.
+That schema supplies parsing and generated help; do not add a forwarding command
+and a second parser behind it.
 
-Errors are handled by `handleError()` from `@xec-sh/ops`, which prints an actionable message and exits with a code based on the error type:
+Project code can use Xec scripting globals and public Core/Ops APIs. Do not import
+Xec's private CLI base classes. See [custom commands](custom/creating-commands.md)
+for registration and discovery.
 
-### Exit Codes {#exit-codes}
-
-| Code | Error Type |
-|------|------------|
-| 0 | Success |
-| 1 | Generic / unhandled error |
-| 2 | ValidationError |
-| 3 | ConfigurationError |
-| 4 | ModuleError |
-| 5 | TaskError |
-| 6 | RecipeError |
-| 7 | NetworkError |
-| 8 | FileSystemError |
-| 9 | TimeoutError |
-| 10 | File not found (`ENOENT`) |
-| 11 | Permission denied (`EACCES`) |
-| 12 | Not a directory (`ENOTDIR`) |
-| 13 | Is a directory (`EISDIR`) |
-| 130 | Cancelled by `SIGINT` after cleanup |
-| 143 | Cancelled by `SIGTERM` after cleanup |
-
-### Error Features {#error-features}
-- Clear error messages with context
-- Stack traces with `--verbose` flag
-- Suggestions for common issues
-- Colored output for error types
-
-## Command Development {#command-development}
-
-Create a `.xec/commands/` file that exports `command(program)`, `setup(program)`
-or a default registration function. Register the command's arguments, options
-and action through the provided Commander program. TypeScript is transformed by
-Xec's scripting runtime; the public scripting APIs and globals remain available.
-There is no requirement to subclass or import Xec's private CLI implementation.
-
-See [Creating Custom Commands](custom/creating-commands.md) for detailed guide.
-
-## Common Patterns {#common-patterns}
-
-### Dry Run Mode {#dry-run-mode}
-
-Several commands support `--dry-run` to preview actions:
+## Targets and concurrency {#target-selection}
 
 ```bash
-xec copy --dry-run source.txt hosts.* /tmp/
+pnpm exec xec on "hosts.*" node --version
+pnpm exec xec on "hosts.*" node --version --parallel --max-concurrent 4
+pnpm exec xec copy --recursive ./assets/ hosts.staging:/srv/example/assets/
 ```
 
-### Parallel Execution {#parallel-execution}
+### Parallel execution {#parallel-execution}
 
-Commands that operate on multiple targets execute in parallel:
+`on` is sequential by default; request bounded parallelism for independent
+operations. Quote target patterns so the invoking shell does not expand them.
+Qualified names such as `hosts.staging`, `containers.worker` and `pods.api` avoid
+ambiguity. A copy command takes two endpoints, not a source, target and destination
+as three separate arguments.
 
-```bash
-xec on "hosts.*" "uptime"  # Runs on all hosts in parallel
-```
+## Plans, output and failure {#error-handling}
 
-SSH connections are reused via the connection pool, and output streams are merged in real time.
+### Preview {#dry-run-mode}
 
-### Streaming Output {#streaming-output}
+Use a command's supported `--dry-run` before an effect when useful. It is a
+preview contract owned by that command, not a sandbox for arbitrary code.
+Current source refuses load-time command evaluation during supported dry runs;
+published 0.12.0 does not contain all of those protections.
 
-Commands that produce continuous output support streaming:
+### Output and exit status {#exit-codes}
 
-```bash
-xec logs containers.app --follow
-```
+Machine-readable output is also command-specific. For example,
+`xec config --output json validate` returns one validation document. A generic
+output flag cannot turn a script's arbitrary stdout into a structured receipt.
 
-### Interactive Mode {#interactive-mode}
+A lost SSH response or local timeout does not prove that a remote effect never
+occurred. Inspect the same operation and its target state before retrying.
+For handled failures and cancellation see [exit codes](cli-reference.md#exit-codes).
 
-Some commands provide interactive prompts when options are missing:
+## See Also {#see-also}
 
-```bash
-xec new  # Prompts for artifact type
-```
-
-## Next Steps {#next-steps}
-
-- [Built-in Commands Reference](built-in/run.md) - Detailed documentation for each command
-- [Custom Commands](custom/creating-commands.md) - Create your own commands
-- [CLI Reference](cli-reference.md) - Complete CLI reference
+- [CLI reference](./cli-reference.md)
+- [Configuration](../configuration/overview.md)
+- [Creating custom commands](./custom/creating-commands.md)
+- [Portable scripts](../introduction/portable-scripts.md)

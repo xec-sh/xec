@@ -1,5 +1,3 @@
-import type { CommandConfig, DockerDefaults } from '@xec-sh/ops';
-
 import { z } from 'zod';
 import { Command } from 'commander';
 import { $, ExecutionEngine } from '@xec-sh/core';
@@ -130,6 +128,7 @@ export class DockerCommand extends SubcommandBase {
   constructor() {
     super({
       name: 'docker',
+      configurationDefaults: true,
       aliases: ['d'],
       description: 'Manage Docker containers, images, networks and volumes',
       validateOptions: (options) => {
@@ -654,7 +653,7 @@ export class DockerCommand extends SubcommandBase {
 
     await this.initializeConfig(options);
 
-    const defaults = this.getDockerDefaults();
+    const defaults = this.getCommandDefaults();
     const mergedOptions = this.applyDefaults(options, defaults);
 
     const s = spinner();
@@ -933,7 +932,7 @@ export class DockerCommand extends SubcommandBase {
     s.start(prism.blue('Starting Redis...'));
 
     try {
-      const defaults = this.getServiceDefaults('redis');
+      const defaults = this.getCommandDefaults();
       const mergedOptions = this.applyDefaults(options, defaults);
 
       if (this.isDryRun()) {
@@ -981,7 +980,7 @@ Connection: ${info['connectionString']}
     s.start(prism.blue('Starting PostgreSQL...'));
 
     try {
-      const defaults = this.getServiceDefaults('postgres');
+      const defaults = this.getCommandDefaults();
       const mergedOptions = this.applyDefaults(options, defaults);
 
       if (this.isDryRun()) {
@@ -1032,7 +1031,7 @@ Connection: ${info['connectionString']}
     s.start(prism.blue('Starting MySQL...'));
 
     try {
-      const defaults = this.getServiceDefaults('mysql');
+      const defaults = this.getCommandDefaults();
       const mergedOptions = this.applyDefaults(options, defaults);
 
       if (this.isDryRun()) {
@@ -1082,7 +1081,7 @@ Connection: ${info['connectionString']}
     s.start(prism.blue('Starting MongoDB...'));
 
     try {
-      const defaults = this.getServiceDefaults('mongodb');
+      const defaults = this.getCommandDefaults();
       const mergedOptions = this.applyDefaults(options, defaults);
 
       if (this.isDryRun()) {
@@ -1185,7 +1184,7 @@ Connect with:
     s.start(prism.blue('Starting Kafka with Zookeeper...'));
 
     try {
-      const defaults = this.getServiceDefaults('kafka');
+      const defaults = this.getCommandDefaults();
       const mergedOptions = this.applyDefaults(options, defaults);
 
       if (this.isDryRun()) {
@@ -1236,7 +1235,7 @@ Connect with:
     s.start(prism.blue('Starting RabbitMQ...'));
 
     try {
-      const defaults = this.getServiceDefaults('rabbitmq');
+      const defaults = this.getCommandDefaults();
       const mergedOptions = this.applyDefaults(options, defaults);
 
       if (this.isDryRun()) {
@@ -1904,29 +1903,7 @@ Connect with:
     }
   }
 
-  // Helper methods
-  private getDockerDefaults(): DockerDefaults {
-    const defaults = this.getCommandDefaults();
-    return {
-      tty: defaults['tty'],
-      workdir: defaults['workdir'],
-      autoRemove: defaults['autoRemove'] ?? true,
-      user: defaults['user'],
-      runMode: defaults['runMode'] as any,
-      ...defaults
-    };
-  }
 
-  private getServiceDefaults(service: string): CommandConfig {
-    const commandDefaults = this.getCommandDefaults();
-    const serviceKey = `services.${service}`;
-    const serviceDefaults = (commandDefaults as any)[serviceKey] || {};
-
-    return {
-      ...commandDefaults,
-      ...serviceDefaults
-    };
-  }
 }
 
 // Export default function for command registration
