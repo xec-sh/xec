@@ -3,31 +3,52 @@ import type { Command } from 'commander';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { checkSSHBoundary } from '../lib/ssh-boundary.js';
-import { checkSSHSecurity } from '../lib/ssh-security.js';
-import { inspectSSHTransport, prepareSSHCorePackage, verifyPreparedSSHCorePackage } from '../lib/ssh-transport.js';
+import { checkSSHSecurity, checkBuiltSSHSecurity } from '../lib/ssh-security.js';
+import { checkSSHBoundary, checkSSHSourceOwnership } from '../lib/ssh-boundary.js';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 
-/** Project SSH release operations run through the pinned published Xec driver. */
+/** Owned SSH qualification runs through the pinned published Xec driver. */
 export function command(program: Command): void {
-  const ssh = program.command('ssh').description('Prepare and verify the reviewed SSH release payload')
-    .allowUnknownOption(false).allowExcessArguments(false);
-  ssh.command('prepare <directory>').description('Copy the completed Core build and bundle reviewed SSH dependencies in a new directory')
-    .allowUnknownOption(false).allowExcessArguments(false)
-    .action(async (directory: string) => { console.log(await prepareSSHCorePackage(root, resolve(directory))); });
-  ssh.command('guard <directory>').description('Verify the complete prepared Core package before packing')
-    .allowUnknownOption(false).allowExcessArguments(false)
-    .action(async (directory: string) => { await verifyPreparedSSHCorePackage(root, resolve(directory)); console.log('Prepared SSH package verified'); });
-  ssh.command('verify <directory>').description('Verify a transport installation against the reviewed patch hashes')
-    .allowUnknownOption(false).allowExcessArguments(false)
-    .action(async (directory: string) => { await inspectSSHTransport(root, resolve(directory), 'patched'); console.log('Reviewed SSH transport verified'); });
-  ssh.command('boundary').description('Compile isolated declarations and a consumer without transport-library types')
-    .allowUnknownOption(false).allowExcessArguments(false)
-    .action(async () => { await checkSSHBoundary(root); });
-  ssh.command('security').description('Install the exact Core archive and exercise bounded hostile SSH peers')
-    .option('--archive <file>', 'Verify an existing immutable archive; otherwise pack the completed Core build')
-    .addOption(program.createOption('--consumer <manager>', 'Package manager for the isolated consumer').choices(['npm', 'pnpm']).default('npm'))
-    .allowUnknownOption(false).allowExcessArguments(false)
-    .action(async (options: { archive?: string; consumer: 'npm' | 'pnpm' }) => { console.log(JSON.stringify(await checkSSHSecurity(root, options), null, 2)); });
+  const ssh = program
+    .command('ssh')
+    .description('Qualify the owned SSH package and its Core consumer')
+    .allowUnknownOption(false)
+    .allowExcessArguments(false);
+  ssh
+    .command('boundary')
+    .description('Check an installed Core/SSH pair without rebuilding its declarations')
+    .requiredOption('--consumer <directory>', 'Directory containing the isolated installed archive pair')
+    .allowUnknownOption(false)
+    .allowExcessArguments(false)
+    .action(async (options: { consumer: string }) => {
+      await checkSSHSourceOwnership(root);
+      console.log(JSON.stringify(await checkSSHBoundary(root, { consumer: resolve(options.consumer) }), null, 2));
+    });
+  ssh
+    .command('security')
+    .description('Qualify exact Core/SSH archives; otherwise pack both completed builds once')
+    .option('--core-archive <file>', 'Immutable Core archive; requires --ssh-archive')
+    .option('--ssh-archive <file>', 'Immutable SSH archive; requires --core-archive')
+    .addOption(
+      program
+        .createOption('--consumer <manager>', 'Package manager for the isolated consumer')
+        .choices(['npm', 'pnpm'])
+        .default('npm')
+    )
+    .allowUnknownOption(false)
+    .allowExcessArguments(false)
+    .action(async (options: { coreArchive?: string; sshArchive?: string; consumer: 'npm' | 'pnpm' }) => {
+      if (!!options.coreArchive !== !!options.sshArchive)
+        throw new Error('Pass both --core-archive and --ssh-archive, or neither');
+      const result =
+        options.coreArchive && options.sshArchive
+          ? await checkSSHSecurity(root, {
+              coreArchive: resolve(options.coreArchive),
+              sshArchive: resolve(options.sshArchive),
+              consumer: options.consumer,
+            })
+          : await checkBuiltSSHSecurity(root, { consumer: options.consumer });
+      console.log(JSON.stringify(result, null, 2));
+    });
 }

@@ -31,9 +31,9 @@ test('repository automation resolves the explicitly pinned published driver and 
 
 test('published Xec discovers the release policy and real project tasks before a candidate build', async () => {
   const packages = JSON.parse(await invoke(root, ['release', '--list-packages']));
-  assert.deepEqual(packages.map(pkg => pkg.name), [
-    '@xec-sh/core', '@xec-sh/kit', '@xec-sh/testing', '@xec-sh/loader', '@xec-sh/ops', '@xec-sh/cli',
-  ]);
+  assert.deepEqual(packages.map(pkg => pkg.name).sort(), [
+    '@xec-sh/core', '@xec-sh/kit', '@xec-sh/testing', '@xec-sh/loader', '@xec-sh/ops', '@xec-sh/cli', '@xec-sh/ssh',
+  ].sort());
   const tasks = await invoke(root, ['inspect', 'tasks']);
   for (const task of ['bootstrap', 'build:full', 'docs:check', 'check:ssh-security']) assert.ok(tasks.includes(task));
   const help = await invoke(root, ['release', '--help']);
@@ -52,16 +52,19 @@ test('published Xec discovers the release policy and real project tasks before a
 
 test('published Xec exposes strict native SSH operations without executing a guard during help', async () => {
   const help = await invoke(root, ['ssh', '--help']);
-  for (const command of ['prepare <directory>', 'guard <directory>', 'verify <directory>', 'boundary', 'security']) assert.ok(help.includes(command));
+  for (const command of ['boundary', 'security']) assert.ok(help.includes(command));
   const security = await invoke(root, ['ssh', 'security', '--help']);
-  assert.match(security, /--archive <file>/);
+  assert.match(security, /--core-archive <file>/);
+  assert.match(security, /--ssh-archive <file>/);
   assert.match(security, /--consumer <manager>/);
-  await assert.rejects(invoke(root, ['ssh', 'prepare']), /missing required argument/);
-  await assert.rejects(invoke(root, ['ssh', 'prepare', 'unused', 'extra']), /too many arguments/);
+  await assert.rejects(invoke(root, ['ssh', 'prepare']), /unknown command/);
   await assert.rejects(invoke(root, ['ssh', 'security', '--consumer', 'other']), /invalid|Allowed choices/);
   await assert.rejects(invoke(root, ['ssh', 'security', '--arhcive', 'unused']), /unknown option/);
-  await assert.rejects(invoke(root, ['ssh', 'guard', 'packages/core']), /not prepared/);
-  await assert.rejects(releaseCommand(join(root, 'packages/core'), 'pnpm', ['run', 'prepack']), /not prepared/);
+  await assert.rejects(invoke(root, ['ssh', 'guard', 'packages/core']), /unknown command/);
+  const core = JSON.parse(await readFile(join(root, 'packages/core/package.json'), 'utf8'));
+  assert.equal(core.scripts.prepack, undefined);
+  assert.equal(core.bundledDependencies, undefined);
+  assert.equal(core.dependencies['@xec-sh/ssh'], 'workspace:*');
 });
 
 test('published release API refuses archive rejection through the actual project command', { timeout: 120_000 }, async () => {
@@ -71,6 +74,7 @@ test('published release API refuses archive rejection through the actual project
   const manifest = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
   await mkdir(join(fixture, '.xec/commands'), { recursive: true });
   await mkdir(join(fixture, 'packages/core'), { recursive: true });
+  await mkdir(join(fixture, 'packages/ssh'), { recursive: true });
   await mkdir(join(fixture, '.xec/lib'), { recursive: true });
   await copyFile(join(root, '.xec/commands/release.ts'), join(fixture, '.xec/commands/release.ts'));
   await writeFile(join(fixture, '.xec/config.yaml'), "version: '1.0'\ntasks: {}\n");
@@ -86,10 +90,13 @@ test('published release API refuses archive rejection through the actual project
   }));
   await writeFile(join(fixture, 'packages/core/build.js'),
     "import { mkdir, writeFile } from 'node:fs/promises'; await mkdir('dist'); await writeFile('dist/index.js', 'export const fixture = true;');");
-  await writeFile(join(fixture, '.xec/lib/ssh-transport.js'),
-    "import { cp } from 'node:fs/promises'; import { join } from 'node:path'; export async function prepareSSHCorePackage(root, output) { await cp(join(root, 'packages/core'), output, { recursive: true }); }");
+  await writeFile(join(fixture, 'packages/ssh/package.json'), JSON.stringify({
+    name: '@xec-sh/ssh', version, type: 'module', main: 'dist/index.js', files: ['dist'],
+    scripts: { build: 'node build.js' },
+  }));
+  await copyFile(join(fixture, 'packages/core/build.js'), join(fixture, 'packages/ssh/build.js'));
   await writeFile(join(fixture, '.xec/lib/ssh-security.js'),
-    "import { stat } from 'node:fs/promises'; export async function checkSSHSecurity(_root, { archive }) { if (!(await stat(archive)).isFile()) throw new Error('Archive was not supplied'); throw new Error('SYNTHETIC_ARCHIVE_REJECTED'); }");
+    "import { stat } from 'node:fs/promises'; export async function checkSSHSecurity(_root, { coreArchive, sshArchive }) { if (coreArchive === sshArchive || !(await stat(coreArchive)).isFile() || !(await stat(sshArchive)).isFile()) throw new Error('Both exact archives must be supplied'); throw new Error('SYNTHETIC_ARCHIVE_REJECTED'); }");
   await releaseCommand(fixture, 'pnpm', ['install', '--ignore-scripts', '--offline'], { timeoutMs: 60_000 });
   for (const args of [
     ['init', '--initial-branch', 'main'], ['config', 'user.name', 'Release fixture'],

@@ -73,12 +73,11 @@ jobs:
 
       - run: pnpm build:full
 
-      - name: SSH public dependency boundary
-        run: pnpm check:ssh-boundary
-
       - name: Packaged SSH security and artifact integrity
         run: |
-          node --test scripts/test/ssh-transport.test.mjs
+          pnpm --filter @xec-sh/ssh test
+          pnpm --filter @xec-sh/ssh test:transport
+          node --test .xec/tests/ssh-security.test.js
           pnpm check:ssh-security
 
       - name: core unit
@@ -197,14 +196,12 @@ jobs:
         if: ${{ !cancelled() }}
         run: pnpm --filter @xec-sh/cli... build
 
-      - name: SSH public dependency boundary
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: pnpm check:ssh-boundary
-
       - name: Packaged SSH security and artifact integrity
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
-          node --test scripts/test/ssh-transport.test.mjs
+          pnpm --filter @xec-sh/ssh test
+          pnpm --filter @xec-sh/ssh test:transport
+          node --test .xec/tests/ssh-security.test.js
           pnpm check:ssh-security
 
       - name: Release failure and recovery contracts

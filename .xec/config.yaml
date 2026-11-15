@@ -46,9 +46,6 @@ tasks:
   check:lockfile:
     description: Verify frozen dependency resolution without installing packages.
     command: pnpm install --frozen-lockfile --lockfile-only
-  check:ssh-boundary:
-    description: Verify the Core SSH dependency boundary.
-    command: xec ssh boundary
   check:ssh-security:
     description: Verify the packed SSH runtime against hostile peers.
     command: xec ssh security

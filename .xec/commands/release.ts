@@ -3,7 +3,7 @@ import type { ReleaseCommand, ReleaseArtifact } from '@xec-sh/ops/release';
 
 import semver from 'semver';
 import { fileURLToPath } from 'node:url';
-import { join, dirname, resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { select, confirm, password, isCancel } from '@xec-sh/kit';
 // The project pins the published driver and release API independently of workspace builds.
 import {
@@ -14,7 +14,6 @@ import {
 } from '@xec-sh/ops/release';
 
 import { checkSSHSecurity } from '../lib/ssh-security.js';
-import { prepareSSHCorePackage } from '../lib/ssh-transport.js';
 
 const repository = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 interface ReleaseOptions {
@@ -31,12 +30,6 @@ interface ReleaseOptions {
   notesFrom?: string;
   listPackages?: boolean;
   yes?: boolean;
-}
-
-async function verifyCoreArchive(context: { workspace: string; artifact: ReleaseArtifact; run: ReleaseCommand }): Promise<void> {
-  if (context.artifact.name !== '@xec-sh/core') return;
-  console.log('Checking the packed SSH runtime');
-  console.log(JSON.stringify(await checkSSHSecurity(context.workspace, { archive: context.artifact.file, run: context.run }), null, 2));
 }
 
 async function runRelease(version: string | undefined, values: ReleaseOptions): Promise<void> {
@@ -88,19 +81,30 @@ async function runRelease(version: string | undefined, values: ReleaseOptions): 
     if (!values.githubOnly) {
       if (values.resume) await loadPreparedRelease(root, version);
       else {
+        for (const name of ['@xec-sh/core', '@xec-sh/ssh']) {
+          if (!packages.some(pkg => pkg.name === name)) throw new Error('SSH release acceptance requires both Core and SSH packages');
+        }
+        const sshArchives = new Map<string, ReleaseArtifact>();
+        let sshVerified = false;
         await prepareReleaseArtifacts(root, version, {
           build: { executable: 'pnpm', args: ['--recursive', ...packages.flatMap(pkg => ['--filter', pkg.name]), 'run', 'build'] }, offline: values.offline,
           progress: console.log,
           // 0.12.0 supports archive acceptance, not producer retention. Never
           // pass a newer option that an older published API could ignore.
-          verifyArtifact: verifyCoreArchive,
-          preparePackage: async ({ workspace, temporary, pkg, run: packageRun }) => {
-            if (pkg.name !== '@xec-sh/core') return undefined;
-            const directory = join(temporary, 'prepared-core');
-            await prepareSSHCorePackage(workspace, directory, packageRun);
-            return { directory, manager: 'npm' };
+          verifyArtifact: async ({ workspace, artifact, run }: { workspace: string; artifact: ReleaseArtifact; run: ReleaseCommand }) => {
+            if (artifact.name !== '@xec-sh/core' && artifact.name !== '@xec-sh/ssh') return;
+            sshArchives.set(artifact.name, artifact);
+            const core = sshArchives.get('@xec-sh/core');
+            const ssh = sshArchives.get('@xec-sh/ssh');
+            if (!core || !ssh) return;
+            console.log('Checking the exact Core and SSH archives in an installed consumer');
+            console.log(JSON.stringify(await checkSSHSecurity(workspace, {
+              coreArchive: core.file, sshArchive: ssh.file, run,
+            }), null, 2));
+            sshVerified = true;
           },
         });
+        if (!sshVerified) throw new Error('Core and SSH archive acceptance did not complete');
       }
       await ensureReleaseTag(root, version);
     }

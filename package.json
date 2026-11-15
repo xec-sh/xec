@@ -18,7 +18,6 @@
     "release": "xec release",
     "link:global": "cd apps/xec && pnpm build && npm link",
     "unlink:global": "cd apps/xec && npm unlink -g @xec-sh/cli",
-    "check:ssh-boundary": "xec run check:ssh-boundary",
     "docs:check": "xec run docs:check",
     "docs:start": "xec run docs:start",
     "docs:build": "xec run docs:build",
@@ -26,8 +25,7 @@
     "docs:deploy": "gh workflow run deploy-website.yml",
     "typecheck": "xec run typecheck",
     "check:lockfile": "xec run check:lockfile",
-    "check:ssh-security": "xec run check:ssh-security",
-    "prepare:ssh-package": "xec ssh prepare"
+    "check:ssh-security": "xec run check:ssh-security"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

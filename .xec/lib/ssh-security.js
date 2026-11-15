@@ -1,65 +1,143 @@
 import { tmpdir } from 'node:os';
-import { createHash } from 'node:crypto';
-import { createRequire } from 'node:module';
-import { join, dirname, resolve } from 'node:path';
-import { releaseCommand } from '@xec-sh/ops/release';
-import { rm, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
+import { cp, rm, mkdir, access, mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises';
+import { releaseCommand, artifactIntegrity, acquireReleaseLock, validatePackedPackage } from '@xec-sh/ops/release';
 
-import { inspectSSHTransport, prepareSSHCorePackage } from './ssh-transport.js';
-import { checkReceiveWindow } from '../../scripts/fixtures/ssh-receive-window.mjs';
+import { checkSSHBoundary, checkSSHSourceOwnership } from './ssh-boundary.js';
 
 /**
- * Install and inspect the exact packaged runtime under bounded hostile peers.
+ * Qualify the exact immutable Core and SSH archives through public imports.
+ * No build, repacking, source alias or private runtime subpath is used here.
  * @param {string} root
- * @param {{ archive?: string, consumer?: 'npm' | 'pnpm', run?: import('@xec-sh/ops/release').ReleaseCommand }} options
+ * @param {{coreArchive:string,sshArchive:string,consumer?:'npm'|'pnpm',run?:import('@xec-sh/ops/release').ReleaseCommand}} options
  */
-export async function checkSSHSecurity(root, { archive: selectedArchive, consumer: manager = 'npm', run: execute = releaseCommand } = {}) {
+export async function checkSSHSecurity(
+  root,
+  { coreArchive, sshArchive, consumer: manager = 'npm', run = releaseCommand }
+) {
+  if (!coreArchive || !sshArchive) throw new Error('SSH acceptance requires both exact Core and SSH archives');
   if (!['npm', 'pnpm'].includes(manager)) throw new Error('SSH consumer must be npm or pnpm');
+  const archives = [];
+  for (const [name, file, directory] of [
+    ['@xec-sh/core', coreArchive, 'core'],
+    ['@xec-sh/ssh', sshArchive, 'ssh'],
+  ]) {
+    const manifest = JSON.parse(await readFile(join(root, 'packages', directory, 'package.json'), 'utf8'));
+    const path = resolve(file);
+    if (manifest.name !== name) throw new Error(`Unexpected SSH source identity: ${name}`);
+    const integrity = artifactIntegrity(await readFile(path));
+    await validatePackedPackage(root, path, manifest, run);
+    archives.push({ name, version: manifest.version, file: path, integrity });
+  }
+  const [core, ssh] = archives;
+  if (core.version !== ssh.version) throw new Error('Core and SSH archives must belong to one release version');
+  await checkSSHSourceOwnership(root);
   const temporary = await mkdtemp(join(tmpdir(), 'xec-ssh-security-'));
-  const packageTimeout = 120_000;
-  const run = (args, cwd = root, timeoutMs = 10_000) => execute(cwd, process.execPath, args, { timeoutMs });
+  let failure;
+  let result;
   try {
-    // npm's documented bundled-dependency format must carry the patch to a consumer.
-    const runNpm = (args, cwd) => execute(cwd, 'npm', args, { timeoutMs: packageTimeout });
-    const npmArgs = ['--ignore-scripts', '--cache', join(temporary, 'cache')];
-    let archive;
-    if (selectedArchive) archive = resolve(selectedArchive);
-    else {
-      const packageDirectory = await prepareSSHCorePackage(root, join(temporary, 'core'), execute);
-      const packed = JSON.parse(await runNpm(['pack', '--json', '--pack-destination', temporary, ...npmArgs], packageDirectory))[0];
-      if (!packed.bundled?.includes('ssh2')) throw new Error('SSH transport was omitted from the package');
-      archive = join(temporary, packed.filename);
-    }
-    const consumer = join(temporary, 'consumer'); await mkdir(consumer);
-    await writeFile(join(consumer, 'package.json'), '{"private":true,"type":"module"}');
+    const consumer = join(temporary, 'consumer');
+    await mkdir(consumer);
+    await writeFile(
+      join(consumer, 'package.json'),
+      JSON.stringify({
+        private: true,
+        type: 'module',
+        dependencies: { '@xec-sh/core': `file:${core.file}`, '@xec-sh/ssh': `file:${ssh.file}` },
+        overrides: { '@xec-sh/ssh': '$@xec-sh/ssh' },
+      })
+    );
     if (manager === 'npm') {
-      await runNpm(['install', '--offline', '--no-audit', '--no-fund', ...npmArgs, archive], consumer);
+      await run(consumer, 'npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund'], { timeoutMs: 120_000 });
     } else {
-      await execute(consumer, 'pnpm', ['add', '--offline', '--ignore-scripts',
-        '--ignore-workspace', '--store-dir', join(temporary, 'store'), archive], { timeoutMs: packageTimeout });
+      await writeFile(
+        join(consumer, 'pnpm-workspace.yaml'),
+        `packages: []\noverrides:\n  '@xec-sh/ssh': ${JSON.stringify(`file:${ssh.file}`)}\n`
+      );
+      await run(consumer, 'pnpm', ['install', '--ignore-scripts'], { timeoutMs: 120_000 });
     }
-    const installed = join(consumer, 'node_modules/@xec-sh/core');
-    const require = createRequire(join(installed, 'package.json'));
-    const transport = dirname(require.resolve('ssh2/package.json'));
-    await inspectSSHTransport(root, transport, 'patched');
-    await run(['--input-type=module', '-e', "import { NodeSSH } from '@xec-sh/core/ssh'; if (typeof NodeSSH !== 'function') process.exit(1)"], consumer);
-    const results = [checkReceiveWindow(transport)];
-    for (const mode of ['zero-packet', 'buffered-close']) {
-      const lines = (await run([join(root, 'scripts/fixtures/ssh-hostile-peer.mjs'), mode, installed])).trim().split('\n');
-      const result = JSON.parse(lines.at(-1));
-      const passed = mode === 'zero-packet'
-        ? result.phase === 'authenticated' && result.level === 'protocol' && /CHANNEL_OPEN_CONFIRMATION/.test(result.error)
-        : result.connectionClosed && result.callbackCalled && !!result.callbackError && result.writePending === 0;
-      if (!passed) throw new Error(`${mode}: ${JSON.stringify(result)}`);
-      results.push({ mode, passed: true });
+    const boundary = await checkSSHBoundary(root, { consumer, run });
+    // Resolve the independent development-only peer from the source checkout;
+    // the consumer itself contains only the two archives and runtime dependencies.
+    const fixture = join(consumer, 'ssh-security.test.js');
+    await cp(join(root, 'scripts/fixtures/ssh-security.test.js'), fixture);
+    await run(consumer, process.execPath, ['--test', '--test-reporter=tap', fixture], {
+      timeoutMs: 30_000,
+      env: { NODE_PATH: '', NODE_OPTIONS: '', XEC_SSH_TEST_PEER_PACKAGE: join(root, 'packages/ssh/package.json') },
+    });
+    const provenance = JSON.parse(await readFile(join(consumer, 'node_modules/@xec-sh/ssh/PROVENANCE.json'), 'utf8'));
+    await access(join(consumer, 'node_modules/@xec-sh/ssh/LICENSE'));
+    result = { packaged: true, consumer: manager, archives, boundary, nativePublicClient: true, provenance };
+  } catch (error) {
+    failure = error;
+  }
+  // Acceptance covers exactly the initially selected bytes, even on failure.
+  for (const archive of archives) {
+    try {
+      if (artifactIntegrity(await readFile(archive.file)) !== archive.integrity)
+        throw new Error(`SSH archive changed during acceptance: ${archive.name}`);
+    } catch (error) {
+      failure = failure ? new AggregateError([failure, error], 'SSH acceptance and archive integrity failed') : error;
     }
-    await run([join(root, 'scripts/fixtures/ssh-chacha-reentrancy.mjs'), transport]);
-    results.push({ mode: 'chacha-nested-writes', cases: 6, passed: true });
-    await run([join(root, 'scripts/fixtures/ssh-sftp-cleanup.mjs'), installed]);
-    results.push({ mode: 'sftp-cleanup', cases: 3, peerCloseCycles: 25, passed: true });
-    const evidence = JSON.parse(await readFile(join(installed, 'SSH-TRANSPORT.json')));
-    const integrity = 'sha512-' + createHash('sha512').update(await readFile(archive)).digest('base64');
-    return { packaged: true, integrity, consumer: manager, transport: evidence.upstream, patchSha256: evidence.patchSha256, results };
-  } finally { await rm(temporary, { recursive: true, force: true }); }
+  }
+  try {
+    await rm(temporary, { recursive: true, force: true });
+  } catch (error) {
+    failure = failure
+      ? new AggregateError([failure, error], 'SSH acceptance failed and consumer cleanup is incomplete')
+      : error;
+  }
+  if (failure) throw failure;
+  return result;
+}
 
+/** Use the published executor to pack existing outputs and run acceptance for the ordinary CI command. */
+export async function checkBuiltSSHSecurity(root, { consumer = 'npm', run = releaseCommand } = {}) {
+  const temporary = await mkdtemp(join(tmpdir(), 'xec-ssh-pack-'));
+  const releases = [];
+  let failure;
+  let result;
+  try {
+    const archives = {};
+    // The same package ownership primitive prevents a concurrent build replacing
+    // dist while these already completed outputs are packed. No build is repeated.
+    for (const name of ['core', 'ssh']) releases.push(await acquireReleaseLock(join(root, 'packages', name)));
+    for (const name of ['core', 'ssh']) {
+      const directory = join(root, 'packages', name),
+        output = join(temporary, name);
+      await access(join(directory, 'dist/index.js'));
+      await access(join(directory, 'dist/index.d.ts'));
+      await mkdir(output);
+      await run(directory, 'pnpm', ['--config.ignore-scripts=true', 'pack', '--pack-destination', output], {
+        timeoutMs: 120_000,
+      });
+      const files = (await readdir(output)).filter((file) => file.endsWith('.tgz'));
+      if (files.length !== 1) throw new Error(`Expected one existing-build archive for ${name}`);
+      archives[name] = join(output, files[0]);
+    }
+    // Release the build locks before consumers execute. The archives are now
+    // independent immutable inputs and their hashes are checked by acceptance.
+    while (releases.length) await releases.pop()();
+    result = await checkSSHSecurity(root, { coreArchive: archives.core, sshArchive: archives.ssh, consumer, run });
+  } catch (error) {
+    failure = error;
+  }
+  while (releases.length) {
+    try {
+      await releases.pop()();
+    } catch (error) {
+      failure = failure
+        ? new AggregateError([failure, error], 'SSH packing failed and package ownership cleanup is incomplete')
+        : error;
+    }
+  }
+  try {
+    await rm(temporary, { recursive: true, force: true });
+  } catch (error) {
+    failure = failure
+      ? new AggregateError([failure, error], 'SSH packing failed and archive cleanup is incomplete')
+      : error;
+  }
+  if (failure) throw failure;
+  return result;
 }
