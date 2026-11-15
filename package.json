@@ -27,7 +27,7 @@
     "typecheck": "xec run typecheck",
     "check:lockfile": "xec run check:lockfile",
     "check:ssh-security": "xec run check:ssh-security",
-    "prepare:ssh-package": "node scripts/ssh-transport.mjs prepare"
+    "prepare:ssh-package": "xec ssh prepare"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

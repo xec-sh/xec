@@ -55,7 +55,7 @@
     "docker:status": "../testing/docker-ssh-manager.sh status",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
     "clean": "node ../../scripts/build-package.mjs --clean",
-    "prepack": "node ../../scripts/ssh-transport.mjs guard ."
+    "prepack": "pnpm --dir ../.. exec xec ssh guard packages/core"
   },
   "dependencies": {
     "ssh2": "1.17.0"

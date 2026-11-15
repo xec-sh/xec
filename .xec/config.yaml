@@ -26,7 +26,7 @@ tasks:
         command: pnpm exec tsc -p .xec/tsconfig.json
   lint:
     description: Lint package sources, project commands and website components.
-    command: pnpm exec eslint "{apps,packages}/**/*.{js,jsx,ts,tsx}" ".xec/{commands,lib}/**/*.ts" "website/src/**/*.{js,jsx,ts,tsx}"
+    command: pnpm exec eslint "{apps,packages}/**/*.{js,jsx,ts,tsx}" ".xec/{commands,lib}/**/*.{js,ts}" "website/src/**/*.{js,jsx,ts,tsx}"
   docs:check:
     description: Verify documentation examples against the declared APIs.
     steps:
@@ -48,7 +48,7 @@ tasks:
     command: pnpm install --frozen-lockfile --lockfile-only
   check:ssh-boundary:
     description: Verify the Core SSH dependency boundary.
-    command: node scripts/check-ssh-boundary.mjs
+    command: xec ssh boundary
   check:ssh-security:
     description: Verify the packed SSH runtime against hostile peers.
-    command: node scripts/check-ssh-security.mjs
+    command: xec ssh security

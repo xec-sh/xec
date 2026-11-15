@@ -13,6 +13,9 @@ import {
   discoverReleasePackages, prepareReleaseArtifacts,
 } from '@xec-sh/ops/release';
 
+import { checkSSHSecurity } from '../lib/ssh-security.js';
+import { prepareSSHCorePackage } from '../lib/ssh-transport.js';
+
 const repository = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 interface ReleaseOptions {
   dryRun?: boolean;
@@ -33,7 +36,7 @@ interface ReleaseOptions {
 async function verifyCoreArchive(context: { workspace: string; artifact: ReleaseArtifact; run: ReleaseCommand }): Promise<void> {
   if (context.artifact.name !== '@xec-sh/core') return;
   console.log('Checking the packed SSH runtime');
-  await context.run(context.workspace, process.execPath, [join(context.workspace, 'scripts/check-ssh-security.mjs'), '--archive', context.artifact.file]);
+  console.log(JSON.stringify(await checkSSHSecurity(context.workspace, { archive: context.artifact.file, run: context.run }), null, 2));
 }
 
 async function runRelease(version: string | undefined, values: ReleaseOptions): Promise<void> {
@@ -94,7 +97,7 @@ async function runRelease(version: string | undefined, values: ReleaseOptions): 
           preparePackage: async ({ workspace, temporary, pkg, run: packageRun }) => {
             if (pkg.name !== '@xec-sh/core') return undefined;
             const directory = join(temporary, 'prepared-core');
-            await packageRun(workspace, process.execPath, [join(workspace, 'scripts/ssh-transport.mjs'), 'prepare', directory]);
+            await prepareSSHCorePackage(workspace, directory, packageRun);
             return { directory, manager: 'npm' };
           },
         });

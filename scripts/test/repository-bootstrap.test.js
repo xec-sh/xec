@@ -50,6 +50,20 @@ test('published Xec discovers the release policy and real project tasks before a
   await assert.rejects(access(join(root, 'scripts/release.ts')), { code: 'ENOENT' });
 });
 
+test('published Xec exposes strict native SSH operations without executing a guard during help', async () => {
+  const help = await invoke(root, ['ssh', '--help']);
+  for (const command of ['prepare <directory>', 'guard <directory>', 'verify <directory>', 'boundary', 'security']) assert.ok(help.includes(command));
+  const security = await invoke(root, ['ssh', 'security', '--help']);
+  assert.match(security, /--archive <file>/);
+  assert.match(security, /--consumer <manager>/);
+  await assert.rejects(invoke(root, ['ssh', 'prepare']), /missing required argument/);
+  await assert.rejects(invoke(root, ['ssh', 'prepare', 'unused', 'extra']), /too many arguments/);
+  await assert.rejects(invoke(root, ['ssh', 'security', '--consumer', 'other']), /invalid|Allowed choices/);
+  await assert.rejects(invoke(root, ['ssh', 'security', '--arhcive', 'unused']), /unknown option/);
+  await assert.rejects(invoke(root, ['ssh', 'guard', 'packages/core']), /not prepared/);
+  await assert.rejects(releaseCommand(join(root, 'packages/core'), 'pnpm', ['run', 'prepack']), /not prepared/);
+});
+
 test('published release API refuses archive rejection through the actual project command', { timeout: 120_000 }, async () => {
   const fixture = await mkdtemp(join(tmpdir(), 'xec-published-recipe-'));
   directories.push(fixture);
@@ -57,7 +71,7 @@ test('published release API refuses archive rejection through the actual project
   const manifest = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
   await mkdir(join(fixture, '.xec/commands'), { recursive: true });
   await mkdir(join(fixture, 'packages/core'), { recursive: true });
-  await mkdir(join(fixture, 'scripts'), { recursive: true });
+  await mkdir(join(fixture, '.xec/lib'), { recursive: true });
   await copyFile(join(root, '.xec/commands/release.ts'), join(fixture, '.xec/commands/release.ts'));
   await writeFile(join(fixture, '.xec/config.yaml'), "version: '1.0'\ntasks: {}\n");
   await writeFile(join(fixture, '.gitignore'), 'node_modules/\n.release-artifacts/\n.xec/cache/\n.xec/.tmp/\n');
@@ -72,10 +86,10 @@ test('published release API refuses archive rejection through the actual project
   }));
   await writeFile(join(fixture, 'packages/core/build.js'),
     "import { mkdir, writeFile } from 'node:fs/promises'; await mkdir('dist'); await writeFile('dist/index.js', 'export const fixture = true;');");
-  await writeFile(join(fixture, 'scripts/ssh-transport.mjs'),
-    "import { cp } from 'node:fs/promises'; await cp('packages/core', process.argv[3], { recursive: true });");
-  await writeFile(join(fixture, 'scripts/check-ssh-security.mjs'),
-    "import { stat } from 'node:fs/promises'; if (process.argv[2] !== '--archive' || !(await stat(process.argv[3])).isFile()) throw new Error('Archive was not supplied'); throw new Error('SYNTHETIC_ARCHIVE_REJECTED');");
+  await writeFile(join(fixture, '.xec/lib/ssh-transport.js'),
+    "import { cp } from 'node:fs/promises'; import { join } from 'node:path'; export async function prepareSSHCorePackage(root, output) { await cp(join(root, 'packages/core'), output, { recursive: true }); }");
+  await writeFile(join(fixture, '.xec/lib/ssh-security.js'),
+    "import { stat } from 'node:fs/promises'; export async function checkSSHSecurity(_root, { archive }) { if (!(await stat(archive)).isFile()) throw new Error('Archive was not supplied'); throw new Error('SYNTHETIC_ARCHIVE_REJECTED'); }");
   await releaseCommand(fixture, 'pnpm', ['install', '--ignore-scripts', '--offline'], { timeoutMs: 60_000 });
   for (const args of [
     ['init', '--initial-branch', 'main'], ['config', 'user.name', 'Release fixture'],

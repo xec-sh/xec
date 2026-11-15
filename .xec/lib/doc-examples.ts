@@ -7,7 +7,7 @@ import { promisify } from 'node:util';
 import { execFile } from 'node:child_process';
 import { rm, mkdir, mkdtemp, symlink, readFile, writeFile } from 'node:fs/promises';
 
-import { resolveTypeScriptCompiler } from '../../scripts/typescript-compiler.mjs';
+import { resolveTypeScriptCompiler } from './typescript-compiler.js';
 
 const run = promisify(execFile);
 const compiledLanguages = new Set(['ts', 'typescript', 'js', 'javascript', 'tsx', 'jsx']);

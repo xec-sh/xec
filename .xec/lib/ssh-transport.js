@@ -1,21 +1,17 @@
 import { createHash } from 'node:crypto';
-import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
-import { execFileSync } from 'node:child_process';
+import { releaseCommand } from '@xec-sh/ops/release';
 import { join, dirname, resolve, relative } from 'node:path';
 import { cp, mkdir, lstat, readFile, realpath, writeFile } from 'node:fs/promises';
 
-import { resolveTypeScriptCompiler } from './typescript-compiler.mjs';
-
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const policyFile = join(root, 'scripts/ssh-transport-policy.json');
+const policyFile = root => join(root, '.xec/ssh-transport-policy.json');
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const json = async path => JSON.parse(await readFile(path, 'utf8'));
 const packageName = /^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/;
 
 /** Verify the exact transport files before accepting either a pristine or patched install. */
-export async function inspectSSHTransport(directory, expected = 'either') {
-  const policy = await json(policyFile);
+export async function inspectSSHTransport(root, directory, expected = 'either') {
+  const policy = await json(policyFile(root));
   const manifest = await json(join(directory, 'package.json'));
   if (manifest.name !== policy.package || manifest.version !== policy.version) throw new Error('Unreviewed SSH transport version');
   const states = new Set();
@@ -42,9 +38,9 @@ async function copyPackage(origin, destination) {
 }
 
 /** Bundle the reviewed SSH source and its installed dependency closure for npm consumers. */
-export async function bundleSSHTransport(source, packageDirectory) {
+export async function bundleSSHTransport(root, source, packageDirectory, run = releaseCommand) {
   source = await realpath(source);
-  const policy = await json(policyFile);
+  const policy = await json(policyFile(root));
   const modules = join(packageDirectory, 'node_modules');
   await mkdir(modules); // Fail if a caller tries to merge into an existing installation.
   const closure = new Map();
@@ -83,7 +79,7 @@ export async function bundleSSHTransport(source, packageDirectory) {
     const canonical = Buffer.from(bytes.toString('latin1').replace(/\r\n/g, '\n'), 'latin1');
     if (!bytes.equals(canonical)) await writeFile(path, canonical);
   }
-  const { state } = await inspectSSHTransport(transport);
+  const { state } = await inspectSSHTransport(root, transport);
   const patchPath = join(root, policy.patch);
   if (state === 'pristine') {
     const patch = await readFile(patchPath, 'utf8');
@@ -92,10 +88,10 @@ export async function bundleSSHTransport(source, packageDirectory) {
       throw new Error('SSH patch paths differ from reviewed policy');
     }
     // git apply runs outside the repository, only against the new private copy.
-    execFileSync('git', ['-c', 'core.autocrlf=false', 'apply', '--check', '--', patchPath], { cwd: transport, timeout: 30000 });
-    execFileSync('git', ['-c', 'core.autocrlf=false', 'apply', '--', patchPath], { cwd: transport, timeout: 30000 });
+    await run(transport, 'git', ['-c', 'core.autocrlf=false', 'apply', '--check', '--', patchPath], { timeoutMs: 30_000 });
+    await run(transport, 'git', ['-c', 'core.autocrlf=false', 'apply', '--', patchPath], { timeoutMs: 30_000 });
   }
-  await inspectSSHTransport(transport, 'patched');
+  await inspectSSHTransport(root, transport, 'patched');
   const evidence = { upstream: `${policy.package}@${policy.version}`, patchSha256: hash(await readFile(patchPath)),
     files: Object.fromEntries(Object.entries(policy.files).map(([file, checksums]) => [file, checksums.after])),
     dependencies: Object.fromEntries(closure) };
@@ -104,12 +100,12 @@ export async function bundleSSHTransport(source, packageDirectory) {
 }
 
 /** Publication must use a prepared artifact, not whatever happens to be installed in a workspace. */
-export async function verifyPreparedSSHCorePackage(directory) {
+export async function verifyPreparedSSHCorePackage(root, directory) {
   let evidence;
   try { evidence = await json(join(directory, 'SSH-TRANSPORT.json')); }
-  catch { throw new Error('SSH release artifact is not prepared; run node scripts/ssh-transport.mjs prepare <new-directory> and pack that directory'); }
+  catch { throw new Error('SSH release artifact is not prepared; run pnpm exec xec ssh prepare <new-directory> after building Core and pack that directory'); }
   const manifest = await json(join(directory, 'package.json'));
-  const policy = await json(policyFile);
+  const policy = await json(policyFile(root));
   const expectedFiles = Object.fromEntries(Object.entries(policy.files).map(([file, checksums]) => [file, checksums.after]));
   const sameFiles = evidence.files && Object.keys(evidence.files).length === Object.keys(expectedFiles).length
     && Object.entries(expectedFiles).every(([file, digest]) => evidence.files[file] === digest);
@@ -126,35 +122,38 @@ export async function verifyPreparedSSHCorePackage(directory) {
       if (!Object.hasOwn(evidence.dependencies, required)) throw new Error(`SSH dependency inventory is incomplete: ${required}`);
     }
   }
-  await inspectSSHTransport(join(directory, 'node_modules/ssh2'), 'patched');
+  await inspectSSHTransport(root, join(directory, 'node_modules/ssh2'), 'patched');
 }
 
 /** Prepare a new package directory for packing; no publication, install hooks or runtime mutation. */
-export async function prepareSSHCorePackage(output) {
+export async function prepareSSHCorePackage(root, output, run = releaseCommand) {
   output = resolve(output);
-  await mkdir(output); // Existing artifacts are immutable: never merge or overwrite them.
   const core = join(root, 'packages/core');
   const require = createRequire(join(core, 'package.json'));
   const manifest = await json(join(core, 'package.json'));
-  execFileSync(process.execPath, [resolveTypeScriptCompiler(root), '-p', join(core, 'tsconfig.json'),
-    '--incremental', 'false', '--outDir', join(output, 'dist')], { cwd: root, timeout: 120000, stdio: 'pipe' });
-  await bundleSSHTransport(dirname(require.resolve('ssh2/package.json')), output);
+  // The producer already built Core. Packaging must consume those exact bytes,
+  // never rebuild a different payload behind the caller's acceptance workflow.
+  const dist = join(core, 'dist');
+  const built = await lstat(dist).catch(error => { if (error.code !== 'ENOENT') throw error; return null; });
+  if (!built?.isDirectory()) throw new Error('Build Core before preparing its SSH package');
+  await mkdir(output); // Existing artifacts are immutable: never merge or overwrite them.
+  await cp(dist, join(output, 'dist'), { recursive: true, force: false, errorOnExist: true, filter: async file => {
+    if ((await lstat(file)).isSymbolicLink()) throw new Error('Core build output contains a symlink: ' + relative(dist, file));
+    return true;
+  } });
+  await bundleSSHTransport(root, dirname(require.resolve('ssh2/package.json')), output, run);
   manifest.bundleDependencies = ['ssh2'];
   manifest.files = [...new Set([...manifest.files, 'SSH-TRANSPORT.json'])];
   delete manifest.devDependencies;
   delete manifest.scripts;
   await writeFile(join(output, 'package.json'), `${JSON.stringify(manifest, null, 2)}\n`);
+  for (const name of ['README.md', 'CHANGELOG.md']) {
+    try { await cp(join(core, name), join(output, name)); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
+  }
   await cp(join(core, 'SSH-TYPES-LICENSE'), join(output, 'SSH-TYPES-LICENSE'));
   await cp(join(root, 'LICENSE'), join(output, 'LICENSE'));
   await writeFile(join(output, '.npmignore'), '# The package manifest is the publication allowlist.\n');
-  await verifyPreparedSSHCorePackage(output);
+  await verifyPreparedSSHCorePackage(root, output);
   return output;
-}
-
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const [action, directory] = process.argv.slice(2);
-  if (action === 'prepare' && directory) console.log(await prepareSSHCorePackage(directory));
-  else if (action === 'guard' && directory) { await verifyPreparedSSHCorePackage(resolve(directory)); console.log('Prepared SSH package verified'); }
-  else if (action === 'verify' && directory) { await inspectSSHTransport(resolve(directory), 'patched'); console.log('Reviewed SSH transport verified'); }
-  else throw new Error('Usage: node scripts/ssh-transport.mjs prepare <new-package-directory> | verify <ssh2-directory>');
 }
