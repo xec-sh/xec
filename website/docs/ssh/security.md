@@ -58,10 +58,18 @@ transaction.
 
 Private keys are decoded, not accepted because their text resembles PEM.
 PEM asymmetric parsing, signing and verification use native `KeyObject`
-cryptography. Public inputs accept PEM, OpenSSH private-key containers, OpenSSH
+cryptography. Public inputs accept unencrypted PEM, OpenSSH private-key containers, OpenSSH
 public-key lines and binary SSH public-key blobs; arbitrary DER input is not a
 supported key format. OpenSSH containers have bounded field lengths and one private key;
 their public and private parts must agree.
+
+Encrypted PKCS8 and legacy encrypted PEM are rejected before native key parsing:
+their embedded KDF work is not bounded by the runtime API. Use an encrypted
+OpenSSH container within the limits below, or an SSH agent that owns key
+unlocking. PEM accepts one matching public/private-key envelope and never
+forwards a passphrase to native parsing. Relabelling encrypted data does not
+enable native decryption. The same policy applies to validation, key files and
+authentication, including custom authentication handlers.
 
 Supported keys are Ed25519, RSA with 2048–8192 bits, and ECDSA P-256/P-384/P-521.
 Key input is limited to 1 MiB. Encrypted OpenSSH containers additionally bound

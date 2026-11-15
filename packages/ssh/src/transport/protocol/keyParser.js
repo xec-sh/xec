@@ -408,9 +408,17 @@ export function parseKey(data, passphrase) {
     const text = data.toString().trim();
     if (text.startsWith('-----BEGIN OPENSSH PRIVATE KEY-----')) return parseOpenSSH(text, password);
     if (text.startsWith('-----BEGIN ')) {
-      if (!/^-----BEGIN (?:RSA |EC |ENCRYPTED )?PRIVATE KEY-----/.test(text))
-        return new ParsedKey(createPublicKey(text));
-      const key = createPrivateKey({ key: text, format: 'pem', passphrase: password });
+      if (/-----BEGIN ENCRYPTED PRIVATE KEY-----|(?:^|[\r\n])(?:Proc-Type|DEK-Info)\s*:/i.test(text))
+        fail('Encrypted PEM/PKCS8 keys are unsupported; use a bounded encrypted OpenSSH key or an SSH agent');
+      const envelope =
+        /^-----BEGIN ((?:RSA |EC )?PRIVATE KEY|(?:RSA )?PUBLIC KEY)-----\r?\n[A-Za-z0-9+/=\r\n]+\r?\n-----END \1-----$/.exec(
+          text
+        );
+      if (!envelope) fail('Unsupported or malformed PEM key envelope');
+      // PEM is an unencrypted-only input. Never authorize a native KDF with a
+      // supplied passphrase, even if encrypted bytes are relabelled as plaintext.
+      if (!envelope[1].endsWith('PRIVATE KEY')) return new ParsedKey(createPublicKey(text));
+      const key = createPrivateKey({ key: text, format: 'pem' });
       return new ParsedKey(createPublicKey(key), key);
     }
     const match = /^(ssh-rsa|ssh-ed25519|ecdsa-sha2-nistp(?:256|384|521)) ([A-Za-z0-9+/]+={0,2})(?: ([^\r\n]*))?$/.exec(

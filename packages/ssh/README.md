@@ -35,6 +35,7 @@ when interpolating command arguments.
 
 - Native runtime cryptography; no compiled addon, installation build or bundled `ssh2`.
 - Strict host trust, bounded operations and explicit connection leases.
+- Unencrypted PEM, bounded encrypted OpenSSH keys and agents; encrypted PEM/PKCS8 is rejected before native parsing.
 - Streams, PTYs, SFTP and tunnels share one lifecycle implementation.
 - ESM and exported TypeScript contracts; the wire engine remains private.
 
@@ -44,5 +45,6 @@ when interpolating command arguments.
 [Comparison with ssh2](../../website/docs/ssh/comparison.md)
 
 The private protocol derives from ssh2 1.17.0. See [LICENSE](LICENSE),
-[SSH-TYPES-LICENSE](SSH-TYPES-LICENSE), [NODE-SSH-LICENSE](NODE-SSH-LICENSE)
+[SSH-TYPES-LICENSE](SSH-TYPES-LICENSE), [NODE-SSH-LICENSE](NODE-SSH-LICENSE),
+[BCRYPT-LICENSE](BCRYPT-LICENSE)
 and [PROVENANCE.json](PROVENANCE.json).

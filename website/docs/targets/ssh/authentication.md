@@ -39,8 +39,9 @@ try {
 }
 ```
 
-OpenSSH and native PEM key formats are decoded with the same policy used by
-authentication. The supported algorithms and size/work limits are documented in
+OpenSSH containers and unencrypted PEM keys use the same decoder for validation
+and authentication. Encrypted PEM/PKCS8 is rejected before native parsing; use
+a bounded encrypted OpenSSH key or an SSH agent instead. The supported algorithms and size/work limits are documented in
 [trust and cryptography](../../ssh/security.md#keys-and-signing). PuTTY PPK and
 legacy DSA keys are rejected.
 

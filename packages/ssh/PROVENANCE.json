@@ -50,7 +50,7 @@
     ],
     "replacements": {
       "crypto": "Runtime AES-GCM; optional OpenSSH ChaCha only with native raw ChaCha20 and Poly1305",
-      "keyParser": "Native KeyObject PEM/JWK and bounded OpenSSH container decoding",
+      "keyParser": "Native KeyObject unencrypted PEM/JWK and bounded OpenSSH container decoding; encrypted PEM/PKCS8 rejected before native key parsing",
       "agent": "Bounded OpenSSH agent client framing with verified signature algorithm",
       "packet": "Uncompressed SSH packets; no runtime-private zlib APIs"
     },
@@ -58,7 +58,8 @@
       "SHA-1/DSA/CBC transport algorithms",
       "DH group exchange and obsolete vendor branches",
       "PuTTY/PPK and RFC4716 key containers",
-      "certificate and security-key variants not explicitly negotiated"
+      "certificate and security-key variants not explicitly negotiated",
+      "encrypted PEM and encrypted PKCS8 containers with unbounded native KDF work"
     ]
   },
   "cryptographyReferences": [
