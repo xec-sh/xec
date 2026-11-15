@@ -215,7 +215,7 @@ summary {
   gap: 8px;
   margin: 28px 0 26px;
 }
-.install-command {
+.hero .install-command {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -224,13 +224,13 @@ summary {
   text-decoration: none;
   color: var(--xec-muted);
 }
-.install-command > span:first-child {
+.hero .install-command > span:first-child {
   color: var(--xec-mint);
 }
-.install-command > span:last-child {
+.hero .install-command > span:last-child {
   margin-left: auto;
 }
-.install-command:hover {
+.hero .install-command:hover {
   color: var(--xec-text);
 }
 .runtime-strip {
@@ -360,7 +360,7 @@ summary {
   gap: 14px;
   margin-top: 38px;
 }
-.workflow-card {
+.workflow-grid .workflow-card {
   align-items: stretch;
   text-align: left;
   padding: 23px;
@@ -375,11 +375,11 @@ summary {
     border-color 180ms,
     transform 180ms;
 }
-.workflow-card:hover {
+.workflow-grid .workflow-card:hover {
   border-color: var(--xec-accent);
   transform: translateY(-3px);
 }
-.workflow-card > div {
+.workflow-grid .workflow-card > div {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -389,13 +389,13 @@ summary {
   font: 12px var(--xec-mono);
   color: var(--xec-accent);
 }
-.workflow-card h3 {
+.workflow-grid .workflow-card h3 {
   font-size: 21px;
   line-height: 1.25;
   letter-spacing: -0.03em;
   margin: 25px 0 12px;
 }
-.workflow-card p {
+.workflow-grid .workflow-card p {
   font-size: 13px;
   color: var(--xec-muted);
   margin: 0 0 22px;
@@ -770,7 +770,7 @@ summary {
   .workflow-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .workflow-card {
+  .workflow-grid .workflow-card {
     min-height: 220px;
   }
   .architecture-section {
@@ -911,7 +911,7 @@ summary {
   .hero-actions a {
     font-size: 12px;
   }
-  .install-command {
+  .hero .install-command {
     font-size: 11px;
     gap: 8px;
   }
@@ -953,14 +953,14 @@ summary {
     grid-template-columns: 1fr;
     gap: 10px;
   }
-  .workflow-card {
+  .workflow-grid .workflow-card {
     min-height: 0;
     padding: 21px;
   }
-  .workflow-card h3 {
+  .workflow-grid .workflow-card h3 {
     margin: 16px 0 10px;
   }
-  .workflow-card p {
+  .workflow-grid .workflow-card p {
     margin-bottom: 15px;
     max-width: 380px;
   }
@@ -1048,7 +1048,7 @@ summary {
     animation: none !important;
     transition: none !important;
   }
-  .workflow-card:hover {
+  .workflow-grid .workflow-card:hover {
     transform: none;
   }
 }

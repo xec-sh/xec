@@ -179,10 +179,18 @@ test('visual evidence covers coherent light/dark themes, mobile and file-tree do
   });
   await page.screenshot({ path: info.outputPath('home-dark.png'), fullPage: true });
   await expect(primary).toHaveCSS('background-color', 'rgb(184, 176, 255)');
+  const workflow = page.locator('.workflow-card').first();
+  await expect(workflow).toHaveClass(/MuiCardActionArea-root/);
+  await expect(workflow).toHaveCSS('display', 'flex');
+  await expect(workflow).toHaveCSS('padding-left', '23px');
+  await expect(workflow).toHaveCSS('border-width', '1px');
+  await expect(workflow).toHaveCSS('background-color', 'rgb(25, 27, 35)');
+  await expect(page.locator('.install-command')).toHaveCSS('font-size', '12px');
   await page.setViewportSize({ width: 320, height: 844 });
   await expect(page.getByRole('link', { name: 'Xec home', exact: true })).toBeVisible();
   await page.screenshot({ path: info.outputPath('home-mobile-320.png'), fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+  await expect(workflow).toHaveCSS('padding-left', '21px');
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: info.outputPath('home-mobile.png'), fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(391);
