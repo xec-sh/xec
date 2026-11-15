@@ -150,7 +150,7 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
     throw new AdapterError(this.adapterName, 'inspectExecution', new Error('This adapter has no durable owned-resource capability'));
   }
 
-  async terminateExecution(_resource: ExecutionResource): Promise<void> {
+  async terminateExecution(_resource: ExecutionResource): Promise<ExecutionResourceObservation> {
     throw new AdapterError(this.adapterName, 'terminateExecution', new Error('This adapter has no durable owned-resource capability'));
   }
 

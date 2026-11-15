@@ -647,7 +647,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
   }
 
   /** Terminate only the recorded owned resource, awaiting independently verified cleanup. */
-  async terminateExecution(resource: ExecutionResource): Promise<void> {
+  async terminateExecution(resource: ExecutionResource): Promise<ExecutionResourceObservation> {
     if (resource.type !== 'docker-container') throw new TypeError('Unsupported execution resource');
     const adapter = await this.selectAdapter({ command: '', adapterOptions: { type: 'docker', container: 'ephemeral' } });
     if (!adapter) throw new AdapterError('docker', 'terminateExecution', new Error('Docker adapter is unavailable'));

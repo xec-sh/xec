@@ -12,7 +12,7 @@ import { ExecutionResult } from '../../core/result.js';
 import { resolveExitCode } from '../../core/failure-kind.js';
 import { killProcessTree } from '../../utils/process-tree.js';
 import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
-import { CommandError, AdapterError, TimeoutError, MaxBufferExceededError } from '../../core/error.js';
+import { CommandError, AdapterError, TimeoutError, MaxBufferExceededError, ExecutionOutcomeUnknownError } from '../../core/error.js';
 
 export interface LocalAdapterConfig extends BaseAdapterConfig {
   uid?: number;
@@ -108,6 +108,7 @@ export class LocalAdapter extends BaseAdapter {
         );
       }
     } catch (error) {
+      if (error instanceof ExecutionOutcomeUnknownError) throw error;
       const endTime = Date.now();
 
       // If nothrow is set, return error as result instead of throwing
@@ -303,8 +304,8 @@ export class LocalAdapter extends BaseAdapter {
           child.stdout?.destroy();
           child.stderr?.destroy();
           const detail = processClosed ? 'Output destination did not finish' : 'Native process did not close';
-          failTermination(new AdapterError('local', 'terminate',
-            new Error(`${detail} after termination (pid ${child.pid ?? 'unavailable'})`)));
+          failTermination(new ExecutionOutcomeUnknownError({ adapter: 'local', operationId: command.operationId,
+            cause: new Error(`${detail} after termination (pid ${child.pid ?? 'unavailable'})`) }));
         }, 1000);
       }, signal === 'SIGKILL' ? 0 : grace);
     };
@@ -530,7 +531,7 @@ export class LocalAdapter extends BaseAdapter {
     } catch (error) {
       if (!processClosed) requestTermination();
       await Promise.race([nativeCompletion, terminationFailure]);
-      if (error instanceof AdapterError && error.operation === 'terminate') throw error;
+      if (error instanceof ExecutionOutcomeUnknownError) throw error;
       throw timeoutError ?? error;
     } finally {
       clearTimeout(timeoutTimer);

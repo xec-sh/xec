@@ -138,7 +138,7 @@ describe('owned Docker execution contract', () => {
     engine.registerAdapter('docker', adapter);
     await expect(engine.inspectExecution(resource)).resolves.toEqual({ resource, state: 'running' });
     expect(adapter.calls.some(call => ['stop', 'rm'].includes(call.args[0]!))).toBe(false);
-    await engine.terminateExecution(resource);
+    await expect(engine.terminateExecution(resource)).resolves.toEqual({ resource, state: 'absent' });
     expect(adapter.calls.filter(call => ['stop', 'rm'].includes(call.args[0]!)).map(call => call.args.at(-1))).toEqual([id, id]);
     await expect(engine.inspectExecution(resource)).resolves.toEqual({ resource, state: 'absent' });
     await engine.terminateExecution(resource);

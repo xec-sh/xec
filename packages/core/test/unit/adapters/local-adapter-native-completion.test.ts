@@ -145,7 +145,36 @@ describe('local native completion', () => {
     try {
       await expect(adapter.execute({
         ...command('process.stdout.write("pending")'), stdout: sink, timeout: 0, signal: controller.signal,
-      })).rejects.toMatchObject({ operation: 'terminate' });
+      })).rejects.toMatchObject({ kind: 'outcome-unknown', adapter: 'local' });
     } finally { sink.destroy(); }
+  });
+
+  it.skipIf(process.platform === 'win32').each([false, true])('never signals a reaped PID or reusable group (detached descendant=%s)', async detached => {
+    const adapter = new LocalAdapter({ forceKillAfterDelay: 10 });
+    const controller = new AbortController();
+    let leader = 0, descendant = 0;
+    let ready!: () => void;
+    const appeared = new Promise<void>(resolve => { ready = resolve; });
+    const run = adapter.execute({ ...command(`
+      require('node:child_process').spawn(process.execPath, ['-e',
+        'process.stdout.write(String(process.pid)); setInterval(()=>{},1000)'],
+        { detached: ${detached}, stdio: 'inherit' });
+      process.exit(0);
+    `), timeout: 0, nothrow: true, signal: controller.signal,
+    onSpawn: handle => { leader = handle.pid!; handle.stdout!.once('data', data => { descendant = Number(data.toString()); ready(); }); } });
+    const verdict = run.catch(error => error);
+    let kill: ReturnType<typeof vi.spyOn> | undefined;
+    try {
+      await appeared;
+      await vi.waitFor(() => expect(alive(leader)).toBe(false));
+      kill = vi.spyOn(process, 'kill');
+      controller.abort();
+      expect(await verdict).toMatchObject({ kind: 'outcome-unknown', adapter: 'local' });
+      expect(kill.mock.calls.some(([pid]: Parameters<typeof process.kill>) => pid === leader || pid === -leader)).toBe(false);
+      expect(alive(descendant)).toBe(true);
+    } finally {
+      kill?.mockRestore();
+      if (descendant && alive(descendant)) process.kill(descendant, 'SIGKILL');
+    }
   });
 });

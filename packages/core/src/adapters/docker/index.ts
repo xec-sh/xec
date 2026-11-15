@@ -862,14 +862,15 @@ export class DockerAdapter extends BaseAdapter {
     catch (cause) { throw new ExecutionOutcomeUnknownError({ adapter: 'docker', operationId: resource.operationId, resource, cause: cause as Error }); }
   }
 
-  override async terminateExecution(resource: ExecutionResource): Promise<void> {
+  override async terminateExecution(resource: ExecutionResource): Promise<ExecutionResourceObservation> {
     assertExecutionResource(resource);
     try {
       const deadline = this.cleanupDeadline();
       const observed = await this.observeResource(resource, deadline);
-      if (observed.state === 'absent') return;
+      if (observed.state === 'absent') return observed;
       if (observed.state === 'unknown' || !observed.resource.id) throw new Error('Creation remains unconfirmed; no resource can be safely terminated');
       await this.finishOwnedRun(observed.resource.id, true, 'SIGTERM', deadline, false, observed.resource);
+      return { resource: observed.resource, state: 'absent' };
     } catch (cause) { throw new ExecutionOutcomeUnknownError({ adapter: 'docker', operationId: resource.operationId, resource, cause: cause as Error }); }
   }
 
@@ -1508,7 +1509,8 @@ export class DockerAdapter extends BaseAdapter {
    * Inspect container
    */
   async inspectContainer(container: string): Promise<any> {
-    const result = await this.executeDockerCommand(['inspect', container], this.managementOptions());
+    this.validateContainerReference(container, 'inspect');
+    const result = await this.executeDockerCommand(['inspect', '--', container], this.managementOptions());
     if (result.exitCode !== 0) {
       throw new DockerError(container, 'inspect', new Error(result.stderr));
     }
