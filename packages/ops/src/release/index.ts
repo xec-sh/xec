@@ -13,4 +13,4 @@ export type { ReleaseCommand, ReleaseCommandEvent, ReleaseCommandOptions } from 
 export { registryAddress, publishPreparedRelease, registryReleaseChannel, registryArtifactMatches, preflightPreparedRelease } from './publish.js';
 
 export { pushReleaseRefs, ensureReleaseTag, assertReleaseHead, assertReleaseNotesBase, assertCleanReleaseTree, verifyRemoteReleaseTag } from './git.js';
-export { artifactIntegrity, acquireReleaseLock, loadPreparedRelease, verifyReleaseArtifact, validatePackedPackage, prepareReleaseArtifacts } from './artifacts.js';
+export { artifactIntegrity, acquireReleaseLock, loadPreparedRelease, verifyReleaseArtifact, validatePackedPackage, prepareReleaseArtifacts, RELEASE_PRODUCER_PROTOCOL } from './artifacts.js';

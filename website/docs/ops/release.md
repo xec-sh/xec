@@ -53,7 +53,8 @@ sealed record is written. Local artifacts live at:
 
 ```text
 .release-artifacts/<version>/<source-commit>/
-  release.json
+  producer.json          # optional complete producer; not permission to publish
+  release.json           # appears only after acceptance and cleanup
   %40scope%2Fpackage.tgz
   publication.jsonl       # appears during publication
 ```
@@ -88,6 +89,45 @@ comparison range. Caller-supplied oversized notes fail before remote writes.
 the isolated dependency installation use the existing pnpm store. `--yes` accepts
 the displayed execution plan in noninteractive use; it bypasses no checks.
 
+## Retain a producer when acceptance fails {#retain-a-producer}
+
+Producer retention is available in the development branch after npm 0.12.0.
+The current recipe checks `RELEASE_PRODUCER_PROTOCOL === 1` before preparation
+writes anything. An older built Ops package cannot silently ignore the new
+acceptance contract. Build the matching CLI/Ops in the isolated tool checkout.
+
+Preparation first builds, packs and validates every archive. It then persists
+`producer.json` and read-only archives before running consumer acceptance. A
+consumer rejection, interruption or cleanup failure leaves those bytes available.
+Only completed acceptance **and** temporary workspace cleanup allow the final
+`release.json` to appear. The producer record alone cannot be published.
+
+Retry the same preparation after resolving its reported failure:
+
+```sh
+pnpm release 0.12.0 --prepare --yes
+```
+
+Xec verifies the source commit, package inventory, runtime, build argv, callback
+identity, policy and declared input digests, then checks every retained archive's
+SHA-512. It skips dependency installation, compilation and packing for that
+producer. Acceptance runs again against a fresh source-only snapshot and the
+same archives. No successful consumer result is cached by this feature.
+
+The Xec recipe binds the Node executable, reported pnpm/Bun/npm versions and a
+digest of its inherited environment; credential values are never written to the
+receipt. Preserve that environment for a retry. Changed inputs or bytes cause a
+refusal, with the evidence retained. They never trigger an implicit rebuild or
+replacement of an existing batch. An interrupted partial producer still requires
+inspection; a temporary file is not a committed receipt.
+
+This boundary also applies to automation and AI agents: inspect structured
+`producer.json`/`release.json` and exit/error outcomes rather than treating log
+text or elapsed time as success. `--prepare` does not publish. Publication
+`--resume` requires a sealed release and does not build or run acceptance. An
+unknown command or remote outcome must be reconciled before retrying a side
+effect. The same CLI/API and ownership rules apply to people and agents.
+
 ## Failure and recovery {#failure-and-recovery}
 
 The first `SIGINT` or `SIGTERM` cancels execution and waits for the command's
@@ -109,6 +149,7 @@ crash, inspect the remaining lock and archives before recovery.
 | GitHub create response is lost | Read back the exact release. A matching published release confirms completion. |
 | Existing GitHub draft or release kind differs | Leave it unchanged and report the mismatch for review. |
 | Source, archive or tag changed | Refuse to continue until the original clean release checkout and artifacts are restored. |
+| Complete `producer.json`, no `release.json` | Retry `--prepare` with the same source, toolchain and declared inputs. Recheck retained archives and rerun acceptance; do not publish. |
 | Incomplete artifact directory or writer lock remains after a crash | Inspect the prior process and evidence. The tool never steals a lock or silently repacks an incomplete batch. |
 
 Stable versions use `latest`. Named prereleases use their lane, such as `rc` or
@@ -231,6 +272,30 @@ The returned archive still goes through the shared checks. Repository-specific
 packaging belongs here; version, Git, registry and recovery logic remain shared. `verifyArtifact` can
 run acceptance against each packed archive before sealing; rejection or a change
 to those bytes prevents preparation from completing.
+
+For retained production, pass `retainProducer: { policy, inputs, verify }` instead
+of `verifyArtifact`. `policy` is a SHA-256 digest of the owner's verification
+policy; each named `inputs` value is a SHA-256 digest of an actual external
+build, packaging or verifier input. Committed inputs are already bound by the
+source commit. The owner must include toolchain configuration, inherited
+configuration and imported verifier/fixture revisions outside that snapshot.
+Function text is additionally bound; it cannot reveal arbitrary JavaScript
+closures. Changing a closure without updating its declared input is a broken
+recipe contract, not something the library can infer.
+
+`verify({ source, artifacts, run, signal })` receives a fresh committed source
+snapshot with **no** producer `dist` or `node_modules`, both initially and on
+retry. It must exercise the immutable archives and await all security-relevant
+resource cleanup before returning. Archive bytes and the producer receipt are
+checked again afterward. Keep consumer checks outside the opaque `build`
+command: a failure inside that command precedes producer retention. The legacy
+`verifyArtifact` callback retains its built-workspace contract and cannot be
+combined with `retainProducer`.
+
+Hold `acquireReleaseLock` over the whole operation as in the example. Retention
+uses the existing release ownership interval and portable filesystem operations;
+it adds no generic Pipeline checkpoint, distributed lock or automatic stale-lock
+recovery. Inspect a forced-exit writer lock using the existing recovery procedure.
 
 `releaseNotes` and `createGithubRelease` provide the independent GitHub stage.
 `ReleaseCommand` can inject a transport for tests or a controlled execution

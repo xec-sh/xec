@@ -3,6 +3,9 @@ import type { ReleaseCommand, ReleaseArtifact } from '@xec-sh/ops/release';
 
 import semver from 'semver';
 import { parseArgs } from 'node:util';
+import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import * as releaseApi from '@xec-sh/ops/release';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { select, confirm, password, isCancel } from '@xec-sh/kit';
@@ -47,6 +50,8 @@ export async function runRelease(args: string[]): Promise<void> {
     'list-packages': { type: 'boolean' }, yes: { type: 'boolean', short: 'y' }, help: { type: 'boolean', short: 'h' },
   } });
   if (values.help) { console.log(usage); return; }
+  if (!values['dry-run'] && !values['list-packages'] && !values.resume && !values['github-only'] && releaseApi.RELEASE_PRODUCER_PROTOCOL !== 1)
+    throw Object.assign(new Error('This release recipe requires Ops producer protocol 1. Build the matching CLI/Ops in an isolated checkout before preparation'), { code: 'RELEASE_PRODUCER_PROTOCOL_UNSUPPORTED' });
   if (values.workspace && !values.resume && !values['github-only']) throw new Error('--workspace requires --resume or --github-only');
   const root = values.workspace ? resolve(values.workspace) : repository;
   if (positionals.length > 1) throw new Error('Expected at most one release version');
@@ -98,16 +103,35 @@ export async function runRelease(args: string[]): Promise<void> {
     }
     if (!values['github-only']) {
       if (values.resume) await loadPreparedRelease(root, version);
-      else await prepareReleaseArtifacts(root, version, {
-        build: { executable: 'pnpm', args: ['--recursive', ...packages.flatMap(pkg => ['--filter', pkg.name]), 'run', 'build'] }, offline: values.offline,
-        progress: console.log, verifyArtifact: verifyCoreArchive,
-        preparePackage: async ({ workspace, temporary, pkg, run }) => {
-          if (pkg.name !== '@xec-sh/core') return undefined;
-          const directory = join(temporary, 'prepared-core');
-          await run(workspace, process.execPath, [join(workspace, 'scripts/ssh-transport.mjs'), 'prepare', directory]);
-          return { directory, manager: 'npm' };
-        },
-      });
+      else {
+        // The recipe owns ambient build inputs. Bind their digest without
+        // recording credential values, and pass the same environment to children.
+        const environment = Object.fromEntries(Object.entries(process.env)
+          .filter((entry): entry is [string, string] => typeof entry[1] === 'string')
+          .sort(([a], [b]) => a.localeCompare(b, 'en')));
+        const run: ReleaseCommand = (cwd, executable, commandArgs, options = {}) => releaseCommand(cwd, executable, commandArgs, {
+          ...options, env: { ...environment, ...options.env },
+        });
+        const digest = (bytes: string | Uint8Array) => createHash('sha256').update(bytes).digest('hex');
+        const toolchains = await Promise.all(['pnpm', 'bun', 'npm'].map(async tool => [tool, digest(await run(root, tool, ['--version']))]));
+        await prepareReleaseArtifacts(root, version, {
+          build: { executable: 'pnpm', args: ['--recursive', ...packages.flatMap(pkg => ['--filter', pkg.name]), 'run', 'build'] }, offline: values.offline,
+          run, progress: console.log,
+          retainProducer: {
+            policy: digest(await readFile(join(root, 'scripts/check-ssh-security.mjs'))),
+            inputs: { ...Object.fromEntries(toolchains), node: digest(await readFile(process.execPath)), environment: digest(JSON.stringify(environment)) },
+            verify: async ({ source, artifacts, run: verifyRun }) => {
+              for (const artifact of artifacts) await verifyCoreArchive({ workspace: source, artifact, run: verifyRun });
+            },
+          },
+          preparePackage: async ({ workspace, temporary, pkg, run: packageRun }) => {
+            if (pkg.name !== '@xec-sh/core') return undefined;
+            const directory = join(temporary, 'prepared-core');
+            await packageRun(workspace, process.execPath, [join(workspace, 'scripts/ssh-transport.mjs'), 'prepare', directory]);
+            return { directory, manager: 'npm' };
+          },
+        });
+      }
       await ensureReleaseTag(root, version);
     }
     if (values.prepare) { console.log(`Prepared ${version}. Review .release-artifacts, then use: xec release ${version} --resume${values['notes-from'] ? ` --notes-from ${values['notes-from']}` : ''}`); return; }

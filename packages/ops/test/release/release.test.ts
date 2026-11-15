@@ -9,7 +9,7 @@ import { rm, mkdir, chmod, mkdtemp, readdir, readFile, copyFile, writeFile } fro
 
 import { windowsPackageManager } from '../../src/release/package-manager.js';
 import {
-  planRelease, releaseNotes, releaseCommand, distributionTag, pushReleaseRefs, registryAddress, ensureReleaseTag, assertReleaseHead, artifactIntegrity, acquireReleaseLock,
+  planRelease, releaseNotes, releaseCommand, distributionTag, pushReleaseRefs, registryAddress, ensureReleaseTag, assertReleaseHead, artifactIntegrity, acquireReleaseLock, loadPreparedRelease,
   createGithubRelease, ReleaseCommandError, commitReleaseVersion, validatePackedPackage, verifyReleaseArtifact,
   verifyRemoteReleaseTag, publishPreparedRelease, discoverReleasePackages, prepareReleaseArtifacts, registryArtifactMatches, preflightPreparedRelease,
 } from '../../src/release/index.js';
@@ -258,6 +258,188 @@ describe('release preparation execution context', () => {
     await expect(prepareReleaseArtifacts(root, '1.0.0-rc.1', options)).rejects.toThrow(/timeout|limit/i);
     expect(calls).toBe(0);
     await expect(readdir(join(root, '.release-artifacts'))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+});
+
+describe('retained release producer acceptance', () => {
+  const policy = '1'.repeat(64);
+  const inputs = { toolchain: '2'.repeat(64) };
+  const build = { executable: process.execPath, args: ['build.mjs'] };
+  const producerPath = async (root: string) => join(root, '.release-artifacts', '1.0.0-rc.1', await releaseCommand(root, 'git', ['rev-parse', 'HEAD']));
+
+  it('retains the complete producer across rejection, then retries source-only acceptance without install/build/pack', async () => {
+    const root = await repository(), runner = fixtureRunner();
+    const work: string[] = [], sources: string[] = [];
+    let attempts = 0;
+    const run: ReleaseCommand = (cwd, executable, args, options) => {
+      if (executable === 'pnpm' && (args[0] === 'install' || args.includes('pack'))) work.push(args.includes('pack') ? 'pack' : 'install');
+      return runner.run(cwd, executable, args, options);
+    };
+    const options: Parameters<typeof prepareReleaseArtifacts>[2] = {
+      run, build, retainProducer: { policy, inputs, verify: async ({ source, artifacts, run: verifyRun }) => {
+        sources.push(source);
+        expect(artifacts.map(artifact => artifact.name)).toEqual(['@fixture/a', '@fixture/b']);
+        await expect(readdir(join(source, 'node_modules'))).rejects.toMatchObject({ code: 'ENOENT' });
+        await expect(readdir(join(source, 'packages/a/dist'))).rejects.toMatchObject({ code: 'ENOENT' });
+        expect(await readFile(join(source, 'build.mjs'), 'utf8')).toContain('fixture = 1');
+        for (const artifact of artifacts) await validatePackedPackage(source, artifact.file, artifact, verifyRun);
+        if (++attempts === 1) throw new Error('consumer unavailable');
+      } },
+    };
+    await expect(prepareReleaseArtifacts(root, '1.0.0-rc.1', options)).rejects.toThrow('consumer unavailable');
+    const directory = await producerPath(root);
+    const receipt = JSON.parse(await readFile(join(directory, 'producer.json'), 'utf8'));
+    expect(receipt).toMatchObject({ schema: 1, stage: 'producer', identity: { policy, inputs }, artifacts: [{ name: '@fixture/a' }, { name: '@fixture/b' }] });
+    await expect(loadPreparedRelease(root, '1.0.0-rc.1', run)).rejects.toMatchObject({ code: 'ENOENT' });
+    const release = await prepareReleaseArtifacts(root, '1.0.0-rc.1', options);
+    expect(release.artifacts.map(artifact => artifact.integrity)).toEqual(receipt.artifacts.map((artifact: { integrity: string }) => artifact.integrity));
+    expect(runner.builds()).toBe(1);
+    expect(work).toEqual(['install', 'pack', 'pack']);
+    expect(attempts).toBe(2);
+    expect(new Set(sources).size).toBe(2);
+    for (const source of sources) await expect(readdir(source)).rejects.toMatchObject({ code: 'ENOENT' });
+    await prepareReleaseArtifacts(root, '1.0.0-rc.1', options);
+    expect(attempts).toBe(2);
+    await expect(readdir(join(root, 'packages/a/dist'))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('recovers a lost acknowledgement after producer persistence without repeating production', async () => {
+    const root = await repository(), runner = fixtureRunner();
+    let loseReply = true, accepted = 0;
+    const options: Parameters<typeof prepareReleaseArtifacts>[2] = {
+      run: runner.run, build,
+      retainProducer: { policy, inputs, verify: async () => { accepted++; } },
+      progress: message => {
+        if (loseReply && message === 'Producer archives retained; acceptance is not complete') throw new Error('producer acknowledgement lost');
+      },
+    };
+    await expect(prepareReleaseArtifacts(root, '1.0.0-rc.1', options)).rejects.toThrow('acknowledgement lost');
+    expect(accepted).toBe(0);
+    loseReply = false;
+    await prepareReleaseArtifacts(root, '1.0.0-rc.1', options);
+    expect(accepted).toBe(1);
+    expect(runner.builds()).toBe(1);
+  });
+
+  it('does not seal an interrupted acceptance or hide failed cleanup, and retains the producer for a safe retry', async () => {
+    const root = await repository(), runner = fixtureRunner();
+    let controller = new AbortController(), interrupt = true, cleanupFails = true, attempts = 0;
+    const verify = async () => { attempts++; if (interrupt) controller.abort(new Error('acceptance interrupted')); };
+    const progress = (message: string) => { if (cleanupFails && message === 'Cleaning isolated release workspace') throw new Error('cleanup unconfirmed'); };
+    const options = () => ({ run: runner.run, build, signal: controller.signal, progress, retainProducer: { policy, inputs, verify } });
+    await expect(prepareReleaseArtifacts(root, '1.0.0-rc.1', options())).rejects.toMatchObject({ errors: [expect.objectContaining({ message: 'acceptance interrupted' }), expect.objectContaining({ message: 'cleanup unconfirmed' })] });
+    await expect(loadPreparedRelease(root, '1.0.0-rc.1', runner.run)).rejects.toMatchObject({ code: 'ENOENT' });
+    controller = new AbortController(); interrupt = false;
+    await expect(prepareReleaseArtifacts(root, '1.0.0-rc.1', options())).rejects.toThrow('cleanup unconfirmed');
+    await expect(loadPreparedRelease(root, '1.0.0-rc.1', runner.run)).rejects.toMatchObject({ code: 'ENOENT' });
+    cleanupFails = false;
+    await prepareReleaseArtifacts(root, '1.0.0-rc.1', options());
+    expect(runner.builds()).toBe(1);
+    expect(attempts).toBe(3);
+  });
+
+  it('refuses changed policy, inputs, callbacks, build argv or dirty source without rebuilding or replacing evidence', async () => {
+    const root = await repository(), runner = fixtureRunner();
+    const retention = { policy, inputs, verify: async () => { throw new Error('consumer unavailable'); } };
+    const options = { run: runner.run, build, retainProducer: retention };
+    await expect(prepareReleaseArtifacts(root, '1.0.0-rc.1', options)).rejects.toThrow('consumer unavailable');
+    const record = join(await producerPath(root), 'producer.json'), bytes = await readFile(record);
+    for (const changed of [
+      { ...options, retainProducer: { ...retention, policy: '3'.repeat(64) } },
+      { ...options, retainProducer: { ...retention, inputs: { toolchain: '4'.repeat(64) } } },
+      { ...options, retainProducer: { ...retention, verify: async () => {} } },
+      { ...options, build: { ...build, args: [...build.args, '--changed'] } },
+      { ...options, preparePackage: async () => undefined },
+    ]) await expect(prepareReleaseArtifacts(root, '1.0.0-rc.1', changed)).rejects.toThrow('identity differs');
+    await writeFile(join(root, 'build.mjs'), 'changed fixture');
+    await expect(prepareReleaseArtifacts(root, '1.0.0-rc.1', options)).rejects.toThrow('clean working tree');
+    expect(await readFile(record)).toEqual(bytes);
+    expect(runner.builds()).toBe(1);
+  });
+
+  it('fails closed for changed or missing producer bytes and corrupted receipts', async () => {
+    const root = await repository(), runner = fixtureRunner();
+    const options = { run: runner.run, build, retainProducer: { policy, inputs, verify: async () => { throw new Error('consumer unavailable'); } } };
+    await expect(prepareReleaseArtifacts(root, '1.0.0-rc.1', options)).rejects.toThrow('consumer unavailable');
+    const directory = await producerPath(root), record = join(directory, 'producer.json');
+    const receipt = JSON.parse(await readFile(record, 'utf8'));
+    const archive = join(directory, receipt.artifacts[0].file), bytes = await readFile(archive);
+    await chmod(archive, 0o600); await writeFile(archive, 'altered archive'); await chmod(archive, 0o444);
+    await expect(prepareReleaseArtifacts(root, '1.0.0-rc.1', options)).rejects.toThrow('archive changed');
+    await chmod(archive, 0o600); await writeFile(archive, bytes); await chmod(archive, 0o444);
+    await rm(archive, { force: true });
+    await expect(prepareReleaseArtifacts(root, '1.0.0-rc.1', options)).rejects.toThrow('archive unavailable');
+    await writeFile(record, '{');
+    await expect(prepareReleaseArtifacts(root, '1.0.0-rc.1', options)).rejects.toBeInstanceOf(SyntaxError);
+    expect(runner.builds()).toBe(1);
+  });
+
+  it('rechecks immutable archives after acceptance and refuses a callback that changes them', async () => {
+    const root = await repository(), runner = fixtureRunner();
+    await expect(prepareReleaseArtifacts(root, '1.0.0-rc.1', {
+      run: runner.run, build, retainProducer: { policy, inputs, verify: async ({ artifacts }) => {
+        const artifact = artifacts[0]!;
+        await chmod(artifact.file, 0o600); await writeFile(artifact.file, 'changed by consumer'); await chmod(artifact.file, 0o444);
+      } },
+    })).rejects.toThrow('archive changed');
+    await expect(loadPreparedRelease(root, '1.0.0-rc.1', runner.run)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('refuses a verifier that rewrites both the producer receipt and an archive', async () => {
+    const root = await repository(), runner = fixtureRunner();
+    await expect(prepareReleaseArtifacts(root, '1.0.0-rc.1', {
+      run: runner.run, build, retainProducer: { policy, inputs, verify: async ({ artifacts }) => {
+        const artifact = artifacts[0]!;
+        await chmod(artifact.file, 0o600); await writeFile(artifact.file, 'replacement'); await chmod(artifact.file, 0o444);
+        const record = join(dirname(artifact.file), 'producer.json');
+        const receipt = JSON.parse(await readFile(record, 'utf8'));
+        receipt.artifacts[0].integrity = artifactIntegrity(await readFile(artifact.file));
+        await writeFile(record, JSON.stringify(receipt));
+      } },
+    })).rejects.toThrow('evidence changed during acceptance');
+    await expect(loadPreparedRelease(root, '1.0.0-rc.1', runner.run)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('keeps the canonical writer lock for the whole producer/acceptance interval', async () => {
+    const root = await repository(), runner = fixtureRunner();
+    let entered!: () => void, continueAcceptance!: () => void;
+    const accepting = new Promise<void>(resolve => { entered = resolve; });
+    const continueOperation = new Promise<void>(resolve => { continueAcceptance = resolve; });
+    const unlock = await acquireReleaseLock(root);
+    const operation = prepareReleaseArtifacts(root, '1.0.0-rc.1', {
+      run: runner.run, build, retainProducer: { policy, inputs, verify: async () => { entered(); await continueOperation; } },
+    });
+    try {
+      await accepting;
+      await expect(acquireReleaseLock(root)).rejects.toThrow('locked');
+    } finally { continueAcceptance(); await operation; await unlock(); }
+    await (await acquireReleaseLock(root))();
+    expect(runner.builds()).toBe(1);
+  });
+
+  it('refuses an older built Ops API before recipe discovery, version changes or dependency installation', async () => {
+    const discover = vi.fn(async () => { throw new Error('unexpected inventory'); });
+    vi.doMock('@xec-sh/ops/release', async () => ({
+      ...await vi.importActual<object>('@xec-sh/ops/release'), RELEASE_PRODUCER_PROTOCOL: undefined, discoverReleasePackages: discover,
+    }));
+    vi.resetModules();
+    try {
+      const { runRelease } = await import('../../../../scripts/release.js');
+      await expect(runRelease(['1.0.0-rc.1', '--prepare', '--yes'])).rejects.toMatchObject({ code: 'RELEASE_PRODUCER_PROTOCOL_UNSUPPORTED' });
+      expect(discover).not.toHaveBeenCalled();
+    } finally { vi.doUnmock('@xec-sh/ops/release'); vi.resetModules(); }
+  });
+
+  it('rejects invalid retention contracts before executing commands', async () => {
+    const root = await temporary();
+    const run: ReleaseCommand = async () => { throw new Error('unexpected execution'); };
+    for (const retainProducer of [
+      { policy: 'true', inputs, verify: async () => {} },
+      { policy, inputs: { compiler: 'unhashed' }, verify: async () => {} },
+    ]) await expect(prepareReleaseArtifacts(root, '1.0.0-rc.1', { run, build, retainProducer })).rejects.toThrow('SHA-256');
+    await expect(prepareReleaseArtifacts(root, '1.0.0-rc.1', {
+      run, build, verifyArtifact: async () => {}, retainProducer: { policy, inputs, verify: async () => {} },
+    })).rejects.toThrow('legacy');
   });
 });
 
