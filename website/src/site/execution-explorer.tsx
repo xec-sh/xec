@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useCopyToClipboard } from '@omnitron-dev/prism/core';
-import { Tab, Box, Tabs, Button } from '@omnitron-dev/prism/ui';
+import { Tab, Box, Tabs, Link, Button } from '@omnitron-dev/prism/ui';
 
 export interface Example {
   id: string;
@@ -65,7 +65,7 @@ export function ExecutionExplorer({ examples }: { examples: Example[] }) {
         <div className="example-code" dangerouslySetInnerHTML={{ __html: current.html }} />
         <div className="example-note">
           <p>{current.note}</p>
-          <a href={current.href}>Read the guide ↗</a>
+          <Link href={current.href}>Read the guide →</Link>
         </div>
         {state === 'success' && (
           <span className="visually-hidden" role="status">

@@ -361,6 +361,8 @@ summary {
   margin-top: 38px;
 }
 .workflow-card {
+  align-items: stretch;
+  text-align: left;
   padding: 23px;
   min-height: 270px;
   border: 1px solid var(--xec-border);

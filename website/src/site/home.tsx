@@ -1,7 +1,7 @@
 import React from 'react';
-import { Button } from '@omnitron-dev/prism/ui';
 import { renderCodeBlockHtml } from '@omnitron-dev/lumen-ast';
 import { PortalIslandHost } from '@omnitron-dev/lumen-ui/runtime';
+import { Link, Button, CardActionArea } from '@omnitron-dev/prism/ui';
 
 import { ArrowIcon } from './icons.tsx';
 import { ExecutionExplorer } from './execution-explorer.tsx';
@@ -67,7 +67,7 @@ export function Home() {
             </p>
             <p className="hero-description">
               Security and privacy are part of the execution contract.{' '}
-              <a href="/docs/introduction/security-and-privacy">Read the guarantees and current scope.</a>
+              <Link href="/docs/introduction/security-and-privacy">Read the guarantees and current scope.</Link>
             </p>
             <div className="hero-actions">
               <Button
@@ -83,11 +83,11 @@ export function Home() {
                 Find your workflow
               </Button>
             </div>
-            <a className="install-command" href="/docs/introduction/installation">
+            <Link className="install-command" href="/docs/introduction/installation">
               <span aria-hidden="true">$</span>
               <code>npm install -g @xec-sh/cli</code>
-              <span aria-hidden="true">↗</span>
-            </a>
+              <span aria-hidden="true">→</span>
+            </Link>
           </div>
           <PortalIslandHost
             islandId="execution-explorer"
@@ -122,7 +122,7 @@ export function Home() {
         </div>
         <div className="workflow-grid">
           {paths.map(([number, title, description, href, label]) => (
-            <a className="workflow-card" href={href} key={number}>
+            <CardActionArea component="a" className="workflow-card" href={href} key={number}>
               <div>
                 <span className="card-index">{number}</span>
                 <span className="eyebrow">{label}</span>
@@ -130,7 +130,7 @@ export function Home() {
               <h3>{title}</h3>
               <p>{description}</p>
               <ArrowIcon className="card-arrow" />
-            </a>
+            </CardActionArea>
           ))}
         </div>
       </section>
@@ -150,30 +150,30 @@ export function Home() {
           </Button>
         </div>
         <div className="architecture-map" aria-label="Xec architecture">
-          <a href="/docs/commands/overview">
+          <Link href="/docs/commands/overview">
             <span>ENTRY</span>
             <strong>Your CLI · TypeScript scripts</strong>
             <small>Arguments, configuration and terminal UI</small>
-          </a>
+          </Link>
           <div className="map-connector" aria-hidden="true">
             ↓
           </div>
-          <a href="/docs/ops">
+          <Link href="/docs/ops">
             <span>COORDINATE</span>
             <strong>Tasks · Pipelines · Workflows</strong>
             <small>Dependencies, cancellation and explicit recovery</small>
-          </a>
+          </Link>
           <div className="map-connector" aria-hidden="true">
             ↓
           </div>
-          <a href="/docs/core/execution-engine/overview">
+          <Link href="/docs/core/execution-engine/overview">
             <span>EXECUTE</span>
             <strong>@xec-sh/core</strong>
             <small>Commands, streams, files and typed outcomes</small>
-          </a>
+          </Link>
           <div className="target-grid">
             {['Local', 'SSH', 'Docker', 'Kubernetes'].map((target, index) => (
-              <a
+              <Link
                 key={target}
                 href={
                   [
@@ -185,7 +185,7 @@ export function Home() {
                 }
               >
                 {target}
-              </a>
+              </Link>
             ))}
           </div>
         </div>
@@ -203,7 +203,7 @@ export function Home() {
               Compose commands and inspect typed results. Treat shell source and external output as runtime boundaries,
               not compile-time guarantees.
             </p>
-            <a href="/docs/introduction/portable-scripts">Write portable scripts ↗</a>
+            <Link href="/docs/introduction/portable-scripts">Write portable scripts →</Link>
           </article>
           <article>
             <span>02</span>
@@ -212,7 +212,7 @@ export function Home() {
               Choose deadlines, cancellation and retry policies explicitly. Define rollback for your system; an
               execution library cannot invent it.
             </p>
-            <a href="/docs/guides/advanced/error-handling">Handle failure ↗</a>
+            <Link href="/docs/guides/advanced/error-handling">Handle failure →</Link>
           </article>
           <article>
             <span>03</span>
@@ -221,7 +221,7 @@ export function Home() {
               Run locally, from any CI provider, or against your own infrastructure. Keep build caches, credentials and
               deployment policy under your control.
             </p>
-            <a href="/docs/guides/automation/ci-cd-pipelines">Build a workflow ↗</a>
+            <Link href="/docs/guides/automation/ci-cd-pipelines">Build a workflow →</Link>
           </article>
         </div>
       </section>
