@@ -1,10 +1,10 @@
 import type { Key } from 'node:readline';
 
-import { cursor } from 'sisteransi';
 import { vi, test, expect, describe, afterEach } from 'vitest';
 
 import { MockReadable } from './mock-readable.js';
 import { MockWritable } from './mock-writable.js';
+import { cursor } from '../../src/prism/utils/ansi.js';
 import { block, isCancel, CANCEL_SYMBOL } from '../../src/core/utils/index.js';
 
 describe('utils', () => {

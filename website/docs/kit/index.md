@@ -5,7 +5,7 @@ description: Terminal prompts, spinners, tables and colors for command-line appl
 
 # Kit Library {#kit-library}
 
-`@xec-sh/kit` provides the terminal UI for Xec's CLI and works as a standalone library for prompts, spinners, progress bars, tables, and colors. It supports Node.js 20+ and Bun 1.2+, with one runtime dependency, `sisteransi`.
+`@xec-sh/kit` provides the terminal UI for Xec's CLI and works as a standalone library for prompts, spinners, progress bars, tables, and colors. It supports Node.js 20+ and Bun 1.2+. The upcoming 0.13 release has no runtime dependencies: terminal controls and colors share Kit's own ANSI module. Published 0.12 packages still depend on `sisteransi`.
 
 ```bash
 npm install @xec-sh/kit

@@ -46,12 +46,12 @@ external runtime packages:
 | Owner | Remaining external runtime packages |
 | --- | --- |
 | SSH | ASN.1 conversion and OpenSSH bcrypt key derivation |
-| Kit | Terminal escape sequences |
 | Loader | TypeScript/JavaScript transformation |
 | Ops | Environment parsing, filesystem helpers, globbing, YAML, semantic versions and schema validation |
 | CLI | Command parsing, filesystem helpers, globbing, YAML and schema validation |
 
-Core now depends on the owned SSH package. Testing also declares its test-runner
+Kit now has no external runtime dependencies; terminal controls live in its shared
+ANSI module. Core depends on the owned SSH package. Testing also declares its test-runner
 peer; it is not a production execution component. Package manifests and the
 prepared archive dependency graph are authoritative. This table describes areas
 of work, not an exemption or a claim that dependency removal is already complete.

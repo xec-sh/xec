@@ -8,7 +8,7 @@ The Table component for `@xec-sh/kit` provides a comprehensive solution for rend
 - **Progressive Enhancement**: Gracefully degrades based on terminal capabilities
 - **Stream-first**: Supports large datasets through streaming
 - **Composable**: Works seamlessly with other kit components
-- **Zero External Dependencies**: Only uses sisteransi for ANSI codes
+- **Zero External Dependencies**: Uses Kit's shared ANSI and terminal-width utilities
 - **State-driven**: Uses consistent state machine (initial, active, submit, cancel, error)
 - **Unicode-aware**: Smart fallbacks for non-Unicode terminals
 
@@ -931,7 +931,7 @@ While primarily designed for terminal environments, the table component should:
 
 ## Dependencies
 
-- **Required**: `sisteransi` (for ANSI codes)
+- **Required runtime dependencies**: None
 - **Optional**: None (all features built-in)
 - **Dev**: Testing and build tools only
 

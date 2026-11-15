@@ -1,9 +1,8 @@
 import timers from 'node:timers';
-import { erase, cursor } from 'sisteransi';
 
 import prism from '../prism/index.js';
 import { wrapAnsi } from '../core/utils/wrap-ansi.js';
-import { sanitizeTerminalText } from '../prism/utils/ansi.js';
+import { erase, cursor, sanitizeTerminalText } from '../prism/utils/ansi.js';
 import { block, settings, getColumns, isAccessible } from '../core/index.js';
 import {
   S_BAR,

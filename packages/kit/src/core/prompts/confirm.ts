@@ -1,5 +1,4 @@
-import { cursor } from 'sisteransi';
-
+import { cursor } from '../../prism/utils/ansi.js';
 import Prompt, { type PromptOptions } from './prompt.js';
 
 interface ConfirmOptions extends PromptOptions<boolean, ConfirmPrompt> {

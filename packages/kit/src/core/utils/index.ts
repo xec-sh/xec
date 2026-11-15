@@ -9,13 +9,13 @@
 import type { Key } from 'node:readline';
 import type { Readable, Writable } from 'node:stream';
 
-import { cursor } from 'sisteransi';
 import * as readline from 'node:readline';
 import { stdin, stdout } from 'node:process';
 
 import { wrapAnsi } from './wrap-ansi.js';
 import stringWidth from './string-width.js';
 import { isActionKey } from './settings.js';
+import { cursor } from '../../prism/utils/ansi.js';
 
 export * from './theme.js';
 export * from './string.js';

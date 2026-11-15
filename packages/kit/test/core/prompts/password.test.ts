@@ -1,9 +1,9 @@
-import { cursor } from 'sisteransi';
 import { vi, test, expect, describe, afterEach, beforeEach } from 'vitest';
 
 import color from '../../../src/prism/index.js';
 import { MockReadable } from '../mock-readable.js';
 import { MockWritable } from '../mock-writable.js';
+import { cursor } from '../../../src/prism/utils/ansi.js';
 import { default as PasswordPrompt } from '../../../src/core/prompts/password.js';
 
 describe('PasswordPrompt', () => {

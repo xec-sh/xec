@@ -6,7 +6,7 @@ Terminal UI components for TypeScript command-line applications: prompts, tables
 npm install @xec-sh/kit
 ```
 
-Requires Node.js 20 or later, or Bun 1.2 or later. Runtime checks also cover Deno. The package has one runtime dependency: `sisteransi`.
+Requires Node.js 20 or later, or Bun 1.2 or later. Runtime checks also cover Deno. The package owns its terminal controls and has no runtime dependencies.
 
 ## Prompt with cancellation
 

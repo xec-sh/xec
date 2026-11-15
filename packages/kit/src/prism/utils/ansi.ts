@@ -8,6 +8,65 @@ import { terminalSegments } from '../../core/utils/string-truncated-width.js';
 export const ESC = '\x1b';
 export const CSI = `${ESC}[`;
 
+function terminalInteger(
+  value: number,
+  name: string,
+  minimum = 0,
+  maximum = Number.MAX_SAFE_INTEGER
+): number {
+  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
+    throw new RangeError(`${name} must be an integer from ${minimum} to ${maximum}`);
+  }
+  return value;
+}
+
+/**
+ * Terminal controls shared by prompt and progress renderers. The sequence
+ * construction is adapted from sisteransi (MIT); see this package's NOTICE.
+ * These are independent of color support: a monochrome TTY still has a cursor.
+ */
+export const cursor = Object.freeze({
+  hide: `${CSI}?25l`,
+  show: `${CSI}?25h`,
+  /** Move to a zero-based column on the current row. */
+  to(column: number): string {
+    terminalInteger(column, 'Cursor column', 0, Number.MAX_SAFE_INTEGER - 1);
+    return `${CSI}${column + 1}G`;
+  },
+  /** Relative movement; zero leaves that axis unchanged. */
+  move(columns: number, rows: number): string {
+    terminalInteger(columns, 'Cursor columns', -Number.MAX_SAFE_INTEGER);
+    terminalInteger(rows, 'Cursor rows', -Number.MAX_SAFE_INTEGER);
+    let sequence = '';
+    if (columns < 0) sequence += `${CSI}${-columns}D`;
+    else if (columns > 0) sequence += `${CSI}${columns}C`;
+    if (rows < 0) sequence += `${CSI}${-rows}A`;
+    else if (rows > 0) sequence += `${CSI}${rows}B`;
+    return sequence;
+  },
+  up(rows = 1): string {
+    terminalInteger(rows, 'Cursor rows');
+    // CSI 0 A means one row, so a zero-distance request must emit nothing.
+    return rows === 0 ? '' : `${CSI}${rows}A`;
+  },
+});
+
+export const erase = Object.freeze({
+  /** Erase from the cursor through the end of the display. */
+  down(): string {
+    return `${CSI}J`;
+  },
+  /** Clear this row and count - 1 preceding rows, then return to column zero. */
+  lines(count: number): string {
+    // Keep a single redraw below 512 KiB of control bytes, including for
+    // malformed dimensions supplied by an output stream.
+    terminalInteger(count, 'Redraw line count', 0, 65_535);
+    if (count === 0) return '';
+    const clearedRow = `${CSI}2K`;
+    return (clearedRow + cursor.up()).repeat(count - 1) + clearedRow + `${CSI}G`;
+  },
+});
+
 // Reset all
 export const RESET = `${CSI}0m`;
 
@@ -228,7 +287,7 @@ export function rgbToAnsi16(r: number, g: number, b: number): number {
  * Strip ANSI codes from string
  */
 export function stripAnsi(str: string): string {
-  return Array.from(terminalSegments(str), part => part.escape ? '' : part.text).join('');
+  return Array.from(terminalSegments(str), (part) => (part.escape ? '' : part.text)).join('');
 }
 
 /**
@@ -305,35 +364,47 @@ export class TerminalTextDecoder {
         continue;
       }
       if (this.state === 'string-escape') {
-        if (char === '\\' || code === 0x9c || (this.controlString === 'osc' && code === 7)) this.state = 'text';
+        if (char === '\\' || code === 0x9c || (this.controlString === 'osc' && code === 7))
+          this.state = 'text';
         else if (code !== 0x1b) this.state = this.controlString;
         continue;
       }
       if (this.state === 'csi') {
         if (code >= 0x40 && code <= 0x7e) {
-          if (char === 'm' && this.preserveStyles && this.style !== undefined && /^[0-9;:]*$/.test(this.style)) {
+          if (
+            char === 'm' &&
+            this.preserveStyles &&
+            this.style !== undefined &&
+            /^[0-9;:]*$/.test(this.style)
+          ) {
             output += `${CSI}${this.style}m`;
           }
           this.state = 'text';
         } else if (code >= 0x20 && code <= 0x3f) {
           // Bound an unterminated styling sequence, even for an adversarial producer.
-          this.style = this.style !== undefined && this.style.length < 4096 ? this.style + char : undefined;
+          this.style =
+            this.style !== undefined && this.style.length < 4096 ? this.style + char : undefined;
         } else if (code === 0x1b) this.state = 'escape';
         else this.state = 'text';
         continue;
       }
       if (this.state === 'escape') {
-        if (char === '[') { this.state = 'csi'; this.style = ''; }
-        else if (char === ']') this.state = 'osc';
+        if (char === '[') {
+          this.state = 'csi';
+          this.style = '';
+        } else if (char === ']') this.state = 'osc';
         else if (char === 'P' || char === '^' || char === '_') this.state = 'string';
         else if (code < 0x20 || code > 0x2f) this.state = code === 0x1b ? 'escape' : 'text';
         continue;
       }
       if (code === 0x1b) this.state = 'escape';
-      else if (code === 0x9b) { this.state = 'csi'; this.style = ''; }
-      else if (code === 0x9d) this.state = 'osc';
+      else if (code === 0x9b) {
+        this.state = 'csi';
+        this.style = '';
+      } else if (code === 0x9d) this.state = 'osc';
       else if (code === 0x90 || code === 0x9e || code === 0x9f) this.state = 'string';
-      else if (char === '\n' || char === '\t' || (code >= 0x20 && (code < 0x7f || code > 0x9f))) output += char;
+      else if (char === '\n' || char === '\t' || (code >= 0x20 && (code < 0x7f || code > 0x9f)))
+        output += char;
     }
     return output;
   }

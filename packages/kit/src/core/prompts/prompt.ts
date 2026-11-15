@@ -3,13 +3,12 @@ import type { Action } from '../utils/index.js';
 import type { Readable, Writable } from 'node:stream';
 import type { ClackState, ClackEvents } from '../types.js';
 
-import { erase, cursor } from 'sisteransi';
 import { stdin, stdout } from 'node:process';
 import { type Interface, createInterface } from 'node:readline/promises';
 
 import { wrapAnsi } from '../utils/wrap-ansi.js';
-import { sanitizeTerminalText } from '../../prism/utils/ansi.js';
 import { runValidation, type Validate } from '../utils/validation.js';
+import { erase, cursor, sanitizeTerminalText } from '../../prism/utils/ansi.js';
 import {
   getRows,
   settings,

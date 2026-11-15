@@ -1,12 +1,10 @@
 import type { Writable } from 'node:stream';
 
-import { erase } from 'sisteransi';
-
 import prism from '../prism/index.js';
 import { log } from '../utilities/log.js';
 import stringWidth from '../core/utils/string-width.js';
 import { getColumns, isAccessible } from '../core/index.js';
-import { TerminalTextDecoder, sanitizeTerminalText } from '../prism/utils/ansi.js';
+import { erase, TerminalTextDecoder, sanitizeTerminalText } from '../prism/utils/ansi.js';
 import {
   S_BAR,
   S_STEP_SUBMIT,
@@ -53,7 +51,8 @@ export const taskLog = (opts: TaskLogOptions) => {
   const retainLog = opts.retainLog === true;
   const accessible = isAccessible(opts.accessible);
   const isTTY = !accessible && !isCIFn() && isTTYFn(output);
-  if (!Number.isSafeInteger(spacing) || spacing < 0) throw new RangeError('spacing must be a nonnegative integer');
+  if (!Number.isSafeInteger(spacing) || spacing < 0)
+    throw new RangeError('spacing must be a nonnegative integer');
   if (opts.limit !== undefined && (!Number.isSafeInteger(opts.limit) || opts.limit < 0)) {
     throw new RangeError('limit must be a nonnegative integer');
   }
@@ -127,21 +126,27 @@ export const taskLog = (opts: TaskLogOptions) => {
   const printBuffer = (buffer: BufferEntry, messageSpacing?: number, full?: boolean): void => {
     const messages = full ? `${buffer.full}\n${buffer.value}` : buffer.value;
     if (buffer.header !== undefined && buffer.header !== '') {
-      log.message(buffer.header.split('\n').map(line => prism.bold(line)), {
+      log.message(
+        buffer.header.split('\n').map((line) => prism.bold(line)),
+        {
+          output,
+          accessible,
+          secondarySymbol,
+          symbol: secondarySymbol,
+          spacing: 0,
+        }
+      );
+    }
+    log.message(
+      messages.split('\n').map((line) => prism.dim(line)),
+      {
         output,
         accessible,
         secondarySymbol,
         symbol: secondarySymbol,
-        spacing: 0,
-      });
-    }
-    log.message(messages.split('\n').map(line => prism.dim(line)), {
-      output,
-      accessible,
-      secondarySymbol,
-      symbol: secondarySymbol,
-      spacing: messageSpacing ?? spacing,
-    });
+        spacing: messageSpacing ?? spacing,
+      }
+    );
   };
   const renderBuffer = (): void => {
     for (const buffer of buffers) {
@@ -157,7 +162,8 @@ export const taskLog = (opts: TaskLogOptions) => {
     if ((mopts?.raw !== true || !buffer.lastMessageWasRaw) && buffer.value !== '') {
       buffer.value += '\n';
     }
-    if (!mopts?.raw || !buffer.lastMessageWasRaw) buffer.decoder = new TerminalTextDecoder(!accessible);
+    if (!mopts?.raw || !buffer.lastMessageWasRaw)
+      buffer.decoder = new TerminalTextDecoder(!accessible);
     const text = buffer.decoder?.write(msg) ?? display(msg);
     buffer.value += text;
     buffer.lastMessageWasRaw = mopts?.raw === true;

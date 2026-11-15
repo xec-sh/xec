@@ -1,9 +1,9 @@
 import { z } from 'zod';
-import { cursor } from 'sisteransi';
 import { vi, test, expect, describe, afterEach, beforeEach } from 'vitest';
 
 import { MockReadable } from '../mock-readable.js';
 import { MockWritable } from '../mock-writable.js';
+import { cursor } from '../../../src/prism/utils/ansi.js';
 import { isCancel } from '../../../src/core/utils/index.js';
 import { default as Prompt } from '../../../src/core/prompts/prompt.js';
 
