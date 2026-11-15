@@ -24,6 +24,7 @@ beforeAll(async () => {
   } } }));
   await mkdir(join(fixture, '.xec/commands'), { recursive: true });
   await writeFile(join(fixture, '.xec/commands/unrelated.js'), 'throw new Error("PROJECT_COMMAND_WAS_EVALUATED");');
+  await writeFile(join(fixture, '.xec/commands/healthy.js'), 'export function command(program) { program.command("healthy").action(() => console.log("HEALTHY_COMMAND")); }');
   await writeFile(join(fixture, '.xec/config.yaml'), 'this is intentionally not an Xec configuration');
 });
 afterAll(async () => { await rm(fixture, { recursive: true, force: true }); });
@@ -73,5 +74,29 @@ describe('native CLI local dispatch', () => {
     expect(result.code, result.stderr).toBe(7);
     expect(result.stdout).toBe('');
     expect(result.stderr).toBe('');
+  });
+});
+
+describe('native dynamic command loading', () => {
+  it.each([['unrelated'], ['unrelated', '--help']])('fails the requested broken command %j', async (...args) => {
+    const result = await run(args);
+    expect(result.code).not.toBe(0);
+    expect(result.stderr).toContain('Failed to load command');
+    expect(result.stderr).toContain('PROJECT_COMMAND_WAS_EVALUATED');
+    expect(result.stdout).not.toContain('Usage: xec');
+  });
+
+  it('root help does not evaluate broken project modules', async () => {
+    const result = await run(['--help']);
+    expect(result.code, result.stderr).toBe(0);
+    expect(result.stdout).toContain('unrelated');
+    expect(result.stderr).not.toContain('PROJECT_COMMAND_WAS_EVALUATED');
+  });
+
+  it('a healthy command stays independent of an unrelated broken module', async () => {
+    const result = await run(['healthy']);
+    expect(result.code, result.stderr).toBe(0);
+    expect(result.stdout).toContain('HEALTHY_COMMAND');
+    expect(result.stderr).not.toContain('PROJECT_COMMAND_WAS_EVALUATED');
   });
 });

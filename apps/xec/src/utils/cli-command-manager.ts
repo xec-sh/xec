@@ -85,7 +85,7 @@ export class CliCommandManager {
 
     // Add paths from environment variable
     if (process.env['XEC_COMMANDS_PATH']) {
-      const additionalPaths = process.env['XEC_COMMANDS_PATH'].split(':');
+      const additionalPaths = process.env['XEC_COMMANDS_PATH'].split(path.delimiter).filter(Boolean);
       this.commandDirs.push(...additionalPaths);
     }
   }
@@ -260,7 +260,10 @@ export class CliCommandManager {
       if (wanted) {
         const result = await (await this.getLoader()).loadDynamicCommand(cmd.path, program, cmd.name);
         cmd.loaded = result.success;
-        if (!result.success) cmd.error = result.error;
+        if (!result.success) {
+          cmd.error = result.error;
+          throw new Error(`Failed to load command '${cmd.name}': ${result.error}`);
+        }
         continue;
       }
 

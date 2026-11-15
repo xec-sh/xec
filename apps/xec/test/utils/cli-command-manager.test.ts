@@ -70,15 +70,20 @@ describe('CliCommandManager', () => {
       expect(dirs).toContain(path.join(process.cwd(), '.xec', 'cli'));
     });
 
-    it('should add paths from XEC_COMMANDS_PATH env variable', () => {
-      const customPath = '/custom/commands/path';
-      process.env['XEC_COMMANDS_PATH'] = customPath;
-
-      const customManager = new CliCommandManager();
-      const dirs = customManager.getCommandDirectories();
-
-      expect(dirs).toContain(customPath);
-      delete process.env['XEC_COMMANDS_PATH'];
+    it('uses the platform path-list delimiter and ignores empty command directories', () => {
+      const previous = process.env['XEC_COMMANDS_PATH'];
+      const first = path.resolve('custom commands');
+      const second = path.resolve('other commands');
+      try {
+        process.env['XEC_COMMANDS_PATH'] = [first, '', second].join(path.delimiter);
+        const dirs = new CliCommandManager().getCommandDirectories();
+        expect(dirs).toContain(first);
+        expect(dirs).toContain(second);
+        expect(dirs).not.toContain('');
+      } finally {
+        if (previous === undefined) delete process.env['XEC_COMMANDS_PATH'];
+        else process.env['XEC_COMMANDS_PATH'] = previous;
+      }
     });
   });
 

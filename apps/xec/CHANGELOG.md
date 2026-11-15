@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A requested project command that cannot load fails with its loading cause, including `command --help`. Root help and unrelated commands remain lazy and do not evaluate the broken module. Extra command paths use the platform path-list delimiter, preserving Windows drive letters.
+
 - Explicit `xec -- <executable> [args]` bypasses project discovery and always executes local argv. It never guesses Docker, Kubernetes or SSH targets; use explicit `on`/`in` commands. Failed command output and exit codes survive ordinary and quiet diagnostics.
 
 - Command configuration defaults use the native option schema and Commander provenance: explicit CLI values win, configured values override parser defaults, and unknown/invocation-only keys are rejected. `config doctor` validates its proposed document before writing.
