@@ -167,7 +167,10 @@ still apply until the corrected release is installed.
 
 The task executor does not implement `hooks`, `emits`, event subscriptions through
 `on`, `cache`, `schedule`, `template`, or `dependsOn`. Hardened `main` rejects these
-keys instead of silently ignoring them. Use explicit steps, the owning operation
+keys instead of silently ignoring them, and the public `TaskDefinition` type does
+not advertise them (`@xec-sh/ops/config/types`). `TaskStep.parallel` is also rejected; concurrency belongs to
+the containing task. The implemented `register`, step `onSuccess` and task
+`onSuccess`/`onError` handlers remain available. Use explicit steps, the owning operation
 API, an external scheduler, and the build tool's cache where applicable.
 
 `private` hides a task from the ordinary listing. It is not authorization: a caller

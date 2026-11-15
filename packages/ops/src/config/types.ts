@@ -326,12 +326,11 @@ export interface TaskStep {
   targets?: string[];
   args?: string[];
   env?: Record<string, string>;
-  when?: string;
+  when?: string | number | boolean;
   onSuccess?: 'continue' | 'abort';
   onFailure?: 'continue' | 'abort' | 'ignore' | TaskErrorHandler;
   alwaysRun?: boolean;
   register?: string;
-  parallel?: boolean;
 }
 
 /**
@@ -342,15 +341,6 @@ export interface TaskErrorHandler {
   delay?: string;
   task?: string;
   command?: string;
-}
-
-/**
- * Task hook definition
- */
-export interface TaskHook {
-  name?: string;
-  command?: string;
-  task?: string;
 }
 
 /**
@@ -375,16 +365,6 @@ export interface TaskDefinition {
   parallel?: boolean;
   failFast?: boolean;
   maxConcurrent?: number;
-  hooks?: {
-    before?: TaskHook[];
-    after?: TaskHook[];
-    onError?: TaskHook[];
-  };
-  emits?: Array<{
-    name: string;
-    data?: any;
-  }>;
-  on?: Record<string, string>;
   onSuccess?: {
     emit?: string;
     command?: string;
@@ -393,14 +373,6 @@ export interface TaskDefinition {
     emit?: string;
     command?: string;
   };
-  cache?: {
-    key: string;
-    ttl?: number;
-    storage?: 'memory' | 'disk' | 'redis';
-  };
-  schedule?: string;
-  template?: string;
-  dependsOn?: string[];
   private?: boolean;
 }
 

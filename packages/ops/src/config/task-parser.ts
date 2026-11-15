@@ -102,7 +102,7 @@ export class TaskParser {
 
 
     for (const key of ['hooks', 'emits', 'on', 'cache', 'schedule', 'template', 'dependsOn'] as const) {
-      if (task[key] !== undefined) this.addError(`${path}.${key}`, 'Unsupported task capability; use an explicit script or operation API');
+      if (Object.getOwnPropertyDescriptor(task, key)?.value !== undefined) this.addError(`${path}.${key}`, 'Unsupported task capability; use an explicit script or operation API');
     }
     for (const key of ['command', 'script'] as const) {
       if (task[key] !== undefined && (typeof task[key] !== 'string' || !task[key]!.trim())) {
@@ -239,7 +239,7 @@ export class TaskParser {
 
 
       if (step.script && step.register) this.addError(`${stepPath}.register`, 'Script console output is not captured; register a command or nested command task');
-      if (step.parallel !== undefined) this.addError(`${stepPath}.parallel`, 'Set parallel on the containing task, not a step');
+      if (Object.getOwnPropertyDescriptor(step, 'parallel')?.value !== undefined) this.addError(`${stepPath}.parallel`, 'Set parallel on the containing task, not a step');
       this.validateTargets(stepPath, step);
       if (step.targets && !step.command) this.addError(`${stepPath}.targets`, 'Multiple targets require a command step');
       if (step.args !== undefined && (!step.script || !Array.isArray(step.args) || !step.args.every(arg => typeof arg === 'string'))) {

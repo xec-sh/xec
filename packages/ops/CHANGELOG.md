@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Public task types no longer advertise rejected hooks, event subscriptions, cache, schedule, templates, dependencies or per-step parallelism. Condition types match the accepted boolean/number/expression contract; implemented output registration and completion handlers remain supported.
+
 - Local direct execution preserves argv and captured stream whitespace without shell reconstruction or target discovery. Shared failure diagnostics include bounded redacted stdout/stderr previews, truncation flags, status and nested causes in text/JSON/YAML; quiet mode preserves exit codes and structured errors.
 
 - Configuration saves resolve the explicit or discovered project source instead of creating a second config file.

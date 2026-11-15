@@ -362,11 +362,6 @@ export class TaskManager extends EventEmitter {
       explanation.push(`Timeout: ${task.timeout}`);
     }
 
-    if (task.cache) {
-      explanation.push('');
-      explanation.push(`Cached with key: ${task.cache.key}`);
-    }
-
     return explanation;
   }
 

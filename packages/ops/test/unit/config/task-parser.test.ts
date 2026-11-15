@@ -295,10 +295,11 @@ describe('TaskParser', () => {
     });
   });
 
-  describe('cache validation', () => {
-    it('should validate cache configuration', () => {
+  describe('unsupported cache contract', () => {
+    it('rejects cache instead of claiming it is implemented', () => {
       const config: TaskDefinition = {
         command: 'echo test',
+        // @ts-expect-error Deliberately malformed input to the runtime boundary.
         cache: {
           key: '', // Empty key
           ttl: -100, // Negative TTL

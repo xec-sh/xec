@@ -86,6 +86,7 @@ tasks:
         when: '${params.tests} == true'
 ```
 
+A condition may be a boolean, number, or expression string; numeric zero is false.
 A false condition records a skipped step. A malformed expression or unresolved
 value is an error, not a successful skip. Conditions use the configuration
 expression evaluator; they do not execute arbitrary JavaScript or shell commands.

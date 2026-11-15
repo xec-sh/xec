@@ -642,10 +642,12 @@ describe('ConfigValidator', () => {
           base: 'echo base',
           deploy: {
             command: 'deploy',
+            // @ts-expect-error Deliberately unsupported input from a configuration file.
             dependsOn: ['build', 'test', 'nonexistent']
           },
           test: 'npm test',
           templated: {
+            // @ts-expect-error Deliberately unsupported input from a configuration file.
             template: 'missing-template',
             params: []
           },
