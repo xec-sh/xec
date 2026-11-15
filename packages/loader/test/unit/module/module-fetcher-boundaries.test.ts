@@ -3,17 +3,23 @@ import { join } from 'node:path';
 import { once } from 'node:events';
 import { createServer } from 'node:http';
 import { it, vi, expect, describe, afterEach, beforeEach } from 'vitest';
-import { rm, stat, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { rm, stat, mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises';
 
-import { MemoryCache } from '../src/module/module-cache.js';
-import { ModuleFetcher } from '../src/module/module-fetcher.js';
-import { IntegrityError, computeIntegrity, computeModuleIdentity, ModuleIntegrityVerifier } from '../src/module/module-integrity.js';
+import { MemoryCache } from '../../../src/module/module-cache.js';
+import { ModuleFetcher } from '../../../src/module/module-fetcher.js';
+import { IntegrityError, computeIntegrity, computeModuleIdentity, ModuleIntegrityVerifier } from '../../../src/module/module-integrity.js';
 
 let dir: string;
 beforeEach(async () => { dir = await mkdtemp(join(tmpdir(), 'xec-fetch-policy-')); });
 afterEach(async () => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); await rm(dir, { recursive: true, force: true }); });
 const entry = 'https://esm.sh/entry.js';
 const content = 'export const safe = true;';
+async function readPins() {
+  const directory = join(dir, 'module-lock.json.pins');
+  const files = await readdir(directory);
+  expect(files.every(file => /^[a-f0-9]{64}\.json$/.test(file))).toBe(true);
+  return Object.fromEntries(await Promise.all(files.map(async file => [file.slice(0, -5), JSON.parse(await readFile(join(directory, file), 'utf8'))])));
+}
 function fixture(mode: 'off' | 'strict' | 'lockfile' = 'off', hosts = ['esm.sh', 'jsr.io']) {
   const cache = new MemoryCache<string>();
   const verifier = new ModuleIntegrityVerifier(dir, { mode, allowedHosts: hosts });
@@ -93,7 +99,7 @@ describe('one redirect policy for HTTP and source wrappers', () => {
     vi.stubGlobal('fetch', network);
     expect((await fetcher.fetch(entry, { retries: 0, headers: { Authorization: 'Bearer synthetic' } })).url).toBe(target);
     expect(new Headers(network.mock.calls[1]![1]?.headers).get('authorization')).toBe('Bearer synthetic');
-    const lock = JSON.parse(await readFile(join(dir, 'module-lock.json'), 'utf8'));
+    const lock = { modules: await readPins() };
     expect(lock.modules[computeModuleIdentity(entry)].integrity).toBe(computeIntegrity(content));
     expect(lock.modules[computeModuleIdentity(target)].integrity).toBe(computeIntegrity(content));
   });
@@ -106,7 +112,7 @@ describe('one redirect policy for HTTP and source wrappers', () => {
     vi.stubGlobal('fetch', network);
     await expect(fetcher.fetch(entry, { retries: 0 })).rejects.toBeInstanceOf(IntegrityError);
     await verifier.verify('https://esm.sh/another.js', content); await verifier.save();
-    const lock = JSON.parse(await readFile(join(dir, 'module-lock.json'), 'utf8'));
+    const lock = { modules: await readPins() };
     expect(lock.modules).not.toHaveProperty(computeModuleIdentity(entry));
     expect(lock.modules[computeModuleIdentity(target)].integrity).toBe(computeIntegrity(content));
   });
@@ -162,8 +168,8 @@ describe('bounded complete response and raw integrity', () => {
     const raw = '\uFEFFimport fs from "/node/fs.mjs"; export { fs };';
     vi.stubGlobal('fetch', vi.fn(async () => new Response(new TextEncoder().encode(raw))));
     await fetcher.fetch(entry, { retries: 0 });
-    const lock = JSON.parse(await readFile(join(dir, 'module-lock.json'), 'utf8'));
-    expect(lock.version).toBe(2);
+    const lock = { modules: await readPins() };
+    expect(JSON.parse(await readFile(join(dir, 'module-lock.json'), 'utf8'))).toEqual({ version: 2, storage: 'immutable-pins' });
     expect(lock.modules[computeModuleIdentity(entry)].integrity).toBe(computeIntegrity(raw));
   });
 
@@ -175,11 +181,11 @@ describe('bounded complete response and raw integrity', () => {
     expect((await stat(join(privateDirectory, 'module-lock.json'))).mode & 0o777).toBe(0o600);
   });
 
-  it('keeps concurrent in-process first-use pins in one complete v2 snapshot', async () => {
+  it('keeps concurrent in-process first-use pins as independent immutable records', async () => {
     const { verifier } = fixture('lockfile');
     await Promise.all([verifier.verify(entry, content), verifier.verify('https://esm.sh/second.js', content)]);
     await Promise.all([verifier.save(), verifier.verify('https://esm.sh/third.js', content).then(() => verifier.save())]);
-    const lock = JSON.parse(await readFile(join(dir, 'module-lock.json'), 'utf8'));
+    const lock = { modules: await readPins() };
     expect(Object.values(lock.modules).map(value => (value as { url: string }).url).sort()).toEqual([entry, 'https://esm.sh/second.js', 'https://esm.sh/third.js']);
   });
 
@@ -193,9 +199,10 @@ describe('bounded complete response and raw integrity', () => {
     expect((await fetcher.fetch(first + '#other-fragment', { retries: 0 })).content).toContain('= 1');
     expect((await fetcher.fetch(second, { retries: 0 })).content).toContain('= 2');
     expect(network).toHaveBeenCalledTimes(2);
-    const serialized = await readFile(join(dir, 'module-lock.json'), 'utf8');
+    const pins = await readPins();
+    const serialized = await readFile(join(dir, 'module-lock.json'), 'utf8') + JSON.stringify(pins);
     expect(serialized).not.toContain('synthetic-');
-    const lock = JSON.parse(serialized);
+    const lock = { modules: pins };
     expect(Object.keys(lock.modules).sort()).toEqual([computeModuleIdentity(first), computeModuleIdentity(second)].sort());
     expect(Object.values(lock.modules).map(value => (value as { url: string }).url)).toEqual([entry, entry]);
     expect(JSON.stringify([...get.mock.calls.map(call => call[0]), ...set.mock.calls.map(call => call[0])])).not.toContain('synthetic-');

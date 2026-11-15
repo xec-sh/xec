@@ -1,4 +1,4 @@
-import { IntegrityError, ModuleIntegrityVerifier } from '../src/module/module-integrity.js';
+import { IntegrityError, ModuleIntegrityVerifier } from '../../../src/module/module-integrity.js';
 
 /**
  * A remote module becomes code the instant it is fetched, so a cleartext hop is

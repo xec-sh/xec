@@ -6,13 +6,13 @@ import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
 import { createServer } from 'node:http';
 
-import { ModuleFetcher } from '../src/module/module-fetcher.js';
+import { ModuleFetcher } from '../../../src/module/module-fetcher.js';
 import {
   IntegrityError,
   computeIntegrity,
   computeModuleIdentity,
   ModuleIntegrityVerifier,
-} from '../src/module/module-integrity.js';
+} from '../../../src/module/module-integrity.js';
 
 /**
  * Remote modules are executed with full process privileges on machines that
@@ -123,19 +123,18 @@ describe('ModuleIntegrityVerifier', () => {
     await expect(verifier.verify(url, 'x')).rejects.toThrow(/malformed/);
   });
 
-  it('writes the lockfile with owner-only permissions and stable ordering', async () => {
+  it('publishes a private descriptor and separate immutable pins', async () => {
     const verifier = new ModuleIntegrityVerifier(dir);
     await verifier.verify('https://esm.sh/z', 'z');
     await verifier.verify('https://esm.sh/a', 'a');
     await verifier.save();
 
     const lockPath = path.join(dir, 'module-lock.json');
-    const stat = await fs.stat(lockPath);
-    expect(stat.mode & 0o777).toBe(0o600);
-
-    const parsed = JSON.parse(await fs.readFile(lockPath, 'utf8'));
-    expect(Object.keys(parsed.modules)).toEqual([computeModuleIdentity('https://esm.sh/a'), computeModuleIdentity('https://esm.sh/z')].sort());
-    expect(Object.values(parsed.modules).map(entry => (entry as { url: string }).url).sort()).toEqual(['https://esm.sh/a', 'https://esm.sh/z']);
+    if (process.platform !== 'win32') expect((await fs.stat(lockPath)).mode & 0o777).toBe(0o600);
+    expect(JSON.parse(await fs.readFile(lockPath, 'utf8'))).toEqual({ version: 2, storage: 'immutable-pins' });
+    const pins = await fs.readdir(`${lockPath}.pins`);
+    expect(pins.sort()).toEqual([computeModuleIdentity('https://esm.sh/a'), computeModuleIdentity('https://esm.sh/z')].map(value => value + '.json').sort());
+    for (const file of pins) if (process.platform !== 'win32') expect((await fs.stat(path.join(`${lockPath}.pins`, file))).mode & 0o777).toBe(0o600);
   });
 
   it('computes a Subresource-Integrity-style digest', () => {
