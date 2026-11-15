@@ -74,10 +74,11 @@ minimumReleaseAgeExclude:
   - "@omnitron-dev/netron-protocol@0.4.10"
   - "@omnitron-dev/netron-react@0.4.10"
   - "@omnitron-dev/prism@0.4.10"
-  - "@xec-sh/cli@0.12.0"
-  - "@xec-sh/core@0.12.0"
-  - "@xec-sh/kit@0.12.0"
-  - "@xec-sh/loader@0.12.0"
-  - "@xec-sh/ops@0.12.0"
+  - "@xec-sh/cli@0.12.0 || 0.13.0"
+  - "@xec-sh/core@0.12.0 || 0.13.0"
+  - "@xec-sh/kit@0.12.0 || 0.13.0"
+  - "@xec-sh/loader@0.12.0 || 0.13.0"
+  - "@xec-sh/ops@0.12.0 || 0.13.0"
+  - "@xec-sh/ssh@0.13.0"
 patchedDependencies:
   node-pty@1.1.0: patches/node-pty@1.1.0.patch

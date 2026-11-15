@@ -89,8 +89,8 @@ async function runRelease(version: string | undefined, values: ReleaseOptions): 
         await prepareReleaseArtifacts(root, version, {
           build: { executable: 'pnpm', args: ['--recursive', ...packages.flatMap(pkg => ['--filter', pkg.name]), 'run', 'build'] }, offline: values.offline,
           progress: console.log,
-          // 0.12.0 supports archive acceptance, not producer retention. Never
-          // pass a newer option that an older published API could ignore.
+          // Accept the exact Core/SSH archive pair before sealing the batch.
+          // Publication resumes these bytes without building them again.
           verifyArtifact: async ({ workspace, artifact, run }: { workspace: string; artifact: ReleaseArtifact; run: ReleaseCommand }) => {
             if (artifact.name !== '@xec-sh/core' && artifact.name !== '@xec-sh/ssh') return;
             sshArchives.set(artifact.name, artifact);

@@ -236,14 +236,14 @@ importers:
         specifier: npm:typescript@^7.0.2
         version: typescript@7.0.2
       '@xec-sh/cli':
-        specifier: npm:@xec-sh/cli@0.12.0
-        version: 0.12.0
+        specifier: npm:@xec-sh/cli@0.13.0
+        version: 0.13.0
       '@xec-sh/kit':
-        specifier: npm:@xec-sh/kit@0.12.0
-        version: 0.12.0
+        specifier: npm:@xec-sh/kit@0.13.0
+        version: 0.13.0
       '@xec-sh/ops':
-        specifier: npm:@xec-sh/ops@0.12.0
-        version: 0.12.0
+        specifier: npm:@xec-sh/ops@0.13.0
+        version: 0.13.0
       add:
         specifier: ^2.0.9
         version: 2.0.9
@@ -3064,23 +3064,48 @@ packages:
     engines: {node: '>=22.18.0'}
     hasBin: true
 
+  '@xec-sh/cli@0.13.0':
+    resolution: {integrity: sha512-tyqbwSRZ1S0x1uVBsefW9gmwlQb+0UDJK7EAspg8w5ex7YtOxwGdU+huKEbbuJAGBlx/KERbC66cHnzq+LwGfg==}
+    engines: {node: '>=22.18.0'}
+    hasBin: true
+
   '@xec-sh/core@0.12.0':
     resolution: {integrity: sha512-FSs2loyMmjML2ZMRhAmttPGNHl7IWLiWkpGJSVR1ZSFfBxAP9ucOVewrEL8cVzJPE3UpsiN1U30wu5tMN4griQ==}
     engines: {node: '>=20.0.0'}
     bundledDependencies:
       - ssh2
 
+  '@xec-sh/core@0.13.0':
+    resolution: {integrity: sha512-54c9ixd6a7boFAKigH2AkNtJDBaLjdxODjAJgREKy0I9W4LnB0C2pa0/q8u6iXrk2AVuf27aygcTBcOKbNYwhg==}
+    engines: {node: '>=20.19.0'}
+
   '@xec-sh/kit@0.12.0':
     resolution: {integrity: sha512-wywnfibdxKcNsCjm6EkIulMW0xSkRyVc/i/nnhFBbjzykVm6FYUhruW+7M1Om31kE0DdyZFl3jWz6jeTnKcrQw==}
+    engines: {bun: '>=1.2.0', node: '>=20.0.0'}
+
+  '@xec-sh/kit@0.13.0':
+    resolution: {integrity: sha512-4hCygQJTsiiRP8XCNrjG6at//QIVvd44ENXQaaAdUdqjih/fELryaoW0hEedyomnhGXLtZBgO3SjW0ViRLom8A==}
     engines: {bun: '>=1.2.0', node: '>=20.0.0'}
 
   '@xec-sh/loader@0.12.0':
     resolution: {integrity: sha512-+vkTCYMshEAJNCDaZIq0w5PrAEYStjvGL5mY/fhR1zqYFMAgLXROIsWwFK9Y/dMqg4YlNYd6OGbJDtdHnXenHQ==}
     engines: {node: '>=20.0.0'}
 
+  '@xec-sh/loader@0.13.0':
+    resolution: {integrity: sha512-NIPCvWro8K+1RG8xLMbShKKQsHajmS7XQHMzZvNVvnz62FQ7//PbqYtJqeb7wFN69sSxBFKSKrcysuaDcRX0bg==}
+    engines: {node: '>=20.0.0'}
+
   '@xec-sh/ops@0.12.0':
     resolution: {integrity: sha512-B3nT/cH3YsfE0WFaaNJLRSmFAgpWuOLIqdNxzEr3AcrBtVr1EsFILwJAspCsoVbQm460mFy/vJ76jWayjgrHUQ==}
     engines: {node: '>=20.0.0'}
+
+  '@xec-sh/ops@0.13.0':
+    resolution: {integrity: sha512-IssyJENyhdNfv5RDHQaNpAKsqhdybC99Cgerv9RNlrlU9Savg+rua0hrK1y7G7No471Zwl7QS+XclU62lXthvQ==}
+    engines: {node: '>=20.0.0'}
+
+  '@xec-sh/ssh@0.13.0':
+    resolution: {integrity: sha512-7Et39aLbIKhNyIzyfT65v54Eue/cTUqO5zL+79ivWZXDEw76G+joCGRuxnPhdFZHZFthxpflinsbyQ/LhFdI/A==}
+    engines: {node: '>=20.19.0'}
 
   '@xyflow/react@12.12.1':
     resolution: {integrity: sha512-g41OHmP+GL5wDBQKpgYt8AF6RlB4CrABtiStXhCMqdItK6gPdSpsuDk8V0YtdyvIvMPTjDJvkuLkz0JbSYu5Cw==}
@@ -8138,15 +8163,39 @@ snapshots:
       yaml: 2.9.1
       zod: 4.6.7
 
+  '@xec-sh/cli@0.13.0':
+    dependencies:
+      '@xec-sh/core': 0.13.0
+      '@xec-sh/kit': 0.13.0
+      '@xec-sh/loader': 0.13.0
+      '@xec-sh/ops': 0.13.0
+      commander: 15.1.0
+      fs-extra: 11.4.1
+      glob: 14.0.6
+      js-yaml: 5.5.0
+      yaml: 2.9.1
+      zod: 4.6.7
+
   '@xec-sh/core@0.12.0': {}
+
+  '@xec-sh/core@0.13.0':
+    dependencies:
+      '@xec-sh/ssh': 0.13.0
 
   '@xec-sh/kit@0.12.0':
     dependencies:
       sisteransi: 2.0.0
 
+  '@xec-sh/kit@0.13.0': {}
+
   '@xec-sh/loader@0.12.0':
     dependencies:
       '@xec-sh/kit': 0.12.0
+      esbuild: 0.28.2
+
+  '@xec-sh/loader@0.13.0':
+    dependencies:
+      '@xec-sh/kit': 0.13.0
       esbuild: 0.28.2
 
   '@xec-sh/ops@0.12.0':
@@ -8160,6 +8209,20 @@ snapshots:
       js-yaml: 5.5.0
       semver: 7.8.6
       zod: 4.6.7
+
+  '@xec-sh/ops@0.13.0':
+    dependencies:
+      '@xec-sh/core': 0.13.0
+      '@xec-sh/kit': 0.13.0
+      '@xec-sh/loader': 0.13.0
+      dotenv: 18.0.10
+      fs-extra: 11.4.1
+      glob: 14.0.6
+      js-yaml: 5.5.0
+      semver: 7.8.6
+      zod: 4.6.7
+
+  '@xec-sh/ssh@0.13.0': {}
 
   '@xyflow/react@12.12.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(immer@11.2.10)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:
