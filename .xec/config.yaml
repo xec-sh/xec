@@ -7,9 +7,11 @@ tasks:
     command: pnpm install --frozen-lockfile
   build:
     description: Build the candidate CLI and its workspace dependencies.
+    timeout: 10m
     command: pnpm exec turbo run build --filter=@xec-sh/cli
   build:full:
     description: Build every workspace through the package DAG.
+    timeout: 10m
     command: pnpm exec turbo run build
   dev:
     description: Run workspace development tasks through Turbo.
