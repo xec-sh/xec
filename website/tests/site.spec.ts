@@ -53,8 +53,15 @@ test('theme is persistent and system mode follows the OS', async ({ page }) => {
 test('search loads the generated local index and restores focus on Escape', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Search documentation' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Search documentation' });
+  await expect(dialog).toHaveCSS('opacity', '1');
+  const bounds = await dialog.boundingBox();
+  await page.getByRole('searchbox', { name: 'Search query' }).fill('"zznonexistentsearchtermzz"');
+  await expect(dialog).toContainText('No results found');
+  expect(Math.abs((await dialog.boundingBox())!.height - bounds!.height)).toBeLessThan(1.5);
   await page.getByRole('searchbox', { name: 'Search query' }).fill('Pipeline');
   await expect(page.locator('.lumen-search-result-link').first()).toBeVisible();
+  expect(Math.abs((await dialog.boundingBox())!.height - bounds!.height)).toBeLessThan(1.5);
   await expect(page.getByRole('list', { name: 'Search results', exact: true })).toContainText(/Pipeline/i);
   await page.getByRole('searchbox', { name: 'Search query' }).press('Escape');
   await expect(page.getByRole('searchbox', { name: 'Search query' })).toHaveCount(0);
