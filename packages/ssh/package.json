@@ -1,6 +1,6 @@
 {
   "name": "@xec-sh/ssh",
-  "version": "0.13.0",
+  "version": "0.13.1",
   "description": "Typed SSH connections, channels, transfers and tunnels using native runtime cryptography",
   "type": "module",
   "license": "MIT",
