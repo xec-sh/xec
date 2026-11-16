@@ -31,6 +31,7 @@ tasks:
     command: pnpm exec eslint "{apps,packages}/**/*.{js,jsx,ts,tsx}" ".xec/{commands,lib}/**/*.{js,ts}" "website/src/**/*.{js,jsx,ts,tsx}"
   docs:check:
     description: Verify documentation examples against the declared APIs.
+    timeout: 5m
     steps:
       - name: Documentation verifier contracts
         command: node --test scripts/test/doc-examples.test.js
