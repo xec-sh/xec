@@ -867,8 +867,9 @@ MIIEpAIBAAKCAQEA1234567890abcdef
     test('should handle JSON pattern with sensitive keys', () => {
       const adapter = new TestAdapter();
       const input = '"api_key": "sk-1234567890"';
-      const expected = '"api_key": [REDACTED]';
-      expect(adapter.testMaskSensitiveData(input)).toBe(expected);
+      expect(JSON.parse('{' + adapter.testMaskSensitiveData(input) + '}')).toEqual({
+        api_key: '[REDACTED]',
+      });
     });
 
     test('should handle patterns with no capture groups', () => {
