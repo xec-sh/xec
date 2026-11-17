@@ -21,22 +21,22 @@ import type { SensitivePattern } from './optimized-masker.js';
  */
 export function defaultSensitiveRules(): SensitivePattern[] {
   return [
-  // JSON string values for sensitive keys
-  { pattern: /"(api[_-]?key|apikey|password|token|secret|client[_-]?secret)":\s*"([^"]+)"/gi, shape: 'json' },
+  // Preserve complete JSON strings, including escaped quotes inside credentials.
+  { pattern: /"(api[_-]?key|apikey|password|token|secret|client[_-]?secret)":\s*"((?:\\.|[^"\\])*)"/gi, shape: 'json' },
   // API keys and tokens - capture the value part
-  { pattern: /\b(api[_-]?key|apikey|access[_-]?token|auth[_-]?token|authentication[_-]?token|private[_-]?key|secret[_-]?key)(\s*[:=]\s*)("([^"]+)"|'([^']+)'|([^"'\s]+))/gi, shape: 'assignment' },
+  { pattern: /\b(api[_-]?key|apikey|access[_-]?token|auth[_-]?token|authentication[_-]?token|private[_-]?key|secret[_-]?key)(\s*[:=]\s*)("((?:\\.|[^"\\])*)"|'([^']+)'|([^"'\s]+))/gi, shape: 'assignment' },
   // Authorization headers - preserve "Bearer" or "Basic" prefix
   { pattern: /(Authorization:\s*)(Bearer|Basic)(\s+)([a-zA-Z0-9_\-/.+=]+)/gi, shape: 'scheme' },
   // AWS credentials
-  { pattern: /\b(aws[_-]?access[_-]?key[_-]?id|aws[_-]?secret[_-]?access[_-]?key)(\s*[:=]\s*)("([^"]+)"|'([^']+)'|([^"'\s]+))/gi, shape: 'assignment' },
+  { pattern: /\b(aws[_-]?access[_-]?key[_-]?id|aws[_-]?secret[_-]?access[_-]?key)(\s*[:=]\s*)("((?:\\.|[^"\\])*)"|'([^']+)'|([^"'\s]+))/gi, shape: 'assignment' },
   // GitHub tokens with pattern - direct matches
   { pattern: /\b(gh[ps]_[a-zA-Z0-9]{16,})/gi, shape: 'whole' },
   // GitHub token assignments
-  { pattern: /\b(github[_-]?token)(\s*[:=]\s*)("([^"]+)"|'([^']+)'|([^"'\s]+))/gi, shape: 'assignment' },
+  { pattern: /\b(github[_-]?token)(\s*[:=]\s*)("((?:\\.|[^"\\])*)"|'([^']+)'|([^"'\s]+))/gi, shape: 'assignment' },
   // Generic tokens (including slack xoxb-, etc)
-  { pattern: /\b(token)(\s*[:=]\s*)("([^"]+)"|'([^']+)'|([^"'\s]+))/gi, shape: 'assignment' },
+  { pattern: /\b(token)(\s*[:=]\s*)("((?:\\.|[^"\\])*)"|'([^']+)'|([^"'\s]+))/gi, shape: 'assignment' },
   // Generic passwords - handle quoted and unquoted values (including template variables)
-  { pattern: /\b(password|passwd|pwd)(\s*[:=]\s*)("([^"]+)"|'([^']+)'|([^\s]+))/gi, shape: 'assignment' },
+  { pattern: /\b(password|passwd|pwd)(\s*[:=]\s*)("((?:\\.|[^"\\])*)"|'([^']+)'|([^\s]+))/gi, shape: 'assignment' },
   // Named command-line credentials, with either whitespace or equals syntax.
   { pattern: /(--(?:password|passwd|pwd|token|api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret|secret))(\s+|=)("(?:\\.|[^"\\])*"|'[^']*'|[^"'\s]+)/gi, shape: 'assignment' },
   // RPC clients commonly carry a user:password pair in one option. Keep the
@@ -71,10 +71,10 @@ export function defaultSensitiveRules(): SensitivePattern[] {
   // ending in PASSWORD is a password; the cost is `MONKEY=`, which nobody
   // writes. Lowercase names must be composite — `db_password`, not
   // `monkey` — because a lowercase word containing "key" is usually a word.
-  { pattern: /\b((?:[A-Z0-9_-]*(?:SECRET|TOKEN|KEY|PASSWORD|PASSWD|PWD|APIKEY)[A-Z0-9_-]*)|(?:[a-z0-9]+[_-][a-z0-9_-]*(?:secret|token|key|password|passwd|pwd|apikey)[a-z0-9_-]*))(\s*[:=]\s*)("([^"]+)"|'([^']+)'|([^\s]+))/g, shape: 'assignment' },
+  { pattern: /\b((?:[A-Z0-9_-]*(?:SECRET|TOKEN|KEY|PASSWORD|PASSWD|PWD|APIKEY)[A-Z0-9_-]*)|(?:(?:[a-z0-9]+[_-])+(?:secret|token|key|password|passwd|pwd|apikey)(?:[_-][a-z0-9]+)*))(\s*[:=]\s*)("((?:\\.|[^"\\])*)"|'([^']+)'|([^\s]+))/g, shape: 'assignment' },
 
   // Generic secret patterns
-  { pattern: /\b(secret|client[_-]?secret)(\s*[:=]\s*)("([^"]+)"|'([^']+)'|([^"'\s]+))/gi, shape: 'assignment' },
+  { pattern: /\b(secret|client[_-]?secret)(\s*[:=]\s*)("((?:\\.|[^"\\])*)"|'([^']+)'|([^"'\s]+))/gi, shape: 'assignment' },
   // Credentials embedded in a URL: postgres://user:pw@host, redis://, mongodb+srv://…
   //
   // Anchored on the literal `://` rather than on the scheme. Starting with the

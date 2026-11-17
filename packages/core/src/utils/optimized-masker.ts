@@ -33,7 +33,7 @@ import { redactRegisteredSecrets } from './secret-registry.js';
 export type RedactionShape =
   /** The whole match is the secret: `ghp_…` → `[REDACTED]`. */
   | 'whole'
-  /** `"key": "value"` → `"key": [REDACTED]`. Groups: key, value. */
+  /** `"key": "value"` → `"key": "[REDACTED]"`. Groups: key, value. */
   | 'json'
   /** `key=value` → `key=[REDACTED]`, separator verbatim. Groups: key, separator, … */
   | 'assignment'
@@ -106,7 +106,7 @@ export class OptimizedMasker {
           return replacement;
 
         case 'json':
-          return `"${groups[0]}": ${replacement}`;
+          return `${JSON.stringify(groups[0])}: ${JSON.stringify(replacement)}`;
 
         case 'assignment':
           return `${groups[0]}${groups[1]}${replacement}`;
@@ -190,7 +190,7 @@ function inferReplacement(
   }
 
   if (groups.length === 2 && match.includes('":')) {
-    return `"${groups[0]}": ${replacement}`;
+    return `${JSON.stringify(groups[0])}: ${JSON.stringify(replacement)}`;
   }
 
   if (

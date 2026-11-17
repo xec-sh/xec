@@ -57,6 +57,40 @@ describe('the redaction rules', () => {
     expect(only(fragment, shape)(text), `"${text}" was not redacted by ${fragment}`).not.toContain(secret);
   };
 
+  describe('structured operational diagnostics', () => {
+    it('preserves ordinary Redis counters instead of treating keys as a credential', () => {
+      keeps('evicted_keys:0\r\nexpired_keys:12\r\ncurrent_save_keys_processed:6\r\n');
+      keeps('keyboard_layout=us');
+      keeps('monkey_type=macaque');
+      hides('database_private_key=fixture-key', 'fixture-key');
+      hides('my_secret_value=fixture-secret', 'fixture-secret');
+    });
+
+    it.each(["password=first'private'suffix", 'DB_PASSWORD=first"private"suffix', "curl -u user:first'private'suffix"])(
+      'does not expose concatenated unquoted credentials in %s',
+      (input) => {
+        const result = mask(input);
+        for (const part of ['first', 'private', 'suffix']) expect(result).not.toContain(part);
+      },
+    );
+
+    it.each(['password', 'token', 'api_key', 'client-secret'])(
+      'masks the entire escaped JSON value of %s and preserves other properties',
+      (name) => {
+        const input = { [name]: 'before"after\\tail\nline', counter: 7, next: 'visible' };
+        const result = mask(JSON.stringify(input));
+        expect(JSON.parse(result)).toEqual({ [name]: '[REDACTED]', counter: 7, next: 'visible' });
+        for (const part of ['before', 'after', 'tail', 'line']) expect(result).not.toContain(part);
+      },
+    );
+
+    it('keeps custom JSON redaction strings valid without expanding replacement syntax', () => {
+      const custom = 'hidden "value"\n$&';
+      const redact = createOptimizedMasker(defaultSensitiveRules(), custom);
+      expect(JSON.parse(redact('{"password":"fixture-secret"}'))).toEqual({ password: custom });
+    });
+  });
+
   describe('keys named in an assignment', () => {
     // The separator is optional in the pattern, so all three spellings of
     // every name have to be caught. A mutant making it required leaves the
@@ -653,7 +687,7 @@ describe('the redaction rules', () => {
 
     it('a json value is consumed with its quotes', () => {
       expect(only('":\\s*"')('{"password": "s3cr3t value"}'))
-        .toBe(`{"password": ${DEFAULT_REDACTION}}`);
+        .toBe(`{"password": "${DEFAULT_REDACTION}"}`);
     });
 
     it('an authorization token is consumed whole', () => {

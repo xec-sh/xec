@@ -57,7 +57,7 @@ describe('what a redaction leaves behind', () => {
     it('keeps the key of a json pair and hides the value', () => {
       const mask = shaped(/"(password)":\s*"([^"]+)"/g, 'json');
 
-      expect(mask('{"password": "hunter2"}')).toBe(`{"password": ${R}}`);
+      expect(mask('{"password": "hunter2"}')).toBe(`{"password": "${R}"}`);
     });
 
     it('keeps the first group otherwise', () => {
@@ -235,7 +235,7 @@ describe('what a redaction leaves behind', () => {
       // is nothing to read a shape from. The inference is the behaviour
       // those configurations have always had, so it is kept exactly.
       expect(inferred(/"(password)":\s*"([^"]+)"/g)('{"password": "hunter2"}'))
-        .toBe(`{"password": ${R}}`);
+        .toBe(`{"password": "${R}"}`);
       expect(inferred(/(Authorization:\s*)(Bearer|Basic)(\s+)([a-zA-Z0-9]+)/g)('Authorization: Bearer abc123'))
         .toBe(`Authorization: Bearer ${R}`);
       expect(inferred(/\b(Bearer)(\s+)([a-zA-Z0-9]+)/g)('Bearer abc123'))
@@ -285,7 +285,7 @@ describe('what a redaction leaves behind', () => {
     });
 
     it('keeps a json key with two groups', () => {
-      expect(inferred(/"(secret)":\s*"([^"]+)"/g)('{"secret": "s3cr3t"}')).toBe(`{"secret": ${R}}`);
+      expect(inferred(/"(secret)":\s*"([^"]+)"/g)('{"secret": "s3cr3t"}')).toBe(`{"secret": "${R}"}`);
     });
 
     it('keeps an authorization scheme with four groups', () => {

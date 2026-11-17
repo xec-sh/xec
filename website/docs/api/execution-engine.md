@@ -87,6 +87,13 @@ const containers = response.json<unknown[]>();
 console.log(containers.length);
 ```
 
+Redaction is a diagnostic transform, not a schema validator. For example, a
+JSON field named `token` may be a credential or application data; Xec cannot
+infer its meaning. Use exact payload mode for machine decisions, validate the
+decoded value at your API boundary, and log only the fields needed for diagnosis.
+Do not print a complete unredacted Docker inspection: it can include environment
+credentials.
+
 ### Methods {#methods}
 
 #### execute() {#execute}
@@ -368,15 +375,9 @@ await `.spawned` first.
 
 ### Exact API payloads {#exact-api-payloads-1}
 
-Captured output is redacted by default. For structured API data, use a per-command `redactOutput: false` snapshot. This preserves exact `stdout`, `stderr`, `stdall` and decoded JSON. Error objects, diagnostic events and progress messages retain credential masking. The parent engine keeps its existing defaults. Native process streams and caller-supplied writable destinations carry their original bytes.
-
-```typescript
-import { $ } from '@xec-sh/core';
-
-const response = await $.with({ redactOutput: false })`docker inspect my-app`;
-const containers = response.json<unknown[]>();
-console.log(containers.length);
-```
+Use the same [per-command payload policy](#exact-api-payloads) when awaiting a
+`ProcessPromise`. Its resolved result owns the captured bytes; the lazy promise
+configures execution and stream destinations.
 
 ### Methods {#methods-1}
 

@@ -45,7 +45,7 @@ describe('masking preserves the shape around the secret', () => {
   // The redaction must leave the reader able to tell *which* credential was
   // masked: key names, header names and flag names stay, values go.
   it.each([
-    ['a JSON credential value', '"password": "secret123"', '"password": [REDACTED]'],
+    ['a JSON credential value', '"password": "secret123"', '"password": "[REDACTED]"'],
     ['a Bearer authorization header', 'Authorization: Bearer abc.def-123', 'Authorization: Bearer [REDACTED]'],
     ['a Basic authorization header', 'Authorization: Basic dXNlcjpwYXNz', 'Authorization: Basic [REDACTED]'],
     ['an unquoted assignment', 'api_key=topsecret', 'api_key=[REDACTED]'],

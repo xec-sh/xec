@@ -223,9 +223,9 @@ describe('BaseAdapter Data Masking', () => {
 
       const masked = adapter.testMaskSensitiveData(input);
 
-      expect(masked).toContain('"api_key": ***REDACTED***');
-      expect(masked).toContain('"password": ***REDACTED***');
-      expect(masked).toContain('"token": ***REDACTED***');
+      expect(masked).toContain('"api_key": "***REDACTED***"');
+      expect(masked).toContain('"password": "***REDACTED***"');
+      expect(masked).toContain('"token": "***REDACTED***"');
       expect(masked).toContain('"data": "non-sensitive"');
     });
 
