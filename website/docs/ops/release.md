@@ -27,12 +27,12 @@ build also needs Bun. GitHub publication additionally needs an authenticated
 `gh` CLI. Run from a clean, committed checkout on the intended release branch.
 For an interactive public npm release, the publisher checks the current npm identity before pushing the release refs when archives still need uploading. If the session expired, run `npm login --auth-type=web --registry=https://registry.npmjs.org/` and `npm whoami --registry=https://registry.npmjs.org/`. An authenticated account still needs write access to each destination package or scope.
 
-Install the frozen dependencies in a separate checkout when the current installation serves applications. The root manifest pins published Xec CLI, Ops and Kit with explicit npm dependencies. Those installed packages run the project recipe; the candidate CLI is built only as a release artifact. No local CLI build is required to start. Xec 0.13.0 is published. The commands below use `0.13.1` as an illustrative next version; choose the actual unused version for your release.
+Install the frozen dependencies in a separate checkout when the current installation serves applications. The root manifest pins published Xec CLI, Ops and Kit with explicit npm dependencies. Those installed packages run the project recipe; the candidate CLI is built only as a release artifact. No local CLI build is required to start. Xec 0.13.1 is published. The commands below use `0.13.2` as an illustrative next version; choose the actual unused version for your release.
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm release 0.13.1 --dry-run
-pnpm release 0.13.1 --prepare
+pnpm release 0.13.2 --dry-run
+pnpm release 0.13.2 --prepare
 ```
 
 The dry run reads local evidence only. It reports package inventory,
@@ -75,7 +75,7 @@ looks equivalent. Rebuilding a missing archive is not proof of equivalence.
 After reviewing the candidate and its required tests, the operator can publish:
 
 ```bash
-pnpm release 0.13.1 --resume
+pnpm release 0.13.2 --resume
 ```
 
 This pushes only the exact release commit and selected annotated tag, atomically,
@@ -89,7 +89,7 @@ checkout of its release commit; it completes GitHub without republishing npm.
 `--notes-from <full-commit>` selects the published ancestor used as the release
 notes baseline. Xec verifies that it is a full commit and an ancestor; the caller
 is responsible for choosing the published baseline. Without it, notes explicitly
-cover committed history, not a guessed release delta. The pinned 0.13.0 driver
+cover committed history, not a guessed release delta. The pinned 0.13.1 driver
 bounds generated notes to complete commit entries within GitHub's body limit,
 preserves source and package identity, and links to the full history. Oversized
 supplied notes are rejected before remote writes.
@@ -97,9 +97,37 @@ supplied notes are rejected before remote writes.
 the isolated dependency installation use the existing pnpm store. `--yes` accepts
 the displayed execution plan in noninteractive use; it bypasses no checks.
 
+## Changelog and release notes {#changelog-and-release-notes}
+
+Package changelogs describe authored user-facing changes. GitHub release notes
+are generated separately from committed history and the package inventory;
+`--notes-from` selects their baseline. A GitHub release does not edit source
+changelogs.
+
+Starting with **Ops 0.13.2**, `commitReleaseVersion` moves a nonempty
+`## Unreleased` or `## [Unreleased]` section into
+`## [<version>] - YYYY-MM-DD` in the same commit as the public package versions.
+The date is UTC. It visits an existing root `CHANGELOG.md` and the existing
+changelogs of public packages. It preserves prior history, keeps an empty
+Unreleased section for future work and does not invent entries for packages
+without pending notes. Private workspace changelogs remain project-owned.
+
+Duplicate pending sections, an existing target release, untracked/nonregular
+changelog files and unsupported Unreleased comparison links are rejected before
+any version file is written. Standard `compare/<base>...HEAD` links advance to
+the new tag and gain a link for that release. Markdown examples inside fenced
+code blocks are not release headings. Publication and resume never rewrite
+changelogs or change accepted archives.
+
+The currently pinned **0.13.1** driver predates this behavior: its version commit
+changes manifests only. For the 0.13.2 bootstrap, the reviewed source commit
+classifies changelog entries before preparation. After adopting the published
+0.13.2 driver, future preparations perform the transition automatically. Do not
+run the checkout's candidate CLI to bootstrap its own release.
+
 ## Published driver and producer reuse {#published-driver}
 
-This repository pins published Xec **0.13.0**. Its recipe still uses
+This repository pins published Xec **0.13.1**. Its recipe still uses
 `verifyArtifact` to run the installed Core/SSH pair check before sealing the
 accepted release. It does not yet opt into retained-producer reuse. Do not infer
 that updating the driver alone changes the repository's acceptance policy.
@@ -214,7 +242,7 @@ checkout holding the prepared archives.
   export GIT_CONFIG_COUNT=1
   export GIT_CONFIG_KEY_0='url.https://github.com/.insteadOf'
   export GIT_CONFIG_VALUE_0='git@github.com:'
-  pnpm release 0.13.1 --resume
+  pnpm release 0.13.2 --resume
 )
 ```
 

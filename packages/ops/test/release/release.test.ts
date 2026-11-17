@@ -731,6 +731,48 @@ describe('release inventory, refs and sealed artifacts', () => {
     await expect(commitReleaseVersion(root, '1.0.1')).rejects.toThrow('clean');
     expect(await readFile(join(root, 'unrelated.txt'), 'utf8')).toBe('retain this');
   });
+
+  it('commits root and public package changelogs with versions once, preserving private history', async () => {
+    const root = await repository();
+    const pending = '# Changes\n\n## Unreleased\n\n- Preserve interrupted operation identity.\n\n## [0.9.0] - 2026-01-01\n\n- Previous history.\n';
+    await writeFile(join(root, 'CHANGELOG.md'), pending);
+    await writeFile(join(root, 'packages/a/CHANGELOG.md'), pending);
+    await writeFile(join(root, 'packages/b/CHANGELOG.md'), '# Changes\n\n## Unreleased\n');
+    await mkdir(join(root, 'packages/private'));
+    await writeFile(join(root, 'packages/private/package.json'), JSON.stringify({ name: '@fixture/private', private: true, version: '0.1.0' }));
+    await writeFile(join(root, 'packages/private/CHANGELOG.md'), pending);
+    await releaseCommand(root, 'git', ['add', '.']);
+    await releaseCommand(root, 'git', ['commit', '-m', 'authored release notes']);
+    const before = await releaseCommand(root, 'git', ['rev-parse', 'HEAD']);
+    await commitReleaseVersion(root, '1.0.0');
+    const after = await releaseCommand(root, 'git', ['rev-parse', 'HEAD']);
+    expect(await releaseCommand(root, 'git', ['rev-parse', 'HEAD^'])).toBe(before);
+    expect((await releaseCommand(root, 'git', ['show', '--pretty=', '--name-only', 'HEAD'])).split('\n')).toEqual([
+      'CHANGELOG.md', 'packages/a/CHANGELOG.md', 'packages/a/package.json', 'packages/b/package.json',
+    ]);
+    for (const file of ['CHANGELOG.md', 'packages/a/CHANGELOG.md']) {
+      const text = await readFile(join(root, file), 'utf8');
+      expect(text).toMatch(/## Unreleased\n\n## \[1\.0\.0\] - \d{4}-\d{2}-\d{2}\n\n- Preserve/);
+      expect(text).toContain('## [0.9.0] - 2026-01-01\n\n- Previous history.');
+    }
+    expect(await readFile(join(root, 'packages/private/CHANGELOG.md'), 'utf8')).toBe(pending);
+    await commitReleaseVersion(root, '1.0.0');
+    expect(await releaseCommand(root, 'git', ['rev-parse', 'HEAD'])).toBe(after);
+    expect(await releaseCommand(root, 'git', ['status', '--porcelain'])).toBe('');
+  });
+
+  it('rejects a malformed later changelog without changing any manifest, history or Git index', async () => {
+    const root = await repository();
+    await writeFile(join(root, 'packages/a/CHANGELOG.md'), '## Unreleased\n\n- Good.\n');
+    await writeFile(join(root, 'packages/b/CHANGELOG.md'), '## Unreleased\n\n- A.\n\n## Unreleased\n\n- B.\n');
+    await releaseCommand(root, 'git', ['add', '.']);
+    await releaseCommand(root, 'git', ['commit', '-m', 'ambiguous history']);
+    const before = await releaseCommand(root, 'git', ['rev-parse', 'HEAD']);
+    await expect(commitReleaseVersion(root, '1.0.0')).rejects.toThrow('Invalid release changelog: packages/b/CHANGELOG.md');
+    expect(await releaseCommand(root, 'git', ['rev-parse', 'HEAD'])).toBe(before);
+    expect(await releaseCommand(root, 'git', ['status', '--porcelain'])).toBe('');
+  });
+
   it('identifies an SSH authentication failure before examining or changing release refs', async () => {
     const refused = new ReleaseCommandError('git', 128, '', 'Permission denied (publickey).');
     const run: ReleaseCommand = async (_cwd, executable, args) => {
