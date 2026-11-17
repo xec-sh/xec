@@ -1,9 +1,13 @@
+import type { Command } from '../../src/types/command.js';
 import type { ProcessHandle } from '../../src/types/process-handle.js';
 
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { Writable } from 'node:stream';
 import { randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
+import { rm, open, mkdtemp, readFile } from 'node:fs/promises';
 
 import { DockerAdapter } from '../../src/adapters/docker/index.js';
 
@@ -55,6 +59,42 @@ describe.skipIf(!image)('owned execution against Docker', () => {
     expect(Buffer.concat(bytes)).toEqual(Buffer.from([0, 255, 1]));
     expect(onSpawn).toHaveBeenCalledOnce();
     expect(await state(onSpawn.mock.calls[0]![0].resource!.id)).toMatchObject({ Running: false, Pid: 0, ExitCode: 7 });
+  });
+
+  it.each([false, true])('records the Docker identity before cleanup after cancelled create (lost reply: %s)', async lostReply => {
+    const controller = new AbortController();
+    class CancelledCreationDocker extends DockerAdapter {
+      protected override async executeDockerCommand(args: string[], options: Partial<Command>, management = false) {
+        const result = await super.executeDockerCommand(args, options, management);
+        if (args[0] === 'create' && result.exitCode === 0) {
+          ids.add(result.stdout.trim());
+          controller.abort(new Error('test cancellation after Docker creation'));
+          if (lostReply) throw new Error('test lost creation acknowledgement');
+        }
+        return result;
+      }
+    }
+    adapter = new CancelledCreationDocker({ managementTimeout: 30_000 });
+    const directory = await mkdtemp(join(tmpdir(), 'xec-docker-receipt-'));
+    const journal = join(directory, 'resource.json');
+    const onSpawn = vi.fn(remember);
+    try {
+      await expect(adapter.execute({ command: 'sh', args: ['-c', 'exit 42'], shell: false,
+        signal: controller.signal, timeout: 60_000, onSpawn, adapterOptions: target(),
+        onResource: async (resource, signal) => {
+          signal.throwIfAborted();
+          if (resource.id) expect(await state(resource.id)).toMatchObject({ Running: false, Pid: 0, Status: 'created' });
+          const file = await open(journal, 'w', 0o600);
+          try { await file.writeFile(JSON.stringify(resource)); await file.sync(); }
+          finally { await file.close(); }
+        },
+      })).rejects.toThrow(lostReply ? 'Container creation was not acknowledged' : 'test cancellation');
+      const resource = JSON.parse(await readFile(journal, 'utf8'));
+      expect(resource.id).toMatch(/^[a-f0-9]{64}$/);
+      expect(onSpawn).not.toHaveBeenCalled();
+      await expect(adapter.inspectExecution(resource)).resolves.toEqual({ resource, state: 'absent' });
+      expect(await state(neighbor)).toMatchObject({ Running: true });
+    } finally { await rm(directory, { recursive: true, force: true }); }
   });
 
   it.each(['timeout', 'abort', 'handle', 'dispose'] as const)('confirms owned termination after %s while preserving its neighbor', async mode => {

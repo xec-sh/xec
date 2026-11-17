@@ -195,6 +195,28 @@ configured management-command timeout still applies; the grace period does not
 permit an unbounded command. The default remains direct removal, with forced
 removal only when the second argument is `true`.
 
+## Durable ownership during cancellation {#durable-ownership-during-cancellation}
+
+For one-off Docker execution, supply a stable operation UUID and persist each
+`onResource(resource, signal)` callback before returning. Xec registers the Docker
+daemon and operation identity before creation, then the immutable container ID
+before execution. Recovery uses that same identity through `inspectExecution`
+and `terminateExecution`; it does not repeat the original command.
+
+**Unreleased source change:** when Docker creates a container but its reply is
+lost, Xec also awaits the recovered ID's registration before removing the
+unstarted container. Identity writes after creation use a separate bounded
+recovery signal, so cancellation of the command does not erase the evidence
+needed to verify cleanup. Honor the callback's signal rather than substituting
+the command's aborted signal.
+
+If the identity write fails or exceeds its deadline, execution remains an
+unknown outcome and the unstarted container is retained for reconciliation.
+It is neither started nor silently removed. An empty inventory without a
+previously recorded ID still cannot prove that a delayed create request will
+never complete. These changes prevent new lost-identity receipts; they cannot
+reconstruct proof missing from a receipt created by an older release.
+
 ## Related Topics {#related-topics}
 
 - [Docker Overview](./overview.md) - Docker target basics

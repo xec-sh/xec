@@ -27,6 +27,7 @@ class ProtocolDocker extends DockerAdapter {
   stateFailure = false;
   removalFailure = false;
   replacementPresent = false;
+  onCreate?: () => void;
   onAttach?: (handle: ProcessHandle) => void | Promise<void>;
   protected override async executeDockerCommand(args: string[], options: Partial<Command>) {
     this.calls.push({ args, options });
@@ -34,6 +35,7 @@ class ProtocolDocker extends DockerAdapter {
       case 'info': return output(JSON.stringify(this.daemonId));
       case 'create': {
         this.executionId = args.find(value => value.startsWith('sh.xec.execution='))!.slice('sh.xec.execution='.length);
+        this.onCreate?.();
         if (this.createFailure) throw this.createFailure;
         return output(this.createReply);
       }
@@ -99,10 +101,72 @@ describe('owned Docker execution contract', () => {
   it.each(['intent', 'identity'])('refuses effects after rejected %s registration', async stage => {
     const adapter = new ProtocolDocker();
     const onResource = vi.fn(value => { if (stage === 'intent' || value.id) throw new Error('journal unavailable'); });
-    await expect(adapter.execute({ ...command, operationId, onResource })).rejects.toThrow('journal unavailable');
-    expect(adapter.calls.some(call => call.args[0] === 'start')).toBe(false);
+    const failed = adapter.execute({ ...command, operationId, onResource });
+    if (stage === 'intent') await expect(failed).rejects.toThrow('journal unavailable');
+    else await expect(failed).rejects.toMatchObject({ kind: 'outcome-unknown', resource });
+    expect(adapter.calls.some(call => ['start', 'stop', 'rm'].includes(call.args[0]!))).toBe(false);
     if (stage === 'intent') expect(adapter.calls.some(call => call.args[0] === 'create')).toBe(false);
-    else expect(adapter.present).toBe(false);
+    else expect(adapter.present).toBe(true);
+  });
+
+  it('records a recovered creation ID before removing its only observable evidence', async () => {
+    const adapter = new ProtocolDocker();
+    adapter.createFailure = new Error('create acknowledgement lost');
+    let acknowledge!: () => void;
+    const saved = new Promise<void>(resolve => { acknowledge = resolve; });
+    const identities: unknown[] = [];
+    const pending = adapter.execute({ ...command, operationId,
+      onResource: async (value, signal) => {
+        signal.throwIfAborted();
+        identities.push(value);
+        if (value.id) await saved;
+      },
+    }).catch(error => error);
+    await vi.waitFor(() => expect(identities).toEqual([
+      { type: 'docker-container', operationId, daemonId: 'daemon-one' }, resource,
+    ]));
+    expect(adapter.present).toBe(true);
+    expect(adapter.calls.some(call => ['start', 'stop', 'rm'].includes(call.args[0]!))).toBe(false);
+    acknowledge();
+    expect(await pending).toMatchObject({ operation: 'create', container: id });
+    await expect(adapter.inspectExecution(resource)).resolves.toEqual({ resource, state: 'absent' });
+  });
+
+  it.each([false, true])('retains the identity after cancellation during create (lost reply: %s)', async lostReply => {
+    const adapter = new ProtocolDocker();
+    const controller = new AbortController();
+    const identities: unknown[] = [];
+    adapter.onCreate = () => controller.abort(new Error('caller cancelled creation'));
+    if (lostReply) adapter.createFailure = new Error('create acknowledgement lost');
+    const failure = await adapter.execute({ ...command, operationId, signal: controller.signal,
+      onResource: (value, signal) => { signal.throwIfAborted(); identities.push(value); },
+    }).catch(error => error);
+    expect(failure).toBeInstanceOf(Error);
+    expect(controller.signal.aborted).toBe(true);
+    expect(identities).toEqual([{ type: 'docker-container', operationId, daemonId: 'daemon-one' }, resource]);
+    expect(adapter.calls.some(call => ['start', 'stop'].includes(call.args[0]!))).toBe(false);
+    await expect(adapter.inspectExecution(resource)).resolves.toEqual({ resource, state: 'absent' });
+  });
+
+  it.each(['reject', 'timeout'])('preserves a recovered container when its identity write cannot finish: %s', async mode => {
+    vi.useFakeTimers();
+    try {
+      const adapter = new ProtocolDocker({ managementTimeout: 20 });
+      adapter.createFailure = new Error('create acknowledgement lost');
+      let recoverySignal: AbortSignal | undefined;
+      const pending = adapter.execute({ ...command, operationId, onResource: async (value, signal) => {
+        if (!value.id) return;
+        recoverySignal = signal;
+        if (mode === 'reject') throw new Error('journal unavailable');
+        await new Promise<void>(() => {});
+      } }).catch(error => error);
+      await vi.advanceTimersByTimeAsync(20);
+      expect(await pending).toMatchObject({ kind: 'outcome-unknown', resource });
+      if (mode === 'timeout') expect(recoverySignal?.aborted).toBe(true);
+      expect(adapter.present).toBe(true);
+      expect(adapter.calls.some(call => ['start', 'stop', 'rm'].includes(call.args[0]!))).toBe(false);
+      await expect(adapter.inspectExecution(resource)).resolves.toEqual({ resource, state: 'stopped' });
+    } finally { vi.useRealTimers(); }
   });
 
   it('bounds blocked admission and exposes cancellation to the hook before any create', async () => {
@@ -240,7 +304,7 @@ describe('owned Docker execution contract', () => {
     if (mode === 'daemon unavailable') adapter.inventoryFailure = true;
     const failure = await adapter.execute({ ...command, nothrow: true }).catch(error => error);
     expect(failure).toMatchObject({ kind: 'outcome-unknown', code: 'EXECUTION_OUTCOME_UNKNOWN', adapter: 'docker' });
-    expect(failure.resource).toEqual({ type: 'docker-container', operationId: adapter.executionId, daemonId: 'daemon-one' });
+    expect(failure.resource).toEqual({ type: 'docker-container', operationId: adapter.executionId, daemonId: 'daemon-one', ...(mode === 'running resource' ? { id } : {}) });
     expect(adapter.calls.some(call => ['start', 'stop', 'rm'].includes(call.args[0]!))).toBe(false);
   });
 

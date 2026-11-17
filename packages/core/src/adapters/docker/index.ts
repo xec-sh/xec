@@ -736,18 +736,22 @@ export class DockerAdapter extends BaseAdapter {
     if (createArgs[1] === '--rm') createArgs.splice(1, 1);
     const daemonId = await this.readDaemonIdentity({ timeout: remaining(), signal: command.signal });
     let resource: ExecutionResource = Object.freeze({ type: 'docker-container', operationId: executionId, daemonId });
-    const register = async () => {
+    // Once Docker has acknowledged an ID, retaining it is recovery work. A
+    // cancelled command must not cancel the journal write that makes cleanup
+    // provable after the container disappears.
+    const register = async (recoveryDeadline?: number) => {
       const controller = new AbortController();
       const abort = () => controller.abort(command.signal?.reason);
-      command.signal?.addEventListener('abort', abort, { once: true });
+      if (recoveryDeadline === undefined) command.signal?.addEventListener('abort', abort, { once: true });
       let timer: ReturnType<typeof setTimeout> | undefined;
       let rejectAbort: (() => void) | undefined;
       const failed = new Promise<never>((_, reject) => {
         rejectAbort = () => reject(controller.signal.reason);
         controller.signal.addEventListener('abort', rejectAbort, { once: true });
-        const budget = remaining();
-        if (budget > 0) timer = setTimeout(() => controller.abort(new TimeoutError('Resource registration', timeout)), budget);
-        if (command.signal?.aborted) abort();
+        const budget = recoveryDeadline === undefined ? remaining() : recoveryDeadline - Date.now();
+        if (recoveryDeadline !== undefined && budget <= 0) controller.abort(new TimeoutError('Resource registration', 0));
+        else if (budget > 0) timer = setTimeout(() => controller.abort(new TimeoutError('Resource registration', budget)), budget);
+        if (recoveryDeadline === undefined && command.signal?.aborted) abort();
       });
       try {
         controller.signal.throwIfAborted();
@@ -769,7 +773,12 @@ export class DockerAdapter extends BaseAdapter {
       if (!/^[a-f0-9]{64}$/.test(id)) throw new Error('Docker did not acknowledge an immutable container ID');
     } catch (error) {
       let recovered: string;
-      try { recovered = await this.reconcileOwnedCreation(resource); }
+      try {
+        recovered = await this.reconcileOwnedCreation(resource, async (identified, deadline) => {
+          resource = identified;
+          await register(deadline);
+        });
+      }
       catch (cleanup) {
         throw new ExecutionOutcomeUnknownError({ adapter: 'docker', operationId: executionId,
           resource,
@@ -779,11 +788,18 @@ export class DockerAdapter extends BaseAdapter {
       throw new DockerError(recovered, 'create', new Error('Container creation was not acknowledged; owned unstarted container removed', { cause: error }));
     }
     resource = Object.freeze({ ...resource, id });
+    try { await register(this.cleanupDeadline()); }
+    catch (cause) {
+      // Preserve the owned, unstarted container for reconciliation. Removing
+      // it before its ID reaches the journal would destroy the only evidence
+      // that distinguishes completed cleanup from an unacknowledged create.
+      throw new ExecutionOutcomeUnknownError({ adapter: 'docker', operationId: executionId, resource,
+        cause: new Error('Container identity registration failed; the unstarted container is retained', { cause }) });
+    }
     let signal: NodeJS.Signals = 'SIGTERM';
     let failure: { error: unknown } | undefined;
     let result: Awaited<ReturnType<DockerAdapter['executeDockerCommand']>> | undefined;
     try {
-      await register();
       command.signal?.throwIfAborted();
       await this.assertDaemon(resource, Date.now() + (remaining() || DEFAULT_MANAGEMENT_TIMEOUT));
       const attach = ['start', '--attach'];
@@ -888,7 +904,8 @@ export class DockerAdapter extends BaseAdapter {
   }
 
   /** An empty observation cannot rule out a still-pending create request. */
-  private async reconcileOwnedCreation(resource: ExecutionResource): Promise<string> {
+  private async reconcileOwnedCreation(resource: ExecutionResource,
+    recordIdentity: (identified: ExecutionResource, deadline: number) => Promise<void>): Promise<string> {
     const { operationId: executionId } = resource;
     const deadline = this.cleanupDeadline();
     const selector = `${EXECUTION_LABEL}=${executionId}`;
@@ -906,7 +923,9 @@ export class DockerAdapter extends BaseAdapter {
         if (!labels || typeof labels !== 'object' || !(EXECUTION_LABEL in labels) || labels[EXECUTION_LABEL] !== executionId) {
           throw new Error('Container ownership label does not match this execution');
         }
-        await this.finishOwnedRun(id, true, 'SIGTERM', deadline, true, { ...resource, id });
+        const identified = Object.freeze({ ...resource, id });
+        await recordIdentity(identified, deadline);
+        await this.finishOwnedRun(id, true, 'SIGTERM', deadline, true, identified);
         return id;
       }
       await wait(Math.min(1000, Math.max(0, deadline - Date.now())));

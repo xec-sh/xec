@@ -1,7 +1,7 @@
 import type { Duration } from '../utils/helpers.js';
 import type { Readable, Writable } from 'node:stream';
-import type { RetryOptions } from '../utils/retry-adapter.js';
 import type { SSHConnectionConfig } from '@xec-sh/ssh';
+import type { RetryOptions } from '../utils/retry-adapter.js';
 import type { ProcessHandle, ExecutionResource } from './process-handle.js';
 
 /**
@@ -193,7 +193,10 @@ export interface Command {
   /**
    * Awaited write-ahead ownership registration. Docker run invokes it with
    * daemon/operation identity before create and with the full ID before start.
-   * Rejection prevents the next effect. Must honor the signal passed by Xec.
+   * Recovered creation IDs are also registered before cleanup. Identity writes
+   * after creation use a bounded recovery signal, even if the command was
+   * cancelled. Rejection retains the unstarted resource for reconciliation.
+   * Must honor the signal passed by Xec; do not substitute the command signal.
    */
   onResource?: (resource: ExecutionResource, signal: AbortSignal) => void | Promise<void>;
 

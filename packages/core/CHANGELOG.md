@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Docker creation recovery records the immutable container ID before cleanup, including cancellation during creation. Identity registration uses a bounded recovery signal; failed or timed-out registration retains the unstarted container and reports an unknown outcome.
+
 - `.nothrow()` returns actual completed results; resolution, authentication, cancellation and unknown-outcome errors remain rejections, including cached and transformed commands. Scoped `nothrow` settings preserve explicit command precedence.
 - SSH contexts delegate string-based `.exec(command, options)` and retry option types to the common engine instead of maintaining a conflicting tagged-template overload.
 
