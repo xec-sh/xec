@@ -86,6 +86,9 @@ export function getDockerCommand(...args: string[]): string {
   return [dockerPath, ...args].join(' ');
 }
 
+/** Docker's full row requests writable-layer sizes for every container. Identity lookup needs only these fields. */
+export const containerIdentityFormat = '{"ID":{{json .ID}},"Names":{{json .Names}}}';
+
 /** Resolve a name or unique ID prefix from a successfully read Docker inventory. */
 export function parseContainerReference(output: string, container: string): string | null {
   if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/.test(container)) {

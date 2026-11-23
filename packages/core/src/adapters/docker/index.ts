@@ -9,8 +9,8 @@ import { LocalCommandSession } from '../local/command-session.js';
 import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
 import { Command, DockerAdapterOptions } from '../../types/command.js';
 import { assertExecutionResource } from '../../types/process-handle.js';
-import { findDockerPath, parseContainerReference } from './docker-utils.js';
 import { ExecutionResult, ExecutionResultImpl } from '../../core/result.js';
+import { findDockerPath, parseContainerReference, containerIdentityFormat } from './docker-utils.js';
 import { DockerError, AdapterError, CommandError, TimeoutError, sanitizeCommandForError, ExecutionOutcomeUnknownError } from '../../core/error.js';
 
 export interface DockerAutoCreateOptions {
@@ -945,7 +945,7 @@ export class DockerAdapter extends BaseAdapter {
     };
     const invoke = (args: string[]) => this.cleanupCommand(args, deadline);
     const present = async () => {
-      const result = await invoke(['ps', '-a', '--no-trunc', '--filter', `id=${id}`, '--format', '{{json .}}']);
+      const result = await invoke(['ps', '-a', '--no-trunc', '--filter', `id=${id}`, '--format', containerIdentityFormat]);
       if (result.exitCode !== 0) throw new Error(result.stderr || 'Container inventory failed');
       return parseContainerReference(result.stdout, id) !== null;
     };
@@ -1285,7 +1285,7 @@ export class DockerAdapter extends BaseAdapter {
   private async resolveContainerReference(container: string, signal?: AbortSignal): Promise<string | null> {
     this.validateContainerReference(container, 'inspect');
     const result = await this.executeDockerCommand(
-      ['ps', '-a', '--no-trunc', '--format', '{{json .}}'], { ...this.managementOptions(), signal });
+      ['ps', '-a', '--no-trunc', '--format', containerIdentityFormat], { ...this.managementOptions(), signal });
     if (result.exitCode !== 0) throw new DockerError(container, 'inspect', new Error(result.stderr));
     return parseContainerReference(result.stdout, container);
   }

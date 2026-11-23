@@ -18,8 +18,8 @@ import type {
 
 import { randomUUID } from 'node:crypto';
 
-import { findDockerPath, parseContainerReference } from '../docker-utils.js';
 import { escapeUnix, interpolateForShell } from '../../../utils/shell-escape.js';
+import { findDockerPath, parseContainerReference, containerIdentityFormat } from '../docker-utils.js';
 
 /**
  * Distinguish a tagged-template call from a plain `string[]` command.
@@ -182,7 +182,7 @@ export abstract class BaseDockerFluentAPI<T extends DockerContainerConfig> {
   protected async resolveContainer(): Promise<string | null> {
     const reference = this.containerReference;
     if (!reference) return null;
-    const result = await this.dockerCommand(['ps', '-a', '--no-trunc', '--format', '{{json .}}']);
+    const result = await this.dockerCommand(['ps', '-a', '--no-trunc', '--format', containerIdentityFormat]);
     return parseContainerReference(result.stdout, reference);
   }
 

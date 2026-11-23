@@ -16,8 +16,8 @@ describe('confirmed container removal', () => {
   it('pins the immutable ID and verifies absence', async () => {
     const { instance, command } = adapter(inventory(), result(first), result());
     await instance.removeContainer('owned', true);
-    expect(command.mock.calls[1]?.[0]).toEqual(['rm', '-f', '--', first]);
-    expect(command).toHaveBeenCalledTimes(3);
+    const lookup = ['ps', '-a', '--no-trunc', '--format', '{"ID":{{json .ID}},"Names":{{json .Names}}}'];
+    expect(command.mock.calls.map(call => call[0])).toEqual([lookup, ['rm', '-f', '--', first], lookup]);
   });
   it('uses the same immutable identity for graceful stop before removal', async () => {
     const { instance, command } = adapter(inventory(), result(), result(), result());

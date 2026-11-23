@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Docker container identity lookups now request only names and full IDs. Concurrent removal of another container can release its writable layer without interrupting this lookup.
+
 ## [0.13.2] - 2026-11-17
 
 - Diagnostic masking preserves quoted JSON credential fields, masks escaped values completely, and leaves ordinary Redis counters such as `evicted_keys` visible. Machine payloads continue to use the explicit exact-output API.

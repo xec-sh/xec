@@ -188,6 +188,9 @@ container replaces the original name during removal, the operation rejects and
 leaves the replacement untouched. Callers should refresh their inventory before
 retrying a conflicting operation.
 
+On `main`, identity checks read only container names and full IDs. Docker can
+resolve the target while another container’s writable layer is being removed.
+
 For an orderly shutdown before removal, use
 `removeContainer(nameOrId, false, { graceful: true, stopTimeoutSeconds: 30 })`.
 Both steps target the same immutable ID. A failed stop prevents removal. The
