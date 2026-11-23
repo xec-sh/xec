@@ -1,14 +1,10 @@
 # Xec documentation
 
-The source for [xec.sh](https://xec.sh), built with Lumen and Prism. The registry
-lock currently records 0.4.10. The new shared theme integration requires the
-forthcoming `PrismThemeScript` and `modeStorageKey` API and is qualified against
-the development SDK. Update the published dependencies and lockfile before
-distributing this revision; the existing lock does not contain that API.
+Lumen builds the guides, API reference and executable examples for xec.sh. Prism supplies the shared theme. The website manifest and workspace lockfile pin the published packages used locally and on GitHub Pages. [Website dependencies](./package.json)
 
 ## Develop
 
-From the repository root:
+Run these commands from the repository root.
 
 ```sh
 pnpm install --frozen-lockfile
@@ -28,7 +24,9 @@ pnpm --dir website exec playwright install chromium
 pnpm --dir website test:browser
 ```
 
-Xec runs the production build and its route checks. Lumen compiles Markdown, highlights code, verifies links and builds the Pagefind search index. The route contract preserves 153 published documentation URLs and their section anchors. Browser tests cover desktop/mobile navigation, all six example tabs, copy feedback, persistent light/dark/system themes, search and the active section indicator.
+The workspace pins a parser fix for the copy of picomatch 4.0.7 used by its own build tools. Lumen carries the fix in its bundled compiler. Recheck both distributions when upgrading the matcher. [Reviewed patch](../patches/picomatch@4.0.7.patch)
+
+Xec runs the production build and its route checks. Lumen compiles Markdown, highlights code, verifies links and builds the Pagefind search index. The route contract verifies the published documentation URLs and their section anchors. Browser tests cover desktop/mobile navigation, all six example tabs, copy feedback, persistent light/dark/system themes, search and the active section indicator.
 
 ## Structure
 
@@ -36,23 +34,20 @@ Xec runs the production build and its route checks. Lumen compiles Markdown, hig
 | --- | --- |
 | `docs/` | Guides, API references and executable examples |
 | `pages/` | Homepage and search routes |
-| `lumen.config.ts` | Canonical Lumen configuration; broken links and anchors fail the build |
+| `lumen.config.ts` | Lumen site configuration and link validation |
 | `src/site/` | Xec identity and layouts built from Prism and Lumen components |
 | `src/data/examples.json` | The exact copyable TypeScript examples shown on the homepage |
 | `src/data/sidebars.json` | Documentation navigation |
 | `src/data/route-contract.json` | Published URL and section-anchor contract |
-| `scripts/build.ts` | Xec orchestration of compilation and route verification |
+| [Xec project tasks](../.xec/config.yaml) | The `docs:build` task compiles the site and checks its routes |
 | `tests/` | Browser acceptance checks |
 
-The homepage switches between real source examples; it does not execute shell commands in the browser. Library APIs, CLI entry points and platform prerequisites stay explicit. The site uses static HTML and selective Lumen islands; it requires no application server.
+The homepage lets readers select and copy real source examples. Static HTML serves each page. Lumen islands enable search, navigation and interactive examples.
 
-Prism owns the theme, its pre-rendered light/dark palettes and the saved
-`xec-theme` preference. The server and client use the same provider contract;
-there is no separate website storage or media-query implementation. Site CSS
-maps Xec's layout tokens to the provider's native variables.
+Prism applies the saved `xec-theme` preference before the first paint. The server and client use the same provider and palettes. Site CSS maps Xec’s layout tokens to the provider’s variables.
 
 ## Deploy
 
-The [Pages workflow](../.github/workflows/deploy-website.yml) verifies eligible changes and deploys `website/build` to the existing `xec.sh` custom domain. Pull requests build and test without deploying. `pnpm docs:deploy` dispatches that same workflow; there is no separate local deployment implementation.
+GitHub Pages publishes the verified `website/build` directory to xec.sh after a change lands on `main`. Pull requests run the build and tests. To trigger the same deployment manually, run `pnpm docs:deploy`. [Pages workflow](../.github/workflows/deploy-website.yml)
 
 [Project overview](../README.md) · [MIT license](../LICENSE)

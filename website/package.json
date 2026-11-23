@@ -14,10 +14,10 @@
     "test:examples": "node --test scripts/test/cli-examples.test.js"
   },
   "dependencies": {
-    "@omnitron-dev/lumen": "0.4.12",
-    "@omnitron-dev/lumen-ast": "0.4.12",
-    "@omnitron-dev/lumen-ui": "0.4.12",
-    "@omnitron-dev/prism": "0.4.12",
+    "@omnitron-dev/lumen": "0.4.16",
+    "@omnitron-dev/lumen-ast": "0.4.16",
+    "@omnitron-dev/lumen-ui": "0.4.16",
+    "@omnitron-dev/prism": "0.4.16",
     "react": "19.3.1",
     "react-dom": "19.3.1"
   },
