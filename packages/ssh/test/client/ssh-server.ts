@@ -3,7 +3,7 @@ import FS from 'node:fs';
 import { spawn as ptySpawn } from 'node-pty';
 import ChildProcess from 'node:child_process';
 
-import { PRIVATE_KEY_PATH } from './helpers.js';
+import { fixturePrompt, PRIVATE_KEY_PATH } from './helpers.js';
 import { posixShellPath } from '../../../core/test/helpers/platform.js';
 
 const { STATUS_CODE } = ((ssh2.utils as unknown) as { sftp: { STATUS_CODE: Record<string, string> } }).sftp
@@ -184,7 +184,7 @@ function handleSession(acceptSession: any) {
       cols: info.cols,
       rows: info.rows,
       cwd: process.env['HOME'],
-      env: process.env,
+      env: { ...process.env, PS1: fixturePrompt, ENV: '', PROMPT_COMMAND: '', HISTFILE: '/dev/null' },
     }
   })
   session.on('shell', function (accept: any, reject: any) {
@@ -194,7 +194,8 @@ function handleSession(acceptSession: any) {
     }
     const request = accept()
 
-    const spawnedProcess: any = ptySpawn(posixShell(), ['-i'], ptyInfo)
+    const flags = process.platform === 'win32' ? ['--noprofile', '--norc', '-i'] : ['-i']
+    const spawnedProcess: any = ptySpawn(posixShell(), flags, ptyInfo)
     // node-pty exposes callbacks, not Node streams. The old fixture called
     // .pipe() on it and its only shell test was permanently skipped.
     const data = spawnedProcess.onData((bytes: string) => request.write(bytes))

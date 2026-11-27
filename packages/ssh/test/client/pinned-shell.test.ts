@@ -2,10 +2,9 @@ import { it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { isAbsolute } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { stripVTControlCharacters } from 'node:util';
 
-import { PUBLIC_KEY_PATH } from './helpers.js';
 import createServer, { posixShell } from './ssh-server.js';
+import { shellRoundTrip, PUBLIC_KEY_PATH } from './helpers.js';
 import { SSHClient, sshHostFingerprint } from '../../src/client.js';
 
 it('resolves a runnable absolute shell for both exec and PTY fixtures', () => {
@@ -36,14 +35,10 @@ it('uses existing SSHClient for a real pinned PTY; probes and mismatches never a
     await expect(ssh.connect({ host: '127.0.0.1', port, username: 'steel', hostHash: 'sha256' } as never)).rejects.toMatchObject({ code: 'EINVAL' });
     await ssh.connect({ host: '127.0.0.1', port, username: 'steel', password: 'password', expectedHostFingerprint: known });
     const shell = await ssh.requestShell({ term: 'xterm-256color', cols: 80, rows: 24 });
-    shell.setWindow(30, 100, 0, 0);
-    const output = new Promise<string>((resolve, reject) => {
-      let text = '';
-      const timer = setTimeout(() => reject(new Error('PTY did not answer: ' + JSON.stringify(text.slice(-300)))), 5000);
-      shell.on('data', (data: Buffer) => { text += data.toString(); if (stripVTControlCharacters(text).includes('xec-pty-result')) { clearTimeout(timer); resolve(stripVTControlCharacters(text)); } });
-    });
-    shell.write("printf '__xec_size__'; stty size; printf 'xec-pty-%s\\n' result\r");
-    const text = await output;
+    const text = await shellRoundTrip(shell, () => {
+      shell.setWindow(30, 100, 0, 0);
+      shell.write("printf '__xec_size__'; stty size; printf 'xec-pty-%s\\n' result\r");
+    }, 'xec-pty-result');
     expect(text).toContain('xec-pty-result');
     expect(text).toContain('__xec_size__30 100');
     shell.destroy();

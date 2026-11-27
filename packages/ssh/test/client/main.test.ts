@@ -6,11 +6,10 @@ import { readFileSync } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { sep, join, dirname } from 'node:path';
-import { stripVTControlCharacters } from 'node:util';
 
 import { SSHClient } from '../../src/client.js';
-import { exists, PRIVATE_KEY_PATH } from './helpers.js';
 import createServer, { hasPosixShell } from './ssh-server.js';
+import { exists, shellRoundTrip, PRIVATE_KEY_PATH } from './helpers.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const __filename = fileURLToPath(import.meta.url);
@@ -135,16 +134,8 @@ describe('SSH Node Tests', () => {
     await connectWithPassword(port, client);
     const shell = await client.requestShell();
     try {
-      const output = new Promise<string>((resolve, reject) => {
-        let text = '';
-        const timer = setTimeout(() => reject(new Error('Shell did not produce output')), 5000);
-        shell.on('data', (chunk: Buffer) => {
-          text += chunk.toString();
-          if (stripVTControlCharacters(text).includes('shell-roundtrip-ok')) { clearTimeout(timer); resolve(stripVTControlCharacters(text)); }
-        });
-      });
-      shell.write("printf 'shell-roundtrip-%s\\n' ok\r");
-      expect(await output).toContain('shell-roundtrip-ok');
+      const output = await shellRoundTrip(shell, () => shell.write("printf 'shell-roundtrip-%s\\n' ok\r"), 'shell-roundtrip-ok');
+      expect(output).toContain('shell-roundtrip-ok');
     } finally { shell.destroy(); }
   });
 
