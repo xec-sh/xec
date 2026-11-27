@@ -304,6 +304,10 @@ await gitClone.execute($, {
 
 ### Temporary Files {#temporary-files}
 
+`$.withTempDir` creates a new private directory (mode `0700` on POSIX)
+and cleans it up when the callback finishes, including when it throws.
+Use the `dir` option to choose its parent and `prefix` to name the directory.
+
 ```typescript
 import { $ } from '@xec-sh/core';
 

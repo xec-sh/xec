@@ -109,7 +109,7 @@ export class TempFile {
 
 export class TempDir {
   private _path: string;
-  private _cleaned = false;
+  private created = false;
 
   constructor(
     private options: TempOptions = {}
@@ -133,6 +133,7 @@ export class TempDir {
   private generatePath(): string {
     const tempDir = this.options.dir || tmpdir();
     const prefix = this.options.prefix || 'ush-';
+    if (/[\\/]/.test(prefix)) throw new Error('A temporary directory prefix must be a single name; use dir to select its parent');
     // Use UUID for better entropy
     const random = randomUUID().replace(/-/g, '');
 
@@ -144,7 +145,10 @@ export class TempDir {
   }
 
   async create(): Promise<void> {
-    await fs.mkdir(this._path, { recursive: true });
+    if (this.created) return;
+    await fs.mkdir(this.options.dir || tmpdir(), { recursive: true, mode: 0o700 });
+    await fs.mkdir(this._path, { mode: 0o700 });
+    this.created = true;
     
     // Emit temp:create event
     this.emitEvent('temp:create', {
@@ -184,10 +188,10 @@ export class TempDir {
   }
 
   async cleanup(): Promise<void> {
-    if (!this._cleaned && !this.options.keep) {
+    if (this.created && !this.options.keep) {
       try {
         await fs.rm(this._path, { recursive: true, force: true });
-        this._cleaned = true;
+        this.created = false;
         
         // Emit temp:cleanup event
         this.emitEvent('temp:cleanup', {

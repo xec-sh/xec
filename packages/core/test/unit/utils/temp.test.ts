@@ -241,6 +241,19 @@ describe('Temp Utilities', () => {
   });
 
   describe('withTempDir', () => {
+    test('preserves private permissions and refuses to adopt an existing directory', async () => {
+      await withTempDir(async parent => {
+        if (process.platform !== 'win32') expect((await fs.stat(parent.path)).mode & 0o077).toBe(0);
+        const child = new TempDir({ dir: parent.path });
+        await fs.mkdir(child.path);
+        await fs.writeFile(join(child.path, 'existing'), 'retained');
+        await expect(child.create()).rejects.toMatchObject({ code: 'EEXIST' });
+        await child.cleanup();
+        expect(await fs.readFile(join(child.path, 'existing'), 'utf8')).toBe('retained');
+        expect(() => new TempDir({ dir: parent.path, prefix: '../elsewhere/' })).toThrow(/prefix/);
+      });
+    });
+
     test('should create and cleanup temp dir automatically', async () => {
       let dirPath: string | null = null;
       
