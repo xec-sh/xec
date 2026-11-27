@@ -77,7 +77,7 @@ test('published release API refuses archive rejection through the actual project
   await mkdir(join(fixture, 'packages/ssh'), { recursive: true });
   await mkdir(join(fixture, '.xec/lib'), { recursive: true });
   await copyFile(join(root, '.xec/commands/release.ts'), join(fixture, '.xec/commands/release.ts'));
-  await copyFile(join(root, '.xec/lib/linux-fs-archive.js'), join(fixture, '.xec/lib/linux-fs-archive.js'));
+  await copyFile(join(root, '.xec/lib/linux-fs-archive.ts'), join(fixture, '.xec/lib/linux-fs-archive.ts'));
   await writeFile(join(fixture, '.xec/config.yaml'), "version: '1.0'\ntasks: {}\n");
   await writeFile(join(fixture, '.gitignore'), 'node_modules/\n.release-artifacts/\n.xec/cache/\n.xec/.tmp/\n');
   await writeFile(join(fixture, 'package.json'), JSON.stringify({

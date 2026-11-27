@@ -14,7 +14,7 @@ import {
 } from '@xec-sh/ops/release';
 
 import { checkSSHSecurity } from '../lib/ssh-security.js';
-import { checkLinuxFsArchive } from '../lib/linux-fs-archive.js';
+import { checkLinuxFsArchive } from '../lib/linux-fs-archive.ts';
 
 const repository = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 interface ReleaseOptions {
