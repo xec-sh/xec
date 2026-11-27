@@ -52,6 +52,10 @@ jobs:
           node-version: '24'
           cache: pnpm
 
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: '0.15.2'
+
       # Bun is a build dependency, not just a smoke target: @xec-sh/kit
       # uses the shared Xec package pipeline with Bun bundling.
       - uses: oven-sh/setup-bun@v2
@@ -74,6 +78,22 @@ jobs:
       - name: build
         id: build
         run: pnpm build:full
+
+      - name: Local Linux no-replace publication
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          if ! command -v strace >/dev/null; then sudo apt-get update && sudo apt-get install -y strace; fi
+          pnpm --filter @xec-sh/linux-fs test
+          pnpm --dir packages/linux-fs exec node --test test/faults.test.mjs
+          mkdir -p "$RUNNER_TEMP/linux-fs-archive"
+          pnpm --dir packages/linux-fs pack --pack-destination "$RUNNER_TEMP/linux-fs-archive"
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        with:
+          name: linux-fs-packed
+          path: ${{ runner.temp }}/linux-fs-archive/*.tgz
+          if-no-files-found: error
 
       # Collect independent failures in one run; any failed check still fails CI.
       - name: Packaged SSH security and artifact integrity
@@ -142,6 +162,28 @@ jobs:
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pnpm --filter @xec-sh/cli test test/runtime-smoke.test.ts
 
+  linux-fs-arm64:
+    needs: unit
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-fs-packed
+          path: ${{ runner.temp }}/linux-fs-archive
+      - name: Exercise the same archive on native arm64
+        run: |
+          if ! command -v strace >/dev/null; then sudo apt-get update && sudo apt-get install -y strace; fi
+          mkdir "$RUNNER_TEMP/linux-fs-consumer"
+          cp packages/linux-fs/test/*.mjs "$RUNNER_TEMP/linux-fs-consumer/"
+          cd "$RUNNER_TEMP/linux-fs-consumer"
+          npm install --offline --ignore-scripts --no-audit --no-fund "$RUNNER_TEMP"/linux-fs-archive/*.tgz
+          node --test rename.test.mjs faults.test.mjs
+
   # Windows is not a platform this project has ever tested, and it is one
   # the code claims: core picks `cmd` quoting from `platform() === 'win32'`,
   # kills process trees with taskkill, and spells paths through node:path
@@ -166,6 +208,10 @@ jobs:
         with:
           node-version: '24'
           cache: pnpm
+
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: '0.15.2'
 
       # kit builds with bun, and ops needs kit's types to compile, so the
       # dependency chain cannot be skipped even though this job does not

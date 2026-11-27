@@ -38,6 +38,7 @@ export async function buildPackage(directory: string, options: PackageBuildOptio
   const entry = options.bundle && inside(directory, options.bundle);
   const compiler = resolveTypeScriptCompiler(directory);
   const manifest = JSON.parse(await readFile(join(directory, 'package.json'), 'utf8')) as {
+    name?: string;
     dependencies?: Record<string, string>;
     peerDependencies?: Record<string, string>;
   };
@@ -121,8 +122,24 @@ export async function buildPackage(directory: string, options: PackageBuildOptio
           ],
         },
       });
+    const publishAfter = [entry ? 'bundle' : 'compile'];
+    if (manifest.name === '@xec-sh/linux-fs') {
+      for (const [arch, target] of [['x64', 'x86_64-linux-musl'], ['arm64', 'aarch64-linux-musl']] as const) {
+        const step = `linux-helper-${arch}`;
+        pipeline.step(step, {
+          dependsOn: ['compile'],
+          run: {
+            command: 'zig', shell: false, cwd: directory,
+            args: ['cc', '-target', target, '-static', '-Os', '-s', '-std=c11', '-Wall', '-Wextra', '-Werror',
+              'native/rename-noreplace.c', '-o', join(output, `rename-noreplace-${arch}`)],
+          },
+          timeout: 300_000,
+        });
+        publishAfter.push(step);
+      }
+    }
     pipeline.step('publish', {
-      dependsOn: [entry ? 'bundle' : 'compile'],
+      dependsOn: publishAfter,
       run: async ({ signal }) => {
         for (const name of ['index.js', 'index.d.ts']) {
           if (!(await lstat(join(output, name))).isFile()) throw new Error(`Missing package output: ${name}`);

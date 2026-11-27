@@ -14,6 +14,7 @@ import {
 } from '@xec-sh/ops/release';
 
 import { checkSSHSecurity } from '../lib/ssh-security.js';
+import { checkLinuxFsArchive } from '../lib/linux-fs-archive.js';
 
 const repository = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 interface ReleaseOptions {
@@ -92,6 +93,10 @@ async function runRelease(version: string | undefined, values: ReleaseOptions): 
           // Accept the exact Core/SSH archive pair before sealing the batch.
           // Publication resumes these bytes without building them again.
           verifyArtifact: async ({ workspace, artifact, run }: { workspace: string; artifact: ReleaseArtifact; run: ReleaseCommand }) => {
+            if (artifact.name === '@xec-sh/linux-fs') {
+              await checkLinuxFsArchive(workspace, artifact.file, run);
+              return;
+            }
             if (artifact.name !== '@xec-sh/core' && artifact.name !== '@xec-sh/ssh') return;
             sshArchives.set(artifact.name, artifact);
             const core = sshArchives.get('@xec-sh/core');

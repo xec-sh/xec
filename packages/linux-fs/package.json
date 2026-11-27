@@ -1,0 +1,40 @@
+{
+  "name": "@xec-sh/linux-fs",
+  "version": "0.13.2",
+  "description": "Atomic no-replace publication on a local Linux filesystem",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.map",
+    "native/rename-noreplace.c"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "executableFiles": [
+      "./dist/rename-noreplace-x64",
+      "./dist/rename-noreplace-arm64"
+    ]
+  },
+  "scripts": {
+    "build": "pnpm --dir ../.. exec xec package build packages/linux-fs",
+    "test": "node --test test/rename.test.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xec-sh/xec.git",
+    "directory": "packages/linux-fs"
+  }
+}

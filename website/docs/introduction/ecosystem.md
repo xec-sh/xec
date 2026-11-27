@@ -74,6 +74,10 @@ as terminals and file managers can use it independently of command execution.
 See [the SSH library guide](../ssh/overview.md) and
 [comparison with ssh2](../ssh/comparison.md) for the published 0.13.0 API.
 
+### @xec-sh/linux-fs {#xec-shlinux-fs}
+
+The development branch includes an optional package for publishing a synced regular file on Linux x64 and arm64. `renameNoReplace` takes an open directory handle and two names in that directory. An existing destination returns `EEXIST`. A failed directory sync reports that publication already occurred. Callers can use that distinction to reconcile a record after an interruption.
+
 ### @xec-sh/ops {#xec-shops}
 The DevOps operations library. Use it standalone in any project — no CLI required.
 

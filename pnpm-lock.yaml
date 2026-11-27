@@ -431,6 +431,8 @@ importers:
         specifier: ^4.6.7
         version: 4.6.7
 
+  packages/linux-fs: {}
+
   packages/loader:
     dependencies:
       '@xec-sh/kit':

@@ -32,7 +32,7 @@ test('repository automation resolves the explicitly pinned published driver and 
 test('published Xec discovers the release policy and real project tasks before a candidate build', async () => {
   const packages = JSON.parse(await invoke(root, ['release', '--list-packages']));
   assert.deepEqual(packages.map(pkg => pkg.name).sort(), [
-    '@xec-sh/core', '@xec-sh/kit', '@xec-sh/testing', '@xec-sh/loader', '@xec-sh/ops', '@xec-sh/cli', '@xec-sh/ssh',
+    '@xec-sh/core', '@xec-sh/kit', '@xec-sh/testing', '@xec-sh/loader', '@xec-sh/ops', '@xec-sh/cli', '@xec-sh/ssh', '@xec-sh/linux-fs',
   ].sort());
   const tasks = await invoke(root, ['inspect', 'tasks']);
   for (const task of ['bootstrap', 'build:full', 'docs:check', 'check:ssh-security']) assert.ok(tasks.includes(task));
@@ -77,6 +77,7 @@ test('published release API refuses archive rejection through the actual project
   await mkdir(join(fixture, 'packages/ssh'), { recursive: true });
   await mkdir(join(fixture, '.xec/lib'), { recursive: true });
   await copyFile(join(root, '.xec/commands/release.ts'), join(fixture, '.xec/commands/release.ts'));
+  await copyFile(join(root, '.xec/lib/linux-fs-archive.js'), join(fixture, '.xec/lib/linux-fs-archive.js'));
   await writeFile(join(fixture, '.xec/config.yaml'), "version: '1.0'\ntasks: {}\n");
   await writeFile(join(fixture, '.gitignore'), 'node_modules/\n.release-artifacts/\n.xec/cache/\n.xec/.tmp/\n');
   await writeFile(join(fixture, 'package.json'), JSON.stringify({
